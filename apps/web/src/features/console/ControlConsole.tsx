@@ -2,7 +2,6 @@ import { VoiceServices } from './VoiceServices';
 import { SpeechRecognitionPanel } from '../voice/SpeechRecognitionPanel';
 import type { Connection } from '../../network/connection';
 import { useConsoleController } from './useConsoleController';
-import { isActive } from './model';
 import { ProviderEditor } from './ProviderEditor';
 import { AgentForm } from './AgentForm';
 import { AgentList } from './AgentList';
@@ -24,7 +23,6 @@ export function ControlConsole({
     tab,
     setTab,
     providers,
-    jobs,
     showAgentForm,
     setShowAgentForm,
     body,
@@ -64,20 +62,7 @@ export function ControlConsole({
               setNotice('');
             }}
           >
-            Agent 玩家{' '}
-            <small>
-              {
-                jobs.filter((j) => isActive(j) || j.task?.status === 'running')
-                  .length
-              }{' '}
-              运行中 ·{' '}
-              {
-                jobs.filter(
-                  (j) => j.status === 'idle' && j.task?.status !== 'running',
-                ).length
-              }{' '}
-              待命
-            </small>
+            Agent 玩家设置
           </button>
           <button
             aria-pressed={tab === 'providers'}
