@@ -249,9 +249,7 @@ export function ProviderEditor({
                 </label>
               </div>
             )}
-          </section>
-          <details>
-            <summary>接口兼容选项</summary>
+
             <label className="agent-check">
               <input
                 type="checkbox"
@@ -262,22 +260,32 @@ export function ProviderEditor({
               />
               请求 JSON 输出模式
             </label>
-            <label>
-              输出长度参数
-              <select
-                value={draft.tokenField}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    tokenField: e.target.value as ProviderView['tokenField'],
-                  })
-                }
-              >
-                <option>max_tokens</option>
-                <option>max_completion_tokens</option>
-              </select>
-            </label>
-          </details>
+            {draft.type === 'compatible' && (
+              <>
+                <label>
+                  输出上限字段
+                  <select
+                    aria-describedby="provider-token-field-hint"
+                    value={draft.tokenField}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        tokenField: e.target
+                          .value as ProviderView['tokenField'],
+                      })
+                    }
+                  >
+                    <option>max_tokens</option>
+                    <option>max_completion_tokens</option>
+                  </select>
+                </label>
+                <p id="provider-token-field-hint" className="agent-hint">
+                  仅在接口报参数不支持时调整；输出上限数值在上方“最大输出
+                  tokens”中设置。
+                </p>
+              </>
+            )}
+          </section>
           <p className="agent-hint">
             支持 OpenAI Chat Completions
             兼容接口。保存配置不会启动推理；新建或继续运行 Agent

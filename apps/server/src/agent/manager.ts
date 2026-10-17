@@ -131,7 +131,7 @@ export function validateProvider(
     apiKey: apiKey || previous?.apiKey || '',
     defaultModel: text(input.defaultModel, '默认模型', 128),
     jsonMode: boolean(input.jsonMode, true),
-    tokenField,
+    tokenField: type === 'compatible' ? tokenField : 'max_tokens',
     inference:
       input.inference === undefined
         ? previous?.inference && validateInference(previous.inference, type)

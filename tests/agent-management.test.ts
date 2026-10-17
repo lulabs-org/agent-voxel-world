@@ -352,3 +352,19 @@ it('persists service inference settings and keeps legacy roles until the service
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+it.each(['deepseek', 'ollama', 'compatible'] as const)(
+  'adapts output length fields for %s while preserving custom compatibility',
+  (type) => {
+    const saved = validateProvider({
+      name: 'Field mapping',
+      type,
+      baseUrl: type === 'compatible' ? 'https://example.com/v1' : undefined,
+      tokenField: 'max_completion_tokens',
+    });
+    expect(saved.tokenField).toBe(
+      type === 'compatible' ? 'max_completion_tokens' : 'max_tokens',
+    );
+    expect(validateProvider(saved).tokenField).toBe(saved.tokenField);
+  },
+);
