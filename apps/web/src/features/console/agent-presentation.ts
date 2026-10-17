@@ -42,7 +42,7 @@ export function agentPresentation(job: ManagedAgentView) {
     canCancel: !!job.task && !ended && !transitioning,
     resumeLabel:
       job.task?.status === 'budget'
-        ? '追加额度并继续'
+        ? '调整额度并继续'
         : ended
           ? '重新执行任务'
           : '继续任务',

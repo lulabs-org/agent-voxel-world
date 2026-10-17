@@ -41,7 +41,7 @@ export const taskStatusNames: Record<AgentTaskStatus, string> = {
   paused: '已暂停',
   completed: '已完成',
   cancelled: '已取消',
-  budget: '达到保护上限',
+  budget: '额度用尽 · 已暂停',
 };
 export const initialAgent: AgentSettings = {
   providerId: '',

@@ -74,7 +74,7 @@ it('offers the right next action for every paused or terminal task state', () =>
     expect(state.ended).toBe(['completed', 'cancelled'].includes(status));
     expect(state.resumeLabel).toBe(
       status === 'budget'
-        ? '追加额度并继续'
+        ? '调整额度并继续'
         : state.ended
           ? '重新执行任务'
           : '继续任务',
