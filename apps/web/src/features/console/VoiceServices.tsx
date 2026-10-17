@@ -117,28 +117,43 @@ export function VoiceServices({
     }
   };
   return (
-    <div className="voice-services-layout">
-      <aside className="agent-sidebar" aria-label="语音服务列表">
-        <h3>语音服务</h3>
-        <button disabled={busy} onClick={() => choose()}>
+    <div className="voice-services-layout console-columns">
+      <aside className="console-sidebar" aria-label="语音服务列表">
+        <div className="console-sidebar-heading">
+          <h3>语音服务</h3>
+        </div>
+        <button
+          className="primary console-sidebar-add"
+          disabled={busy}
+          onClick={() => choose()}
+        >
           ＋ 添加语音服务
         </button>
-        {services.map((service) => (
-          <button
-            key={service.id}
-            aria-pressed={selected === service.id}
-            disabled={busy}
-            onClick={() => choose(service)}
-          >
-            {service.name}
-            <small>
-              {labels[service.type]} · 语音合成
-              <br />
-              {service.voice || '自动选择音色'}
-            </small>
-          </button>
-        ))}
-        <p>同一服务商可保存多份音色配置，供不同 Agent 复用。</p>
+        <div className="console-sidebar-items">
+          {services.map((service) => (
+            <button
+              className="console-sidebar-item"
+              key={service.id}
+              aria-pressed={selected === service.id}
+              disabled={busy}
+              onClick={() => choose(service)}
+            >
+              <span className="console-sidebar-copy">
+                <strong title={service.name}>{service.name}</strong>
+                <small
+                  title={`${labels[service.type]} · ${service.voice || '自动选择音色'}`}
+                >
+                  {labels[service.type]}
+                  <br />
+                  {service.voice || '自动选择音色'}
+                </small>
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="console-sidebar-note">
+          同一服务商可保存多份音色配置，供不同 Agent 复用。
+        </p>
       </aside>
       <div className="agent-form">
         <form

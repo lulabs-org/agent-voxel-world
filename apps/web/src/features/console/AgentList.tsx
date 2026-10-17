@@ -43,14 +43,14 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           {pollError} 当前显示上次同步的记录，恢复连接后可继续操作。
         </p>
       )}
-      <div className="agents-layout">
-        <aside className="agents-roster" aria-label="Agent 角色列表">
-          <div className="agents-roster-heading">
-            <h4>角色</h4>
+      <div className="agents-layout console-columns">
+        <aside className="console-sidebar" aria-label="Agent 角色列表">
+          <div className="console-sidebar-heading">
+            <h3>角色</h3>
             <span>{loadingJobs ? '同步中…' : `${onlineCount} / 4 在线`}</span>
           </div>
           <button
-            className="primary agents-create-button"
+            className="primary console-sidebar-add"
             disabled={disabled || onlineCount >= 4}
             onClick={() => openAgentEditor()}
           >
@@ -83,12 +83,12 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
               onChange={(event) => setQuery(event.target.value)}
             />
           )}
-          <div className="agents-roster-items">
+          <div className="console-sidebar-items">
             {filtered.map((job) => {
               const state = agentPresentation(job);
               return (
                 <button
-                  className="agents-roster-item"
+                  className="console-sidebar-item"
                   key={job.id}
                   aria-pressed={!creating && current?.id === job.id}
                   disabled={busy}
@@ -97,8 +97,8 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
                   <span className="agents-mini-avatar" aria-hidden="true">
                     {Array.from(job.name)[0]}
                   </span>
-                  <span className="agents-roster-copy">
-                    <strong>{job.name}</strong>
+                  <span className="console-sidebar-copy">
+                    <strong title={job.name}>{job.name}</strong>
                     <small>
                       {state.transitioning
                         ? state.presence
@@ -126,7 +126,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
               </p>
             )}
           </div>
-          <p className="agents-roster-note">
+          <p className="console-sidebar-note">
             {onlineCount >= 4
               ? '在线名额已满，让一个角色离开世界后可创建或上线。'
               : '角色离开世界后仍保留设置，下次可以再次加入。'}

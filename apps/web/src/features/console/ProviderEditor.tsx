@@ -40,31 +40,42 @@ export function ProviderEditor({
     savedConnection &&
     (editingProvider.type === 'ollama' || editingProvider.hasApiKey);
   return (
-    <div className="agent-columns">
-      <aside className="agent-sidebar">
-        <h3>模型服务</h3>
-        <button onClick={() => editProvider()} disabled={busy}>
+    <div className="agent-columns console-columns">
+      <aside className="console-sidebar" aria-label="模型服务列表">
+        <div className="console-sidebar-heading">
+          <h3>模型服务</h3>
+        </div>
+        <button
+          className="primary console-sidebar-add"
+          onClick={() => editProvider()}
+          disabled={busy}
+        >
           ＋ 添加模型服务
         </button>
-        {providers.map((p) => (
-          <button
-            key={p.id}
-            aria-pressed={editing === p.id}
-            onClick={() => editProvider(p)}
-            disabled={busy}
-          >
-            {p.name}
-            <small>
-              {p.type === 'ollama'
-                ? '本机 · 无需密钥'
-                : p.hasApiKey
-                  ? '密钥已配置'
-                  : '尚未配置密钥'}{' '}
-              · {p.defaultModel || '未设默认模型'}
-            </small>
-          </button>
-        ))}
-        <p>
+        <div className="console-sidebar-items">
+          {providers.map((p) => (
+            <button
+              className="console-sidebar-item"
+              key={p.id}
+              aria-pressed={editing === p.id}
+              onClick={() => editProvider(p)}
+              disabled={busy}
+            >
+              <span className="console-sidebar-copy">
+                <strong title={p.name}>{p.name}</strong>
+                <small>
+                  {p.type === 'ollama'
+                    ? '本机 · 无需密钥'
+                    : p.hasApiKey
+                      ? '密钥已配置'
+                      : '尚未配置密钥'}{' '}
+                  · {p.defaultModel || '未设默认模型'}
+                </small>
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="console-sidebar-note">
           密钥仅保存在本机服务端，不会返回到浏览器。已有环境变量会在首次启动时导入。
         </p>
       </aside>

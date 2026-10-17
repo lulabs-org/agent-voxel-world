@@ -223,10 +223,13 @@ export function SpeechRecognitionPanel({
   };
   return (
     <section aria-label="语音识别（ASR）">
-      <div className="voice-services-layout">
-        <aside className="agent-sidebar" aria-label="识别服务列表">
-          <h3>识别服务</h3>
+      <div className="voice-services-layout console-columns">
+        <aside className="console-sidebar" aria-label="识别服务列表">
+          <div className="console-sidebar-heading">
+            <h3>识别服务</h3>
+          </div>
           <button
+            className="primary console-sidebar-add"
             type="button"
             aria-pressed={service === 'new'}
             disabled={busy || asr.saving || !asr.canAdd}
@@ -237,35 +240,42 @@ export function SpeechRecognitionPanel({
           {!asr.loading && asr.services.length === 0 && (
             <p className="agent-hint">暂无已保存的识别服务，请添加服务。</p>
           )}
-          {asr.services
-            .map((value) => ({
-              id: value.id,
-              name: value.name,
-              detail:
-                value.provider === 'browser'
-                  ? `浏览器识别 · ${browserLanguages.find(([code]) => code === value.language)?.[1] ?? value.language} · 此浏览器保存`
-                  : value.provider === 'whisper'
-                    ? `Whisper · ${value.model === 'default' ? '默认模型' : value.model} · ${value.threads} 线程`
-                    : `阿里云百炼 · ${value.model}`,
-            }))
-            .map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={service === item.id}
-                disabled={busy || asr.saving}
-                onClick={() => chooseService(item.id)}
-              >
-                {item.name}
-                <small>{item.detail}</small>
-              </button>
-            ))}
+          <div className="console-sidebar-items">
+            {asr.services
+              .map((value) => ({
+                id: value.id,
+                name: value.name,
+                detail:
+                  value.provider === 'browser'
+                    ? `浏览器识别 · ${browserLanguages.find(([code]) => code === value.language)?.[1] ?? value.language} · 此浏览器保存`
+                    : value.provider === 'whisper'
+                      ? `Whisper · ${value.model === 'default' ? '默认模型' : value.model} · ${value.threads} 线程`
+                      : `阿里云百炼 · ${value.model}`,
+              }))
+              .map((item) => (
+                <button
+                  className="console-sidebar-item"
+                  key={item.id}
+                  type="button"
+                  aria-pressed={service === item.id}
+                  disabled={busy || asr.saving}
+                  onClick={() => chooseService(item.id)}
+                >
+                  <span className="console-sidebar-copy">
+                    <strong title={item.name}>{item.name}</strong>
+                    <small title={item.detail}>{item.detail}</small>
+                  </span>
+                </button>
+              ))}
+          </div>
           {asr.loading && (
             <p className="agent-hint" role="status">
               正在加载识别服务…
             </p>
           )}
-          <p>同一服务商可保存多份模型配置。选择服务，在右侧配置并试用。</p>
+          <p className="console-sidebar-note">
+            同一服务商可保存多份模型配置。选择服务，在右侧配置并试用。
+          </p>
         </aside>
         <div className="agent-form">
           {asr.error && (
