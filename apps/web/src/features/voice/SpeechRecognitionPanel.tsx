@@ -219,13 +219,7 @@ export function SpeechRecognitionPanel({
       );
   };
   return (
-    <section aria-labelledby="asr-title">
-      <div className="console-section-heading">
-        <h3 id="asr-title">语音识别（ASR）</h3>
-        <p>
-          边说边查看临时字幕，停顿后自动确认整句。临时字幕会随后续语音修正。
-        </p>
-      </div>
+    <section aria-label="语音识别（ASR）">
       <div className="voice-services-layout">
         <aside className="agent-sidebar" aria-label="识别服务列表">
           <h3>识别服务</h3>

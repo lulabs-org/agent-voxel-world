@@ -742,6 +742,53 @@ footer {
   align-items: start;
   gap: 16px;
 }
+.console-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.agent-dialog .console-help-trigger {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+.console-help {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 48px));
+  max-height: calc(100dvh - 96px);
+  margin: auto;
+  padding: 24px;
+  overflow-y: auto;
+  border: 1px solid #d9e2d1;
+  border-radius: 12px;
+  background: #fffef9;
+  color: #263a36;
+  box-shadow: 0 16px 64px #16382f40;
+}
+.console-help-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.console-help-heading h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.console-help h4 {
+  margin: 20px 0 8px;
+  font-size: 14px;
+}
+.console-help p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #627767;
+}
 .agent-heading h2 {
   font-size: 26px;
   font-weight: 550;
@@ -782,8 +829,8 @@ footer {
 }
 .agent-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
 }
 .voice-services-layout {
   display: grid;
@@ -1113,15 +1160,6 @@ footer {
 .console-voice .voice small {
   font-size: 10px;
   line-height: 1.6;
-}
-.console-section-heading h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-}
-.console-section-heading p {
-  margin: 0 0 24px;
-  color: #627767;
-  font-size: 13px;
 }
 .console-voice-layout {
   display: grid;

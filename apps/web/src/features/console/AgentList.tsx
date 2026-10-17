@@ -38,19 +38,6 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
   });
   return (
     <section className="agents-workspace" aria-label="Agent 玩家管理">
-      <div className="agents-heading">
-        <div>
-          <h3>你的世界伙伴</h3>
-          <p>安排任务，查看进展，和 Agent 一起探索与搭建。</p>
-        </div>
-        <button
-          className="primary"
-          disabled={disabled || onlineCount >= 4}
-          onClick={() => openAgentEditor()}
-        >
-          ＋ 创建 Agent
-        </button>
-      </div>
       {pollError && (
         <p role="alert" className="agent-error">
           {pollError} 当前显示上次同步的记录，恢复连接后可继续操作。
@@ -62,6 +49,13 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
             <h4>角色</h4>
             <span>{loadingJobs ? '同步中…' : `${onlineCount} / 4 在线`}</span>
           </div>
+          <button
+            className="primary agents-create-button"
+            disabled={disabled || onlineCount >= 4}
+            onClick={() => openAgentEditor()}
+          >
+            ＋ 创建 Agent
+          </button>
           <div className="agents-filters" role="group" aria-label="筛选角色">
             {(
               [

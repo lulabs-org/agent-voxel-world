@@ -4,6 +4,7 @@ import type { Connection } from '../../network/connection';
 import { useConsoleController } from './useConsoleController';
 import { ProviderEditor } from './ProviderEditor';
 import { AgentList } from './AgentList';
+import { ConsoleHelp } from './ConsoleHelp';
 type ConsoleProps = {
   connection: Connection;
   open: boolean;
@@ -45,9 +46,12 @@ export function ControlConsole({
             <h2 id="agent-title">控制台</h2>
             <p>管理 AI 伙伴、连接模型服务，设置语音交流。</p>
           </div>
-          <button type="button" aria-label="关闭控制台" onClick={onClose}>
-            关闭 ×
-          </button>
+          <div className="console-heading-actions">
+            <ConsoleHelp />
+            <button type="button" aria-label="关闭控制台" onClick={onClose}>
+              关闭 ×
+            </button>
+          </div>
         </div>
         <nav className="agent-tabs" aria-label="控制台分类">
           <button
@@ -82,13 +86,6 @@ export function ControlConsole({
       </div>
       <div className="agent-body" ref={body}>
         <div className="console-voice" hidden={tab !== 'voice'}>
-          <div className="console-section-heading">
-            <h3>文本转语音（TTS）</h3>
-            <p>
-              将回复文字合成为声音。保存音色配置、试听效果，在创建 Agent
-              时选择使用。
-            </p>
-          </div>
           {error && (
             <p role="alert" className="agent-error">
               {error}
