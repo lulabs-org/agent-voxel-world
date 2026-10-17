@@ -20,6 +20,7 @@ export const presets = {
 };
 export const freshProvider = (type: ProviderType = 'compatible') => ({
   ...presets[type],
+  name: '',
   type,
   apiKey: '',
   jsonMode: true,

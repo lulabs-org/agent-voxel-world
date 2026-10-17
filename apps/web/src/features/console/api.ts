@@ -29,6 +29,12 @@ const agentPath = (id: string) => `/${encodeURIComponent(id)}`;
 const providerPath = (id: string) => `/providers/${encodeURIComponent(id)}`;
 
 export const consoleApi = {
+  listLocalVoices: async (signal: AbortSignal) => {
+    const response = await fetch(`${serverHttpUrl()}/voice/tts/voices`, {
+      signal,
+    });
+    return readAgentResponse<{ name: string; language: string }[]>(response);
+  },
   listVoiceServices: (signal?: AbortSignal) =>
     request<VoiceServiceView[]>('/voice-services', 'GET', undefined, signal),
   saveVoiceService: (draft: VoiceServiceDraft, id?: string) =>

@@ -8,6 +8,7 @@ import express from 'express';
 import { createServer, type Server } from 'node:http';
 import { installSpeechRoutes } from './speech.routes';
 import { LocalSpeech, SpeechError } from '../audio/local-speech';
+import { LocalTts } from '../audio/local-tts';
 describe('local speech HTTP boundary', () => {
   let server: Server, url: string, store: AsrSettingsStore, dir: string;
   const transcribe = vi.fn();
@@ -44,6 +45,28 @@ describe('local speech HTTP boundary', () => {
     expect(await response.json()).toMatchObject({
       local: { available: true },
       ollamaConfigured: false,
+    });
+  });
+  it('lists server voices, rejects foreign origins and reports enumeration failures', async () => {
+    const voices = [{ name: 'Tingting', language: 'zh_CN' }];
+    const list = vi
+      .spyOn(LocalTts.prototype, 'voices')
+      .mockResolvedValue(voices);
+    expect(await (await fetch(`${url}/voice/tts/voices`)).json()).toEqual(
+      voices,
+    );
+    const blocked = await fetch(`${url}/voice/tts/voices`, {
+      headers: { Origin: 'https://example.com' },
+    });
+    expect(blocked.status).toBe(403);
+    expect(list).toHaveBeenCalledTimes(1);
+    list.mockRejectedValueOnce(
+      new SpeechError('无法读取本机音色列表，请重试。', 503),
+    );
+    const failed = await fetch(`${url}/voice/tts/voices`);
+    expect(failed.status).toBe(503);
+    expect(await failed.json()).toEqual({
+      error: '无法读取本机音色列表，请重试。',
     });
   });
   it('allows the configured page preflight but rejects other origins', async () => {

@@ -136,7 +136,7 @@ export class VoiceServiceStore {
       this.values = [
         {
           ...validateVoiceService({
-            name: '本机语音',
+            name: 'macOS 系统语音',
             type: 'local',
             voice: '',
             speed: 1,

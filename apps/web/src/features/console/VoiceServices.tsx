@@ -6,14 +6,15 @@ import type {
 } from '@voxel/shared';
 import { consoleApi } from './api';
 import { VoicePreview } from './VoicePreview';
+import { LocalVoiceSelect } from './LocalVoiceSelect';
 
 const labels: Record<VoiceServiceType, string> = {
-  local: '本机语音',
+  local: 'macOS 系统语音',
   bailian: '百炼语音合成',
   compatible: '兼容语音接口',
 };
 const fresh = (type: VoiceServiceType = 'local'): VoiceServiceDraft => ({
-  name: labels[type],
+  name: '',
   type,
   apiKey: '',
   speed: 1,
@@ -152,6 +153,7 @@ export function VoiceServices({
               <input
                 required
                 maxLength={50}
+                placeholder="请输入服务名称"
                 value={draft.name}
                 onChange={(e) => change({ name: e.target.value })}
               />
@@ -226,20 +228,24 @@ export function VoiceServices({
                 </small>
               </>
             )}
-            <label>
-              音色
-              <input
-                required={draft.type !== 'local'}
-                maxLength={100}
+            {draft.type === 'local' ? (
+              <LocalVoiceSelect
                 value={draft.voice}
-                placeholder={
-                  draft.type === 'local'
-                    ? '留空按中英文自动选择，或填 Tingting / Samantha'
-                    : '服务支持的音色 ID'
-                }
-                onChange={(e) => change({ voice: e.target.value })}
+                onChange={(voice) => change({ voice })}
+                active={active}
               />
-            </label>
+            ) : (
+              <label>
+                音色
+                <input
+                  required
+                  maxLength={100}
+                  value={draft.voice}
+                  placeholder="服务支持的音色 ID"
+                  onChange={(e) => change({ voice: e.target.value })}
+                />
+              </label>
+            )}
             {draft.type !== 'bailian' && (
               <label>
                 语速（0.5–2 倍）

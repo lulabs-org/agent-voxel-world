@@ -37,6 +37,18 @@ export function installSpeechRoutes(
     }
     next();
   });
+  app.get('/voice/tts/voices', async (_req, res) => {
+    try {
+      res.json(await new LocalTts().voices());
+    } catch (error) {
+      res.status(error instanceof SpeechError ? error.status : 500).json({
+        error:
+          error instanceof SpeechError
+            ? error.message
+            : '无法读取本机音色列表。',
+      });
+    }
+  });
   app.get('/voice/capabilities', async (req, res) => {
     try {
       const selected =
@@ -59,12 +71,10 @@ export function installSpeechRoutes(
         agentSpeech: await new LocalTts().status(),
       });
     } catch (error) {
-      res
-        .status(error instanceof SpeechError ? error.status : 500)
-        .json({
-          error:
-            error instanceof SpeechError ? error.message : '无法检查识别服务。',
-        });
+      res.status(error instanceof SpeechError ? error.status : 500).json({
+        error:
+          error instanceof SpeechError ? error.message : '无法检查识别服务。',
+      });
     }
   });
   app.post(

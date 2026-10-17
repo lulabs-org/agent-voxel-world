@@ -56,6 +56,22 @@ it('keeps provider create, edit, key preservation and deletion contracts', async
   expect(JSON.parse(init.body as string)).toEqual(draft);
   expect(JSON.parse(init.body as string).apiKey).toBe('');
 });
+it('loads server voice choices with cancellation and preserves server errors', async () => {
+  const signal = new AbortController().signal;
+  const voices = [{ name: 'Tingting', language: 'zh_CN' }];
+  request.mockResolvedValueOnce(new Response(JSON.stringify(voices)));
+  await expect(consoleApi.listLocalVoices(signal)).resolves.toEqual(voices);
+  expect(request).toHaveBeenCalledWith(
+    'https://world.example/voice/tts/voices',
+    { signal },
+  );
+  request.mockResolvedValueOnce(
+    new Response(JSON.stringify({ error: '音色不可用' }), { status: 503 }),
+  );
+  await expect(consoleApi.listLocalVoices(signal)).rejects.toThrow(
+    '音色不可用',
+  );
+});
 
 it('keeps editing separate from creation and preserves explicit agent settings', async () => {
   const settings = {

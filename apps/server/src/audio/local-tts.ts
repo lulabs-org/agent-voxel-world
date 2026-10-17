@@ -6,6 +6,12 @@ import { promisify } from 'node:util';
 import { executable, SpeechError, validatePcmWav } from './local-speech';
 
 const exec = promisify(execFile);
+export function parseLocalVoices(output: string) {
+  return output.split(/\r?\n/).flatMap((line) => {
+    const match = line.match(/^(.+?)\s+([a-z]{2,3}_[A-Za-z0-9_-]+)\s+#/);
+    return match ? [{ name: match[1].trim(), language: match[2] }] : [];
+  });
+}
 export type SynthesizedSpeech = { bytes: Buffer; durationMs: number };
 export interface SpeechSynthesizer {
   synthesize(text: string, signal: AbortSignal): Promise<SynthesizedSpeech>;
@@ -14,6 +20,19 @@ export interface SpeechSynthesizer {
 /** Server-local TTS; outputs a file, never the server's speakers. */
 export class LocalTts implements SpeechSynthesizer {
   constructor(private options: { voice?: string; speed?: number } = {}) {}
+  async voices() {
+    if (process.platform !== 'darwin')
+      throw new SpeechError('本机音色列表需要 macOS say。', 503);
+    try {
+      const { stdout } = await exec('/usr/bin/say', ['-v', '?'], {
+        timeout: 5000,
+        maxBuffer: 1024 * 1024,
+      });
+      return parseLocalVoices(stdout);
+    } catch {
+      throw new SpeechError('无法读取本机音色列表，请重试。', 503);
+    }
+  }
   async status() {
     const available =
       process.platform === 'darwin' &&
@@ -22,7 +41,7 @@ export class LocalTts implements SpeechSynthesizer {
     return {
       available,
       reason: available
-        ? '本机语音合成已就绪，Agent 回复可由附近玩家收听。'
+        ? 'macOS 系统语音已就绪，Agent 回复可由附近玩家收听。'
         : 'Agent 语音合成需要 macOS say 和 ffmpeg；当前仍可使用文字回复。',
     };
   }

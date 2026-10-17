@@ -58,26 +58,30 @@ export function ProviderEditor({
         <h3>{editing ? '编辑模型服务' : '添加模型服务'}</h3>
         <fieldset disabled={busy}>
           <label>
-            服务类型
+            服务名称
+            <input
+              value={draft.name}
+              required
+              maxLength={50}
+              placeholder="请输入服务名称"
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </label>
+          <label>
+            模型服务商
             <select
               value={draft.type}
               onChange={(e) =>
-                setDraft(freshProvider(e.target.value as ProviderType))
+                setDraft({
+                  ...freshProvider(e.target.value as ProviderType),
+                  name: draft.name,
+                })
               }
             >
               <option value="deepseek">DeepSeek</option>
               <option value="ollama">本机 Ollama</option>
               <option value="compatible">OpenAI 兼容服务</option>
             </select>
-          </label>
-          <label>
-            服务名称
-            <input
-              value={draft.name}
-              required
-              maxLength={50}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
           </label>
           <label>
             API Base URL
@@ -117,7 +121,7 @@ export function ProviderEditor({
             />
           </label>
           <details>
-            <summary>接口兼容设置</summary>
+            <summary>参数设置</summary>
             <label className="agent-check">
               <input
                 type="checkbox"
