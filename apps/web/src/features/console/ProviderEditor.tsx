@@ -42,7 +42,7 @@ export function ProviderEditor({
   return (
     <div className="agent-columns">
       <aside className="agent-sidebar">
-        <h3>已保存的模型服务</h3>
+        <h3>模型服务</h3>
         {providers.map((p) => (
           <button
             key={p.id}

@@ -260,13 +260,11 @@ export function SpeechRecognitionPanel({
           >
             ＋ 添加识别服务
           </button>
-          <button
-            type="button"
-            disabled={busy || asr.loading || asr.saving}
-            onClick={asr.reload}
-          >
-            {asr.loading ? '加载中…' : '刷新列表'}
-          </button>
+          {asr.loading && (
+            <p className="agent-hint" role="status">
+              正在加载识别服务…
+            </p>
+          )}
           <p>同一服务商可保存多份模型配置。选择服务，在右侧配置并试用。</p>
         </aside>
         <div className="agent-form">
