@@ -804,3 +804,82 @@ it('suppresses voice bindings and direct pause receipts while retaining the save
   expect(s.request).toHaveBeenCalledWith('agent.voice', { enabled: true });
   expect(bind).toHaveBeenLastCalledWith('player-1', 'local-default');
 });
+
+it('applies task budgets on assignment and renewal, rejecting invalid budgets before pausing', async () => {
+  const s = fakeSession();
+  const decide = vi.fn(async () => ({
+    actions: [{ type: 'wait' as const }],
+    task: {
+      intent: 'continue' as const,
+      status: 'running' as const,
+      summary: '保留进展',
+    },
+  }));
+  const m = setup(s, decide);
+  const job = m.create({ ...settings, goal: '', startTask: false });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.assignTask(job.id, {
+    goal: '测试任务',
+    maxTurns: 1,
+    tokenBudget: 10000,
+    taskTimeoutMs: 120000,
+  });
+  await vi.waitFor(() => expect(m.list()[0].task?.status).toBe('budget'));
+  const before = m.list()[0];
+  await expect(
+    m.assignTask(job.id, { goal: '不能替换', maxTurns: 0 }),
+  ).rejects.toThrow();
+  expect(m.list()[0].task).toEqual(before.task);
+  m.resume(job.id, { maxTurns: 2, tokenBudget: 20000, taskTimeoutMs: 180000 });
+  expect(m.list()[0]).toMatchObject({
+    maxTurns: 2,
+    tokenBudget: 20000,
+    taskTimeoutMs: 180000,
+  });
+  expect(m.list()[0].task?.goal).toBe('测试任务');
+  expect(m.list()[0].usage?.calls).toBe(before.usage?.calls);
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.controlTask(job.id, 'pause');
+  await m.close();
+  manager = undefined;
+  const restored = setup(fakeSession());
+  await restored.load();
+  expect(restored.list()[0]).toMatchObject({
+    maxTurns: 2,
+    tokenBudget: 20000,
+    taskTimeoutMs: 180000,
+  });
+});
+
+it('uses newly saved provider inference settings on the next decision without resetting progress', async () => {
+  const s = fakeSession();
+  const configs: unknown[] = [];
+  manager = new AgentManager(store, 'ws://fixture', {
+    session: () => s as unknown as Session,
+    models: async () => [],
+    planner: (config) => {
+      configs.push(config);
+      return {
+        decide: async () => ({
+          actions: [{ type: 'wait' }],
+          task: { intent: 'continue', status: 'completed', summary: 'done' },
+        }),
+      };
+    },
+  });
+  const job = manager.create({ ...settings, startTask: false, maxTokens: 777 });
+  await vi.waitFor(() => expect(manager!.list()[0].status).toBe('idle'));
+  const inference = {
+    timeoutMs: 30000,
+    maxTokens: 3072,
+    thinking: 'enabled',
+    reasoningEffort: 'low',
+  };
+  await store.save({ ...store.get('deepseek'), inference }, 'deepseek');
+  expect(configs).toHaveLength(0);
+  manager.resume(job.id);
+  await vi.waitFor(() =>
+    expect(manager!.list()[0].task?.status).toBe('completed'),
+  );
+  expect(configs[0]).toMatchObject(inference);
+});

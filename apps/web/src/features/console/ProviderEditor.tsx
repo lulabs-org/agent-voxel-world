@@ -1,4 +1,4 @@
-import type { ProviderType, ProviderView } from '@voxel/shared';
+import type { AgentSettings, ProviderType, ProviderView } from '@voxel/shared';
 import type { ConsoleController } from './useConsoleController';
 import { freshProvider } from './model';
 
@@ -154,8 +154,104 @@ export function ProviderEditor({
               配置并保存服务连接后，即可检测连接并获取模型列表。
             </p>
           )}
+          <section className="agents-form-section">
+            <h4>推理设置</h4>
+            <p className="agent-hint">
+              使用此服务的角色共享这些参数，保存后从下一次模型调用起生效。
+            </p>
+            {editingProvider && !editingProvider.inference && (
+              <p className="agent-hint">
+                此服务尚未统一推理参数。保存后，以下参数将替代各角色原有的推理设置。
+              </p>
+            )}
+            <div className="agent-grid">
+              <label>
+                请求超时（毫秒）
+                <input
+                  type="number"
+                  min={1000}
+                  max={120000}
+                  step={1000}
+                  required
+                  value={draft.inference.timeoutMs}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      inference: {
+                        ...draft.inference,
+                        timeoutMs: e.target.valueAsNumber,
+                      },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                最大输出 tokens
+                <input
+                  type="number"
+                  min={128}
+                  max={16384}
+                  required
+                  value={draft.inference.maxTokens}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      inference: {
+                        ...draft.inference,
+                        maxTokens: e.target.valueAsNumber,
+                      },
+                    })
+                  }
+                />
+              </label>
+            </div>
+            {draft.type === 'deepseek' && (
+              <div className="agent-grid">
+                <label>
+                  思考模式
+                  <select
+                    value={draft.inference.thinking}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        inference: {
+                          ...draft.inference,
+                          thinking: e.target.value as AgentSettings['thinking'],
+                          maxTokens: e.target.value === 'enabled' ? 4096 : 512,
+                        },
+                      })
+                    }
+                  >
+                    <option value="disabled">关闭</option>
+                    <option value="enabled">开启</option>
+                  </select>
+                </label>
+                <label>
+                  推理强度
+                  <select
+                    disabled={draft.inference.thinking !== 'enabled'}
+                    value={draft.inference.reasoningEffort}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        inference: {
+                          ...draft.inference,
+                          reasoningEffort: e.target
+                            .value as AgentSettings['reasoningEffort'],
+                        },
+                      })
+                    }
+                  >
+                    {['none', 'low', 'high', 'max'].map((v) => (
+                      <option key={v}>{v}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+          </section>
           <details>
-            <summary>参数设置</summary>
+            <summary>接口兼容选项</summary>
             <label className="agent-check">
               <input
                 type="checkbox"

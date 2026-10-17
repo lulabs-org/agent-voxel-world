@@ -13,6 +13,7 @@ import type {
   AgentSettings,
   ManagedAgentView,
   ProviderView,
+  ProviderInference,
 } from '@voxel/shared';
 import {
   Session,
@@ -131,13 +132,55 @@ export function validateProvider(
     defaultModel: text(input.defaultModel, '默认模型', 128),
     jsonMode: boolean(input.jsonMode, true),
     tokenField,
+    inference:
+      input.inference === undefined
+        ? previous?.inference && validateInference(previous.inference, type)
+        : validateInference(object(input.inference), type),
   };
+}
+function validateInference(
+  input: Record<string, unknown>,
+  type: ProviderView['type'],
+): ProviderInference {
+  const thinking = input.thinking ?? 'disabled';
+  const reasoningEffort = input.reasoningEffort ?? 'high';
+  if (thinking !== 'enabled' && thinking !== 'disabled')
+    throw new ManagementError('思考模式无效。');
+  if (
+    typeof reasoningEffort !== 'string' ||
+    !['none', 'low', 'high', 'max'].includes(reasoningEffort)
+  )
+    throw new ManagementError('推理强度无效。');
+  if (type !== 'deepseek' && thinking !== 'disabled')
+    throw new ManagementError('此模型服务暂不提供 DeepSeek 思考参数。');
+  return {
+    thinking,
+    reasoningEffort: reasoningEffort as AgentSettings['reasoningEffort'],
+    timeoutMs: integer(input.timeoutMs, '推理超时', 60000, 1000, 120000),
+    maxTokens: integer(
+      input.maxTokens,
+      '输出长度',
+      thinking === 'enabled' ? 4096 : 512,
+      128,
+      16384,
+    ),
+  };
+}
+function taskLimits(input: Record<string, unknown>) {
+  return Object.fromEntries(
+    ['maxTurns', 'tokenBudget', 'taskTimeoutMs']
+      .filter((key) => input[key] !== undefined)
+      .map((key) => [key, input[key]]),
+  );
 }
 export function validateAgent(
   value: unknown,
   provider: SavedProvider,
 ): AgentSettings {
-  const input = object(value);
+  const input: Record<string, unknown> = {
+    ...object(value),
+    ...provider.inference,
+  };
   const model = text(input.model, '模型', 128, provider.defaultModel);
   if (!model || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+\-]{0,127}$/.test(model))
     throw new ManagementError('请输入有效模型 ID。');
@@ -148,17 +191,7 @@ export function validateAgent(
   const name = text(input.name, '玩家昵称', 24);
   const goal = text(input.goal, '任务目标', 2000);
   if (!name) throw new ManagementError('请填写玩家昵称。');
-  const thinking = input.thinking ?? 'disabled';
-  const reasoningEffort = input.reasoningEffort ?? 'high';
-  if (thinking !== 'enabled' && thinking !== 'disabled')
-    throw new ManagementError('思考模式无效。');
-  if (
-    typeof reasoningEffort !== 'string' ||
-    !['none', 'low', 'high', 'max'].includes(reasoningEffort)
-  )
-    throw new ManagementError('推理强度无效。');
-  if (provider.type !== 'deepseek' && thinking !== 'disabled')
-    throw new ManagementError('此模型服务暂不提供 DeepSeek 思考参数。');
+  const inference = validateInference(input, provider.type);
   const intervalMode = input.intervalMode ?? 'fixed';
   if (intervalMode !== 'fixed' && intervalMode !== 'random')
     throw new ManagementError('轮询方式无效。');
@@ -201,8 +234,7 @@ export function validateAgent(
       '角色设定',
       AGENT_ROLE_DESCRIPTION_LIMIT,
     ),
-    thinking,
-    reasoningEffort: reasoningEffort as AgentSettings['reasoningEffort'],
+    ...inference,
     maxTurns: integer(input.maxTurns, '任务调用上限', 100, 1, 200),
     tokenBudget: integer(
       input.tokenBudget,
@@ -219,14 +251,6 @@ export function validateAgent(
       7200000,
     ),
     intervalMs: integer(input.intervalMs, '轮次间隔', 3000, 1000, 60000),
-    timeoutMs: integer(input.timeoutMs, '推理超时', 60000, 1000, 120000),
-    maxTokens: integer(
-      input.maxTokens,
-      '输出长度',
-      thinking === 'enabled' ? 4096 : 512,
-      128,
-      16384,
-    ),
     allowEdits:
       capabilities.permissions.place && capabilities.permissions.remove,
     voiceReplies: boolean(input.voiceReplies, false),
@@ -611,6 +635,7 @@ export class AgentManager {
       {
         ...job.view,
         goal: input.goal ?? job.memory.task?.goal ?? job.view.goal,
+        ...taskLimits(input),
       },
       provider,
     );
@@ -839,10 +864,18 @@ export class AgentManager {
     }
   }
   async assignTask(id: string, value: unknown) {
-    const goal = text(object(value).goal, '任务目标', 2000);
+    const input = object(value);
+    const goal = text(input.goal, '任务目标', 2000);
     if (!goal) throw new ManagementError('请填写任务目标。');
+    const job = this.jobs.get(id);
+    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    const limits = taskLimits(input);
+    validateAgent(
+      { ...job.view, ...limits, goal },
+      this.providers.get(job.view.providerId),
+    );
     await this.controlTask(id, 'pause');
-    return this.resume(id, { goal });
+    return this.resume(id, { goal, ...limits });
   }
   private async execute(job: Job, provider: SavedProvider, run = true) {
     const log = (message: string) => {
@@ -855,7 +888,11 @@ export class AgentManager {
     };
     let finalStatus: ManagedAgentView['status'] = 'idle';
     try {
-      const config: AgentConfig = { ...job.view, apiKey: provider.apiKey };
+      const config: AgentConfig = {
+        ...job.view,
+        ...provider.inference,
+        apiKey: provider.apiKey,
+      };
       if (!job.session) {
         const session = this.dependencies.session(this.serverUrl);
         job.attention = new AgentAttention();

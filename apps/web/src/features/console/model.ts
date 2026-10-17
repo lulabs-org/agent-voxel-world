@@ -3,6 +3,7 @@ import type {
   AgentTaskStatus,
   ProviderType,
   ProviderView,
+  ProviderInference,
 } from '@voxel/shared';
 export const presets = {
   deepseek: {
@@ -17,11 +18,18 @@ export const presets = {
   },
   compatible: { name: 'OpenAI 兼容服务', baseUrl: '', defaultModel: '' },
 };
+export const defaultInference: ProviderInference = {
+  timeoutMs: 60000,
+  maxTokens: 512,
+  thinking: 'disabled',
+  reasoningEffort: 'high',
+};
 export const freshProvider = (type: ProviderType = 'compatible') => ({
   ...presets[type],
   name: '',
   type,
   apiKey: '',
+  inference: { ...defaultInference },
   jsonMode: true,
   tokenField: 'max_tokens' as ProviderView['tokenField'],
 });

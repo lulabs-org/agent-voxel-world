@@ -7,6 +7,7 @@ export { AGENT_ROLE_DESCRIPTION_LIMIT } from './agents';
 export type {
   ProviderType,
   ProviderView,
+  ProviderInference,
   AgentSettings,
   AgentTask,
   AgentTaskStatus,

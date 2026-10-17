@@ -1,7 +1,13 @@
 import type { AgentPermissions, AgentSkillId } from './agent-capabilities';
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
 export const AGENT_ROLE_DESCRIPTION_LIMIT = 2000;
+export type ProviderInference = Pick<
+  AgentSettings,
+  'timeoutMs' | 'maxTokens' | 'thinking' | 'reasoningEffort'
+>;
 export type ProviderView = {
+  /** Absent in legacy services until inference settings are saved. */
+  inference?: ProviderInference;
   id: string;
   name: string;
   type: ProviderType;

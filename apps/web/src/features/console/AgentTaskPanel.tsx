@@ -1,5 +1,10 @@
 import { agentPermissions, AGENT_PERMISSIONS } from '@voxel/shared';
 import { useState } from 'react';
+import {
+  TaskBudgetFields,
+  taskBudgetOf,
+  type TaskBudget,
+} from './TaskBudgetFields';
 import type { ManagedAgentView } from '@voxel/shared';
 import type { ConsoleController } from './useConsoleController';
 import { agentPresentation } from './agent-presentation';
@@ -25,12 +30,14 @@ export function AgentTaskPanel(
     cancelTask,
   } = props;
   const [confirmation, setConfirmation] = useState<'resume' | 'cancel'>();
+  const [limits, setLimits] = useState<TaskBudget>(() => taskBudgetOf(job));
   const state = agentPresentation(job);
   const task = job.task;
   const editing = taskEditor === job.id;
   const cannotStart =
     disabled || state.transitioning || (!state.occupiesSlot && capacityFull);
   const compose = (prefill = '') => {
+    setLimits(taskBudgetOf(job));
     setTaskGoal(prefill);
     setTaskEditor(job.id);
     setConfirmation(undefined);
@@ -89,9 +96,10 @@ export function AgentTaskPanel(
                   className={state.ended ? '' : 'primary'}
                   disabled={cannotStart}
                   onClick={() => {
-                    if (state.ended || task.status === 'budget')
+                    if (state.ended || task.status === 'budget') {
+                      setLimits(taskBudgetOf(job));
                       setConfirmation('resume');
-                    else void resumeAgent(job);
+                    } else void resumeAgent(job);
                   }}
                 >
                   {state.online
@@ -118,8 +126,15 @@ export function AgentTaskPanel(
             </div>
           )}
           {confirmation && (
-            <div
-              className="agents-confirm"
+            <form
+              className="agents-confirm agent-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setConfirmation(undefined);
+                void (confirmation === 'cancel'
+                  ? cancelTask(job)
+                  : resumeAgent(job, limits));
+              }}
               role="group"
               aria-label="确认任务操作"
             >
@@ -127,19 +142,16 @@ export function AgentTaskPanel(
                 {confirmation === 'cancel'
                   ? '取消后不再执行此任务，已完成的世界改动保留。'
                   : task.status === 'budget'
-                    ? `继续后开启新额度：最多 ${job.maxTurns} 次模型调用、${(job.tokenBudget ?? 50000).toLocaleString()} tokens、${(job.taskTimeoutMs ?? 900000) / 60000} 分钟。云端模型按服务商规则计费。`
+                    ? `继续后开启新额度：最多 ${limits.maxTurns} 次模型调用、${(limits.tokenBudget ?? 50000).toLocaleString()} tokens、${(limits.taskTimeoutMs ?? 900000) / 60000} 分钟。云端模型按服务商规则计费。`
                     : '将从头执行同一任务，可能重复移动、发言或建造，并产生新的模型用量。'}
               </p>
+              {confirmation === 'resume' && (
+                <TaskBudgetFields value={limits} onChange={setLimits} />
+              )}
               <div className="agents-actions">
                 <button
                   className="primary"
                   disabled={confirmation === 'resume' ? cannotStart : disabled}
-                  onClick={() => {
-                    setConfirmation(undefined);
-                    void (confirmation === 'cancel'
-                      ? cancelTask(job)
-                      : resumeAgent(job));
-                  }}
                 >
                   {confirmation === 'cancel'
                     ? '确认取消任务'
@@ -147,9 +159,14 @@ export function AgentTaskPanel(
                       ? '确认追加并继续'
                       : '确认重新执行'}
                 </button>
-                <button onClick={() => setConfirmation(undefined)}>返回</button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmation(undefined)}
+                >
+                  返回
+                </button>
               </div>
-            </div>
+            </form>
           )}
         </>
       ) : (
@@ -179,7 +196,7 @@ export function AgentTaskPanel(
           className="agents-composer agent-form"
           onSubmit={(event) => {
             event.preventDefault();
-            void assignTask(job);
+            void assignTask(job, limits);
           }}
         >
           <label>
@@ -205,6 +222,7 @@ export function AgentTaskPanel(
                 .join('、') || '仅基础观察与等待') +
               '。'}
           </p>
+          <TaskBudgetFields value={limits} onChange={setLimits} />
           <div className="agents-actions">
             <button
               className="primary"
@@ -240,9 +258,11 @@ export function AgentTaskPanel(
           />
           <p>
             {task.estimated ? '约 ' : ''}
-            {task.tokens.toLocaleString()} tokens · 执行{' '}
+            {task.tokens.toLocaleString()} /{' '}
+            {(job.tokenBudget ?? 50000).toLocaleString()} tokens · 执行{' '}
             {Math.floor(task.elapsedMs / 60000)} 分{' '}
-            {Math.floor(task.elapsedMs / 1000) % 60} 秒
+            {Math.floor(task.elapsedMs / 1000) % 60} 秒 /{' '}
+            {(job.taskTimeoutMs ?? 900000) / 60000} 分钟
           </p>
         </div>
       )}

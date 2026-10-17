@@ -1,4 +1,4 @@
-import { AgentAdvancedSettings } from './AgentAdvancedSettings';
+import { TaskBudgetFields } from './TaskBudgetFields';
 import { AgentScheduleSettings } from './AgentScheduleSettings';
 import type { ConsoleController } from './useConsoleController';
 import { agentPresentation } from './agent-presentation';
@@ -370,17 +370,13 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
               )}
             </div>
           )}
-          <details className="agents-advanced">
-            <summary>
-              高级设置 <span>任务额度、执行节奏与推理</span>
-            </summary>
-            <AgentAdvancedSettings
-              agent={agent}
-              setAgent={setAgent}
-              selected={selected}
+          {!editingAgent && startTaskOnCreate && (
+            <TaskBudgetFields
+              value={agent}
+              onChange={(limits) => setAgent({ ...agent, ...limits })}
             />
-            <AgentScheduleSettings agent={agent} setAgent={setAgent} />
-          </details>
+          )}
+          <AgentScheduleSettings agent={agent} setAgent={setAgent} />
           <p className="agent-hint">
             {editingAgent
               ? '保存设置不会启动任务。更换模型会重置当前任务进度。修改技能或动作权限会暂停未结束任务，保留进度，需确认后继续。'

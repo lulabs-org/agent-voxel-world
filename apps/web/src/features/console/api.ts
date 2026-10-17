@@ -8,6 +8,7 @@ import type {
 import { serverHttpUrl } from '../../network/endpoints';
 import { readAgentResponse } from './agent-response';
 import type { ProviderDraft } from './model';
+import type { TaskBudget } from './TaskBudgetFields';
 
 async function request<T>(
   path: string,
@@ -87,16 +88,16 @@ export const consoleApi = {
       id ? 'PUT' : 'POST',
       settings,
     ),
-  resumeAgent: (id: string) =>
-    request<void>(`${agentPath(id)}/resume`, 'POST', {}),
+  resumeAgent: (id: string, limits?: TaskBudget) =>
+    request<void>(`${agentPath(id)}/resume`, 'POST', limits ?? {}),
   joinAgent: (id: string) => request<void>(`${agentPath(id)}/join`, 'POST', {}),
   pauseAgent: (id: string) =>
     request<void>(`${agentPath(id)}/pause`, 'POST', {}),
   cancelTask: (id: string) =>
     request<void>(`${agentPath(id)}/cancel`, 'POST', {}),
   stopAgent: (id: string) => request<void>(`${agentPath(id)}/stop`, 'POST', {}),
-  assignTask: (id: string, goal: string) =>
-    request<void>(`${agentPath(id)}/task`, 'POST', { goal }),
+  assignTask: (id: string, goal: string, limits?: TaskBudget) =>
+    request<void>(`${agentPath(id)}/task`, 'POST', { goal, ...limits }),
   setVoiceReplies: (id: string, enabled: boolean) =>
     request<ManagedAgentView>(`${agentPath(id)}/voice`, 'POST', { enabled }),
 };

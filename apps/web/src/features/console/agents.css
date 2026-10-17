@@ -499,8 +499,7 @@
   margin-top: 22px;
   border-top: 1px solid var(--agents-border);
 }
-.agents-form-section h4,
-.agents-advanced h4 {
+.agents-form-section h4 {
   font-size: 12px;
   margin: 0 0 16px;
 }
@@ -537,28 +536,12 @@
   background: #edf3e5;
   border-color: #8fa789;
 }
-.agent-dialog .agents-advanced {
-  padding: 14px;
-  border: 1px solid var(--agents-border);
-  border-radius: 8px;
-  margin: 22px 0 14px;
+.agents-task-limits {
+  margin: 20px 0;
 }
-.agent-dialog .agents-advanced > summary {
-  margin: 0;
+.agents-task-limits h4 {
   font-size: 12px;
-}
-.agents-advanced > summary span {
-  font-size: 10px;
-  color: var(--agents-muted);
-  margin-left: 5px;
-}
-.agents-advanced[open] > summary {
-  margin-bottom: 20px;
-}
-.agents-schedule {
-  border-top: 1px solid var(--agents-border);
-  margin-top: 18px;
-  padding-top: 18px;
+  margin: 0 0 8px;
 }
 .agents-form-footer {
   display: flex;
@@ -749,4 +732,8 @@
   color: var(--agents-muted);
   font-size: 11px;
   line-height: 1.7;
+}
+
+.agents-interval-range {
+  grid-column: 1 / -1;
 }

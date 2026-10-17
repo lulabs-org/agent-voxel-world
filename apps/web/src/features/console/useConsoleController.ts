@@ -6,7 +6,8 @@ import type {
   VoiceServiceView,
 } from '@voxel/shared';
 import { consoleApi } from './api';
-import { freshProvider, initialAgent } from './model';
+import type { TaskBudget } from './TaskBudgetFields';
+import { defaultInference, freshProvider, initialAgent } from './model';
 export function useConsoleController(open: boolean, initialTab?: 'agents') {
   const dialog = useRef<HTMLDialogElement>(null);
   const [tab, setTab] = useState<'agents' | 'providers' | 'voice' | 'asr'>(
@@ -210,6 +211,7 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
             jsonMode: p.jsonMode,
             tokenField: p.tokenField,
             apiKey: '',
+            inference: p.inference ?? { ...defaultInference },
           }
         : freshProvider(),
     );
@@ -256,7 +258,17 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
     perform(async () => {
       if (!selected?.defaultModel.trim())
         throw new Error('请先在模型服务中配置并保存模型 ID。');
-      const { goal, ...profile } = agent;
+      const {
+        goal,
+        timeoutMs,
+        maxTokens,
+        thinking,
+        reasoningEffort,
+        maxTurns,
+        tokenBudget,
+        taskTimeoutMs,
+        ...profile
+      } = agent;
       const saved = await consoleApi.saveAgent(
         {
           ...profile,
@@ -264,6 +276,9 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
           ...(editingAgent
             ? {}
             : {
+                maxTurns,
+                tokenBudget,
+                taskTimeoutMs,
                 goal: startTaskOnCreate ? goal : '',
                 startTask: startTaskOnCreate,
               }),
@@ -302,9 +317,9 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
       setJobs(await consoleApi.listAgents());
       setNotice('正在加入世界待命，原任务不会自动执行。');
     });
-  const resumeAgent = (job: ManagedAgentView) =>
+  const resumeAgent = (job: ManagedAgentView, limits?: TaskBudget) =>
     perform(async () => {
-      await consoleApi.resumeAgent(job.id);
+      await consoleApi.resumeAgent(job.id, limits);
       setJobs(await consoleApi.listAgents());
     });
   const pauseAgent = (job: ManagedAgentView) =>
@@ -322,9 +337,9 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
       await consoleApi.stopAgent(job.id);
       setJobs(await consoleApi.listAgents());
     });
-  const assignTask = (job: ManagedAgentView) =>
+  const assignTask = (job: ManagedAgentView, limits?: TaskBudget) =>
     perform(async () => {
-      await consoleApi.assignTask(job.id, taskGoal);
+      await consoleApi.assignTask(job.id, taskGoal, limits);
       setJobs(await consoleApi.listAgents());
       setTaskEditor(undefined);
     });

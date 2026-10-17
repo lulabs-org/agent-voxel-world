@@ -140,3 +140,12 @@ it('sends standby creation explicitly without inventing a task', async () => {
     startTask: false,
   });
 });
+
+it('submits task-specific quotas with assignment and renewal', async () => {
+  const limits = { maxTurns: 12, tokenBudget: 15000, taskTimeoutMs: 180000 };
+  await consoleApi.assignTask('fixture', '观察营地', limits);
+  await consoleApi.resumeAgent('fixture', limits);
+  expect(
+    request.mock.calls.map(([, init]) => JSON.parse(init!.body as string)),
+  ).toEqual([{ goal: '观察营地', ...limits }, limits]);
+});

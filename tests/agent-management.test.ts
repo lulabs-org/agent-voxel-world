@@ -305,3 +305,50 @@ it('migrates legacy permissions and validates canonical capability settings', ()
   ])
     expect(() => validateAgent({ ...input, ...invalid }, p)).toThrow();
 });
+
+it('persists service inference settings and keeps legacy roles until the service is configured', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'provider-inference-'));
+  try {
+    const path = join(dir, 'providers.json');
+    const store = new ProviderStore(path);
+    await store.load({ DEEPSEEK_API_KEY: 'fixture' });
+    const role = {
+      name: 'Legacy',
+      maxTokens: 2048,
+      timeoutMs: 45000,
+      thinking: 'enabled',
+    };
+    expect(validateAgent(role, store.get('deepseek'))).toMatchObject(role);
+    const inference = {
+      maxTokens: 8192,
+      timeoutMs: 90000,
+      thinking: 'enabled',
+      reasoningEffort: 'low',
+    };
+    await store.save({ ...store.get('deepseek'), inference }, 'deepseek');
+    const restored = new ProviderStore(path);
+    await restored.load({});
+    expect(restored.list().find((p) => p.id === 'deepseek')?.inference).toEqual(
+      inference,
+    );
+    expect(validateAgent(role, restored.get('deepseek'))).toMatchObject(
+      inference,
+    );
+    for (const invalid of [
+      null,
+      { maxTokens: 0 },
+      { timeoutMs: 0 },
+      { thinking: 'yes' },
+      { reasoningEffort: 'other' },
+    ]) {
+      expect(() =>
+        validateProvider({ ...store.get('deepseek'), inference: invalid }),
+      ).toThrow();
+    }
+    expect(() =>
+      validateProvider({ name: 'local', type: 'ollama', inference }),
+    ).toThrow('思考参数');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
