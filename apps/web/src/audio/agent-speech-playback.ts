@@ -1,3 +1,4 @@
+import { speakBrowserText } from './browser-tts';
 import { spatialMix, type AgentSpeechEvent } from '@voxel/shared';
 import type { Connection } from '../network/connection';
 import { serverHttpUrl } from '../network/endpoints';
@@ -58,7 +59,7 @@ export class AgentSpeechPlayback {
     if (
       !speaker ||
       !self ||
-      !context ||
+      (!context && !event.browserVoice) ||
       event.expiresAt <= Date.now() ||
       spatialMix(self, speaker).gain === 0
     ) {
@@ -71,6 +72,17 @@ export class AgentSpeechPlayback {
     };
     this.active = active;
     try {
+      if (event.browserVoice) {
+        this.changed(`${speaker.name}：${event.text}`);
+        await speakBrowserText(
+          event.text,
+          event.browserVoice,
+          active.abort.signal,
+          spatialMix(self, speaker).gain,
+        );
+        return;
+      }
+      if (!context) return;
       const response = await this.fetchAudio(
         `${serverHttpUrl()}/chat/agent-speech/${event.id}`,
         {
@@ -145,12 +157,20 @@ export class AgentSpeechPlayback {
     const speaker = this.speaker(active.event),
       self = this.link.self,
       context = this.context();
-    if (!speaker || !self || !context) {
+    if (!speaker || !self || (!context && !active.event.browserVoice)) {
       this.finish();
       void this.next();
       return;
     }
     const mix = spatialMix(self, speaker);
+    if (active.event.browserVoice) {
+      if (mix.gain === 0 || active.event.expiresAt <= Date.now()) {
+        this.finish();
+        void this.next();
+      }
+      return;
+    }
+    if (!context) return;
     active.gain?.gain.setTargetAtTime(mix.gain, context.currentTime, 0.04);
     active.pan?.pan.setTargetAtTime(mix.pan, context.currentTime, 0.04);
   }

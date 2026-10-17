@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import type { VoiceServiceView } from '@voxel/shared';
+import { speakBrowserText } from '../../audio/browser-tts';
 import { consoleApi } from './api';
 
 export function VoicePreview({
   serviceId,
+  service,
   active,
   disabled = false,
 }: {
   serviceId?: string;
+  service?: VoiceServiceView;
   active: boolean;
   disabled?: boolean;
 }) {
@@ -47,6 +51,12 @@ export function VoicePreview({
     setBusy(true);
     setStatus('正在连接并生成试听音频…');
     try {
+      if (service?.type === 'browser') {
+        setStatus('正在使用当前浏览器朗读…');
+        await speakBrowserText(text, service, abort.signal);
+        if (!abort.signal.aborted) setStatus('浏览器朗读完成。');
+        return;
+      }
       const blob = await consoleApi.previewVoice(serviceId, text, abort.signal);
       if (abort.signal.aborted) return;
       setUrl(URL.createObjectURL(blob));
@@ -76,7 +86,11 @@ export function VoicePreview({
           disabled={!serviceId || disabled || busy || !text.trim()}
           onClick={() => void preview()}
         >
-          {busy ? '合成中…' : '测试连接并试听'}
+          {busy
+            ? '合成中…'
+            : service?.type === 'browser'
+              ? '浏览器试听'
+              : '测试连接并试听'}
         </button>
         {(busy || url) && (
           <button type="button" onClick={stop}>
@@ -85,7 +99,9 @@ export function VoicePreview({
         )}
       </div>
       <small>
-        使用已保存的服务配置；云端合成会发送这段文字，并按服务商规则计费。
+        {service?.type === 'browser'
+          ? '使用当前设备的浏览器音色朗读；远程音色可能联网。'
+          : '使用已保存的服务配置；云端合成会发送这段文字，并按服务商规则计费。'}
       </small>
       {status && <p role="status">{status}</p>}
       <audio

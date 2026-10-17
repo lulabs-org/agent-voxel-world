@@ -168,3 +168,38 @@ it('cleans up a failed source start and can play the next reply', async () => {
   await vi.waitFor(() => expect(s.sources[1]?.start).toHaveBeenCalled());
   s.player.stop();
 });
+
+it('speaks browser events without audio fetching and stops on mute or leaving hearing range', async () => {
+  vi.stubGlobal(
+    'SpeechSynthesisUtterance',
+    class {
+      constructor(public text: string) {}
+    },
+  );
+  const synth = { getVoices: () => [], speak: vi.fn(), cancel: vi.fn() };
+  vi.stubGlobal('speechSynthesis', synth);
+  const s = setup();
+  try {
+    s.player.receive({
+      ...event('browser1'),
+      browserVoice: { voice: '', speed: 1 },
+    });
+    expect(synth.speak).toHaveBeenCalledTimes(1);
+    expect(s.fetchAudio).not.toHaveBeenCalled();
+    s.self.z = 100;
+    s.player.update();
+    expect(synth.cancel).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    s.self.z = -1;
+    s.player.receive({
+      ...event('browser2'),
+      browserVoice: { voice: '', speed: 1 },
+    });
+    expect(synth.speak).toHaveBeenCalledTimes(2);
+    s.mute();
+    expect(synth.cancel).toHaveBeenCalledTimes(2);
+  } finally {
+    s.player.stop();
+    vi.unstubAllGlobals();
+  }
+});

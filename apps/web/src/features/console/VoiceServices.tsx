@@ -6,10 +6,12 @@ import type {
 } from '@voxel/shared';
 import { consoleApi } from './api';
 import { VoicePreview } from './VoicePreview';
+import { BrowserVoiceSelect } from './BrowserVoiceSelect';
 import { LocalVoiceSelect } from './LocalVoiceSelect';
 
 const labels: Record<VoiceServiceType, string> = {
   local: 'macOS 系统语音',
+  browser: '浏览器系统语音（Web Speech API）',
   bailian: '百炼语音合成',
   compatible: '兼容语音接口',
 };
@@ -177,7 +179,7 @@ export function VoiceServices({
                 ))}
               </select>
             </label>
-            {draft.type !== 'local' && (
+            {draft.type !== 'local' && draft.type !== 'browser' && (
               <>
                 <label>
                   API Base URL
@@ -228,7 +230,16 @@ export function VoiceServices({
                 </small>
               </>
             )}
-            {draft.type === 'local' ? (
+            {draft.type === 'browser' ? (
+              <BrowserVoiceSelect
+                value={draft.voice}
+                language={draft.voiceLanguage}
+                onChange={(voice, voiceLanguage) =>
+                  change({ voice, voiceLanguage })
+                }
+                active={active}
+              />
+            ) : draft.type === 'local' ? (
               <LocalVoiceSelect
                 value={draft.voice}
                 onChange={(voice) => change({ voice })}
@@ -260,6 +271,12 @@ export function VoiceServices({
                 />
               </label>
             )}
+            {draft.type === 'browser' && (
+              <p className="agent-hint">
+                由接收者浏览器朗读，无需 API
+                Key。音色因设备而异，缺失时按语言回退；远程音色可能联网。不支持左右声道空间定位。
+              </p>
+            )}
             {draft.type === 'local' && (
               <p className="agent-hint">
                 使用服务器上的 macOS say 与
@@ -288,6 +305,7 @@ export function VoiceServices({
         {dirty && <p className="agent-hint">请先保存修改，再试听当前配置。</p>}
         <VoicePreview
           serviceId={selected ?? undefined}
+          service={saved}
           active={active}
           disabled={dirty || busy}
         />

@@ -1,4 +1,4 @@
-export type VoiceServiceType = 'local' | 'bailian' | 'compatible';
+export type VoiceServiceType = 'local' | 'browser' | 'bailian' | 'compatible';
 export type VoiceServiceSettings = {
   name: string;
   type: VoiceServiceType;
@@ -6,6 +6,7 @@ export type VoiceServiceSettings = {
   model: string;
   voice: string;
   speed: number;
+  voiceLanguage?: string;
 };
 export type VoiceServiceView = VoiceServiceSettings & {
   id: string;

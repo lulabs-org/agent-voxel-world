@@ -86,6 +86,23 @@ it('rejects credential reuse for a different endpoint and invalid configuration'
     '官方接口',
   );
 });
+it('saves and reloads localized macOS voice names without changing the CLI value', async () => {
+  const store = new VoiceServiceStore(join(dir, 'voices.json'));
+  await store.load();
+  const voice = 'Shelley (中文（中国大陆）)';
+  const saved = await store.save(local('中文系统语音', voice));
+  const restored = new VoiceServiceStore(store.path);
+  await restored.load();
+  expect(restored.get(saved.id).voice).toBe(voice);
+  expect(validateVoiceService(local('French', 'Ame\u0301lie')).voice).toBe(
+    'Ame\u0301lie',
+  );
+  for (const invalid of ['voice\nname', 'voice\0name', 'voice;command'])
+    expect(() => validateVoiceService(local('Invalid', invalid))).toThrow();
+  expect(() => validateVoiceService({ ...remote, voice })).toThrow(
+    '音色名称格式无效',
+  );
+});
 it('rejects deletion of referenced services and validates bindings before changing them', async () => {
   const store = new VoiceServiceStore(join(dir, 'voices.json'));
   await store.load();
@@ -385,4 +402,35 @@ it('rejects missing Bailian output before requesting any audio URL', async () =>
     ),
   ).rejects.toThrow('未返回有效的音频地址');
   expect(request).toHaveBeenCalledOnce();
+});
+
+it('persists browser profiles without credentials and never runs server synthesis', async () => {
+  const factory = vi.fn();
+  const store = new VoiceServiceStore(join(dir, 'browser.json'), factory);
+  await store.load();
+  const saved = await store.save({
+    ...remote,
+    type: 'browser',
+    voice: 'Shelley (中文（中国大陆）)',
+    voiceLanguage: 'zh-CN',
+  });
+  expect(saved).toMatchObject({
+    type: 'browser',
+    baseUrl: '',
+    model: '',
+    hasApiKey: false,
+  });
+  store.bind('ai', saved.id);
+  expect(store.forActor('ai').browserVoice).toEqual({
+    voice: saved.voice,
+    speed: 1,
+    voiceLanguage: 'zh-CN',
+  });
+  await expect(
+    store.synthesize(saved.id, '你好', new AbortController().signal),
+  ).rejects.toThrow('浏览器');
+  expect(factory).not.toHaveBeenCalled();
+  const restored = new VoiceServiceStore(store.path);
+  await restored.load();
+  expect(restored.get(saved.id).voiceLanguage).toBe('zh-CN');
 });

@@ -96,6 +96,21 @@ export class AgentSpeech {
         return;
       const tts =
         typeof this.tts === 'function' ? this.tts(pending.actor) : this.tts;
+      if (tts.browserVoice) {
+        const event: AgentSpeechEvent = {
+          id: randomUUID(),
+          actor: pending.actor,
+          text: pending.data.text,
+          scope: pending.data.scope === 'private' ? 'private' : 'public',
+          durationMs: 0,
+          expiresAt: Date.now() + 30000,
+          browserVoice: { ...tts.browserVoice },
+        };
+        for (const recipient of pending.recipients)
+          if (this.canHear(recipient, pending.actor))
+            this.notify(recipient, event);
+        return;
+      }
       const audio = await tts.synthesize(
         pending.data.text,
         pending.controller.signal,

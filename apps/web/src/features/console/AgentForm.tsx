@@ -258,6 +258,9 @@ export function AgentForm({
           </p>
           {agent.voiceServiceId && (
             <VoicePreview
+              service={voiceServices.find(
+                (service) => service.id === agent.voiceServiceId,
+              )}
               serviceId={agent.voiceServiceId}
               active={active && tab === 'agents'}
               disabled={busy}

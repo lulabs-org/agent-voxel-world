@@ -27,15 +27,28 @@ export function validateVoiceService(
     return v.trim();
   };
   const type = input.type;
-  if (type !== 'local' && type !== 'bailian' && type !== 'compatible')
+  if (
+    type !== 'local' &&
+    type !== 'browser' &&
+    type !== 'bailian' &&
+    type !== 'compatible'
+  )
     throw new SpeechError('请选择支持的语音服务类型。');
   const name = str('name', 50);
   if (!name) throw new SpeechError('请填写语音服务名称。');
   let baseUrl = '',
     apiKey = '',
     model = '';
-  const voice = str('voice', 100);
-  if (voice && !/^[\p{L}\p{N}_. ()-]+$/u.test(voice))
+  const voice = str('voice', type === 'browser' ? 200 : 100);
+  const voiceLanguage =
+    type === 'browser' ? str('voiceLanguage', 40) : undefined;
+  if (voiceLanguage && !/^[a-zA-Z0-9-]+$/.test(voiceLanguage))
+    throw new SpeechError('音色语言格式无效。');
+  const voicePattern =
+    type === 'local'
+      ? /^[\p{L}\p{M}\p{N}_. ()（）-]+$/u
+      : /^[\p{L}\p{N}_. ()-]+$/u;
+  if (type !== 'browser' && voice && !voicePattern.test(voice))
     throw new SpeechError('音色名称格式无效。');
   const speed = input.speed ?? 1;
   if (
@@ -45,7 +58,7 @@ export function validateVoiceService(
     speed > 2
   )
     throw new SpeechError('语速须为 0.5–2。');
-  if (type !== 'local') {
+  if (type !== 'local' && type !== 'browser') {
     let url: URL;
     try {
       url = new URL(str('baseUrl', 500));
@@ -92,6 +105,7 @@ export function validateVoiceService(
     apiKey,
     model,
     voice,
+    ...(voiceLanguage ? { voiceLanguage } : {}),
     speed: type === 'bailian' ? 1 : speed,
   };
 }
@@ -230,12 +244,26 @@ export class VoiceServiceStore {
     // Only trusted Agent management binds cloud services; raw world actions cannot select them.
     const id = this.bindings.get(actor);
     if (id === undefined) return new LocalTts();
-    return { synthesize: (text, signal) => this.synthesize(id, text, signal) };
+    const entry = id ? this.get(id) : undefined;
+    return {
+      ...(entry?.type === 'browser'
+        ? {
+            browserVoice: {
+              voice: entry.voice,
+              speed: entry.speed,
+              voiceLanguage: entry.voiceLanguage,
+            },
+          }
+        : {}),
+      synthesize: (text, signal) => this.synthesize(id, text, signal),
+    };
   }
   async synthesize(id: string, text: string, signal: AbortSignal) {
     if (typeof text !== 'string' || !text.trim() || text.length > 240)
       throw new SpeechError('试听文字需为 1–240 字。');
     const entry = this.get(id);
+    if (entry.type === 'browser')
+      throw new SpeechError('此服务由浏览器朗读，请在浏览器中试听。');
     if (this.running >= 2)
       throw new SpeechError('语音服务繁忙，请稍后重试。', 429);
     this.running++;

@@ -119,3 +119,33 @@ it('uses the intersection of listeners before and after synthesis and reports fa
   await vi.waitFor(() => expect(report).toHaveBeenCalledWith('ai', 'failed'));
   service.close();
 });
+
+it('delivers browser speech only to authorized listeners without synthesizing or exposing an audio clip', () => {
+  const players = [
+    person('ai', 'ai-agent'),
+    person('a'),
+    person('b'),
+    { ...person('far'), z: 100 },
+  ];
+  const notify = vi.fn(),
+    synthesize = vi.fn(),
+    report = vi.fn();
+  const service = new AgentSpeech(() => players, notify, report, {
+    browserVoice: { voice: 'Test', speed: 1, voiceLanguage: 'zh-CN' },
+    synthesize,
+  });
+  service.enqueue('ai', message('private'));
+  expect(notify).toHaveBeenCalledTimes(1);
+  expect(notify.mock.calls[0][0]).toBe('a');
+  expect(notify.mock.calls[0][1]).toMatchObject({
+    text: '你好',
+    browserVoice: { voice: 'Test' },
+    scope: 'private',
+  });
+  expect(() => service.audio(notify.mock.calls[0][1].id, 'a')).toThrow();
+  service.enqueue('ai', message());
+  expect(notify.mock.calls.slice(1).map((c) => c[0])).toEqual(['a', 'b']);
+  expect(synthesize).not.toHaveBeenCalled();
+  expect(report).not.toHaveBeenCalled();
+  service.close();
+});

@@ -17,6 +17,7 @@ export type AgentSpeechEvent = {
   scope: 'public' | 'private';
   durationMs: number;
   expiresAt: number;
+  browserVoice?: { voice: string; speed: number; voiceLanguage?: string };
 };
 export function parseChatRoute(value: unknown): ChatRoute {
   if (!value || typeof value !== 'object' || Array.isArray(value))
