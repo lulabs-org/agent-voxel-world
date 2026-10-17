@@ -1,7 +1,6 @@
 import { AgentAdvancedSettings } from './AgentAdvancedSettings';
 import { AgentScheduleSettings } from './AgentScheduleSettings';
 import type { ConsoleController } from './useConsoleController';
-import { VoicePreview } from './VoicePreview';
 import { agentPresentation } from './agent-presentation';
 import {
   AGENT_ROLE_DESCRIPTION_LIMIT,
@@ -10,9 +9,7 @@ import {
   agentPermissions,
 } from '@voxel/shared';
 
-export function AgentForm(
-  props: ConsoleController & { active: boolean; disabled: boolean },
-) {
+export function AgentForm(props: ConsoleController & { disabled: boolean }) {
   const {
     providers,
     voiceServices,
@@ -26,7 +23,6 @@ export function AgentForm(
     selected,
     chooseProvider,
     saveAgent,
-    active,
     disabled,
     startTaskOnCreate,
     setStartTaskOnCreate,
@@ -262,58 +258,67 @@ export function AgentForm(
               ))}
             </div>
           </div>
-          <div className="agents-form-section">
-            <h4>语音回复</h4>
-            {!permissions.chat && (
-              <p className="agent-hint" role="status">
-                发送聊天权限已关闭，不会发送文字、任务回执或语音回复。音色配置保留，重新开启聊天后生效。
-              </p>
-            )}
-            <label>
-              音色服务
-              <select
-                value={agent.voiceServiceId || ''}
+          <div className="agents-form-section agents-voice-settings">
+            <label className="agents-voice-toggle">
+              <span>
+                <strong>语音回复</strong>
+                <small>使用已配置的 TTS 服务朗读角色回复</small>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="开启语音回复"
+                checked={!!agent.voiceReplies}
+                disabled={!permissions.chat || voiceServices.length === 0}
                 onChange={(event) =>
                   setAgent({
                     ...agent,
-                    voiceServiceId: event.target.value,
-                    voiceReplies: !!event.target.value,
+                    voiceReplies: event.target.checked,
+                    voiceServiceId: event.target.checked
+                      ? voiceServices.find(
+                          (service) => service.id === agent.voiceServiceId,
+                        )?.id ||
+                        voiceServices[0]?.id ||
+                        ''
+                      : agent.voiceServiceId,
                   })
                 }
-              >
-                <option value="">仅文字回复</option>
-                {voiceServices.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name} · {service.voice || '自动音色'}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
-            {agent.voiceServiceId && (
-              <>
-                <label className="agent-check">
-                  <input
-                    type="checkbox"
-                    checked={!!agent.voiceReplies}
-                    disabled={!permissions.chat}
-                    onChange={(event) =>
-                      setAgent({ ...agent, voiceReplies: event.target.checked })
-                    }
-                  />
-                  开启语音回复
-                </label>
-                <details className="agents-voice-preview">
-                  <summary>试听已选音色</summary>
-                  <VoicePreview
-                    service={voiceServices.find(
-                      (service) => service.id === agent.voiceServiceId,
-                    )}
-                    serviceId={agent.voiceServiceId}
-                    active={active}
-                    disabled={disabled || !permissions.chat}
-                  />
-                </details>
-              </>
+            {!permissions.chat ? (
+              <p className="agents-voice-status" role="status">
+                发送聊天权限已关闭，不会发送文字或语音回复。重新开启聊天后，语音配置生效。
+              </p>
+            ) : voiceServices.length === 0 ? (
+              <p className="agents-voice-status" role="status">
+                暂无可用的音色服务，请先在「文本转语音（TTS）」中添加并保存服务。
+              </p>
+            ) : agent.voiceReplies ? (
+              <label className="agents-voice-service">
+                音色服务
+                <select
+                  value={agent.voiceServiceId || ''}
+                  required
+                  onChange={(event) =>
+                    setAgent({ ...agent, voiceServiceId: event.target.value })
+                  }
+                >
+                  {!voiceServices.some(
+                    (service) => service.id === agent.voiceServiceId,
+                  ) && (
+                    <option value={agent.voiceServiceId || ''} disabled>
+                      请选择可用的音色服务
+                    </option>
+                  )}
+                  {voiceServices.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name} · {service.voice || '自动音色'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="agents-voice-status">当前仅发送文字回复。</p>
             )}
           </div>
           {!editingAgent && (

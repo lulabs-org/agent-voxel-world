@@ -682,3 +682,71 @@
     flex-wrap: wrap;
   }
 }
+
+.agents-voice-settings .agents-voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+.agents-voice-toggle strong {
+  display: block;
+  font-size: 12px;
+}
+.agents-voice-toggle small {
+  display: block;
+  margin-top: 6px;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.agents-voice-toggle input[role='switch'] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 21px;
+  margin: 0;
+  border: 1px solid #9aa99c;
+  border-radius: 20px;
+  background: #dce3d8;
+  cursor: pointer;
+}
+.agents-voice-toggle input[role='switch']::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px #0002;
+}
+.agents-voice-toggle input[role='switch']:checked {
+  background: #315447;
+  border-color: #315447;
+}
+.agents-voice-toggle input[role='switch']:checked::after {
+  left: 18px;
+}
+.agents-voice-toggle input[role='switch']:focus-visible {
+  outline: 2px solid #315447;
+  outline-offset: 3px;
+}
+.agents-voice-toggle input[role='switch']:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.agents-voice-settings .agents-voice-service {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.agents-voice-status {
+  margin: 12px 0 0;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
