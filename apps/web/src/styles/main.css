@@ -905,7 +905,7 @@ footer {
   font-size: 12px;
   margin-bottom: 13px;
 }
-.agent-form input:not([type='checkbox']),
+.agent-form input:not([type='checkbox']):not([type='radio']),
 .agent-form select,
 .agent-form textarea {
   display: block;
