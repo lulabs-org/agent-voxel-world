@@ -3,7 +3,12 @@ import { AgentScheduleSettings } from './AgentScheduleSettings';
 import type { ConsoleController } from './useConsoleController';
 import { VoicePreview } from './VoicePreview';
 import { agentPresentation } from './agent-presentation';
-import { AGENT_ROLE_DESCRIPTION_LIMIT } from '@voxel/shared';
+import {
+  AGENT_ROLE_DESCRIPTION_LIMIT,
+  AGENT_PERMISSIONS,
+  AGENT_SKILLS,
+  agentPermissions,
+} from '@voxel/shared';
 
 export function AgentForm(
   props: ConsoleController & { active: boolean; disabled: boolean },
@@ -29,6 +34,7 @@ export function AgentForm(
     pauseAgent,
     toggleVoiceReplies,
   } = props;
+  const permissions = agentPermissions(agent);
   const current = jobs.find((job) => job.id === editingAgent);
   const running = current && !agentPresentation(current).canEdit;
   const cancel = () => {
@@ -73,6 +79,7 @@ export function AgentForm(
             暂停任务后编辑
           </button>
           {current.voiceServiceId &&
+            agentPermissions(current).chat &&
             !agentPresentation(current).transitioning && (
               <button
                 disabled={busy || !!props.pollError}
@@ -155,7 +162,7 @@ export function AgentForm(
           </label>
           <p className="agent-hint agents-role-meta" id="agent-role-hint">
             <span>
-              用于后续对话和任务规划。任务需单独安排，建造需开启下方权限。
+              用于后续对话和任务规划。任务需单独安排，执行操作需开启对应权限。
             </span>
             <span className="agents-role-count">
               {(agent.roleDescription ?? '').length} /{' '}
@@ -163,22 +170,107 @@ export function AgentForm(
             </span>
           </p>
           <div className="agents-form-section">
-            <h4>能力与交流</h4>
-            <label className="agent-check agents-permission">
-              <input
-                type="checkbox"
-                checked={agent.allowEdits}
-                onChange={(event) =>
-                  setAgent({ ...agent, allowEdits: event.target.checked })
-                }
-              />
-              <span>
-                允许建造
-                <small>允许放置和移除方块；关闭时仍可移动、观察与交流。</small>
-              </span>
-            </label>
+            <h4>角色技能</h4>
+            <p className="agent-hint">
+              可组合选择，为任务规划提供专业指导。选择技能不会自动开启权限或开始任务。
+            </p>
+            <div className="agents-capability-grid">
+              {AGENT_SKILLS.map((skill) => {
+                const checked = agent.skills?.includes(skill.id) ?? false;
+                const missing = skill.requires.filter((id) => !permissions[id]);
+                return (
+                  <label
+                    key={skill.id}
+                    className="agent-check agents-permission agents-capability-card"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) =>
+                        setAgent({
+                          ...agent,
+                          skills: event.target.checked
+                            ? [...(agent.skills ?? []), skill.id]
+                            : (agent.skills ?? []).filter(
+                                (id) => id !== skill.id,
+                              ),
+                        })
+                      }
+                    />
+                    <span>
+                      {skill.name}
+                      <small>{skill.description}</small>
+                      <small>
+                        所需权限：
+                        {skill.requires
+                          .map(
+                            (id) =>
+                              AGENT_PERMISSIONS.find((p) => p.id === id)!.name,
+                          )
+                          .join('、')}
+                      </small>
+                      {checked && missing.length > 0 && (
+                        <small className="agents-capability-warning">
+                          执行受限：未开启
+                          {missing
+                            .map(
+                              (id) =>
+                                AGENT_PERMISSIONS.find((p) => p.id === id)!
+                                  .name,
+                            )
+                            .join('、')}
+                          。技能仍可用于规划，不能执行未授权操作。
+                        </small>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <div className="agents-form-section">
+            <h4>动作权限</h4>
+            <p className="agent-hint">
+              观察和等待始终可用。以下权限可独立开启或关闭。
+            </p>
+            <div className="agents-capability-grid">
+              {AGENT_PERMISSIONS.map((permission) => (
+                <label
+                  key={permission.id}
+                  className="agent-check agents-permission agents-capability-card"
+                >
+                  <input
+                    type="checkbox"
+                    checked={permissions[permission.id]}
+                    onChange={(event) => {
+                      const next = {
+                        ...permissions,
+                        [permission.id]: event.target.checked,
+                      };
+                      setAgent({
+                        ...agent,
+                        permissions: next,
+                        allowEdits: next.place && next.remove,
+                      });
+                    }}
+                  />
+                  <span>
+                    {permission.name}
+                    <small>{permission.description}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="agents-form-section">
+            <h4>语音回复</h4>
+            {!permissions.chat && (
+              <p className="agent-hint" role="status">
+                发送聊天权限已关闭，不会发送文字、任务回执或语音回复。音色配置保留，重新开启聊天后生效。
+              </p>
+            )}
             <label>
-              语音回复
+              音色服务
               <select
                 value={agent.voiceServiceId || ''}
                 onChange={(event) =>
@@ -203,6 +295,7 @@ export function AgentForm(
                   <input
                     type="checkbox"
                     checked={!!agent.voiceReplies}
+                    disabled={!permissions.chat}
                     onChange={(event) =>
                       setAgent({ ...agent, voiceReplies: event.target.checked })
                     }
@@ -217,7 +310,7 @@ export function AgentForm(
                     )}
                     serviceId={agent.voiceServiceId}
                     active={active}
-                    disabled={disabled}
+                    disabled={disabled || !permissions.chat}
                   />
                 </details>
               </>
@@ -236,7 +329,11 @@ export function AgentForm(
                   />
                   <span>
                     先在世界中待命
-                    <small>不主动执行任务，收到私聊或 @ 后回复。</small>
+                    <small>
+                      {permissions.chat
+                        ? '不主动执行任务，收到私聊或 @ 后回复。'
+                        : '不主动执行任务。聊天权限已关闭，进展可在控制台查看。'}
+                    </small>
                   </span>
                 </label>
                 <label className="agent-check">
@@ -281,7 +378,7 @@ export function AgentForm(
           </details>
           <p className="agent-hint">
             {editingAgent
-              ? '保存设置不会启动任务。更换模型或建造权限会重置当前任务进度，需重新开始。'
+              ? '保存设置不会启动任务。更换模型会重置当前任务进度。修改技能或动作权限会暂停未结束任务，保留进度，需确认后继续。'
               : '待命时不主动调用模型；执行任务和回复消息会产生模型用量。'}{' '}
             云端模型与语音按服务商规则计费。
           </p>

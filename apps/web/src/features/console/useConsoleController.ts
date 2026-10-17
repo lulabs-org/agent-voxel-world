@@ -1,3 +1,4 @@
+import { agentPermissions } from '@voxel/shared';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type {
   ManagedAgentView,
@@ -290,7 +291,9 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
           ? '角色设置已保存。'
           : startTaskOnCreate
             ? '角色正在加入世界，随后开始任务。'
-            : '角色正在加入世界待命，可通过私聊或 @ 交流。',
+            : agentPermissions(agent).chat
+              ? '角色正在加入世界待命，可通过私聊或 @ 交流。'
+              : '角色正在加入世界待命。发送聊天已关闭，可在控制台安排任务和查看进展。',
       );
     });
   const joinAgent = (job: ManagedAgentView) =>

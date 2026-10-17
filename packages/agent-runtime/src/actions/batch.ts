@@ -1,3 +1,4 @@
+import type { AgentPermissions } from '@voxel/shared';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   AgentAction,
@@ -40,7 +41,7 @@ export async function executeBatch(
   session: AgentSession,
   actions: AgentAction[],
   initial: Observation,
-  allowEdits: boolean,
+  allowEdits: boolean | AgentPermissions,
   signal: AbortSignal,
   options: BatchOptions = {},
 ): Promise<{ batch: BatchResult; observation: Observation }> {

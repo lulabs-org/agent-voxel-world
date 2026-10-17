@@ -3,7 +3,11 @@ import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { VoiceServiceStore } from '../audio/voice-services';
-import { AGENT_ROLE_DESCRIPTION_LIMIT } from '@voxel/shared';
+import {
+  AGENT_ROLE_DESCRIPTION_LIMIT,
+  agentPermissions,
+  validateCapabilities,
+} from '@voxel/shared';
 import type {
   ChatData,
   AgentSettings,
@@ -174,7 +178,16 @@ export function validateAgent(
   );
   if (intervalMinMs > intervalMaxMs)
     throw new ManagementError('随机间隔下限不能大于上限。');
+  let capabilities;
+  try {
+    capabilities = validateCapabilities(input);
+  } catch (error) {
+    throw new ManagementError(
+      error instanceof Error ? error.message : '角色能力无效。',
+    );
+  }
   return {
+    ...capabilities,
     continuous: boolean(input.continuous, false),
     intervalMode,
     intervalMinMs,
@@ -214,7 +227,8 @@ export function validateAgent(
       128,
       16384,
     ),
-    allowEdits: boolean(input.allowEdits, false),
+    allowEdits:
+      capabilities.permissions.place && capabilities.permissions.remove,
     voiceReplies: boolean(input.voiceReplies, false),
     voiceServiceId: text(
       input.voiceServiceId,
@@ -463,7 +477,9 @@ export class AgentManager {
     if (job.view.sessionId)
       this.voiceServices?.bind(
         job.view.sessionId,
-        job.view.voiceReplies ? job.view.voiceServiceId || 'local-default' : '',
+        job.view.voiceReplies && agentPermissions(job.view).chat
+          ? job.view.voiceServiceId || 'local-default'
+          : '',
       );
   }
   list() {
@@ -643,16 +659,30 @@ export class AgentManager {
     );
     const currentGoal = job.memory.task?.goal ?? job.view.goal;
     const settings = validateAgent(
-      { ...job.view, goal: currentGoal, ...input },
+      {
+        ...job.view,
+        goal: currentGoal,
+        ...input,
+        permissions:
+          input.permissions !== undefined
+            ? input.permissions
+            : input.allowEdits !== undefined
+              ? undefined
+              : job.view.permissions,
+      },
       provider,
     );
     this.checkVoice(settings);
     job.updating = true;
     try {
       const session = job.session;
-      if (session && settings.voiceReplies !== job.view.voiceReplies) {
+      if (
+        session &&
+        (!!settings.voiceReplies && agentPermissions(settings).chat) !==
+          (!!job.view.voiceReplies && agentPermissions(job.view).chat)
+      ) {
         const result = await session.request('agent.voice', {
-          enabled: !!settings.voiceReplies,
+          enabled: !!settings.voiceReplies && agentPermissions(settings).chat,
         });
         if (!result.ok || job.session !== session || active(job.view.status))
           throw new ManagementError('语音开关未保存，请刷新后重试。', 409);
@@ -668,8 +698,7 @@ export class AgentManager {
       if (
         settings.goal !== currentGoal ||
         settings.providerId !== job.view.providerId ||
-        settings.model !== job.view.model ||
-        settings.allowEdits !== job.view.allowEdits
+        settings.model !== job.view.model
       ) {
         clearTimeout(job.timer);
         job.memory = {
@@ -683,6 +712,25 @@ export class AgentManager {
             : undefined,
         };
         job.attention.clear();
+      } else if (
+        JSON.stringify(agentPermissions(settings)) !==
+          JSON.stringify(agentPermissions(job.view)) ||
+        JSON.stringify(settings.skills) !== JSON.stringify(job.view.skills)
+      ) {
+        clearTimeout(job.timer);
+        job.attention.clear();
+        if (
+          job.memory.task &&
+          !['completed', 'cancelled'].includes(job.memory.task.status)
+        ) {
+          job.memory.task.status = 'paused';
+          job.memory.task.reason =
+            '角色技能或动作权限已修改，进度已保留，请确认后继续。';
+        }
+        job.view.logs = [
+          ...job.view.logs,
+          '角色能力已更新；后续按新权限重新规划，已有进度保留。',
+        ].slice(-40);
       }
       Object.assign(job.view, settings, { providerName: provider.name });
       this.bindVoice(job);
@@ -704,6 +752,8 @@ export class AgentManager {
     )
       throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
     const enabled = boolean(object(value).enabled, false);
+    if (enabled && !agentPermissions(job.view).chat)
+      throw new ManagementError('发送聊天权限已关闭，不能开启语音回复。');
     this.checkVoice({ ...job.view, voiceReplies: enabled });
     job.updating = true;
     try {
@@ -841,13 +891,15 @@ export class AgentManager {
               command.startsWith('取消') ? 'cancel' : 'pause',
             )
               .then(() =>
-                session.request('chat', {
-                  text: command.startsWith('取消')
-                    ? '任务已取消，我会留在这里待命。'
-                    : '任务已暂停，进度已保留。',
-                  scope: 'private',
-                  recipients: [event.actor],
-                }),
+                agentPermissions(job.view).chat
+                  ? session.request('chat', {
+                      text: command.startsWith('取消')
+                        ? '任务已取消，我会留在这里待命。'
+                        : '任务已暂停，进度已保留。',
+                      scope: 'private',
+                      recipients: [event.actor],
+                    })
+                  : undefined,
               )
               .catch(() => {});
             return;
@@ -876,7 +928,7 @@ export class AgentManager {
         log('已加入世界。');
       }
       const voiceResult = await job.session.request('agent.voice', {
-        enabled: !!job.view.voiceReplies,
+        enabled: !!job.view.voiceReplies && agentPermissions(job.view).chat,
       });
       this.bindVoice(job);
       if (!voiceResult.ok) log('语音回复开关未生效，请检查服务器版本。');

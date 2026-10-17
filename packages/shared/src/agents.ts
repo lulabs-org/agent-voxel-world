@@ -1,3 +1,4 @@
+import type { AgentPermissions, AgentSkillId } from './agent-capabilities';
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
 export const AGENT_ROLE_DESCRIPTION_LIMIT = 2000;
 export type ProviderView = {
@@ -29,7 +30,11 @@ export type AgentSettings = {
   intervalMs: number;
   timeoutMs: number;
   maxTokens: number;
-  allowEdits: boolean;
+  /** @deprecated Legacy input; use permissions for independent action control. */
+  allowEdits?: boolean;
+  /** Canonical permissions; absent only in legacy configurations. */
+  permissions?: AgentPermissions;
+  skills?: AgentSkillId[];
   voiceReplies?: boolean;
   voiceServiceId?: string;
   thinking: 'enabled' | 'disabled';

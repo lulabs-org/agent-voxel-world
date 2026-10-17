@@ -1,3 +1,4 @@
+import { agentPermissions } from '@voxel/shared';
 import { useState } from 'react';
 import type { ManagedAgentView } from '@voxel/shared';
 import type { ConsoleController } from './useConsoleController';
@@ -52,9 +53,11 @@ export function AgentDetail(
       </div>
       <div className="agents-presence-bar">
         <p>
-          {state.online
-            ? '可在世界中私聊或 @ 交流。关闭控制台后仍保持在线。'
-            : '上线后可交流；原任务会保留，由你决定是否继续。'}
+          {!agentPermissions(job).chat
+            ? '发送聊天已关闭，角色不会发送文字或语音回复。可在控制台安排任务和查看进展。'
+            : state.online
+              ? '可在世界中私聊或 @ 交流。关闭控制台后仍保持在线。'
+              : '上线后可交流；原任务会保留，由你决定是否继续。'}
         </p>
         {state.occupiesSlot ? (
           <button

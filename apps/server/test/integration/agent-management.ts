@@ -42,9 +42,11 @@ try {
   const store = new ProviderStore(join(dir, 'providers.json'));
   await store.load({ DEEPSEEK_API_KEY: 'fixture-secret' });
   const rolesInRequests: string[] = [];
+  const capabilitiesInRequests: unknown[] = [];
   const request: typeof fetch = async (_url, init) => {
     calls++;
     const body = JSON.parse(init!.body as string);
+    capabilitiesInRequests.push(JSON.parse(body.messages[1].content).character);
     rolesInRequests.push(
       JSON.parse(body.messages[1].content).character.roleDescription,
     );
@@ -55,7 +57,14 @@ try {
             finish_reason: 'stop',
             message: {
               content: JSON.stringify({
-                actions: [{ type: 'chat', text: 'Managed fixture hello' }],
+                actions:
+                  JSON.parse(body.messages[1].content).character
+                    .roleDescription === 'capability fixture'
+                    ? [
+                        { type: 'edit', x: 1, y: 3, z: 1, material: 'wood' },
+                        { type: 'chat', text: 'Forbidden capability receipt' },
+                      ]
+                    : [{ type: 'chat', text: 'Managed fixture hello' }],
                 task: {
                   intent: 'continue',
                   status: 'completed',
@@ -371,6 +380,74 @@ try {
     manager.list().find((j) => j.id === created[0])?.task?.status ===
       'completed',
   );
+  // A forbidden tail must prevent even the permitted edit at the head.
+  const beforeCapabilities = calls;
+  const permissions = { move: true, chat: false, place: true, remove: false };
+  const capabilityResponse = await api('', 'POST', {
+    providerId: 'deepseek',
+    name: 'Capability fixture',
+    startTask: false,
+    roleDescription: 'capability fixture',
+    skills: ['building', 'guide'],
+    permissions,
+  });
+  assert.equal(capabilityResponse.status, 201);
+  const capabilityJob = (await capabilityResponse.json()) as ManagedAgentView;
+  await until(
+    () =>
+      manager!.list().find((j) => j.id === capabilityJob.id)?.status === 'idle',
+  );
+  assert.equal(
+    calls,
+    beforeCapabilities,
+    'Skills never start work on their own',
+  );
+  assert.deepEqual(capabilityJob.permissions, permissions);
+  assert.deepEqual(capabilityJob.skills, ['building', 'guide']);
+  const revisionBefore = room.state.revision;
+  speaker = new Session(url.replace('http', 'ws'));
+  await speaker.join('Capability observer', 'human');
+  const emitted: unknown[] = [];
+  speaker.onEvent = (event) => {
+    if (event.type === 'chat') emitted.push(event);
+  };
+  assert.equal(
+    (
+      await api(`/${capabilityJob.id}/task`, 'POST', {
+        goal: 'Validate permissions',
+      })
+    ).status,
+    200,
+  );
+  await until(
+    () =>
+      calls > beforeCapabilities &&
+      manager!.list().find((j) => j.id === capabilityJob.id)?.status === 'idle',
+  );
+  assert.equal(
+    room.state.revision,
+    revisionBefore,
+    'No partial edit before rejecting a forbidden chat',
+  );
+  assert.equal(emitted.length, 0, 'No model chat or automatic receipt');
+  assert.deepEqual(
+    (capabilitiesInRequests.at(-1) as { permissions: unknown }).permissions,
+    permissions,
+  );
+  assert.deepEqual(
+    (capabilitiesInRequests.at(-1) as { skills: unknown }).skills,
+    ['building', 'guide'],
+  );
+  assert(
+    manager
+      .list()
+      .find((j) => j.id === capabilityJob.id)!
+      .logs.some((line) => line.includes('聊天权限')),
+  );
+  manager.stop(capabilityJob.id);
+  await speaker.close();
+  speaker = undefined;
+  await until(() => room.state.players.size === 3);
   await manager.close();
   await until(() => room.state.players.size === 0);
   assert(!JSON.stringify(manager.list()).includes('fixture-secret'));
@@ -405,7 +482,7 @@ try {
   for (const j of manager.list().filter((j) => j.sessionId)) manager.stop(j.id);
   await until(() => room.state.players.size === 0);
   console.log(
-    'PASS: origin guard, credential redaction, task completion stays online, reuse preserves player identity/position, task replacement, idle spends no inference, close/rejoin, online capacity and restart restoration without inference. Model responses are fixtures.',
+    'PASS: origin guard, credential redaction, task completion stays online, reuse preserves player identity/position, task replacement, idle spends no inference, close/rejoin, canonical capabilities, atomic permission rejection, silent chat denial, online capacity and restart restoration without inference. Model responses are fixtures.',
   );
 } finally {
   await speaker?.close();

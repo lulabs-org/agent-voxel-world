@@ -1,3 +1,4 @@
+import { resolvePermissions, type AgentPermissions } from '@voxel/shared';
 import { inBounds, key, distance } from '@voxel/shared';
 import { setTimeout as pause } from 'node:timers/promises';
 import type {
@@ -28,9 +29,9 @@ export function parsePlannedEdit(value: unknown): PlannedEdit {
 
 export function parseBuildAction(
   a: Record<string, unknown>,
-  allowEdits: boolean,
+  allowEdits: boolean | AgentPermissions,
 ): BuildAction {
-  if (!allowEdits) throw Error('方块修改未开启；本轮不执行。');
+  const permissions = resolvePermissions(allowEdits);
   if (a.type === 'build') {
     if (
       !Array.isArray(a.blocks) ||
@@ -39,10 +40,15 @@ export function parseBuildAction(
     )
       throw Error(`批量建造需包含 1–${MAX_BATCH_BLOCKS} 个方块。`);
     const blocks = a.blocks.map(parsePlannedEdit);
+    if (
+      blocks.some((b) => !permissions[b.material === null ? 'remove' : 'place'])
+    )
+      throw Error('方块修改未开启：批次缺少放置或拆除权限。');
     if (new Set(blocks.map(key)).size !== blocks.length)
       throw Error('同一批次不能重复修改同一位置。');
     return { type: 'build', blocks };
   }
+  if (!permissions.place) throw Error('方块修改未开启：缺少放置权限。');
   const origin = parsePlannedEdit(a);
   if (
     a.type !== 'house' ||

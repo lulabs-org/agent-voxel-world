@@ -1,3 +1,4 @@
+import { agentPermissions } from '@voxel/shared';
 import type { AgentTask, ChatData } from '@voxel/shared';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
@@ -134,7 +135,7 @@ export async function runTaskStep(
   );
   const decisionSignal = AbortSignal.any([signal, deadline.signal]);
   const notifySender = async (text: string) => {
-    if (!addressed || signal.aborted) return;
+    if (!addressed || signal.aborted || !agentPermissions(config).chat) return;
     try {
       const payload = {
         text: text.slice(0, 240),
@@ -158,7 +159,7 @@ export async function runTaskStep(
     decisionSignal.throwIfAborted();
     let decision;
     try {
-      decision = parseDecision(input, config.allowEdits);
+      decision = parseDecision(input, agentPermissions(config));
     } catch (error) {
       throw new AgentRuntimeError(
         error instanceof Error ? error.message : '模型决策格式无效。',
@@ -191,12 +192,13 @@ export async function runTaskStep(
         ((task.owner && task.owner !== addressed.actor) ||
           (task.privateTo && task.privateTo !== privateTo))
       ) {
-        await session.request('chat', {
-          text: '我还有正在处理的任务，请由任务发起者修改或取消，或在控制台安排新任务。',
-          scope: 'private',
-          recipients: [addressed.actor],
-        });
-        memory.lastResponse = '保留原任务，已提示任务发起者限制。';
+        if (agentPermissions(config).chat)
+          await session.request('chat', {
+            text: '我还有正在处理的任务，请由任务发起者修改或取消，或在控制台安排新任务。',
+            scope: 'private',
+            recipients: [addressed.actor],
+          });
+        memory.lastResponse = '保留原任务：仅任务发起者可修改或取消。';
         return;
       }
       if (d.intent === 'task') {
@@ -217,11 +219,12 @@ export async function runTaskStep(
         ['completed', 'cancelled', 'budget'].includes(task!.status)
       ) {
         // Budget extensions are operator-controlled, never reset by a chat loop.
-        await session.request('chat', {
-          text: '这个任务已结束或达到预算，请在控制台确认后继续或布置新任务。',
-          scope: 'private',
-          recipients: [addressed!.actor],
-        });
+        if (agentPermissions(config).chat)
+          await session.request('chat', {
+            text: '这个任务已结束或达到预算，请在控制台确认后继续或布置新任务。',
+            scope: 'private',
+            recipients: [addressed!.actor],
+          });
         return;
       }
       if (!['pause', 'cancel'].includes(d.intent)) {
@@ -279,7 +282,7 @@ export async function runTaskStep(
         session,
         routed,
         observation,
-        config.allowEdits,
+        agentPermissions(config),
         AbortSignal.any([decisionSignal, actionLimit.signal]),
         {
           pending: (index) =>

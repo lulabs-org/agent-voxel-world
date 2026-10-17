@@ -100,3 +100,23 @@ describe('agent prompt boundary', () => {
     );
   });
 });
+
+it('uses shared skill guidance without granting permissions or starting tasks', () => {
+  const permissions = { move: false, chat: false, place: false, remove: true };
+  const messages = buildMessages(
+    observation(),
+    { task: { goal: '移除方块' } },
+    { allowEdits: true, skills: ['building', 'guide'], permissions },
+  );
+  expect(messages[0].content).toContain('建筑规划');
+  expect(messages[0].content).toContain('导览讲解');
+  expect(messages[0].content).not.toContain('探索勘察:');
+  expect(messages[0].content).toContain(
+    'Skills guide planning only; they do not grant permissions or start tasks.',
+  );
+  expect(messages[0].content).toContain('If chat is disabled use wait');
+  expect(JSON.parse(messages[1].content).character).toMatchObject({
+    skills: ['building', 'guide'],
+    permissions,
+  });
+});

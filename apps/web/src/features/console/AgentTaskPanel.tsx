@@ -1,3 +1,4 @@
+import { agentPermissions, AGENT_PERMISSIONS } from '@voxel/shared';
 import { useState } from 'react';
 import type { ManagedAgentView } from '@voxel/shared';
 import type { ConsoleController } from './useConsoleController';
@@ -157,9 +158,11 @@ export function AgentTaskPanel(
             <span className="agents-section-label">任务</span>
             <h4>接下来，一起做点什么？</h4>
             <p>
-              让它观察附近环境，或在允许建造后协助搭建。
+              让它观察附近环境，或在开启放置方块权限后协助搭建。
               <br />
-              也可以先在世界中聊聊。
+              {agentPermissions(job).chat
+                ? '也可以先在世界中聊聊。'
+                : '发送聊天已关闭，进展会显示在控制台。'}
             </p>
             <button
               className="primary"
@@ -196,9 +199,11 @@ export function AgentTaskPanel(
             {state.online
               ? '角色将在当前位置开始。'
               : '角色将加入世界并开始执行。'}
-            {!job.allowEdits
-              ? '当前未开启建造权限，只能探索与交流。'
-              : '已允许放置和移除方块。'}
+            {'已开启权限：' +
+              (AGENT_PERMISSIONS.filter(({ id }) => agentPermissions(job)[id])
+                .map(({ name }) => name)
+                .join('、') || '仅基础观察与等待') +
+              '。'}
           </p>
           <div className="agents-actions">
             <button

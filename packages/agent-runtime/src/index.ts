@@ -1,3 +1,4 @@
+export { agentPermissions } from '@voxel/shared';
 export type {
   Observation,
   Result,

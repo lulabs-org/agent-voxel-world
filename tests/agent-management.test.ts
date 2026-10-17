@@ -262,3 +262,46 @@ describe('managed scheduling validation', () => {
       ).toThrow();
   });
 });
+
+it('migrates legacy permissions and validates canonical capability settings', () => {
+  const p = provider();
+  const input = { name: 'Capabilities' };
+  expect(validateAgent(input, p)).toMatchObject({
+    skills: [],
+    permissions: { move: true, chat: true, place: false, remove: false },
+  });
+  expect(validateAgent({ ...input, allowEdits: true }, p).permissions).toEqual({
+    move: true,
+    chat: true,
+    place: true,
+    remove: true,
+  });
+  const permissions = { move: false, chat: false, place: true, remove: false };
+  expect(
+    validateAgent(
+      {
+        ...input,
+        allowEdits: true,
+        permissions,
+        skills: ['guide', 'building', 'guide'],
+      },
+      p,
+    ),
+  ).toMatchObject({
+    permissions,
+    allowEdits: false,
+    skills: ['building', 'guide'],
+  });
+  for (const invalid of [
+    { permissions: null },
+    { permissions: true },
+    { permissions: [] },
+    { permissions: { move: true } },
+    { permissions: { ...permissions, remove: 'true' } },
+    { permissions: { ...permissions, shell: true } },
+    { skills: 'building' },
+    { skills: ['shell'] },
+    { skills: null },
+  ])
+    expect(() => validateAgent({ ...input, ...invalid }, p)).toThrow();
+});

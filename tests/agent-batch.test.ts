@@ -712,3 +712,139 @@ it.each([
     '格式无效',
   );
 });
+
+describe('independent action permissions', () => {
+  const all = { move: true, chat: true, place: true, remove: true };
+  it.each([
+    ['move', move],
+    ['chat', chat],
+    ['place', edit()],
+    ['remove', edit(1, null)],
+    [
+      'place',
+      {
+        type: 'house',
+        x: 1,
+        y: 3,
+        z: 1,
+        width: 3,
+        depth: 3,
+        height: 4,
+        material: 'wood',
+        door: 'south',
+      },
+    ],
+  ] as const)(
+    'blocks %s in parsing and execution before any batch effects',
+    async (permission, action) => {
+      const f = fixture();
+      const policy = { ...all, [permission]: false };
+      expect(() => parseDecision({ actions: [action], task }, policy)).toThrow(
+        '权限',
+      );
+      await expect(
+        executeBatch(
+          f.session,
+          [{ type: 'wait' }],
+          f.world,
+          policy,
+          f.abort.signal,
+        ),
+      ).resolves.toBeDefined();
+      f.request.mockClear();
+      f.observe.mockClear();
+      await expect(
+        executeBatch(
+          f.session,
+          [edit(2), action as AgentAction],
+          f.world,
+          policy,
+          f.abort.signal,
+        ),
+      ).rejects.toThrow('权限');
+      expect(f.request).not.toHaveBeenCalled();
+      expect(f.sendMove).not.toHaveBeenCalled();
+      expect(f.observe).not.toHaveBeenCalled();
+    },
+  );
+  it('permits place-only houses, remove-only batches and rejects mixed unauthorized builds', async () => {
+    const house = {
+      type: 'house',
+      x: 1,
+      y: 3,
+      z: 1,
+      width: 3,
+      depth: 3,
+      height: 4,
+      material: 'wood',
+      door: 'south',
+    };
+    expect(
+      parseDecision({ actions: [house], task }, { ...all, remove: false })
+        .actions[0].type,
+    ).toBe('house');
+    expect(
+      parseDecision(
+        {
+          actions: [
+            { type: 'build', blocks: [{ x: 1, y: 3, z: 1, material: null }] },
+          ],
+          task,
+        },
+        { ...all, place: false },
+      ).actions[0].type,
+    ).toBe('build');
+    const f = fixture();
+    await expect(
+      executeBatch(
+        f.session,
+        [
+          {
+            type: 'build',
+            blocks: [
+              { x: 1, y: 3, z: 1, material: 'wood' },
+              { x: 2, y: 3, z: 1, material: null },
+            ],
+          },
+        ],
+        f.world,
+        { ...all, remove: false },
+        f.abort.signal,
+      ),
+    ).rejects.toThrow('权限');
+    expect(f.request).not.toHaveBeenCalled();
+  });
+  it('does not send a runtime error receipt when chat is disabled', async () => {
+    const f = runtimeFixture();
+    f.message();
+    f.planner.decide.mockResolvedValue({
+      actions: [chat],
+      task: { intent: 'reply', status: 'completed', summary: '非法回复' },
+    });
+    await f.step({ ...config(), permissions: { ...all, chat: false } });
+    expect(f.request.mock.calls.filter(([type]) => type === 'chat')).toEqual(
+      [],
+    );
+    expect(f.memory.decisionError).toContain('聊天');
+  });
+  it.each(['owner', 'ended'] as const)(
+    'does not send the %s task-control receipt without chat permission',
+    async (scenario) => {
+      const f = runtimeFixture();
+      f.message();
+      f.memory.task!.owner = scenario === 'owner' ? 'someone-else' : 'human';
+      f.memory.task!.status = scenario === 'owner' ? 'running' : 'completed';
+      f.planner.decide.mockResolvedValue({
+        actions: [{ type: 'wait' }],
+        task: { intent: 'resume', status: 'running', summary: '请求继续' },
+      });
+      await f.step({ ...config(), permissions: { ...all, chat: false } });
+      expect(f.request.mock.calls.filter(([type]) => type === 'chat')).toEqual(
+        [],
+      );
+      expect(f.memory.task!.status).toBe(
+        scenario === 'owner' ? 'running' : 'completed',
+      );
+    },
+  );
+});

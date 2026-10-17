@@ -1,3 +1,4 @@
+import type { AgentPermissions } from '@voxel/shared';
 import type { AgentDecision } from '../contracts';
 import { parseActions } from '../actions/parse';
 import { parseTaskDirective } from './task';
@@ -5,7 +6,7 @@ import { parseTaskDirective } from './task';
 /** Strict model and runtime boundary: validate the complete actions/task object before effects. */
 export function parseDecision(
   value: unknown,
-  allowEdits: boolean,
+  allowEdits: boolean | AgentPermissions,
 ): AgentDecision {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw Error('模型决策格式无效。');

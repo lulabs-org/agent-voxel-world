@@ -1,9 +1,13 @@
+import { resolvePermissions, type AgentPermissions } from '@voxel/shared';
 import { inBounds, parseChatRoute, type Material } from '@voxel/shared';
 import type { AgentAction } from '../contracts';
 import { parseBuildAction } from './building';
 
 /** Model output is data: only these actions and bounded arguments can execute. */
-export function parseAction(value: unknown, allowEdits: boolean): AgentAction {
+export function parseAction(
+  value: unknown,
+  allowEdits: boolean | AgentPermissions,
+): AgentAction {
   const fail = () => {
     throw Error('模型动作无效或不在允许范围内。');
   };
@@ -17,12 +21,15 @@ export function parseAction(value: unknown, allowEdits: boolean): AgentAction {
     case 'wait':
       return { type: 'wait' };
     case 'chat':
+      if (!resolvePermissions(allowEdits).chat)
+        throw Error('发送聊天权限未开启。');
       if (typeof a.text !== 'string' || !a.text.trim() || a.text.length > 240)
         return fail();
       if (a.scope === undefined && a.recipients === undefined)
         return { type: 'chat', text: a.text.trim() };
       return { type: 'chat', text: a.text.trim(), ...parseChatRoute(a) };
     case 'move':
+      if (!resolvePermissions(allowEdits).move) throw Error('移动权限未开启。');
       if (
         typeof a.x !== 'number' ||
         !Number.isFinite(a.x) ||
@@ -44,7 +51,12 @@ export function parseAction(value: unknown, allowEdits: boolean): AgentAction {
         durationMs: Number(a.durationMs),
       };
     case 'edit': {
-      if (!allowEdits) throw Error('方块修改未开启；本轮不执行。');
+      if (
+        !resolvePermissions(allowEdits)[
+          a.material === null ? 'remove' : 'place'
+        ]
+      )
+        throw Error('方块修改未开启：缺少放置或拆除权限。');
       const position = { x: a.x as number, y: a.y as number, z: a.z as number };
       if (
         !inBounds(position) ||
@@ -69,7 +81,7 @@ export const MAX_ACTIONS = 8;
 
 export function parseActions(
   value: unknown,
-  allowEdits: boolean,
+  allowEdits: boolean | AgentPermissions,
 ): AgentAction[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_ACTIONS)
     throw Error(`动作序列须包含 1–${MAX_ACTIONS} 个动作。`);

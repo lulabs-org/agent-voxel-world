@@ -49,7 +49,7 @@ function fakeSession(wait = Promise.resolve()) {
       async () =>
         ({ self: { id: 'player-1' }, events: [] }) as unknown as Observation,
     ),
-    request: vi.fn(async () => ({ ok: true })),
+    request: vi.fn(async (_type: string, _payload?: unknown) => ({ ok: true })),
   };
   return session;
 }
@@ -650,4 +650,157 @@ it('standby creation validates the launch choice and still enforces online capac
   expect(() => m.create({ ...settings, startTask: false })).toThrow(
     '最多同时在线',
   );
+});
+
+it('retains capability settings and construction progress across edits, reload and resume', async () => {
+  const { readFile, writeFile } = await import('node:fs/promises');
+  const s = fakeSession();
+  const decide = vi.fn<Planner['decide']>(async () => ({
+    actions: [{ type: 'wait' }],
+    task: {
+      intent: 'continue',
+      status: 'needs_input',
+      summary: '地基已完成，等待确认',
+    },
+  }));
+  const m = setup(s, decide);
+  const created = m.create({
+    ...settings,
+    maxTurns: 30,
+    allowEdits: true,
+    intervalMs: 60000,
+  });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.close();
+  const path = `${store.path}.agents.json`;
+  const archive = JSON.parse(await readFile(path, 'utf8'));
+  const block = { x: 10, y: 3, z: 1, material: 'wood' };
+  const unfinishedBuild = {
+    action: { type: 'build', blocks: [block] },
+    result: {
+      ok: false,
+      total: 2,
+      completed: 1,
+      skipped: 0,
+      remaining: [block],
+      uncertain: [block],
+      failures: [],
+      note: '等待确认',
+    },
+  };
+  archive[0].runtime.unfinishedBuild = unfinishedBuild;
+  // Simulate a pre-capability archive without losing its task history.
+  delete archive[0].permissions;
+  delete archive[0].skills;
+  await writeFile(path, JSON.stringify(archive));
+  const restored = setup(fakeSession(), decide);
+  await restored.load();
+  await vi.waitFor(() => expect(restored.list()[0].status).toBe('idle'));
+  expect(restored.list()[0].permissions).toEqual({
+    move: true,
+    chat: true,
+    place: true,
+    remove: true,
+  });
+  const before = structuredClone(restored.list()[0]);
+  const permissions = { move: false, chat: true, place: true, remove: false };
+  await restored.update(created.id, {
+    skills: ['building', 'exploration'],
+    permissions,
+  });
+  const updated = restored.list()[0];
+  expect(updated.task).toEqual({
+    ...before.task,
+    status: 'paused',
+    reason: expect.stringContaining('进度已保留'),
+  });
+  expect(updated.usage).toEqual(before.usage);
+  expect(decide).toHaveBeenCalledTimes(1);
+  const saved = JSON.parse(await readFile(path, 'utf8'))[0];
+  expect(saved.runtime.unfinishedBuild).toEqual(unfinishedBuild);
+  expect(saved.runtime.previous).toEqual(archive[0].runtime.previous);
+  await restored.close();
+  const finalSession = fakeSession();
+  const finalManager = setup(finalSession, decide);
+  await finalManager.load();
+  expect(finalManager.list()[0]).toMatchObject({
+    permissions,
+    skills: ['building', 'exploration'],
+    task: { status: 'paused', calls: before.task!.calls },
+  });
+  finalManager.resume(created.id);
+  await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
+  await vi.waitFor(() => expect(finalManager.list()[0].status).toBe('idle'));
+  expect(finalManager.list()[0].task!.calls).toBe(before.task!.calls + 1);
+  expect(finalSession.move).not.toHaveBeenCalled();
+  expect(
+    finalSession.request.mock.calls.filter(([type]) => type === 'edit'),
+  ).toEqual([]);
+  const context = decide.mock.calls[1][1] as {
+    previous?: unknown;
+    unfinishedBuild?: unknown;
+  };
+  expect(context.unfinishedBuild).toBeDefined();
+});
+
+it.each(['completed', 'cancelled'] as const)(
+  'keeps %s tasks ended when capabilities change',
+  async (status) => {
+    const m = setup(fakeSession());
+    const job = m.create(settings);
+    await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+    if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
+    const task = structuredClone(m.list()[0].task);
+    await m.update(job.id, {
+      skills: ['guide'],
+      permissions: { move: false, chat: false, place: false, remove: false },
+    });
+    expect(m.list()[0].task).toEqual(task);
+  },
+);
+
+it('suppresses voice bindings and direct pause receipts while retaining the saved voice preference', async () => {
+  const voices = new VoiceServiceStore(join(dir, 'voices.json'));
+  await voices.load();
+  const bind = vi.spyOn(voices, 'bind');
+  const s = fakeSession();
+  const decide = vi.fn<Planner['decide']>(async () => ({
+    actions: [{ type: 'wait' }],
+    task: { intent: 'continue', status: 'needs_input', summary: '等待确认' },
+  }));
+  const m = setup(s, decide, voices);
+  const job = m.create({ ...settings, maxTurns: 30, voiceReplies: true });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.update(job.id, {
+    skills: ['guide'],
+    permissions: { move: true, chat: false, place: false, remove: false },
+  });
+  expect(m.list()[0].voiceReplies).toBe(true);
+  expect(s.request).toHaveBeenCalledWith('agent.voice', { enabled: false });
+  expect(bind).toHaveBeenLastCalledWith('player-1', '');
+  await expect(m.setVoice(job.id, { enabled: true })).rejects.toThrow(
+    '聊天权限',
+  );
+  s.request.mockClear();
+  s.onEvent!({
+    seq: 5,
+    at: Date.now(),
+    type: 'chat',
+    actor: 'human',
+    actorKind: 'human',
+    data: {
+      scope: 'private',
+      recipients: ['player-1'],
+      kind: 'text',
+      text: '取消任务',
+      name: 'Person',
+    },
+  });
+  await vi.waitFor(() => expect(m.list()[0].task!.status).toBe('cancelled'));
+  expect(s.request.mock.calls.filter(([type]) => type === 'chat')).toEqual([]);
+  await m.update(job.id, {
+    permissions: { move: true, chat: true, place: false, remove: false },
+  });
+  expect(s.request).toHaveBeenCalledWith('agent.voice', { enabled: true });
+  expect(bind).toHaveBeenLastCalledWith('player-1', 'local-default');
 });

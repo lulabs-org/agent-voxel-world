@@ -1,3 +1,4 @@
+import { agentPermissions } from '@voxel/shared';
 import OpenAI from 'openai';
 import type {
   AgentConfig,
@@ -115,7 +116,7 @@ export class ModelPlanner implements Planner {
         throw new AgentRuntimeError('模型返回的 JSON 无法解析，本轮跳过。');
       }
       try {
-        return parseDecision(value, this.config.allowEdits);
+        return parseDecision(value, agentPermissions(this.config));
       } catch (error) {
         throw new AgentRuntimeError(
           `模型返回格式无效：${error instanceof Error ? error.message : '决策无法解析。'}本次未执行。`,
