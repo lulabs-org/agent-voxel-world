@@ -277,7 +277,7 @@ export function SpeechRecognitionPanel({
             同一服务商可保存多份模型配置。选择服务，在右侧配置并试用。
           </p>
         </aside>
-        <div className="agent-form">
+        <div className="agent-form console-panel">
           {asr.error && (
             <p role="alert" className="agent-error">
               {asr.error}
@@ -294,8 +294,8 @@ export function SpeechRecognitionPanel({
             models={capabilities?.whisperModels}
           />
           {!isBrowser && asr.selected?.provider === 'whisper' && (
-            <>
-              <h3>Whisper 服务状态</h3>
+            <section className="console-panel-section">
+              <h4>Whisper 服务状态</h4>
               <p role="status" aria-live="polite" aria-atomic="true">
                 {checking
                   ? '正在检查服务…'
@@ -341,7 +341,7 @@ export function SpeechRecognitionPanel({
                   <code>pnpm voice:setup</code> 准备识别模型。
                 </p>
               )}
-            </>
+            </section>
           )}
           <section className="voice-preview" aria-label="语音识别试用">
             <h4>试用语音识别</h4>

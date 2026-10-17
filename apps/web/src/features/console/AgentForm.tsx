@@ -47,7 +47,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
           {!editingAgent && <h4>创建一位新伙伴</h4>}
           <p>
             {editingAgent
-              ? '设定伙伴的身份、职责与能力；具体任务在“任务”页单独安排。'
+              ? '设定伙伴的身份、职责与能力；具体任务在“定时任务”页单独安排。'
               : '先取个名字、选择已保存的模型服务，再决定它如何加入世界。'}
           </p>
         </div>

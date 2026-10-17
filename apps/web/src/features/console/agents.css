@@ -91,17 +91,6 @@
   line-height: 1.8;
   padding: 12px 0;
 }
-.agents-main {
-  min-width: 0;
-  border: 1px solid var(--agents-border);
-  border-radius: 12px;
-  background: var(--agents-paper);
-  box-shadow: 0 2px 8px #24412d04;
-  overflow: hidden;
-}
-.agents-detail {
-  padding: 22px;
-}
 .agents-detail-heading {
   display: flex;
   align-items: center;
@@ -314,9 +303,6 @@
 .agents-task-empty .agents-section-label {
   margin-bottom: 18px;
 }
-.agents-profile {
-  padding: 22px;
-}
 .agents-detail .agents-profile {
   padding: 0;
 }
@@ -485,10 +471,6 @@
   outline-offset: 3px;
 }
 @media (max-width: 900px) {
-  .agents-detail,
-  .agents-profile {
-    padding: 18px;
-  }
   .agents-detail-heading {
     flex-wrap: wrap;
   }

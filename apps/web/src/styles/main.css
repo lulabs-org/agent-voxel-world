@@ -1042,6 +1042,24 @@ footer {
 .agent-form textarea {
   resize: vertical;
 }
+/* Keep the native select interaction, with consistent inset for its indicator. */
+#control-console select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4.5 3 3 3-3' fill='none' stroke='%2366796e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 12px;
+  text-overflow: ellipsis;
+}
+@media (forced-colors: active) {
+  #control-console select:not([multiple]) {
+    appearance: auto;
+    -webkit-appearance: auto;
+    background-image: none;
+  }
+}
 .agent-form button + label {
   margin-top: 14px;
 }
@@ -2110,5 +2128,153 @@ footer {
   }
   .console-sidebar-note {
     display: none;
+  }
+}
+
+/* Shared content surface for all console categories. */
+.console-panel {
+  --agents-border: #dce3d8;
+  --agents-muted: #66796e;
+  --agents-paper: #fffef9;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--agents-border);
+  border-radius: 12px;
+  background: var(--agents-paper);
+  box-shadow: 0 2px 8px #24412d04;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.console-agent-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.console-agent-panel > .agents-detail,
+.console-agent-panel > .agents-profile {
+  padding: 20px;
+}
+.console-panel-heading {
+  display: block;
+  margin-bottom: 18px;
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--agents-border);
+  background: transparent;
+  box-shadow: none;
+}
+.agent-dialog .console-panel-heading h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+.console-panel-heading p {
+  margin: 6px 0 0;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.console-panel .agent-hint {
+  margin: 8px 0 12px;
+  color: var(--agents-muted);
+}
+.console-panel.agent-form input:not([type='checkbox']):not([type='radio']),
+.console-panel.agent-form select,
+.console-panel .agent-form input:not([type='checkbox']):not([type='radio']),
+.console-panel .agent-form select {
+  min-height: 36px;
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+.console-panel.agent-form textarea,
+.console-panel .agent-form textarea {
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.console-panel .agents-form-section,
+.console-panel .console-panel-section,
+.console-panel .voice-preview {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--agents-border);
+}
+.console-panel .agents-form-section h4,
+.console-panel .console-panel-section h4,
+.console-panel .voice-preview h4 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 20px;
+}
+.console-panel .console-form-actions,
+.console-panel .agents-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--agents-border);
+}
+.agent-dialog
+  .console-panel
+  :is(
+    .agent-actions,
+    .voice-service-actions,
+    .agents-form-footer,
+    .agents-actions
+  )
+  > button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid var(--agents-border);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  line-height: 18px;
+}
+.agent-dialog
+  .console-panel
+  :is(
+    .agent-actions,
+    .voice-service-actions,
+    .agents-form-footer,
+    .agents-actions
+  )
+  > button.primary {
+  background: #314f42;
+  border-color: #314f42;
+  color: white;
+}
+.agent-dialog
+  .console-panel
+  :is(
+    .agent-actions,
+    .voice-service-actions,
+    .agents-form-footer,
+    .agents-actions
+  )
+  > button:hover:not(:disabled) {
+  background: #edf2e6;
+  color: #304c40;
+}
+.console-panel .console-help-link {
+  display: inline-block;
+  font-size: 11px;
+  color: #4b6b55;
+  text-underline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .console-panel,
+  .console-agent-panel > .agents-detail,
+  .console-agent-panel > .agents-profile {
+    padding: 16px;
+  }
+  .console-agent-panel {
+    padding: 0;
+  }
+  .console-panel .agent-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

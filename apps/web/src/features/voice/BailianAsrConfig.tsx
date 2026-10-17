@@ -46,11 +46,10 @@ export function BailianAsrConfig({
         );
       }}
     >
-      <h3>{saved ? '编辑识别服务' : '添加识别服务'}</h3>
-      <p className="agent-hint">
-        每次添加都会创建独立服务，可分别保存浏览器识别的语言，或
-        Whisper、阿里云的模型与参数。
-      </p>
+      <div className="console-panel-heading">
+        <h3>{saved ? '编辑识别服务' : '添加识别服务'}</h3>
+        <p>配置语音识别的语言、模型与参数；每份服务独立保存。</p>
+      </div>
       <fieldset disabled={busy || disabled}>
         <label>
           服务名称
@@ -243,8 +242,12 @@ export function BailianAsrConfig({
             </div>
           </>
         )}
-        <div className="voice-service-actions">
-          <button type="submit" disabled={!dirty || manager.loading}>
+        <div className="voice-service-actions console-form-actions">
+          <button
+            className="primary"
+            type="submit"
+            disabled={!dirty || manager.loading}
+          >
             {busy ? '处理中…' : '保存识别服务'}
           </button>
           {!saved && manager.canAddAnother && (
@@ -284,6 +287,7 @@ export function BailianAsrConfig({
             试用；聊天和附近语音继续使用 Whisper。
           </p>
           <a
+            className="console-help-link"
             href="https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide"
             target="_blank"
             rel="noreferrer"

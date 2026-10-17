@@ -132,7 +132,10 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
               : '角色离开世界后仍保留设置，下次可以再次加入。'}
           </p>
         </aside>
-        <div className="agents-main" aria-busy={busy || loadingJobs}>
+        <div
+          className="agents-main console-panel console-agent-panel"
+          aria-busy={busy || loadingJobs}
+        >
           {creating ? (
             <AgentForm {...props} disabled={disabled || onlineCount >= 4} />
           ) : current ? (

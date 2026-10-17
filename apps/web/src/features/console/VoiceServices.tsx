@@ -155,17 +155,19 @@ export function VoiceServices({
           同一服务商可保存多份音色配置，供不同 Agent 复用。
         </p>
       </aside>
-      <div className="agent-form">
+      <div className="agent-form console-panel">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void save();
           }}
         >
-          <h3>{selected ? '编辑语音服务' : '添加语音服务'}</h3>
-          <p className="agent-hint">
-            将 Agent 的文字回复合成为声音；回复内容仍由 Agent 的思考模型决定。
-          </p>
+          <div className="console-panel-heading">
+            <h3>{selected ? '编辑语音服务' : '添加语音服务'}</h3>
+            <p>
+              将 Agent 的文字回复合成为声音；回复内容仍由 Agent 的思考模型决定。
+            </p>
+          </div>
           {error && (
             <p className="agent-error" role="alert">
               {error}
@@ -346,7 +348,7 @@ export function VoiceServices({
                 longanhuan_v3.1。音色须与模型及地域匹配。
               </p>
             )}
-            <div className="voice-service-actions">
+            <div className="voice-service-actions console-form-actions">
               <button className="primary" disabled={!dirty}>
                 {busy ? '保存中…' : '保存服务'}
               </button>

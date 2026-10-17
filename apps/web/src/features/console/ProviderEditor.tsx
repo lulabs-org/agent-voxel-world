@@ -79,8 +79,11 @@ export function ProviderEditor({
           密钥仅保存在本机服务端，不会返回到浏览器。已有环境变量会在首次启动时导入。
         </p>
       </aside>
-      <form onSubmit={saveProvider} className="agent-form">
-        <h3>{editing ? '编辑模型服务' : '添加模型服务'}</h3>
+      <form onSubmit={saveProvider} className="agent-form console-panel">
+        <div className="console-panel-heading">
+          <h3>{editing ? '编辑模型服务' : '添加模型服务'}</h3>
+          <p>配置模型连接与推理参数，供角色执行任务和回复消息。</p>
+        </div>
         <fieldset disabled={busy || loadingModels}>
           <label>
             服务名称
@@ -302,7 +305,7 @@ export function ProviderEditor({
             兼容接口。保存配置不会启动推理；新建或继续运行 Agent
             时使用最新配置。
           </p>
-          <div className="agent-actions">
+          <div className="agent-actions console-form-actions">
             <button className="primary">
               {busy ? '保存中…' : '保存模型服务'}
             </button>

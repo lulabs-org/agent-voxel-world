@@ -102,6 +102,13 @@ export function AgentDetail(
       )}
       <nav className="agents-detail-nav" aria-label="角色工作区分类">
         <button
+          aria-pressed={editing}
+          disabled={disabled}
+          onClick={() => openAgentEditor(job)}
+        >
+          角色设置
+        </button>
+        <button
           aria-pressed={!editing && view === 'task'}
           onClick={() => {
             setShowAgentForm(false);
@@ -110,14 +117,7 @@ export function AgentDetail(
             setNotice('');
           }}
         >
-          任务
-        </button>
-        <button
-          aria-pressed={editing}
-          disabled={disabled}
-          onClick={() => openAgentEditor(job)}
-        >
-          角色设置
+          定时任务
         </button>
         <button
           aria-pressed={!editing && view === 'activity'}
