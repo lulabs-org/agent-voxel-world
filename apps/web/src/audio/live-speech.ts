@@ -22,6 +22,7 @@ export function speechTransport(
   language: string,
   token?: () => string,
   request: typeof fetch = (url, init) => fetch(url, init),
+  serviceId?: string,
 ): SpeechTransport {
   const credential = token?.();
   const headers = (): Record<string, string> =>
@@ -49,7 +50,7 @@ export function speechTransport(
     recognize: async (id, audio, partial, signal) => {
       const path = token
         ? `/chat/spatial/${encodeURIComponent(id)}${partial ? '/preview' : ''}`
-        : `/voice/transcribe?language=${language.startsWith('zh') ? 'zh' : 'en'}${partial ? '&partial=1' : ''}`;
+        : `/voice/transcribe?language=${language.startsWith('zh') ? 'zh' : 'en'}${partial ? '&partial=1' : ''}${serviceId ? `&serviceId=${encodeURIComponent(serviceId)}` : ''}`;
       const value = await call(path, signal, audio);
       if (
         typeof value.text !== 'string' ||

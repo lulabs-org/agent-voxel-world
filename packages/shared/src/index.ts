@@ -1,5 +1,6 @@
 export * from './chat';
 export * from './voice-services';
+export * from './asr';
 export const WORLD_ID = 'meadow';
 export type {
   ProviderType,

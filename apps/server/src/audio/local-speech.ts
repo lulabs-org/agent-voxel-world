@@ -1,3 +1,5 @@
+import type { WhisperAsrSettings } from '@voxel/shared';
+import { whisperModelPath } from './whisper-settings';
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
 import {
@@ -109,10 +111,12 @@ export class LocalSpeech {
     private ffmpeg = process.env.FFMPEG_BIN ?? 'ffmpeg',
     private runner: CommandRunner = run,
   ) {}
-  async status() {
+  async status(settings?: WhisperAsrSettings) {
     try {
       const [model, whisper, ffmpeg] = await Promise.all([
-        stat(this.model),
+        stat(
+          settings ? whisperModelPath(settings.model, this.model) : this.model,
+        ),
         executable(this.whisper),
         executable(this.ffmpeg),
       ]);
@@ -130,7 +134,9 @@ export class LocalSpeech {
     } catch {
       return {
         available: false,
-        reason: '缺少本地语音模型，请运行 pnpm voice:setup 后重试。',
+        reason: settings
+          ? '所选 Whisper 模型不可用，请确认模型已安装在服务器。'
+          : '缺少本地语音模型，请运行 pnpm voice:setup 后重试。',
       };
     }
   }
@@ -187,6 +193,7 @@ export class LocalSpeech {
     contentType: string,
     language: string,
     signal: AbortSignal,
+    settings?: WhisperAsrSettings,
   ) {
     const format = formats[contentType.split(';')[0].trim().toLowerCase()];
     if (!format)
@@ -203,7 +210,7 @@ export class LocalSpeech {
     this.busy = true;
     let dir: string | undefined;
     try {
-      const status = await this.status();
+      const status = await this.status(settings);
       if (!status.available) throw new SpeechError(status.reason, 503);
       signal.throwIfAborted();
       dir = await mkdtemp(join(tmpdir(), 'voxel-speech-'));
@@ -242,7 +249,7 @@ export class LocalSpeech {
         this.whisper,
         [
           '-m',
-          this.model,
+          settings ? whisperModelPath(settings.model, this.model) : this.model,
           '-f',
           wav,
           '-l',
@@ -255,7 +262,16 @@ export class LocalSpeech {
           '-sns',
           '-ng',
           '-t',
-          '4',
+          String(settings?.threads ?? 4),
+          ...(settings
+            ? [
+                '-bs',
+                String(settings.beamSize),
+                '-tp',
+                String(settings.temperature),
+                ...(settings.prompt ? ['--prompt', settings.prompt] : []),
+              ]
+            : []),
         ],
         signal,
         90000,

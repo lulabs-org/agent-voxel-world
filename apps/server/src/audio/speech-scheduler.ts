@@ -1,3 +1,4 @@
+import type { WhisperAsrSettings } from '@voxel/shared';
 import { LocalSpeech, SpeechError } from './local-speech';
 
 type Job = { run: () => Promise<void>; cancel: () => void };
@@ -12,6 +13,7 @@ export class SpeechScheduler {
     language: string,
     signal: AbortSignal,
     partial = false,
+    settings?: WhisperAsrSettings,
   ): Promise<string> {
     if (signal.aborted) return Promise.reject(signal.reason);
     if ((partial && this.running) || this.queue.length >= 4)
@@ -47,6 +49,7 @@ export class SpeechScheduler {
               type,
               language,
               combined,
+              settings,
             );
             combined.throwIfAborted();
             resolve(text);

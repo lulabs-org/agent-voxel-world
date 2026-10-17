@@ -206,3 +206,18 @@ describe('live speech confirmation boundary', () => {
     ).toMatchObject({ Authorization: 'Bearer private-token' });
   });
 });
+
+it('routes Whisper live snapshots to the selected profile with cancellation', async () => {
+  const request = vi.fn(
+    async () => new Response(JSON.stringify({ text: '识别' })),
+  );
+  const transport = speechTransport('zh-CN', undefined, request, 'whisper/A');
+  const signal = new AbortController().signal;
+  await transport.recognize('', new Blob(['audio']), true, signal);
+  expect(request).toHaveBeenCalledWith(
+    expect.stringContaining(
+      '/voice/transcribe?language=zh&partial=1&serviceId=whisper%2FA',
+    ),
+    expect.objectContaining({ signal }),
+  );
+});

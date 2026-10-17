@@ -4,6 +4,7 @@ import {
   LiveRecorder,
   type LiveRecordingEvents,
 } from '../apps/web/src/audio/live-recorder';
+import type { LiveSpeechEvents } from '../apps/web/src/audio/live-speech';
 const events = (): LiveRecordingEvents => ({
   onState: vi.fn(),
   onStatus: vi.fn(),
@@ -125,4 +126,54 @@ it('reports capture failure and closes tracks without committing a partial sente
   expect(t.track.stop).toHaveBeenCalledOnce();
   expect(e.onError).toHaveBeenCalledWith(expect.stringContaining('中断'));
   expect(e.onFinal).not.toHaveBeenCalled();
+});
+it('waits for cloud readiness and flushes tail PCM before the finish command', async () => {
+  const t = setup(),
+    live = new LiveRecorder(),
+    e = events();
+  let ready!: () => void;
+  let sessionEvents!: LiveSpeechEvents;
+  const sequence: string[] = [];
+  const session = {
+    ready: new Promise<void>((resolve) => {
+      ready = resolve;
+    }),
+    feed: vi.fn(() => sequence.push('pcm')),
+    finish: vi.fn(() => {
+      sequence.push('finish');
+      sessionEvents.onEnd();
+    }),
+    cancel: vi.fn(),
+  };
+  const pending = live.start('zh', e, undefined, undefined, (events) => {
+    sessionEvents = events;
+    return session;
+  });
+  expect(t.media).not.toHaveBeenCalled();
+  ready();
+  await pending;
+  await live.finish();
+  expect(sequence).toEqual(['pcm', 'finish']);
+  expect(t.track.stop).toHaveBeenCalledOnce();
+  expect(e.onEnd).toHaveBeenCalledOnce();
+});
+it('does not acquire a microphone when cloud startup resolves after cancellation', async () => {
+  const t = setup(),
+    live = new LiveRecorder(),
+    e = events();
+  let ready!: () => void;
+  const session = {
+    ready: new Promise<void>((resolve) => {
+      ready = resolve;
+    }),
+    feed: vi.fn(),
+    finish: vi.fn(),
+    cancel: vi.fn(),
+  };
+  const pending = live.start('zh', e, undefined, undefined, () => session);
+  live.cancel();
+  ready();
+  await pending;
+  expect(t.media).not.toHaveBeenCalled();
+  expect(session.cancel).toHaveBeenCalledOnce();
 });

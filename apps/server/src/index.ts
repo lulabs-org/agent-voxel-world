@@ -5,7 +5,8 @@ config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 import express from 'express';
 import { createServer } from 'node:http';
 import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
+import { AsrWebSocketTransport, installAsrRoutes } from './routes/asr.routes';
+import { AsrSettingsStore } from './audio/asr-settings';
 import { WorldRoom } from './world/room';
 import { installSpeechRoutes } from './routes/speech.routes';
 import { installPresenceRoutes } from './routes/presence.routes';
@@ -31,7 +32,10 @@ app.use((req, res, next) => {
   next();
 });
 const speech = new LocalSpeech();
-installSpeechRoutes(app, speech);
+const asrSettings = new AsrSettingsStore();
+await asrSettings.load();
+installSpeechRoutes(app, speech, asrSettings);
+installAsrRoutes(app, asrSettings);
 app.get('/health', (_req, res) =>
   res.json({
     ok: true,
@@ -47,7 +51,7 @@ app.get('/health', (_req, res) =>
 );
 const http = createServer(app);
 const server = new Server({
-  transport: new WebSocketTransport({ server: http, maxPayload: 16384 }),
+  transport: new AsrWebSocketTransport(http, asrSettings),
   greet: false,
 });
 const voiceServices = new VoiceServiceStore();

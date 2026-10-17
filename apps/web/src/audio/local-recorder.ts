@@ -2,6 +2,7 @@ import { serverHttpUrl } from '../network/endpoints';
 export type SpeechCapabilities = {
   local: { available: boolean; reason: string };
   ollamaConfigured: boolean;
+  whisperModels?: string[];
 };
 export type RecordingCallbacks = {
   onState: (state: 'listening' | 'thinking', message: string) => void;
@@ -123,6 +124,7 @@ export class LocalRecorder {
     file: File,
     language: string,
     callbacks: RecordingCallbacks,
+    serviceId?: string,
   ) {
     this.cancel();
     // Browsers often label audio-only WebM/MP4 files as video/*.
@@ -140,6 +142,7 @@ export class LocalRecorder {
       language,
       callbacks,
       this.generation,
+      serviceId,
     );
   }
   private async upload(
@@ -147,6 +150,7 @@ export class LocalRecorder {
     language: string,
     callbacks: RecordingCallbacks,
     generation: number,
+    serviceId?: string,
   ) {
     if (!audio.size || audio.size > MAX_BYTES) {
       callbacks.onError('音频不能为空且不能超过 5 MiB。');
@@ -158,7 +162,7 @@ export class LocalRecorder {
     callbacks.onState('thinking', '服务器上的 Whisper 正在识别录音…');
     try {
       const response = await fetch(
-        `${serverHttpUrl()}/voice/transcribe?language=${language.startsWith('zh') ? 'zh' : 'en'}`,
+        `${serverHttpUrl()}/voice/transcribe?language=${language.startsWith('zh') ? 'zh' : 'en'}${serviceId ? `&serviceId=${encodeURIComponent(serviceId)}` : ''}`,
         {
           method: 'POST',
           headers: { 'Content-Type': audio.type || 'application/octet-stream' },

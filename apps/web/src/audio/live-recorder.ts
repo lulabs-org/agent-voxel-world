@@ -117,9 +117,15 @@ export class SpeechCapture {
 export type LiveRecordingEvents = LiveSpeechEvents & {
   onState: (state: 'listening' | 'thinking', message: string) => void;
 };
+export type RecordingSession = {
+  ready?: Promise<void>;
+  feed(frame: Uint8Array): void;
+  finish(): void;
+  cancel(): void;
+};
 export class LiveRecorder {
   private generation = 0;
-  private session?: LiveSpeechSession;
+  private session?: RecordingSession;
   private timer?: ReturnType<typeof setTimeout>;
   private finishing = false;
   private events?: LiveRecordingEvents;
@@ -132,6 +138,7 @@ export class LiveRecorder {
     events: LiveRecordingEvents,
     stream?: MediaStream,
     transport?: SpeechTransport,
+    sessionFactory?: (events: LiveSpeechEvents) => RecordingSession,
   ) {
     this.cancel();
     const generation = this.generation;
@@ -142,24 +149,29 @@ export class LiveRecorder {
       events.onPartial('');
       events.onError(text);
     };
-    this.session = new LiveSpeechSession(
-      transport ?? speechTransport(language),
-      {
-        ...events,
-        onError: fail,
-        onEnd: () => {
-          if (generation !== this.generation) return;
-          this.cancel();
-          events.onPartial('');
-          events.onEnd();
-        },
+    const sessionEvents: LiveSpeechEvents = {
+      ...events,
+      onError: fail,
+      onEnd: () => {
+        if (generation !== this.generation) return;
+        this.cancel();
+        events.onPartial('');
+        events.onEnd();
       },
-    );
+    };
     events.onState(
       'thinking',
       stream ? '正在接入实时识别…' : '正在请求麦克风权限…',
     );
     try {
+      this.session = sessionFactory
+        ? sessionFactory(sessionEvents)
+        : new LiveSpeechSession(
+            transport ?? speechTransport(language),
+            sessionEvents,
+          );
+      if (this.session.ready) await this.session.ready;
+      if (generation !== this.generation) return;
       const started = await this.capture.start(
         (frame) => this.session?.feed(frame),
         () => fail('麦克风或音频处理已中断，未确认内容已取消。'),

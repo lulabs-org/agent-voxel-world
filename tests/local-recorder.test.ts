@@ -67,7 +67,9 @@ describe('local recorder lifecycle', () => {
       new File(['audio'], 'sample.webm', { type: 'video/webm' }),
       'en',
       cb,
+      'whisper/A',
     );
+    expect(fetcher.mock.calls[0][0]).toContain('serviceId=whisper%2FA');
     expect(fetcher.mock.calls[0][1].headers['Content-Type']).toBe('audio/webm');
     expect(cb.onText).toHaveBeenCalledWith('hello');
   });

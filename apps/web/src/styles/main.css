@@ -801,9 +801,6 @@ footer {
   gap: 8px;
   margin: 16px 0;
 }
-.asr-service-status button {
-  margin-bottom: 16px;
-}
 .asr-help {
   display: block;
   color: #627767;

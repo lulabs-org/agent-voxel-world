@@ -1,3 +1,5 @@
+import { AsrSettingsStore } from '../audio/asr-settings';
+import { listWhisperModels } from '../audio/whisper-settings';
 import express, { type Express, type ErrorRequestHandler } from 'express';
 import {
   LocalSpeech,
@@ -7,7 +9,11 @@ import {
 import { createVoiceProvider } from '../audio/voice';
 import { LocalTts } from '../audio/local-tts';
 import { scheduleSpeech } from '../audio/speech-scheduler';
-export function installSpeechRoutes(app: Express, speech = new LocalSpeech()) {
+export function installSpeechRoutes(
+  app: Express,
+  speech = new LocalSpeech(),
+  asrSettings = new AsrSettingsStore(),
+) {
   const origin = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
   app.use('/voice', (req, res, next) => {
     if (
@@ -19,26 +25,47 @@ export function installSpeechRoutes(app: Express, speech = new LocalSpeech()) {
     }
     res.header('Cache-Control', 'no-store');
     if (req.method === 'OPTIONS') {
-      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header(
+        'Access-Control-Allow-Methods',
+        req.path.startsWith('/asr/')
+          ? 'GET, POST, PUT, DELETE, OPTIONS'
+          : 'GET, POST, OPTIONS',
+      );
       res.header('Access-Control-Allow-Headers', 'Content-Type');
       res.status(204).end();
       return;
     }
     next();
   });
-  app.get('/voice/capabilities', async (_req, res) => {
-    let ollamaConfigured = false;
+  app.get('/voice/capabilities', async (req, res) => {
     try {
-      createVoiceProvider('ollama');
-      ollamaConfigured = true;
-    } catch {
-      /* Optional. */
+      const selected =
+        req.query.serviceId === undefined
+          ? undefined
+          : asrSettings.get(String(req.query.serviceId));
+      if (selected && selected.provider !== 'whisper')
+        throw new SpeechError('请选择 Whisper 服务。');
+      let ollamaConfigured = false;
+      try {
+        createVoiceProvider('ollama');
+        ollamaConfigured = true;
+      } catch {
+        /* Optional. */
+      }
+      res.json({
+        local: await speech.status(selected),
+        whisperModels: await listWhisperModels(),
+        ollamaConfigured,
+        agentSpeech: await new LocalTts().status(),
+      });
+    } catch (error) {
+      res
+        .status(error instanceof SpeechError ? error.status : 500)
+        .json({
+          error:
+            error instanceof SpeechError ? error.message : '无法检查识别服务。',
+        });
     }
-    res.json({
-      local: await speech.status(),
-      ollamaConfigured,
-      agentSpeech: await new LocalTts().status(),
-    });
   });
   app.post(
     '/voice/transcribe',
@@ -49,13 +76,24 @@ export function installSpeechRoutes(app: Express, speech = new LocalSpeech()) {
         if (!res.writableEnded) controller.abort();
       };
       res.on('close', cancel);
+      let release: (() => void) | undefined;
       try {
+        const selected =
+          req.query.serviceId === undefined
+            ? undefined
+            : asrSettings.acquire(String(req.query.serviceId));
+        release = selected?.release;
+        if (selected && selected.settings.provider !== 'whisper')
+          throw new SpeechError('请选择 Whisper 服务。');
         const text = await scheduleSpeech(speech).transcribe(
           Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
           req.headers['content-type'] ?? '',
           String(req.query.language ?? 'zh'),
           controller.signal,
           req.query.partial === '1',
+          selected?.settings.provider === 'whisper'
+            ? selected.settings
+            : undefined,
         );
         if (!controller.signal.aborted) res.json({ text });
       } catch (error) {
@@ -67,6 +105,7 @@ export function installSpeechRoutes(app: Express, speech = new LocalSpeech()) {
                 : '服务器识别失败，请重试。',
           });
       } finally {
+        release?.();
         res.off('close', cancel);
       }
     },

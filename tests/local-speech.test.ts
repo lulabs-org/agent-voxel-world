@@ -179,4 +179,50 @@ describe('local Whisper transcription', () => {
     controller.abort();
     await rejected;
   });
+  it('applies per-request Whisper parameters as separate CLI arguments without changing defaults', async () => {
+    const runner = vi.fn(async (_file: string, args: string[]) => {
+      if (args.includes('-protocol_whitelist'))
+        await writeFile(args.at(-1)!, wav());
+      else await writeFile(`${args[args.indexOf('-of') + 1]}.txt`, 'hello');
+    });
+    const speech = new LocalSpeech(
+      model,
+      process.execPath,
+      process.execPath,
+      runner,
+    );
+    const settings = {
+      model: 'default',
+      threads: 2,
+      beamSize: 8,
+      temperature: 0.2,
+      prompt: 'terms --model /not-an-option',
+    };
+    await speech.transcribe(
+      Buffer.from('audio'),
+      'audio/wav',
+      'zh',
+      new AbortController().signal,
+      settings,
+    );
+    const args = runner.mock.calls[1][1];
+    expect(args[args.indexOf('-m') + 1]).toBe(model);
+    expect(args[args.indexOf('-t') + 1]).toBe('2');
+    expect(args[args.indexOf('-bs') + 1]).toBe('8');
+    expect(args[args.indexOf('-tp') + 1]).toBe('0.2');
+    expect(args[args.indexOf('--prompt') + 1]).toBe(settings.prompt);
+    await speech.transcribe(
+      Buffer.from('audio'),
+      'audio/wav',
+      'en',
+      new AbortController().signal,
+    );
+    const defaults = runner.mock.calls[3][1];
+    expect(defaults[defaults.indexOf('-t') + 1]).toBe('4');
+    expect(defaults).not.toContain('--prompt');
+    expect(
+      (await speech.status({ ...settings, model: 'ggml-not-installed.bin' }))
+        .available,
+    ).toBe(false);
+  });
 });
