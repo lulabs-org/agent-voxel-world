@@ -545,3 +545,78 @@ it('an online agent with a failed task still accepts a new human mention without
     text: '我还在，任务已暂停。',
   });
 });
+
+it('creates and restores a standby character with no task or automatic model calls', async () => {
+  const session = fakeSession(),
+    decide = vi.fn();
+  const m = setup(session, decide);
+  const created = m.create({ ...settings, goal: '', startTask: false });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  expect(m.list()[0]).toMatchObject({
+    id: created.id,
+    goal: '',
+    sessionId: 'player-1',
+  });
+  expect(m.list()[0].task).toBeUndefined();
+  expect(decide).not.toHaveBeenCalled();
+  expect(() => m.resume(created.id)).toThrow('请先布置任务');
+  expect(() => m.join(created.id)).toThrow('已在线');
+  await m.update(created.id, {
+    name: 'Renamed standby',
+    model: 'deepseek-chat',
+    allowEdits: true,
+  });
+  expect(m.list()[0].task).toBeUndefined();
+  await m.close();
+  const restored = setup(fakeSession(), decide);
+  await restored.load();
+  expect(restored.list()[0]).toMatchObject({
+    id: created.id,
+    name: 'Renamed standby',
+    status: 'idle',
+  });
+  expect(restored.list()[0].task).toBeUndefined();
+  expect(decide).not.toHaveBeenCalled();
+});
+
+it('joining a stopped character preserves the task without executing or resetting its budget', async () => {
+  const session = fakeSession();
+  const decide = vi.fn<Planner['decide']>(async () => ({
+    actions: [{ type: 'wait' }],
+    task: { intent: 'continue', status: 'running', summary: 'Half done' },
+  }));
+  const m = setup(session, decide);
+  const created = m.create({ ...settings, maxTurns: 30, intervalMs: 60000 });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  m.stop(created.id);
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('stopped'));
+  expect(m.list()[0].task).toMatchObject({
+    status: 'paused',
+    summary: 'Half done',
+    calls: 1,
+  });
+  m.join(created.id);
+  expect(() => m.join(created.id)).toThrow('已在线');
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  expect(decide).toHaveBeenCalledTimes(1);
+  expect(m.list()[0].task).toMatchObject({
+    status: 'paused',
+    summary: 'Half done',
+    calls: 1,
+  });
+  await m.assignTask(created.id, { goal: 'A fresh task' });
+  await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  expect(m.list()[0].task?.goal).toBe('A fresh task');
+});
+
+it('standby creation validates the launch choice and still enforces online capacity', async () => {
+  const m = setup(fakeSession(), vi.fn());
+  expect(() => m.create({ ...settings, goal: '' })).toThrow('任务目标');
+  expect(() => m.create({ ...settings, startTask: 'no' })).toThrow('开关');
+  for (let i = 0; i < 4; i++)
+    m.create({ ...settings, name: `Standby ${i}`, goal: '', startTask: false });
+  expect(() => m.create({ ...settings, startTask: false })).toThrow(
+    '最多同时在线',
+  );
+});

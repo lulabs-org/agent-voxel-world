@@ -4,8 +4,8 @@ import type { ConsoleController } from './useConsoleController';
 type Props = Pick<ConsoleController, 'agent' | 'setAgent' | 'selected'>;
 export function AgentAdvancedSettings({ agent, setAgent, selected }: Props) {
   return (
-    <details>
-      <summary>高级参数 · 预算保护与推理</summary>
+    <div>
+      <h4>任务额度与推理</h4>
       <p className="agent-hint">
         以下为异常保护上限，不是要求执行的轮数。达到上限会暂停，手动继续才会开启新的预算额度。
       </p>
@@ -132,6 +132,6 @@ export function AgentAdvancedSettings({ agent, setAgent, selected }: Props) {
           </label>
         </div>
       )}
-    </details>
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 import type {
   AgentSettings,
   AgentTaskStatus,
-  ManagedAgentView,
   ProviderType,
   ProviderView,
 } from '@voxel/shared';
@@ -26,15 +25,6 @@ export const freshProvider = (type: ProviderType = 'compatible') => ({
   jsonMode: true,
   tokenField: 'max_tokens' as ProviderView['tokenField'],
 });
-export const statusNames: Record<ManagedAgentView['status'], string> = {
-  joining: '加入中',
-  running: '运行中',
-  idle: '在线待命',
-  stopping: '停止中',
-  stopped: '已关闭',
-  completed: '任务已结束',
-  failed: '任务异常',
-};
 export const taskStatusNames: Record<AgentTaskStatus, string> = {
   running: '执行任务',
   waiting: '等待环境变化',
@@ -45,13 +35,11 @@ export const taskStatusNames: Record<AgentTaskStatus, string> = {
   cancelled: '已取消',
   budget: '达到保护上限',
 };
-export const isActive = (job: ManagedAgentView) =>
-  ['joining', 'running', 'stopping'].includes(job.status);
 export const initialAgent: AgentSettings = {
   providerId: '',
   model: '',
-  name: 'AI 探索者',
-  goal: '探索附近环境，用中文友好地介绍你的观察，回应附近玩家，避免重复发言。',
+  name: '',
+  goal: '',
   continuous: false,
   intervalMode: 'fixed',
   intervalMinMs: 4000,

@@ -1,12 +1,44 @@
 import type { ManagedAgentView } from '@voxel/shared';
 export function AgentLogViewer({ job }: { job: ManagedAgentView }) {
   return (
-    <details className="agent-run-log">
-      <summary>运行记录</summary>
+    <section className="agents-activity" aria-label="运行记录与用量">
+      <div className="agents-usage">
+        <div>
+          <span className="agents-section-label">累计模型调用</span>
+          <strong>
+            {job.usage?.calls ?? 0}
+            <small> 次</small>
+          </strong>
+        </div>
+        <div>
+          <span className="agents-section-label">累计 tokens</span>
+          <strong>
+            {job.usage?.estimated ? '约 ' : ''}
+            {(job.usage?.tokens ?? 0).toLocaleString()}
+          </strong>
+        </div>
+      </div>
       {job.lastResponse && (
-        <p className="agent-hint">最近处理结果：{job.lastResponse}</p>
+        <div className="agents-progress">
+          <span className="agents-section-label">最近回复</span>
+          <p>{job.lastResponse}</p>
+        </div>
       )}
-      <pre>{job.logs.join('\n') || '暂无运行记录'}</pre>
-    </details>
+      <div className="agents-task-heading">
+        <h4>最近运行记录</h4>
+        <span className="agent-hint">最多保留 40 条 · 最新在上</span>
+      </div>
+      {job.logs.length ? (
+        <ol className="agents-log-list">
+          {[...job.logs].reverse().map((message, index) => (
+            <li key={`${job.logs.length - index}-${message}`}>{message}</li>
+          ))}
+        </ol>
+      ) : (
+        <p className="agents-list-empty">
+          暂时没有运行记录。加入世界或执行任务后会显示在这里。
+        </p>
+      )}
+    </section>
   );
 }

@@ -3,7 +3,6 @@ import { SpeechRecognitionPanel } from '../voice/SpeechRecognitionPanel';
 import type { Connection } from '../../network/connection';
 import { useConsoleController } from './useConsoleController';
 import { ProviderEditor } from './ProviderEditor';
-import { AgentForm } from './AgentForm';
 import { AgentList } from './AgentList';
 type ConsoleProps = {
   connection: Connection;
@@ -23,8 +22,6 @@ export function ControlConsole({
     tab,
     setTab,
     providers,
-    showAgentForm,
-    setShowAgentForm,
     body,
     notice,
     setNotice,
@@ -57,12 +54,11 @@ export function ControlConsole({
             aria-pressed={tab === 'agents'}
             onClick={() => {
               setTab('agents');
-              setShowAgentForm(false);
               setError('');
               setNotice('');
             }}
           >
-            Agent 玩家设置
+            Agent 玩家
           </button>
           <button
             aria-pressed={tab === 'providers'}
@@ -123,10 +119,8 @@ export function ControlConsole({
           )}
           {tab === 'providers' ? (
             <ProviderEditor {...controller} />
-          ) : showAgentForm ? (
-            <AgentForm {...controller} active={open && tab === 'agents'} />
           ) : (
-            <AgentList {...controller} />
+            <AgentList {...controller} active={open && tab === 'agents'} />
           )}
         </div>
       </div>

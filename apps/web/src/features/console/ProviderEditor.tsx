@@ -13,6 +13,9 @@ type Props = Pick<
   | 'editProvider'
   | 'saveProvider'
   | 'removeProvider'
+  | 'models'
+  | 'loadingModels'
+  | 'readModels'
 >;
 export function ProviderEditor({
   providers,
@@ -24,7 +27,18 @@ export function ProviderEditor({
   editProvider,
   saveProvider,
   removeProvider,
+  models,
+  loadingModels,
+  readModels,
 }: Props) {
+  const savedConnection =
+    editingProvider &&
+    editingProvider.type === draft.type &&
+    editingProvider.baseUrl === draft.baseUrl.trim() &&
+    !draft.apiKey;
+  const canReadModels =
+    savedConnection &&
+    (editingProvider.type === 'ollama' || editingProvider.hasApiKey);
   return (
     <div className="agent-columns">
       <aside className="agent-sidebar">
@@ -56,7 +70,7 @@ export function ProviderEditor({
       </aside>
       <form onSubmit={saveProvider} className="agent-form">
         <h3>{editing ? '编辑模型服务' : '添加模型服务'}</h3>
-        <fieldset disabled={busy}>
+        <fieldset disabled={busy || loadingModels}>
           <label>
             服务名称
             <input
@@ -112,6 +126,7 @@ export function ProviderEditor({
           <label>
             默认模型 ID
             <input
+              list={savedConnection ? 'provider-models' : undefined}
               value={draft.defaultModel}
               maxLength={128}
               placeholder="填写该服务支持的模型 ID"
@@ -119,7 +134,26 @@ export function ProviderEditor({
                 setDraft({ ...draft, defaultModel: e.target.value })
               }
             />
+            <datalist id="provider-models">
+              {models.map((model) => (
+                <option key={model} value={model} />
+              ))}
+            </datalist>
           </label>
+          <div className="agent-actions">
+            <button
+              type="button"
+              disabled={!canReadModels}
+              onClick={() => editing && void readModels(editing)}
+            >
+              {loadingModels ? '正在连接…' : '检测连接并获取模型'}
+            </button>
+          </div>
+          {!canReadModels && (
+            <p className="agent-hint">
+              配置并保存服务连接后，即可检测连接并获取模型列表。
+            </p>
+          )}
           <details>
             <summary>参数设置</summary>
             <label className="agent-check">

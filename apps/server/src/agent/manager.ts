@@ -142,7 +142,7 @@ export function validateAgent(
     throw new ManagementError('请先为该模型服务配置 API Key。');
   const name = text(input.name, '玩家昵称', 24);
   const goal = text(input.goal, '任务目标', 2000);
-  if (!name || !goal) throw new ManagementError('请填写玩家昵称和任务目标。');
+  if (!name) throw new ManagementError('请填写玩家昵称。');
   const thinking = input.thinking ?? 'disabled';
   const reasoningEffort = input.reasoningEffort ?? 'high';
   if (thinking !== 'enabled' && thinking !== 'disabled')
@@ -472,6 +472,7 @@ export class AgentManager {
           task: memory.task,
           usage: memory.usage,
           lastResponse: memory.lastResponse,
+          taskRequiresReassignment: !!memory.audienceExpired,
           logs: [...view.logs],
         }),
       )
@@ -501,6 +502,9 @@ export class AgentManager {
       text(object(value).providerId, '模型服务', 80),
     );
     const settings = validateAgent(value, provider);
+    const startTask = boolean(object(value).startTask, true);
+    if (startTask && !settings.goal)
+      throw new ManagementError('请填写任务目标，或选择加入世界待命。');
     this.checkVoice(settings);
     if ([...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError(
@@ -527,13 +531,46 @@ export class AgentManager {
         logs: [],
       },
       abort: new AbortController(),
-      memory: { task: newTask(settings.goal) },
+      memory: startTask ? { task: newTask(settings.goal) } : {},
       attention: new AgentAttention(),
     };
     this.jobs.set(job.view.id, job);
-    job.done = this.execute(job, provider);
+    job.done = this.execute(job, provider, startTask);
     this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
+  }
+  join(id: string) {
+    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    const job = this.jobs.get(id);
+    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (resident(job) || job.updating || job.controlling)
+      throw new ManagementError('角色已在线或正在更新，请稍候。', 409);
+    if ([...this.jobs.values()].filter(resident).length >= 4)
+      throw new ManagementError(
+        '最多同时在线 4 个 Agent，请先让一个角色离开世界。',
+        409,
+      );
+    const provider = this.providers.get(job.view.providerId);
+    const settings = validateAgent(job.view, provider);
+    this.checkVoice(settings);
+    clearTimeout(job.timer);
+    // Joining is a presence action: it must never resume a previous task.
+    if (
+      job.memory.task &&
+      ['running', 'waiting', 'paused'].includes(job.memory.task.status)
+    ) {
+      job.memory.task.status = 'paused';
+      job.memory.task.reason = '已加入世界待命，任务进度保留。';
+    }
+    Object.assign(job.view, settings, {
+      providerName: provider.name,
+      status: 'joining',
+    });
+    job.attention.clear();
+    job.abort = new AbortController();
+    job.done = this.execute(job, provider, false);
+    this.persist();
+    return this.list().find((v) => v.id === id)!;
   }
   resume(id: string, value: unknown = {}) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
@@ -555,6 +592,7 @@ export class AgentManager {
       },
       provider,
     );
+    if (!settings.goal) throw new ManagementError('请先布置任务。');
     this.checkVoice(settings);
     if (!job.session && [...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError('最多同时在线 4 个 Agent，请先关闭一个。', 409);
@@ -630,11 +668,13 @@ export class AgentManager {
         clearTimeout(job.timer);
         job.memory = {
           usage: job.memory.usage,
-          task: {
-            ...newTask(settings.goal),
-            status: 'paused',
-            reason: '参数已修改，等待继续。',
-          },
+          task: settings.goal
+            ? {
+                ...newTask(settings.goal),
+                status: 'paused',
+                reason: '参数已修改，等待继续。',
+              }
+            : undefined,
         };
         job.attention.clear();
       }
@@ -854,7 +894,7 @@ export class AgentManager {
         log(
           run
             ? '本次唤醒结束，按任务状态安排下一次检查。'
-            : '服务恢复，已回到世界待命；可通过 @ 或继续运行唤醒。',
+            : '已在世界中待命；可通过私聊或 @ 交流，也可以安排新任务。',
         );
     } catch (error) {
       finalStatus = 'failed';
@@ -899,6 +939,13 @@ export class AgentManager {
         job.session = undefined;
         delete job.view.sessionId;
         job.view.status = 'stopped';
+        if (
+          job.memory.task &&
+          ['running', 'waiting'].includes(job.memory.task.status)
+        ) {
+          job.memory.task.status = 'paused';
+          job.memory.task.reason = '角色已离开世界，任务进度已保留。';
+        }
         this.persist();
       })();
     }

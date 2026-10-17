@@ -249,6 +249,39 @@ try {
       'closing retains reusable config',
     );
   }
+  const standbyResponse = await api('', 'POST', {
+    providerId: 'deepseek',
+    name: 'Standby',
+    goal: '',
+    startTask: false,
+  });
+  assert.equal(standbyResponse.status, 201);
+  const standby = (await standbyResponse.json()) as ManagedAgentView;
+  await until(
+    () => manager!.list().find((j) => j.id === standby.id)?.status === 'idle',
+  );
+  assert.equal(calls, 8, 'creating a standby character does not call a model');
+  assert.equal(
+    manager.list().find((j) => j.id === standby.id)?.task,
+    undefined,
+  );
+  assert.equal((await api(`/${standby.id}/resume`, 'POST', {})).status, 400);
+  await api(`/${standby.id}/stop`, 'POST', {});
+  await until(
+    () =>
+      manager!.list().find((j) => j.id === standby.id)?.status === 'stopped',
+  );
+  assert.equal((await api(`/${standby.id}/join`, 'POST', {})).status, 200);
+  await until(
+    () => manager!.list().find((j) => j.id === standby.id)?.status === 'idle',
+  );
+  assert.equal(calls, 8, 'joining also does not call a model');
+  assert.equal((await api(`/${standby.id}/join`, 'POST', {})).status, 409);
+  await api(`/${standby.id}/stop`, 'POST', {});
+  await until(
+    () =>
+      manager!.list().find((j) => j.id === standby.id)?.status === 'stopped',
+  );
   assert.equal(calls, 8);
   const created = [] as string[];
   for (let i = 0; i < 4; i++) {

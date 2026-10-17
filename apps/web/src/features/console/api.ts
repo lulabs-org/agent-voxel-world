@@ -78,7 +78,10 @@ export const consoleApi = {
       draft,
     ),
   deleteProvider: (id: string) => request<void>(providerPath(id), 'DELETE'),
-  saveAgent: (settings: AgentSettings, id?: string) =>
+  saveAgent: (
+    settings: Partial<AgentSettings> & { startTask?: boolean },
+    id?: string,
+  ) =>
     request<ManagedAgentView>(
       id ? agentPath(id) : '',
       id ? 'PUT' : 'POST',
@@ -86,6 +89,7 @@ export const consoleApi = {
     ),
   resumeAgent: (id: string) =>
     request<void>(`${agentPath(id)}/resume`, 'POST', {}),
+  joinAgent: (id: string) => request<void>(`${agentPath(id)}/join`, 'POST', {}),
   pauseAgent: (id: string) =>
     request<void>(`${agentPath(id)}/pause`, 'POST', {}),
   cancelTask: (id: string) =>
@@ -94,5 +98,5 @@ export const consoleApi = {
   assignTask: (id: string, goal: string) =>
     request<void>(`${agentPath(id)}/task`, 'POST', { goal }),
   setVoiceReplies: (id: string, enabled: boolean) =>
-    request<void>(`${agentPath(id)}/voice`, 'POST', { enabled }),
+    request<ManagedAgentView>(`${agentPath(id)}/voice`, 'POST', { enabled }),
 };

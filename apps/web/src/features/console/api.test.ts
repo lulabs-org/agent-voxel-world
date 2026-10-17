@@ -96,6 +96,7 @@ it('keeps editing separate from creation and preserves explicit agent settings',
 });
 
 it.each([
+  ['join', () => consoleApi.joinAgent('a/b'), {}],
   ['resume', () => consoleApi.resumeAgent('a/b'), {}],
   ['pause', () => consoleApi.pauseAgent('a/b'), {}],
   ['cancel', () => consoleApi.cancelTask('a/b'), {}],
@@ -125,4 +126,17 @@ it('preserves actionable errors for HTML responses and server rejections', async
   await expect(consoleApi.saveAgent(initialAgent, 'busy')).rejects.toThrow(
     '请先暂停任务',
   );
+});
+
+it('sends standby creation explicitly without inventing a task', async () => {
+  await consoleApi.saveAgent({
+    ...initialAgent,
+    name: 'Partner',
+    goal: '',
+    startTask: false,
+  });
+  expect(JSON.parse(request.mock.calls[0][1]!.body as string)).toMatchObject({
+    goal: '',
+    startTask: false,
+  });
 });

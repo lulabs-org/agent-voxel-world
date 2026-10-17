@@ -74,4 +74,6 @@ export type ManagedAgentView = AgentSettings & {
   task?: AgentTask;
   usage?: AgentUsage;
   lastResponse?: string;
+  /** The original private recipient no longer exists; the task must be reassigned. */
+  taskRequiresReassignment?: boolean;
 };

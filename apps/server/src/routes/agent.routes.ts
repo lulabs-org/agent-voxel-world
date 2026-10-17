@@ -151,6 +151,10 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     ),
   );
   app.post(
+    '/agents/:id/join',
+    route((req, res) => res.json(manager.join(String(req.params.id)))),
+  );
+  app.post(
     '/agents/:id/resume',
     route((req, res) =>
       res.json(manager.resume(String(req.params.id), req.body)),

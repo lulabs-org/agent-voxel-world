@@ -1,299 +1,298 @@
 import { AgentAdvancedSettings } from './AgentAdvancedSettings';
-import type { AgentSettings } from '@voxel/shared';
+import { AgentScheduleSettings } from './AgentScheduleSettings';
 import type { ConsoleController } from './useConsoleController';
 import { VoicePreview } from './VoicePreview';
+import { agentPresentation } from './agent-presentation';
 
-type Props = Pick<
-  ConsoleController,
-  | 'providers'
-  | 'voiceServices'
-  | 'tab'
-  | 'agent'
-  | 'setAgent'
-  | 'editingAgent'
-  | 'setShowAgentForm'
-  | 'models'
-  | 'busy'
-  | 'loadingModels'
-  | 'setNotice'
-  | 'setError'
-  | 'selected'
-  | 'chooseProvider'
-  | 'readModels'
-  | 'saveAgent'
-> & { active: boolean };
-export function AgentForm({
-  providers,
-  voiceServices,
-  tab,
-  active,
-  agent,
-  setAgent,
-  editingAgent,
-  setShowAgentForm,
-  models,
-  busy,
-  loadingModels,
-  setNotice,
-  setError,
-  selected,
-  chooseProvider,
-  readModels,
-  saveAgent,
-}: Props) {
+export function AgentForm(
+  props: ConsoleController & { active: boolean; disabled: boolean },
+) {
+  const {
+    providers,
+    voiceServices,
+    agent,
+    setAgent,
+    editingAgent,
+    setShowAgentForm,
+    busy,
+    setNotice,
+    setError,
+    selected,
+    chooseProvider,
+    saveAgent,
+    active,
+    disabled,
+    startTaskOnCreate,
+    setStartTaskOnCreate,
+    openModelServices,
+    jobs,
+    pauseAgent,
+    toggleVoiceReplies,
+  } = props;
+  const current = jobs.find((job) => job.id === editingAgent);
+  const running = current && !agentPresentation(current).canEdit;
+  const cancel = () => {
+    setShowAgentForm(false);
+    setError('');
+    setNotice('');
+  };
+  const validProvider =
+    selected &&
+    selected.defaultModel.trim() &&
+    (selected.type === 'ollama' || selected.hasApiKey);
   return (
-    <div className="agent-editor">
-      <button
-        className="agent-back"
-        type="button"
-        disabled={busy}
-        onClick={() => {
-          setShowAgentForm(false);
-          setError('');
-          setNotice('');
-        }}
-      >
-        ‹ 返回 Agent 列表
-      </button>
+    <section className="agents-profile">
+      <div className="agents-form-heading">
+        <div>
+          <h4>{editingAgent ? '角色设置' : '创建一位新伙伴'}</h4>
+          <p>
+            {editingAgent
+              ? '昵称、模型与能力属于角色；任务在“任务”页单独安排。'
+              : '先取个名字、选择已保存的模型服务，再决定它如何加入世界。'}
+          </p>
+        </div>
+        {!editingAgent && (
+          <button disabled={busy} onClick={cancel}>
+            返回
+          </button>
+        )}
+      </div>
+      {running && (
+        <div className="agents-confirm">
+          <p>
+            {agentPresentation(current).transitioning
+              ? '角色正在加入或离开世界，请等待状态更新。'
+              : '任务正在执行，请暂停后修改角色设置。'}
+          </p>
+          <button
+            disabled={
+              busy || !!props.pollError || !agentPresentation(current).canPause
+            }
+            onClick={() => void pauseAgent(current)}
+          >
+            暂停任务后编辑
+          </button>
+          {current.voiceServiceId &&
+            !agentPresentation(current).transitioning && (
+              <button
+                disabled={busy || !!props.pollError}
+                onClick={() => {
+                  void toggleVoiceReplies(current);
+                }}
+              >
+                {current.voiceReplies ? '关闭语音回复' : '开启语音回复'}
+              </button>
+            )}
+        </div>
+      )}
       <form
         className="agent-form"
-        onSubmit={(e) => {
-          e.preventDefault();
+        onSubmit={(event) => {
+          event.preventDefault();
           void saveAgent();
         }}
       >
-        <h3>{editingAgent ? '修改 Agent 参数' : '创建 Agent 玩家'}</h3>
-        {editingAgent && (
-          <p className="agent-hint">
-            保存不会启动任务，角色与位置保留。运行中的 Agent
-            请先暂停任务再修改。
-          </p>
-        )}
-        <fieldset disabled={busy}>
-          <h4 className="agent-section-title">基本信息</h4>
-          <div className="agent-grid">
-            <label>
-              选择模型服务
-              <select
-                required
-                value={agent.providerId}
-                onChange={(e) => chooseProvider(e.target.value)}
-              >
-                <option value="" disabled>
-                  请先添加模型服务
-                </option>
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                    {p.type !== 'ollama' && !p.hasApiKey ? ' · 未配置密钥' : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              选择模型
-              <input
-                list="agent-models"
-                required
-                value={agent.model}
-                maxLength={128}
-                placeholder="获取模型列表，或输入模型 ID"
-                onChange={(e) => setAgent({ ...agent, model: e.target.value })}
-              />
-              <datalist id="agent-models">
-                {models.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </label>
-          </div>
-          <button
-            className="agent-model-test"
-            type="button"
-            disabled={!selected || loadingModels}
-            onClick={() => void readModels(agent.providerId)}
-          >
-            {loadingModels ? '连接中…' : '测试连接 / 获取模型列表'}
-          </button>
+        <fieldset disabled={disabled}>
           <label>
-            Agent 昵称
+            角色昵称
             <input
+              autoFocus={!editingAgent}
               required
               maxLength={24}
               value={agent.name}
-              onChange={(e) => setAgent({ ...agent, name: e.target.value })}
+              placeholder="给伙伴取个名字"
+              onChange={(event) =>
+                setAgent({ ...agent, name: event.target.value })
+              }
             />
           </label>
           <label>
-            任务目标
-            <textarea
+            模型服务
+            <select
               required
-              rows={3}
-              maxLength={2000}
-              value={agent.goal}
-              onChange={(e) => setAgent({ ...agent, goal: e.target.value })}
-            />
-            <small className="agent-hint">
-              填写希望 Agent
-              完成的目标；具体方案和执行情况会显示在卡片的“最近执行进展”中。
-            </small>
-          </label>
-          <h4 className="agent-section-title">运行安排</h4>
-          <p className="agent-hint">
-            任务按实际进展继续，完成、受阻或需要确认时自动停下；达到保护预算也会暂停。普通聊天只回复一次。
-          </p>
-          <label>
-            轮询方式
-            <select
-              value={agent.intervalMode}
-              onChange={(e) =>
-                setAgent({
-                  ...agent,
-                  intervalMode: e.target.value as AgentSettings['intervalMode'],
-                })
-              }
+              value={agent.providerId}
+              onChange={(event) => chooseProvider(event.target.value)}
             >
-              <option value="fixed">固定间隔</option>
-              <option value="random">随机区间</option>
-            </select>
-          </label>
-          {agent.intervalMode === 'fixed' ? (
-            <label>
-              唤醒间隔（毫秒）
-              <input
-                type="number"
-                min={1000}
-                max={60000}
-                required
-                value={Number.isNaN(agent.intervalMs) ? '' : agent.intervalMs}
-                onChange={(e) =>
-                  setAgent({
-                    ...agent,
-                    intervalMs: e.target.valueAsNumber,
-                  })
-                }
-              />
-            </label>
-          ) : (
-            <div className="agent-grid">
-              <label>
-                间隔下限（毫秒）
-                <input
-                  type="number"
-                  min={1000}
-                  max={agent.intervalMaxMs || 60000}
-                  required
-                  value={
-                    Number.isNaN(agent.intervalMinMs) ? '' : agent.intervalMinMs
-                  }
-                  onChange={(e) =>
-                    setAgent({
-                      ...agent,
-                      intervalMinMs: e.target.valueAsNumber,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                间隔上限（毫秒）
-                <input
-                  type="number"
-                  min={agent.intervalMinMs || 1000}
-                  max={60000}
-                  required
-                  value={
-                    Number.isNaN(agent.intervalMaxMs) ? '' : agent.intervalMaxMs
-                  }
-                  onChange={(e) =>
-                    setAgent({
-                      ...agent,
-                      intervalMaxMs: e.target.valueAsNumber,
-                    })
-                  }
-                />
-              </label>
-            </div>
-          )}
-          <p className="agent-hint">
-            每次间隔只推进一次决策。等待期间先在本地检查环境，空闲或条件未变时不调用模型。新消息及时唤醒，同一
-            Agent 不并发推理。
-          </p>
-          <AgentAdvancedSettings
-            agent={agent}
-            setAgent={setAgent}
-            selected={selected}
-          />
-          <label className="agent-check">
-            <input
-              type="checkbox"
-              checked={agent.allowEdits}
-              onChange={(e) =>
-                setAgent({ ...agent, allowEdits: e.target.checked })
-              }
-            />
-            允许放置 / 移除方块
-          </label>
-          <label>
-            语音服务
-            <select
-              value={agent.voiceServiceId || ''}
-              onChange={(e) =>
-                setAgent({
-                  ...agent,
-                  voiceServiceId: e.target.value,
-                  voiceReplies: !!e.target.value,
-                })
-              }
-            >
-              <option value="">关闭语音 · 仅文字回复</option>
-              {voiceServices.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name} · {service.voice || '自动音色'}
+              <option value="" disabled>
+                请选择模型服务
+              </option>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name} · {provider.defaultModel || '未配置模型'}
+                  {provider.type !== 'ollama' && !provider.hasApiKey
+                    ? ' · 未配置密钥'
+                    : ''}
                 </option>
               ))}
             </select>
           </label>
           <p className="agent-hint">
-            在“文本转语音（TTS）”中统一配置音色。私聊仅指定接收者可听，玩家需开启附近语音收听。云端语音会将回复文字发送给对应服务商。
+            直接使用所选服务中保存的模型与接口配置。如需更换模型，请在模型服务中修改或添加服务。
           </p>
-          {agent.voiceServiceId && (
-            <VoicePreview
-              service={voiceServices.find(
-                (service) => service.id === agent.voiceServiceId,
-              )}
-              serviceId={agent.voiceServiceId}
-              active={active && tab === 'agents'}
-              disabled={busy}
-            />
+          <div className="agents-model-actions">
+            <button
+              className="agents-text-button"
+              type="button"
+              onClick={openModelServices}
+            >
+              管理模型服务 ↗
+            </button>
+          </div>
+          {!validProvider && (
+            <p className="agent-hint">
+              {!selected
+                ? '请选择已保存的模型服务；没有可用服务时，请先添加。'
+                : !selected.defaultModel.trim()
+                  ? '此服务尚未配置模型，请先到模型服务中填写并保存模型 ID。'
+                  : '此服务尚未配置密钥，请先到模型服务中配置。'}
+            </p>
           )}
+          <div className="agents-form-section">
+            <h4>能力与交流</h4>
+            <label className="agent-check agents-permission">
+              <input
+                type="checkbox"
+                checked={agent.allowEdits}
+                onChange={(event) =>
+                  setAgent({ ...agent, allowEdits: event.target.checked })
+                }
+              />
+              <span>
+                允许建造
+                <small>允许放置和移除方块；关闭时仍可移动、观察与交流。</small>
+              </span>
+            </label>
+            <label>
+              语音回复
+              <select
+                value={agent.voiceServiceId || ''}
+                onChange={(event) =>
+                  setAgent({
+                    ...agent,
+                    voiceServiceId: event.target.value,
+                    voiceReplies: !!event.target.value,
+                  })
+                }
+              >
+                <option value="">仅文字回复</option>
+                {voiceServices.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} · {service.voice || '自动音色'}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {agent.voiceServiceId && (
+              <>
+                <label className="agent-check">
+                  <input
+                    type="checkbox"
+                    checked={!!agent.voiceReplies}
+                    onChange={(event) =>
+                      setAgent({ ...agent, voiceReplies: event.target.checked })
+                    }
+                  />
+                  开启语音回复
+                </label>
+                <details className="agents-voice-preview">
+                  <summary>试听已选音色</summary>
+                  <VoicePreview
+                    service={voiceServices.find(
+                      (service) => service.id === agent.voiceServiceId,
+                    )}
+                    serviceId={agent.voiceServiceId}
+                    active={active}
+                    disabled={disabled}
+                  />
+                </details>
+              </>
+            )}
+          </div>
+          {!editingAgent && (
+            <div className="agents-form-section">
+              <h4>加入后做什么</h4>
+              <div className="agents-start-options">
+                <label className="agent-check">
+                  <input
+                    type="radio"
+                    name="agent-start"
+                    checked={!startTaskOnCreate}
+                    onChange={() => setStartTaskOnCreate(false)}
+                  />
+                  <span>
+                    先在世界中待命
+                    <small>不主动执行任务，收到私聊或 @ 后回复。</small>
+                  </span>
+                </label>
+                <label className="agent-check">
+                  <input
+                    type="radio"
+                    name="agent-start"
+                    checked={startTaskOnCreate}
+                    onChange={() => setStartTaskOnCreate(true)}
+                  />
+                  <span>
+                    立即执行任务<small>加入后开始使用所选模型完成目标。</small>
+                  </span>
+                </label>
+              </div>
+              {startTaskOnCreate && (
+                <label>
+                  第一个任务
+                  <textarea
+                    required
+                    rows={3}
+                    maxLength={2000}
+                    value={agent.goal}
+                    placeholder="例如：观察附近环境，并用中文介绍你的发现。"
+                    onChange={(event) =>
+                      setAgent({ ...agent, goal: event.target.value })
+                    }
+                  />
+                </label>
+              )}
+            </div>
+          )}
+          <details className="agents-advanced">
+            <summary>
+              高级设置 <span>任务额度、执行节奏与推理</span>
+            </summary>
+            <AgentAdvancedSettings
+              agent={agent}
+              setAgent={setAgent}
+              selected={selected}
+            />
+            <AgentScheduleSettings agent={agent} setAgent={setAgent} />
+          </details>
           <p className="agent-hint">
             {editingAgent
-              ? '保存后保持当前状态，下次运行使用新参数。'
-              : '创建后加入世界并开始任务。'}
-            云端模型按服务商规则计费。
+              ? '保存设置不会启动任务。更换模型或建造权限会重置当前任务进度，需重新开始。'
+              : '待命时不主动调用模型；执行任务和回复消息会产生模型用量。'}{' '}
+            云端模型与语音按服务商规则计费。
           </p>
-          <div className="agent-editor-actions">
-            <button
-              type="button"
-              onClick={() => {
-                setShowAgentForm(false);
-                setError('');
-                setNotice('');
-              }}
-            >
+          <div className="agents-form-footer">
+            <button type="button" onClick={cancel}>
               取消
             </button>
             <button
               className="primary"
               disabled={
-                !selected || (selected.type !== 'ollama' && !selected.hasApiKey)
+                !validProvider ||
+                !agent.name.trim() ||
+                (!editingAgent && startTaskOnCreate && !agent.goal.trim())
               }
             >
-              {busy ? '处理中…' : editingAgent ? '保存参数' : '创建并加入世界'}
+              {busy
+                ? '正在保存…'
+                : editingAgent
+                  ? '保存角色设置'
+                  : startTaskOnCreate
+                    ? '创建并开始任务'
+                    : '创建并加入世界'}
             </button>
           </div>
         </fieldset>
       </form>
-    </div>
+    </section>
   );
 }
