@@ -153,3 +153,49 @@ it.each(['oversized', 'odd', 'backpressure', 'malformed', 'disconnect'])(
     expect(vi.getTimerCount()).toBe(0);
   },
 );
+
+it.each([
+  [401, '更换密钥'],
+  [403, '访问权限'],
+  [429, '过于频繁'],
+  [503, '暂时不可用'],
+  [404, '握手失败'],
+])(
+  'reports HTTP %s handshake failures without leaking response details',
+  (statusCode, hint) => {
+    const t = setup();
+    const response = { statusCode, destroy: vi.fn(), body: 'private-key' };
+    t.upstream.emit('unexpected-response', {}, response);
+    // ws may emit error/close after termination; only the original cause should reach the UI.
+    t.upstream.emit('error', new Error('private-key'));
+    t.upstream.emit('close');
+    expect(t.messages()).toHaveLength(1);
+    expect(t.messages()[0]).toMatchObject({
+      type: 'error',
+      message: expect.stringContaining(hint),
+    });
+    expect(JSON.stringify(t.messages())).not.toContain('private-key');
+    expect(response.destroy).toHaveBeenCalledOnce();
+    expect(t.upstream.terminate).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
+
+it.each([
+  ['ENOTFOUND', 'DNS'],
+  ['EAI_AGAIN', 'DNS'],
+  ['ETIMEDOUT', '超时'],
+  ['ECONNRESET', '重置'],
+  ['ECONNREFUSED', '拒绝'],
+  ['UNKNOWN', 'TLS'],
+])(
+  'distinguishes network error %s from authentication failures',
+  (code, hint) => {
+    const t = setup();
+    t.upstream.emit('error', Object.assign(new Error('private-key'), { code }));
+    expect(t.messages()[0].message).toContain(hint);
+    expect(JSON.stringify(t.messages())).not.toContain('private-key');
+    expect(t.client.close).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
