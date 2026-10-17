@@ -1,4 +1,6 @@
 import type { BailianAsrDraft } from '@voxel/shared';
+import type { AsrProvider } from './browser-asr-services';
+import { browserLanguages } from './browser-asr-languages';
 import type { useAsrServices } from './useAsrServices';
 
 export function BailianAsrConfig({
@@ -33,7 +35,8 @@ export function BailianAsrConfig({
     >
       <h3>{saved ? '编辑识别服务' : '添加识别服务'}</h3>
       <p className="agent-hint">
-        每次添加都会创建独立服务，可分别保存 Whisper 或阿里云的模型与参数。
+        每次添加都会创建独立服务，可分别保存浏览器识别的语言，或
+        Whisper、阿里云的模型与参数。
       </p>
       <fieldset disabled={busy || disabled}>
         <label>
@@ -51,14 +54,35 @@ export function BailianAsrConfig({
             value={draft.provider ?? 'bailian'}
             disabled={!!saved}
             onChange={(e) =>
-              manager.changeProvider(e.target.value as 'bailian' | 'whisper')
+              manager.changeProvider(e.target.value as AsrProvider)
             }
           >
             <option value="whisper">自托管 Whisper</option>
             <option value="bailian">阿里云百炼</option>
+            <option value="browser">浏览器语音识别（Web Speech API）</option>
           </select>
         </label>
-        {draft.provider === 'whisper' ? (
+        {draft.provider === 'browser' ? (
+          <>
+            <label>
+              主要识别语言
+              <select
+                value={draft.language}
+                onChange={(e) => change({ language: e.target.value })}
+              >
+                {browserLanguages.map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <small>
+              配置仅保存在当前浏览器，不会同步到其他设备；无需 API
+              Key。每次选择一种主要语言，实际支持取决于浏览器识别服务。
+            </small>
+          </>
+        ) : draft.provider === 'whisper' ? (
           <>
             <label>
               识别模型
@@ -167,7 +191,9 @@ export function BailianAsrConfig({
                 autoComplete="new-password"
                 value={draft.apiKey}
                 placeholder={
-                  saved?.provider !== 'whisper' && saved?.hasApiKey
+                  saved?.provider !== 'whisper' &&
+                  saved?.provider !== 'browser' &&
+                  saved?.hasApiKey
                     ? '已配置，留空保留'
                     : '填写百炼 API Key'
                 }
@@ -180,11 +206,15 @@ export function BailianAsrConfig({
           </>
         )}
         <div className="voice-service-actions">
-          <button type="submit" disabled={!dirty}>
+          <button type="submit" disabled={!dirty || manager.loading}>
             {busy ? '处理中…' : '保存识别服务'}
           </button>
-          {!saved && manager.services.length < 19 && (
-            <button type="submit" value="add-another" disabled={!dirty}>
+          {!saved && manager.canAddAnother && (
+            <button
+              type="submit"
+              value="add-another"
+              disabled={!dirty || manager.loading}
+            >
               保存并继续添加
             </button>
           )}
@@ -199,7 +229,12 @@ export function BailianAsrConfig({
         </div>
       </fieldset>
       {dirty && <p className="agent-hint">请先保存修改，再开始录音。</p>}
-      {draft.provider === 'whisper' ? (
+      {draft.provider === 'browser' ? (
+        <p className="agent-hint">
+          浏览器直接进行麦克风识别，可能使用在线识别服务。保存后可在下方试用；聊天和附近语音继续使用
+          Whisper。
+        </p>
+      ) : draft.provider === 'whisper' ? (
         <p className="agent-hint">
           录音与文件使用当前 Whisper
           配置在项目服务器识别。聊天和附近语音继续使用服务器默认配置。

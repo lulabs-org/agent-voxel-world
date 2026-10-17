@@ -74,7 +74,7 @@ it('migrates the singleton once while retaining secret, settings and a stable se
   const [service] = store.list();
   expect(service.name).toBe('阿里云百炼');
   expect(store.get(service.id)).toMatchObject(legacy);
-  expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(2);
+  expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(3);
   const reloaded = new AsrSettingsStore(path);
   await reloaded.load();
   expect(reloaded.list()).toEqual(store.list());
@@ -186,4 +186,54 @@ it('persists multiple Whisper parameter profiles alongside legacy cloud profiles
   }
   await restored.remove(a.id);
   expect(restored.get(b.id).name).toBe('Whisper B');
+});
+
+it('converts the old fixed Whisper entry once and never recreates it after deletion', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'asr-fixed-migration-'));
+  dirs.push(dir);
+  const path = join(dir, 'asr.json');
+  const original = { ...draft, id: 'cloud-existing', provider: 'bailian' };
+  await writeFile(path, JSON.stringify({ version: 2, services: [original] }));
+  const store = new AsrSettingsStore(path);
+  await store.load();
+  expect(store.get(original.id)).toEqual(original);
+  const whisper = store.list().find((v) => v.provider === 'whisper')!;
+  expect(whisper).toMatchObject({
+    ...DEFAULT_WHISPER_ASR,
+    name: '自托管 Whisper',
+  });
+  await store.save(
+    { ...whisper, name: '我的 Whisper', threads: 2 },
+    whisper.id,
+  );
+  const reloaded = new AsrSettingsStore(path);
+  await reloaded.load();
+  expect(reloaded.list()).toHaveLength(2);
+  expect(reloaded.get(whisper.id)).toMatchObject({
+    name: '我的 Whisper',
+    threads: 2,
+  });
+  await reloaded.remove(whisper.id);
+  await reloaded.remove(original.id);
+  const empty = new AsrSettingsStore(path);
+  await empty.load();
+  expect(empty.list()).toEqual([]);
+  expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(3);
+});
+
+it('upgrades a full legacy list without losing existing profiles or exceeding its limit', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'asr-full-migration-'));
+  dirs.push(dir);
+  const path = join(dir, 'asr.json');
+  const services = Array.from({ length: 20 }, (_, i) => ({
+    ...draft,
+    id: `old-${i}`,
+    provider: 'bailian',
+  }));
+  await writeFile(path, JSON.stringify({ version: 2, services }));
+  const store = new AsrSettingsStore(path);
+  await store.load();
+  expect(store.list()).toHaveLength(20);
+  expect(store.get('old-19')).toEqual(services[19]);
+  expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(3);
 });

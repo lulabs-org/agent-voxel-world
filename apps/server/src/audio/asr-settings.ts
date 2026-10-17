@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  DEFAULT_WHISPER_ASR,
   type BailianAsrDraft,
   type AsrServiceDraft,
   type AsrServiceView,
@@ -108,7 +109,7 @@ export class AsrSettingsStore {
   async load() {
     try {
       const saved = JSON.parse(await readFile(this.path, 'utf8'));
-      if (saved?.version === 2) {
+      if (saved?.version === 2 || saved?.version === 3) {
         if (!Array.isArray(saved.services) || saved.services.length > 20)
           throw Error('services');
         const ids = new Set<string>();
@@ -128,6 +129,18 @@ export class AsrSettingsStore {
         if (saved?.version !== undefined) throw Error('version');
         const settings = validateAsrSettings(saved);
         this.values = [validateService({ ...settings, name: '阿里云百炼' })];
+      }
+      if (saved?.version !== 3) {
+        // Materialize the old fixed Whisper entry once. Deleted profiles stay deleted.
+        if (this.values.length < 20) {
+          this.values.push(
+            validateService({
+              ...DEFAULT_WHISPER_ASR,
+              provider: 'whisper',
+              name: '自托管 Whisper',
+            }),
+          );
+        }
         await this.persist(this.values);
       }
     } catch (error) {
@@ -165,7 +178,7 @@ export class AsrSettingsStore {
     try {
       await writeFile(
         tmp,
-        JSON.stringify({ version: 2, services: values }, null, 2),
+        JSON.stringify({ version: 3, services: values }, null, 2),
         {
           flag: 'wx',
           mode: 0o600,

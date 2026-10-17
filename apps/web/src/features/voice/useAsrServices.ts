@@ -2,21 +2,33 @@ import { useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_BAILIAN_ASR,
   DEFAULT_WHISPER_ASR,
-  type AsrServiceDraft,
   type AsrServiceView,
 } from '@voxel/shared';
 import { voiceApi } from './api';
+import {
+  deleteBrowserAsrService,
+  migrateBrowserAsrServices,
+  saveBrowserAsrService,
+  type AsrProvider,
+  type BrowserAsrService,
+  type WebAsrDraft,
+  type WebAsrService,
+} from './browser-asr-services';
 
-const fresh = (provider: 'bailian' | 'whisper' = 'bailian'): AsrServiceDraft =>
-  provider === 'whisper'
-    ? { ...DEFAULT_WHISPER_ASR, provider, name: 'Whisper 识别' }
-    : { ...DEFAULT_BAILIAN_ASR, provider, name: '阿里云识别', apiKey: '' };
-const clearSecret = (draft: AsrServiceDraft): AsrServiceDraft =>
-  draft.provider === 'whisper' ? draft : { ...draft, apiKey: '' };
-const formFor = (id: string, saved?: AsrServiceView) => ({
+const fresh = (provider: AsrProvider = 'bailian'): WebAsrDraft =>
+  provider === 'browser'
+    ? { provider, name: '', language: 'zh-CN' }
+    : provider === 'whisper'
+      ? { ...DEFAULT_WHISPER_ASR, provider, name: '' }
+      : { ...DEFAULT_BAILIAN_ASR, provider, name: '', apiKey: '' };
+const clearSecret = (draft: WebAsrDraft): WebAsrDraft =>
+  draft.provider === 'whisper' || draft.provider === 'browser'
+    ? draft
+    : { ...draft, apiKey: '' };
+const formFor = (id: string, saved?: WebAsrService) => ({
   id,
   draft: saved
-    ? saved.provider === 'whisper'
+    ? saved.provider === 'whisper' || saved.provider === 'browser'
       ? { ...saved }
       : { ...saved, apiKey: '' }
     : fresh(),
@@ -24,15 +36,41 @@ const formFor = (id: string, saved?: AsrServiceView) => ({
 });
 
 export function useAsrServices(active: boolean) {
-  const [services, setServices] = useState<AsrServiceView[]>([]);
-  const [form, setForm] = useState(() => formFor('local'));
+  const [remoteServices, setRemoteServices] = useState<AsrServiceView[]>([]);
+  const [browserServices, setBrowserServices] = useState<BrowserAsrService[]>(
+    [],
+  );
+  const services: WebAsrService[] = [...remoteServices, ...browserServices];
+  const [form, setForm] = useState(() => formFor('new'));
+  const browserMode = form.draft.provider === 'browser';
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
+  const [remoteError, setRemoteError] = useState('');
   const [notice, setNotice] = useState('');
   const [retry, setRetry] = useState(0);
   const request = useRef<AbortController | undefined>(undefined);
+  useEffect(() => {
+    if (!active) return;
+    try {
+      const values = migrateBrowserAsrServices(window.localStorage);
+      setBrowserServices(values);
+      setLocalError('');
+      setForm((previous) => {
+        if (!previous.id.startsWith('browser-asr-')) return previous;
+        const saved = values.find((value) => value.id === previous.id);
+        return saved
+          ? formFor(saved.id, saved)
+          : { id: 'new', draft: fresh('browser'), dirty: true };
+      });
+    } catch (e) {
+      setLocalError(
+        e instanceof Error ? e.message : '无法读取浏览器识别配置。',
+      );
+    }
+  }, [active, retry]);
   useEffect(() => {
     setLoaded(false);
     setSaving(false);
@@ -40,37 +78,43 @@ export function useAsrServices(active: boolean) {
       ...previous,
       draft: clearSecret(previous.draft),
     }));
-    if (!active) return;
+    if (!active || browserMode) {
+      setLoading(false);
+      return;
+    }
     const abort = new AbortController();
     request.current = abort;
     setLoading(true);
-    setError('');
-    setNotice('');
+    setRemoteError('');
     void voiceApi
       .listAsrServices(
         AbortSignal.any([abort.signal, AbortSignal.timeout(10000)]),
       )
       .then((values) => {
         if (abort.signal.aborted) return;
-        setServices(values);
+        setRemoteServices(values);
         setLoaded(true);
         setForm((previous) => {
+          // A delayed list response must not overwrite a new/edited/local draft.
+          if (
+            previous.id === 'new' ||
+            previous.draft.provider === 'browser' ||
+            previous.dirty
+          )
+            return previous;
           const saved = values.find((v) => v.id === previous.id);
-          return formFor(
-            saved ? saved.id : previous.id === 'new' ? 'new' : 'local',
-            saved,
-          );
+          return saved ? formFor(saved.id, saved) : formFor('new');
         });
       })
       .catch((e) => {
         if (!abort.signal.aborted)
-          setError(e instanceof Error ? e.message : '读取识别服务失败。');
+          setRemoteError(e instanceof Error ? e.message : '读取识别服务失败。');
       })
       .finally(() => {
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => request.current?.abort();
-  }, [active, retry]);
+  }, [active, retry, browserMode]);
   const choose = (id: string) => {
     setForm(
       formFor(
@@ -81,10 +125,10 @@ export function useAsrServices(active: boolean) {
     setError('');
     setNotice('');
   };
-  const change = (patch: Partial<AsrServiceDraft>) => {
+  const change = (patch: Partial<WebAsrDraft>) => {
     setForm((previous) => ({
       ...previous,
-      draft: { ...previous.draft, ...patch } as AsrServiceDraft,
+      draft: { ...previous.draft, ...patch } as WebAsrDraft,
       dirty: true,
     }));
     setError('');
@@ -93,24 +137,53 @@ export function useAsrServices(active: boolean) {
   const mutate = async (remove: boolean, addAnother = false) => {
     if (
       !active ||
-      loading ||
+      (!browserMode && loading) ||
       saving ||
-      form.id === 'local' ||
       (remove && form.id === 'new')
     )
       return;
+    setError('');
+    setNotice('');
+    if (form.draft.provider === 'browser') {
+      try {
+        if (remove) {
+          setBrowserServices(
+            deleteBrowserAsrService(window.localStorage, form.id),
+          );
+          setForm({ id: 'new', draft: fresh('browser'), dirty: true });
+          setNotice('浏览器识别服务已删除。');
+        } else {
+          const { saved, services: values } = saveBrowserAsrService(
+            window.localStorage,
+            form.draft,
+            form.id === 'new' ? undefined : form.id,
+          );
+          setBrowserServices(values);
+          setForm(
+            addAnother && form.id === 'new' && values.length < 20
+              ? { id: 'new', draft: fresh('browser'), dirty: true }
+              : formFor(saved.id, saved),
+          );
+          setNotice('已保存到当前浏览器。可继续添加其他语言配置，或录音试用。');
+        }
+        setLocalError('');
+      } catch (e) {
+        setError(
+          `保存或删除浏览器识别配置失败：${e instanceof Error ? e.message : '浏览器存储不可用。'}`,
+        );
+      }
+      return;
+    }
     const abort = new AbortController();
     request.current = abort;
     const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(10000)]);
     setSaving(true);
-    setError('');
-    setNotice('');
     try {
       if (remove) {
         await voiceApi.deleteAsrService(form.id, signal);
         if (abort.signal.aborted) return;
-        setServices((values) => values.filter((v) => v.id !== form.id));
-        setForm(formFor('local'));
+        setRemoteServices((values) => values.filter((v) => v.id !== form.id));
+        setForm({ id: 'new', draft: fresh(form.draft.provider), dirty: true });
         setNotice('识别服务已删除。');
       } else {
         const saved = await voiceApi.saveAsrService(
@@ -119,13 +192,13 @@ export function useAsrServices(active: boolean) {
           form.id === 'new' ? undefined : form.id,
         );
         if (abort.signal.aborted) return;
-        setServices((values) =>
+        setRemoteServices((values) =>
           values.some((v) => v.id === saved.id)
             ? values.map((v) => (v.id === saved.id ? saved : v))
             : [...values, saved],
         );
         const continueAdding =
-          addAnother && form.id === 'new' && services.length + 1 < 20;
+          addAnother && form.id === 'new' && remoteServices.length + 1 < 20;
         setForm(
           continueAdding
             ? { id: 'new', draft: fresh(saved.provider), dirty: true }
@@ -148,21 +221,32 @@ export function useAsrServices(active: boolean) {
     services,
     ...form,
     selected: services.find((v) => v.id === form.id),
-    loading,
+    loading: !browserMode && loading,
     saving,
     loaded,
-    error,
+    error: error || localError || (!browserMode ? remoteError : ''),
     notice,
+    canAdd: remoteServices.length < 20 || browserServices.length < 20,
+    canAddAnother:
+      (browserMode ? browserServices.length : remoteServices.length) < 19,
     choose,
     change,
-    changeProvider: (provider: 'bailian' | 'whisper') => {
+    changeProvider: (provider: AsrProvider) => {
       if (form.id !== 'new') return;
-      setForm({ id: 'new', draft: fresh(provider), dirty: true });
+      setForm({
+        id: 'new',
+        draft: { ...fresh(provider), name: form.draft.name },
+        dirty: true,
+      });
       setError('');
       setNotice('');
     },
     save: (addAnother = false) => mutate(false, addAnother),
     remove: () => mutate(true),
-    reload: () => setRetry((n) => n + 1),
+    reload: () => {
+      setError('');
+      setNotice('');
+      setRetry((n) => n + 1);
+    },
   };
 }
