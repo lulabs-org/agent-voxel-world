@@ -380,7 +380,18 @@ try {
       beforeLoop + 2,
       'random polling performs one decision per interval and honors cap',
     );
-    await api(`/${job.id}/resume`);
+    const tokensBeforeContinue = current().task!.tokens;
+    await api(`/${job.id}/resume`, 'POST', { maxTurns: 4 });
+    assert.equal(
+      current().task!.calls,
+      2,
+      'continuation retains consumed calls',
+    );
+    assert.equal(
+      current().task!.tokens,
+      tokensBeforeContinue,
+      'continuation retains consumed tokens',
+    );
     await until(() => calls === beforeLoop + 3 && current().status === 'idle');
     await api(`/${job.id}/pause`);
     const beforeSlow = calls;

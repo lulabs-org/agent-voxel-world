@@ -149,3 +149,35 @@ it('submits task-specific quotas with assignment and renewal', async () => {
     request.mock.calls.map(([, init]) => JSON.parse(init!.body as string)),
   ).toEqual([{ goal: '观察营地', ...limits }, limits]);
 });
+
+it('keeps task history cancellation, encoded routes and idempotency keys in the API boundary', async () => {
+  const signal = new AbortController().signal;
+  await consoleApi.listTaskPlans('a/b', signal);
+  await consoleApi.listTaskRuns('a/b', 'p/q', 20, signal);
+  await consoleApi.taskPlanAction('a/b', 'p/q', 'run', {
+    requestId: 'stable-retry',
+  });
+  await consoleApi.taskRunAction('a/b', 'r/s', 'resume', {
+    maxTurns: 150,
+    tokenBudget: 100000,
+  });
+  expect(
+    request.mock.calls.map(([url, init]) => [url, init?.method, init?.signal]),
+  ).toEqual([
+    ['https://world.example/agents/a%2Fb/tasks', 'GET', signal],
+    [
+      'https://world.example/agents/a%2Fb/tasks/p%2Fq/runs?offset=20',
+      'GET',
+      signal,
+    ],
+    ['https://world.example/agents/a%2Fb/tasks/p%2Fq/run', 'POST', undefined],
+    [
+      'https://world.example/agents/a%2Fb/task-runs/r%2Fs/resume',
+      'POST',
+      undefined,
+    ],
+  ]);
+  expect(JSON.parse(request.mock.calls[2][1]!.body as string)).toEqual({
+    requestId: 'stable-retry',
+  });
+});

@@ -52,6 +52,7 @@ export async function runTaskStep(
   attention?: AgentAttention,
   log: (message: string) => void = () => {},
   checkpoint: () => void = () => {},
+  hooks?: { beforeNewTask?: (task: AgentTask) => Promise<void> },
 ) {
   const addressed = attention?.take();
   let task = memory.task;
@@ -124,15 +125,12 @@ export async function runTaskStep(
   let tokens = 0,
     estimated = true;
   const deadline = new AbortController();
-  const decisionTimer = setTimeout(
-    () => deadline.abort(),
-    Math.max(
-      1,
-      chargedTask
-        ? (config.taskTimeoutMs ?? 900000) - chargedTask.elapsedMs
-        : config.timeoutMs,
-    ),
-  );
+  const decisionRemaining = chargedTask
+    ? (config.taskTimeoutMs ?? 900000) - chargedTask.elapsedMs
+    : config.timeoutMs;
+  const decisionTimer = Number.isFinite(decisionRemaining)
+    ? setTimeout(() => deadline.abort(), Math.max(1, decisionRemaining))
+    : undefined;
   const decisionSignal = AbortSignal.any([signal, deadline.signal]);
   const notifySender = async (text: string) => {
     if (!addressed || signal.aborted || !agentPermissions(config).chat) return;
@@ -202,7 +200,9 @@ export async function runTaskStep(
         return;
       }
       if (d.intent === 'task') {
-        task = memory.task = newTask(d.goal!, addressed!.actor, privateTo);
+        const nextTask = newTask(d.goal!, addressed!.actor, privateTo);
+        await hooks?.beforeNewTask?.(nextTask);
+        task = memory.task = nextTask;
         memory.previous = undefined;
         memory.unfinishedBuild = undefined;
         memory.noProgress = 0;
@@ -272,7 +272,9 @@ export async function runTaskStep(
             (Date.now() - started),
         )
       : config.timeoutMs;
-    const timer = setTimeout(() => actionLimit.abort(), remaining);
+    const timer = Number.isFinite(remaining)
+      ? setTimeout(() => actionLimit.abort(), remaining)
+      : undefined;
     let outcome;
     // Keep older unfinished coordinates when a new batch only works on a subset.
     const priorBuild = memory.unfinishedBuild;

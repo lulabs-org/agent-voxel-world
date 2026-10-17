@@ -1,4 +1,3 @@
-import { taskScheduleOf, type TaskSchedule } from './AgentScheduleSettings';
 import { agentPermissions } from '@voxel/shared';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type {
@@ -290,6 +289,7 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
                 intervalMaxMs: intervalMode === 'random' ? intervalMaxMs : 8000,
                 goal: startTaskOnCreate ? goal : '',
                 startTask: startTaskOnCreate,
+                taskTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               }),
         },
         editingAgent,
@@ -339,12 +339,6 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
       await consoleApi.assignTask(job.id, taskGoal, limits);
       setJobs(await consoleApi.listAgents());
       setTaskEditor(undefined);
-    });
-  const saveTaskSchedule = (job: ManagedAgentView, schedule: TaskSchedule) =>
-    perform(async () => {
-      await consoleApi.saveAgent(taskScheduleOf(schedule), job.id);
-      setJobs(await consoleApi.listAgents());
-      setNotice('任务心跳已保存，任务进度保留。');
     });
   const toggleVoiceReplies = (job: ManagedAgentView) =>
     perform(async () => {
@@ -402,7 +396,6 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
     cancelTask,
     stopAgent,
     assignTask,
-    saveTaskSchedule,
     toggleVoiceReplies,
   };
 }

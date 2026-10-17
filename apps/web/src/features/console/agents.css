@@ -838,3 +838,465 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Task schedules and independent executions. */
+.task-workspace {
+  min-width: 0;
+}
+.task-workspace h4 {
+  margin: 0;
+}
+.task-workspace .agents-task-heading {
+  align-items: center;
+  gap: 12px;
+}
+.task-workspace .agents-task-heading .agent-hint {
+  margin: 6px 0 0;
+}
+.task-list-filter {
+  display: flex;
+  gap: 4px;
+  margin: 18px 0;
+}
+.agent-dialog .task-list-filter button {
+  background: transparent;
+  padding: 6px 12px;
+}
+.agent-dialog .task-list-filter button[aria-pressed='true'] {
+  background: #e4ecdf;
+  color: #2e5143;
+}
+.task-plan-list {
+  display: grid;
+  gap: 8px;
+}
+.task-plan-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border: 1px solid #d5dfcf;
+  border-radius: 10px;
+}
+.task-plan-card:hover {
+  border-color: #a7b99f;
+  background: #f8faf4;
+}
+.agent-dialog .task-plan-open {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  padding: 0;
+  white-space: normal;
+}
+.agent-dialog .task-plan-open:hover {
+  background: transparent;
+}
+.task-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.task-card-heading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: #677965;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.task-history-toggle small,
+.task-plan-schedule small {
+  display: block;
+  color: #677965;
+  line-height: 1.6;
+}
+.task-plan-badge {
+  font-size: 12px;
+  font-weight: 400;
+  background: #edf1e7;
+  border-radius: 20px;
+  padding: 4px 9px;
+  flex-shrink: 0;
+}
+.task-card-heading .task-plan-badge {
+  padding: 2px 7px;
+  font-size: 11px;
+}
+.task-plan-latest {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  color: #64735f;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.task-plan-latest span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.task-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.agent-dialog .task-card-actions button {
+  background: transparent;
+  padding: 5px 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.agent-dialog .task-card-actions button:hover:not(:disabled) {
+  background: #e8efdf;
+}
+.task-detail-overview {
+  display: grid;
+  gap: 10px;
+}
+.agent-dialog .task-detail-back {
+  justify-self: start;
+  padding: 0;
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+.task-detail-heading,
+.task-section-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.task-workspace .task-plan-title {
+  font-size: 17px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.task-run-goal {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  font-size: 13px;
+  margin: 0;
+}
+.task-plan-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: #60715e;
+  line-height: 1.5;
+}
+.task-run-reason {
+  padding: 8px 10px;
+  margin: 0;
+  background: #faf2e3;
+  border-radius: 6px;
+  color: #865d26;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.agent-dialog .task-detail-actions > button,
+.agent-dialog .task-detail-actions > button.primary {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 80px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.task-detail-overview > .agent-hint {
+  margin: 0;
+}
+.task-plan-budget {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.task-plan-budget form {
+  width: 100%;
+}
+.task-run-section {
+  border-top: 1px solid #d5dfcf;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+.task-section-heading h4 {
+  font-size: 13px;
+}
+.task-section-heading small {
+  font-size: 12px;
+  color: #677965;
+}
+.task-run-detail {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d5dfcf;
+  border-radius: 8px;
+  margin-top: 10px;
+  min-width: 0;
+}
+.task-run-heading strong {
+  font-size: 13px;
+}
+.task-run-heading small {
+  color: #677965;
+  font-size: 12px;
+}
+.task-report {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+.task-report p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-run-usage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  background: #f4f6ef;
+  border-radius: 6px;
+}
+.task-run-usage dt {
+  font-size: 11px;
+  color: #64765e;
+}
+.task-run-usage dd {
+  margin: 4px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.agent-dialog .task-action-records {
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+}
+.task-action-count {
+  margin-left: 6px;
+  color: #64765e;
+  font-size: 11px;
+}
+.task-action-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.task-action-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #e2e8dd;
+}
+.task-action-number {
+  flex: 0 0 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef2e9;
+  color: #64765e;
+  font-size: 11px;
+}
+.task-action-content {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.task-action-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-height: 22px;
+}
+.task-action-status {
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  background: #eef1ec;
+  color: #5b6b60;
+}
+.task-action-status.is-success {
+  background: #e9f1e5;
+  color: #3e634b;
+}
+.task-action-status.is-error {
+  background: #faeae7;
+  color: #9b4034;
+}
+.task-action-status.is-warning {
+  background: #fbf1df;
+  color: #8c5d20;
+}
+
+.task-action-feedback {
+  margin: 4px 0 0;
+  line-height: 1.6;
+}
+.task-action-summary {
+  color: #64765e;
+  font-size: 11px;
+}
+.task-action-feedback {
+  color: #657662;
+  font-size: 11px;
+}
+.agent-dialog .task-action-raw {
+  margin: 5px 0 0;
+  font-size: 11px;
+}
+.agent-dialog .task-action-raw > summary {
+  color: #64765e;
+  padding: 0;
+  line-height: 1.6;
+}
+.task-action-raw pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: #f4f6ef;
+  border-radius: 5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.task-action-empty {
+  margin: 8px 0 0;
+  color: #64765e;
+}
+.task-run-detail > .agent-hint {
+  margin: 0;
+}
+.task-history-item {
+  border-bottom: 1px solid #e2e8dd;
+}
+.agent-dialog .task-history-toggle {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+  text-align: left;
+  padding: 10px 0;
+  font-size: 12px;
+  background: transparent;
+}
+.task-history-toggle > span:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.task-history-item .task-run-detail {
+  margin: 0 0 10px;
+}
+.task-plan-editor {
+  margin-top: 4px;
+}
+.task-plan-editor fieldset {
+  margin-top: 20px;
+}
+.task-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.agent-form .task-weekdays label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  background: #eef2e8;
+  border-radius: 6px;
+}
+.agent-form .task-weekdays input {
+  width: 16px;
+  height: 16px;
+}
+.task-limits {
+  margin: 20px 0;
+  padding: 14px;
+  border: 1px solid #d5dfcf;
+  border-radius: 8px;
+}
+.task-limits > .agent-hint {
+  color: #64765e;
+  display: block;
+  margin: 6px 0 0;
+}
+.task-limits .agents-task-limits {
+  margin-top: 18px;
+}
+@media (max-width: 620px) {
+  .task-workspace .agents-task-heading {
+    flex-wrap: wrap;
+  }
+  .task-run-usage {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .task-run-detail {
+    padding: 10px;
+  }
+  .task-report {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .task-plan-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+  .task-card-actions {
+    justify-content: flex-end;
+  }
+  .agent-dialog .task-history-toggle {
+    font-size: 12px;
+  }
+}
+
+.agent-form .task-limits-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.agent-form .task-limits-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #305347;
+}

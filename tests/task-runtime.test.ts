@@ -499,3 +499,34 @@ it('reports the rejected intent to the next decision without changing the task o
   expect(f.memory.task.status).toBe('completed');
   expect(f.memory.decisionError).toBeUndefined();
 });
+
+it('keeps counting unlimited execution beyond all saved caps without scheduling an infinite timeout', async () => {
+  const f = fixture();
+  f.memory.task = {
+    ...newTask('继续观察'),
+    calls: 300,
+    tokens: 2000000,
+    elapsedMs: 8000000,
+  };
+  f.planner.decide.mockImplementation(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return decision('continue', 'completed');
+  });
+  const { executionLimits } = await import('../packages/shared/src/index');
+  await f.step({
+    ...cfg(),
+    ...executionLimits({
+      enabled: false,
+      maxTurns: 1,
+      tokenBudget: 1000,
+      taskTimeoutMs: 60000,
+    }),
+  });
+  expect(f.planner.decide).toHaveBeenCalledOnce();
+  expect(f.memory.task).toMatchObject({
+    status: 'completed',
+    calls: 301,
+    tokens: 2000100,
+  });
+  expect(f.memory.task.elapsedMs).toBeGreaterThanOrEqual(8000010);
+});

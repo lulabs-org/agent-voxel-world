@@ -1,3 +1,23 @@
+import {
+  TaskScheduler,
+  emptyTaskBook,
+  validatePlan,
+  newPlan,
+  newRun,
+  runView,
+  nextOccurrence,
+  duePlans,
+  endedRun,
+  type TaskBook,
+} from './task-scheduler';
+import {
+  DEFAULT_TASK_LIMITS,
+  executionLimits,
+  hasPlanTokenLimit,
+  isRepeating,
+  type TaskPlan,
+  type TaskRun,
+} from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -367,6 +387,8 @@ type Job = {
   session?: Session;
   done?: Promise<void>;
   memory: AgentRunState;
+  book: TaskBook;
+  taskMutating?: boolean;
   attention: AgentAttention;
   updating?: boolean;
   timer?: ReturnType<typeof setTimeout>;
@@ -379,12 +401,14 @@ export class AgentManager {
   private jobs = new Map<string, Job>();
   private closing = false;
   private probing = new Set<string>();
+  private taskScheduler = new TaskScheduler(() => this.dispatchDue());
   private saving: Promise<void> = Promise.resolve();
   private get archivePath() {
     return `${this.providers.path}.agents.json`;
   }
   private persist() {
     if (this.closing) return;
+    for (const job of this.jobs.values()) this.captureTask(job);
     const data = JSON.stringify(
       this.list()
         .reverse()
@@ -392,6 +416,7 @@ export class AgentManager {
           ...view,
           sessionId: undefined,
           runtime: this.jobs.get(view.id)?.memory,
+          taskBook: this.jobs.get(view.id)?.book,
         })),
       null,
       2,
@@ -406,15 +431,30 @@ export class AgentManager {
     void this.saving.catch(() => console.error('无法保存 Agent 记录。'));
   }
   async load() {
-    let saved: (ManagedAgentView & { runtime?: AgentRunState })[];
+    let saved: (ManagedAgentView & {
+      runtime?: AgentRunState;
+      taskBook?: TaskBook;
+    })[];
     try {
       saved = JSON.parse(await readFile(this.archivePath, 'utf8'));
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        this.taskScheduler.start();
+        return;
+      }
       throw new ManagementError('无法读取 Agent 记录。', 500);
     }
     if (!Array.isArray(saved) || saved.length > 50)
       throw new ManagementError('Agent 记录格式无效。', 500);
+    if (saved.some((view) => !view.taskBook)) {
+      await writeFile(
+        `${this.archivePath}.before-task-plans.bak`,
+        await readFile(this.archivePath),
+        { mode: 0o600, flag: 'wx' },
+      ).catch((error) => {
+        if (error.code !== 'EEXIST') throw error;
+      });
+    }
     for (const view of saved) {
       const provider = this.providers.get(view.providerId);
       const settings = validateAgent(view, provider);
@@ -441,13 +481,14 @@ export class AgentManager {
         },
         abort: new AbortController(),
         memory: view.runtime ?? {
-          task: {
+          task: view.task ?? {
             ...newTask(settings.goal),
             status: 'paused',
             reason: '旧任务已迁移，请确认后继续。',
           },
         },
         attention: new AgentAttention(),
+        book: view.taskBook ?? emptyTaskBook(),
       };
       job.memory.previous = restoreBatchHistory(job.memory.previous);
       if (
@@ -459,11 +500,80 @@ export class AgentManager {
       }
       if (job.memory.task && !job.memory.task.privateTo)
         delete job.memory.task.owner;
-      if (job.memory.task?.privateTo) {
+      if (
+        job.memory.task?.privateTo &&
+        !['completed', 'cancelled'].includes(job.memory.task.status)
+      ) {
         job.memory.audienceExpired = true;
         job.memory.task.status = 'needs_input';
         job.memory.task.reason =
           '服务重启后原私聊会话已失效，请在控制台重新布置任务。';
+      }
+      if (
+        job.book.version !== 1 ||
+        !Array.isArray(job.book.plans) ||
+        !Array.isArray(job.book.runs)
+      )
+        throw new ManagementError('任务存档格式无效。', 500);
+      const interruptedRuns = new Set(
+        job.book.runs
+          .filter((r) =>
+            [
+              'running',
+              'waiting',
+              'failed',
+              'budget',
+              'blocked',
+              'needs_input',
+            ].includes(r.status),
+          )
+          .map((r) => r.id),
+      );
+      const migrating = !view.taskBook;
+      this.captureTask(job);
+      for (const run of job.book.runs) {
+        for (const action of run.actions ?? [])
+          if (action.status === 'executing') action.status = 'unknown';
+        if (run.runtime?.previous)
+          run.runtime.previous = restoreBatchHistory(run.runtime.previous);
+        if (run.runtime?.task?.privateTo && !endedRun(run)) {
+          run.runtime.audienceExpired = true;
+          run.runtime.task.status = 'needs_input';
+          run.runtime.task.reason = '原私聊会话已失效，请新建任务。';
+          run.status = 'needs_input';
+          run.task = structuredClone(run.runtime.task);
+        }
+        if (['running', 'waiting'].includes(run.status)) {
+          run.status = 'paused';
+          run.reason = '服务重启，进度保留，请手动继续。';
+          if (run.runtime?.task) {
+            run.runtime.task.status = 'paused';
+            run.runtime.task.reason = run.reason;
+            run.task = structuredClone(run.runtime.task);
+          }
+        }
+        if (
+          !endedRun(run) &&
+          (migrating ||
+            interruptedRuns.has(run.id) ||
+            run.runtime?.audienceExpired)
+        ) {
+          const p = job.book.plans.find((p) => p.id === run.planId);
+          if (p) {
+            p.state = 'paused';
+            p.reason = '执行尚未结束，请确认后恢复计划。';
+            delete p.nextRunAt;
+          }
+        }
+      }
+      for (const plan of duePlans(job.book, Date.now())) {
+        const run = newRun(plan, plan.nextRunAt!, 'scheduled');
+        run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
+        run.reason = '服务未运行，错过的触发不补跑。';
+        run.finishedAt = Date.now();
+        job.book.runs.push(run);
+        plan.nextRunAt = nextOccurrence(plan, Date.now());
+        if (!isRepeating(plan.timing)) plan.state = 'completed';
       }
       this.jobs.set(view.id, job);
       if (voiceWarning) job.view.logs.push(voiceWarning);
@@ -478,6 +588,7 @@ export class AgentManager {
     }
     this.persist();
     await this.saving;
+    this.taskScheduler.start();
   }
   constructor(
     readonly providers: ProviderStore,
@@ -524,6 +635,504 @@ export class AgentManager {
       )
       .reverse();
   }
+  private taskJob(id: string) {
+    const job = this.jobs.get(id);
+    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    return job;
+  }
+  private currentRun(job: Job) {
+    return job.book.runs.find((r) => r.id === job.book.currentRunId);
+  }
+  private taskBusy(job: Job) {
+    const run = this.currentRun(job);
+    return (
+      !!job.taskMutating ||
+      job.updating ||
+      job.controlling ||
+      active(job.view.status) ||
+      (!!run &&
+        ['running', 'waiting'].includes(run.status) &&
+        job.view.status !== 'failed')
+    );
+  }
+  private captureTask(job: Job) {
+    if (!job.memory.task) return;
+    let run = this.currentRun(job);
+    if (
+      !run ||
+      (run.task && run.task.startedAt !== job.memory.task.startedAt)
+    ) {
+      const p = newPlan(
+        {
+          name: job.memory.task.goal.slice(0, 80) || '任务',
+          goal: job.memory.task.goal,
+          timing: { kind: 'immediate' },
+          timeZone: 'UTC',
+          limits: {
+            maxTurns: job.view.maxTurns,
+            tokenBudget: job.view.tokenBudget ?? 50000,
+            taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
+          },
+          totalTokenBudget: 500000,
+        },
+        job.memory.task.startedAt,
+      );
+      job.book.plans.push(p);
+      run = newRun(p, p.createdAt, 'legacy');
+      run.logs = [...job.view.logs];
+      job.book.runs.push(run);
+      job.book.currentRunId = run.id;
+    }
+    const plan = job.book.plans.find((p) => p.id === run!.planId)!;
+    const task = job.memory.task;
+    const delta = Math.max(0, task.tokens - run.accountedTokens);
+    run.totalTokens += delta;
+    plan.spentTokens += delta;
+    run.accountedTokens = task.tokens;
+    const batch = job.memory.previous as
+      | {
+          results?: {
+            action?: { type?: string };
+            status?: string;
+            result?: unknown;
+          }[];
+        }
+      | undefined;
+    if (
+      Array.isArray(batch?.results) &&
+      JSON.stringify(batch) !== run.lastBatch
+    ) {
+      run.lastBatch = JSON.stringify(batch);
+      const call = job.memory.usage?.calls ?? task.calls;
+      run.actions ??= [];
+      batch.results.forEach((result, index) => {
+        if (!result.action?.type || !result.status) return;
+        const entry = {
+          call,
+          index,
+          kind: result.action.type,
+          status: result.status,
+          detail: JSON.stringify({
+            action: result.action,
+            result: result.result,
+          }),
+        };
+        const existing = run!.actions!.findIndex(
+          (a) => a.call === call && a.index === index,
+        );
+        if (existing < 0) run!.actions!.push(entry);
+        else run!.actions![existing] = entry;
+      });
+    }
+    run.task = structuredClone(task);
+    const { usage, ...runtime } = job.memory;
+    run.runtime = structuredClone(runtime);
+    run.startedAt ??= task.startedAt;
+    run.status =
+      job.view.status === 'failed' &&
+      !['completed', 'cancelled', 'budget'].includes(task.status)
+        ? 'failed'
+        : task.status;
+    run.reason =
+      run.status === 'failed'
+        ? job.view.logs.at(-1) || '执行中断，请检查后继续。'
+        : task.reason;
+    if (endedRun(run)) run.finishedAt ??= Date.now();
+    if (['failed', 'budget', 'needs_input', 'blocked'].includes(run.status)) {
+      plan.state = 'paused';
+      plan.reason = run.reason || '本次执行需要处理。';
+      delete plan.nextRunAt;
+    } else if (
+      endedRun(run) &&
+      !isRepeating(plan.timing) &&
+      plan.state === 'enabled' &&
+      !plan.nextRunAt
+    )
+      plan.state = 'completed';
+    if (
+      hasPlanTokenLimit(plan) &&
+      plan.spentTokens >= plan.totalTokenBudget &&
+      plan.state !== 'archived'
+    ) {
+      plan.state = 'paused';
+      plan.reason = '计划累计 token 额度已用尽，请追加额度后恢复。';
+      delete plan.nextRunAt;
+    }
+  }
+  private async commitTaskBook<T>(
+    job: Job,
+    change: () => T,
+    swapsExecution = false,
+  ): Promise<T> {
+    if (job.taskMutating || job.updating || job.controlling)
+      throw new ManagementError('任务状态正在更新，请稍候。', 409);
+    this.captureTask(job);
+    const before = {
+      book: structuredClone(job.book),
+      memory: structuredClone(job.memory),
+      view: structuredClone(job.view),
+    };
+    job.taskMutating = true;
+    try {
+      const result = change();
+      this.persist();
+      await this.saving;
+      return result;
+    } catch (error) {
+      job.book = before.book;
+      if (swapsExecution) {
+        job.memory = before.memory;
+        job.view = before.view;
+      } else this.captureTask(job);
+      throw error;
+    } finally {
+      job.taskMutating = false;
+      this.schedule(job);
+    }
+  }
+  taskPlans(id: string) {
+    const job = this.taskJob(id);
+    this.captureTask(job);
+    return job.book.plans.map((p) => ({
+      ...structuredClone(p),
+      latestRun: (() => {
+        const run = job.book.runs.filter((r) => r.planId === p.id).at(-1);
+        return run
+          ? { ...runView(run), actions: undefined, logs: [] }
+          : undefined;
+      })(),
+    }));
+  }
+  taskRuns(id: string, planId: string, offset = 0) {
+    const job = this.taskJob(id);
+    this.captureTask(job);
+    if (!Number.isSafeInteger(offset) || offset < 0)
+      throw new ManagementError('分页参数无效。');
+    if (!job.book.plans.some((p) => p.id === planId))
+      throw new ManagementError('任务不存在。', 404);
+    const all = job.book.runs
+      .filter((r) => r.planId === planId)
+      .slice()
+      .reverse();
+    return {
+      items: all.slice(offset, offset + 20).map(runView),
+      active: all.filter((r) => !endedRun(r)).map(runView),
+      total: all.length,
+      nextOffset: offset + 20 < all.length ? offset + 20 : undefined,
+    };
+  }
+  private reserveRun(
+    job: Job,
+    plan: TaskPlan,
+    source: TaskRun['source'],
+    at: number,
+    skip?: string,
+  ) {
+    if (
+      source === 'scheduled' &&
+      job.book.runs.some(
+        (r) =>
+          r.planId === plan.id && r.source === source && r.scheduledAt === at,
+      )
+    )
+      return undefined;
+    this.captureTask(job);
+    const run = newRun(plan, at, source);
+    job.book.runs.push(run);
+    if (skip) {
+      run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
+      run.reason = skip;
+      run.finishedAt = Date.now();
+      if (!isRepeating(plan.timing)) plan.state = 'completed';
+      return undefined;
+    }
+    const task = newTask(plan.goal);
+    run.task = task;
+    run.runtime = { task };
+    run.startedAt = task.startedAt;
+    job.book.currentRunId = run.id;
+    job.memory = { task, usage: job.memory.usage };
+    job.view.status = 'idle';
+    Object.assign(job.view, plan.limits, { goal: plan.goal });
+    return run.id;
+  }
+  private launchReserved(job: Job) {
+    clearTimeout(job.timer);
+    job.view.status = 'running';
+    job.abort = new AbortController();
+    job.done = this.execute(job, this.providers.get(job.view.providerId));
+  }
+  async createTaskPlan(id: string, value: unknown) {
+    const job = this.taskJob(id);
+    const requestId = object(value).requestId;
+    if (
+      requestId !== undefined &&
+      (typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(requestId))
+    )
+      throw new ManagementError('请求标识无效。');
+    const priorId =
+      typeof requestId === 'string' &&
+      job.book.requests &&
+      Object.hasOwn(job.book.requests, requestId)
+        ? job.book.requests[requestId]
+        : undefined;
+    if (priorId)
+      return structuredClone(job.book.plans.find((p) => p.id === priorId)!);
+    const draft = validatePlan(value);
+    if (
+      draft.timing.kind === 'immediate' &&
+      (!job.session || this.taskBusy(job))
+    )
+      throw new ManagementError('请先让角色上线并结束或暂停当前执行。', 409);
+    let runId: string | undefined;
+    const plan = await this.commitTaskBook(
+      job,
+      () => {
+        const p = newPlan(draft, Date.now());
+        job.book.plans.push(p);
+        if (p.timing.kind === 'immediate')
+          runId = this.reserveRun(job, p, 'manual', Date.now());
+        if (typeof requestId === 'string')
+          (job.book.requests ??= {})[requestId] = p.id;
+        return p;
+      },
+      draft.timing.kind === 'immediate',
+    );
+    if (runId) this.launchReserved(job);
+    this.taskScheduler.start();
+    return structuredClone(plan);
+  }
+  async updateTaskPlan(id: string, planId: string, value: unknown) {
+    const job = this.taskJob(id),
+      plan = job.book.plans.find((p) => p.id === planId);
+    if (!plan) throw new ManagementError('任务不存在。', 404);
+    if (plan.state === 'archived')
+      throw new ManagementError('已归档任务不能修改。');
+    const draft = validatePlan(value, Date.now(), plan);
+    return this.commitTaskBook(job, () => {
+      Object.assign(plan, draft, { updatedAt: Date.now() });
+      plan.nextRunAt =
+        plan.state === 'enabled' ? nextOccurrence(plan, Date.now()) : undefined;
+      return structuredClone(plan);
+    });
+  }
+  async controlTaskPlan(
+    id: string,
+    planId: string,
+    operation: string,
+    value: unknown = {},
+  ) {
+    const job = this.taskJob(id),
+      plan = job.book.plans.find((p) => p.id === planId);
+    if (!plan) throw new ManagementError('任务不存在。', 404);
+    if (plan.state === 'archived') throw new ManagementError('任务已归档。');
+    if (operation === 'run') {
+      const requestId = object(value).requestId;
+      if (
+        typeof requestId !== 'string' ||
+        !/^[a-zA-Z0-9-]{1,80}$/.test(requestId)
+      )
+        throw new ManagementError('执行请求标识无效。');
+      const prior = job.book.runs.find(
+        (r) => r.planId === planId && r.requestId === requestId,
+      );
+      if (prior) return runView(prior);
+      if (!job.session || this.taskBusy(job))
+        throw new ManagementError(
+          '角色离线或忙碌，请先上线或暂停当前执行。',
+          409,
+        );
+      if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
+        throw new ManagementError('请先追加计划累计额度。');
+      let runId: string | undefined;
+      await this.commitTaskBook(
+        job,
+        () => {
+          runId = this.reserveRun(job, plan, 'manual', Date.now());
+          this.currentRun(job)!.requestId = requestId;
+        },
+        true,
+      );
+      if (runId) this.launchReserved(job);
+      return runView(this.currentRun(job)!);
+    }
+    return this.commitTaskBook(job, () => {
+      if (operation === 'pause') {
+        plan.state = 'paused';
+        plan.reason = '计划已暂停，本次执行不受影响。';
+        delete plan.nextRunAt;
+      } else if (operation === 'resume') {
+        if (!isRepeating(plan.timing) && plan.timing.kind !== 'once')
+          throw new ManagementError('一次性任务请使用立即执行。');
+        if (
+          job.book.runs.some(
+            (r) =>
+              r.planId === planId &&
+              ['failed', 'blocked', 'needs_input', 'budget'].includes(r.status),
+          )
+        )
+          throw new ManagementError('请先处理或结束异常执行。');
+        if (
+          hasPlanTokenLimit(plan) &&
+          plan.spentTokens >= plan.totalTokenBudget
+        )
+          throw new ManagementError('请先追加计划累计额度。');
+        plan.nextRunAt = nextOccurrence(plan, Date.now());
+        if (!plan.nextRunAt)
+          throw new ManagementError(
+            '指定时间已错过，请编辑未来时间或手动执行。',
+          );
+        plan.state = 'enabled';
+        plan.reason = '';
+      } else if (operation === 'archive') {
+        if (job.book.runs.some((r) => r.planId === planId && !endedRun(r)))
+          throw new ManagementError('请先结束所有未完成的执行。', 409);
+        plan.state = 'archived';
+        delete plan.nextRunAt;
+      } else if (operation === 'extend') {
+        const amount = integer(
+          object(value).tokens,
+          '追加 token 额度',
+          0,
+          1000,
+          1000000000,
+        );
+        if (plan.totalTokenBudget + amount > 1000000000)
+          throw new ManagementError('累计额度过大。');
+        plan.totalTokenBudget += amount;
+      } else throw new ManagementError('计划操作无效。');
+      plan.updatedAt = Date.now();
+      return structuredClone(plan);
+    });
+  }
+  async controlTaskRun(
+    id: string,
+    runId: string,
+    operation: string,
+    value: unknown = {},
+  ) {
+    const job = this.taskJob(id);
+    this.captureTask(job);
+    const run = job.book.runs.find((r) => r.id === runId);
+    if (!run || !run.runtime?.task)
+      throw new ManagementError('执行记录不存在或不可继续。', 404);
+    if (endedRun(run))
+      throw new ManagementError('执行已结束，请重新执行任务。');
+    if (operation === 'pause' || operation === 'cancel') {
+      if (job.book.currentRunId === runId)
+        return this.controlTask(id, operation);
+      return this.commitTaskBook(job, () => {
+        run.runtime!.task!.status =
+          operation === 'cancel' ? 'cancelled' : 'paused';
+        run.runtime!.task!.reason =
+          '已由玩家' + (operation === 'cancel' ? '结束。' : '暂停。');
+        run.task = structuredClone(run.runtime!.task);
+        run.status = run.task!.status;
+        run.reason = run.task!.reason;
+        if (operation === 'cancel') run.finishedAt = Date.now();
+        return runView(run);
+      });
+    }
+    if (operation !== 'resume') throw new ManagementError('执行操作无效。');
+    if (!job.session || this.taskBusy(job))
+      throw new ManagementError(
+        '角色离线或忙碌，请先上线或暂停当前执行。',
+        409,
+      );
+    if (run.runtime.audienceExpired)
+      throw new ManagementError('原私聊会话已失效，请新建任务。', 409);
+    const plan = job.book.plans.find((p) => p.id === run.planId)!;
+    if (
+      hasPlanTokenLimit(run.snapshot) &&
+      plan.spentTokens >= plan.totalTokenBudget
+    )
+      throw new ManagementError('请先追加计划累计额度。');
+    const enabled = run.snapshot.limits.enabled !== false;
+    const settings = validateAgent(
+      { ...job.view, ...run.snapshot.limits, ...taskLimits(object(value)) },
+      this.providers.get(job.view.providerId),
+    );
+    if (
+      enabled &&
+      (settings.maxTurns <= run.task!.calls ||
+        settings.tokenBudget! <= run.task!.tokens ||
+        settings.taskTimeoutMs! <= run.task!.elapsedMs)
+    )
+      throw new ManagementError('继续执行的额度必须大于已使用额度。');
+    await this.commitTaskBook(
+      job,
+      () => {
+        this.captureTask(job);
+        run.snapshot.limits = {
+          enabled,
+          maxTurns: settings.maxTurns,
+          tokenBudget: settings.tokenBudget!,
+          taskTimeoutMs: settings.taskTimeoutMs!,
+        };
+        job.memory = {
+          ...structuredClone(run.runtime!),
+          usage: job.memory.usage,
+        };
+        job.memory.task!.status = 'running';
+        job.memory.task!.reason = '';
+        job.memory.failures = 0;
+        job.memory.noProgress = 0;
+        job.book.currentRunId = run.id;
+        Object.assign(job.view, run.snapshot.limits, {
+          goal: run.snapshot.goal,
+        });
+        run.status = 'running';
+        job.view.status = 'idle';
+        delete run.finishedAt;
+      },
+      true,
+    );
+    this.launchReserved(job);
+    return runView(run);
+  }
+  async dispatchDue(now = Date.now()) {
+    if (this.closing) return;
+    for (const job of this.jobs.values()) {
+      if (job.taskMutating || job.updating || job.controlling) continue;
+      const due = duePlans(job.book, now);
+      let selected = false;
+      for (const plan of due) {
+        const at = plan.nextRunAt!;
+        const skip =
+          selected || this.taskBusy(job)
+            ? '角色忙碌，本次触发已跳过。'
+            : !job.session
+              ? '角色离线，本次触发已错过。'
+              : undefined;
+        let runId: string | undefined;
+        await this.commitTaskBook(
+          job,
+          () => {
+            if (
+              hasPlanTokenLimit(plan) &&
+              plan.spentTokens >= plan.totalTokenBudget
+            ) {
+              plan.state = 'paused';
+              plan.reason = '累计额度已用尽。';
+              delete plan.nextRunAt;
+              return;
+            }
+            runId = this.reserveRun(job, plan, 'scheduled', at, skip);
+            plan.nextRunAt = isRepeating(plan.timing)
+              ? nextOccurrence(plan, now)
+              : undefined;
+          },
+          !skip,
+        );
+        if (runId) {
+          selected = true;
+          this.launchReserved(job);
+        }
+      }
+    }
+  }
+
   async models(id: string) {
     if (this.probing.has(id))
       throw new ManagementError('正在连接此模型服务，请稍候。', 429);
@@ -551,20 +1160,28 @@ export class AgentManager {
     const startTask = boolean(object(value).startTask, true);
     if (startTask && !settings.goal)
       throw new ManagementError('请填写任务目标，或选择加入世界待命。');
+    const firstTask = startTask
+      ? validatePlan({
+          name: settings.goal.slice(0, 80),
+          goal: settings.goal,
+          timing: { kind: 'immediate' },
+          timeZone: object(value).taskTimeZone ?? 'UTC',
+          limits: {
+            maxTurns: settings.maxTurns,
+            tokenBudget: settings.tokenBudget,
+            taskTimeoutMs: settings.taskTimeoutMs,
+          },
+        })
+      : undefined;
     this.checkVoice(settings);
     if ([...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError(
         '最多同时在线 4 个受管理的 Agent（含待命），请先关闭一个。',
         409,
       );
-    for (const [id, job] of this.jobs) {
-      if (this.jobs.size < 50) break;
-      if (!resident(job) && ['stopped', 'completed'].includes(job.view.status))
-        this.jobs.delete(id);
-    }
     if (this.jobs.size >= 50)
       throw new ManagementError(
-        '最多保存 50 个 Agent，请先关闭不再使用的 Agent。',
+        '最多保存 50 个 Agent；为保留任务历史，不能自动删除旧角色。',
         409,
       );
     const job: Job = {
@@ -578,9 +1195,22 @@ export class AgentManager {
       },
       abort: new AbortController(),
       memory: startTask ? { task: newTask(settings.goal) } : {},
+      book: emptyTaskBook(),
       attention: new AgentAttention(),
     };
+    if (firstTask) {
+      const plan = newPlan(firstTask, job.view.createdAt);
+      const run = newRun(plan, job.view.createdAt, 'manual');
+      run.task = job.memory.task;
+      job.book.plans.push(plan);
+      job.book.runs.push(run);
+      job.book.currentRunId = run.id;
+    }
     this.jobs.set(job.view.id, job);
+    this.captureTask(job);
+    const createdRun = this.currentRun(job);
+    if (createdRun) createdRun.source = 'manual';
+    this.taskScheduler.start();
     job.done = this.execute(job, provider, startTask);
     this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
@@ -589,7 +1219,7 @@ export class AgentManager {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
-    if (resident(job) || job.updating || job.controlling)
+    if (resident(job) || job.updating || job.controlling || job.taskMutating)
       throw new ManagementError('角色已在线或正在更新，请稍候。', 409);
     if ([...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError(
@@ -622,7 +1252,12 @@ export class AgentManager {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
-    if (active(job.view.status) || job.updating || job.controlling)
+    if (
+      active(job.view.status) ||
+      job.updating ||
+      job.controlling ||
+      job.taskMutating
+    )
       throw new ManagementError('Agent 正在运行或关闭，请稍候。', 409);
     const input = object(value);
     if (job.memory.audienceExpired && input.goal === undefined)
@@ -644,25 +1279,51 @@ export class AgentManager {
     if (!job.session && [...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError('最多同时在线 4 个 Agent，请先关闭一个。', 409);
     clearTimeout(job.timer);
+    this.captureTask(job);
     if (
       input.goal !== undefined ||
       !job.memory.task ||
       ['completed', 'cancelled'].includes(job.memory.task.status)
     ) {
-      job.memory = { usage: job.memory.usage, task: newTask(settings.goal) };
+      const previousRun = this.currentRun(job);
+      const previousPlan = job.book.plans.find(
+        (p) => p.id === previousRun?.planId,
+      );
+      if (input.goal === undefined && previousPlan) {
+        if (previousPlan.state === 'archived')
+          throw new ManagementError('任务已归档，请创建新任务。');
+        if (
+          hasPlanTokenLimit(previousPlan) &&
+          previousPlan.spentTokens >= previousPlan.totalTokenBudget
+        )
+          throw new ManagementError('请先追加计划累计额度。');
+        this.reserveRun(job, previousPlan, 'manual', Date.now());
+      } else {
+        delete job.book.currentRunId;
+        job.memory = { usage: job.memory.usage, task: newTask(settings.goal) };
+      }
     } else {
       const task = job.memory.task;
-      if (task.status === 'budget') {
-        task.calls = 0;
-        task.tokens = 0;
-        task.elapsedMs = 0;
-        task.estimated = false;
-      }
+      if (
+        this.currentRun(job)?.snapshot.limits.enabled !== false &&
+        (task.calls >= settings.maxTurns ||
+          task.tokens >= settings.tokenBudget! ||
+          task.elapsedMs >= settings.taskTimeoutMs!)
+      )
+        throw new ManagementError('请增加本次执行的总额度后再继续。');
       task.status = 'running';
       task.reason = '';
       job.memory.failures = 0;
       job.memory.noProgress = 0;
     }
+    const resumedRecord = this.currentRun(job);
+    if (resumedRecord)
+      resumedRecord.snapshot.limits = {
+        enabled: resumedRecord.snapshot.limits.enabled,
+        maxTurns: settings.maxTurns,
+        tokenBudget: settings.tokenBudget!,
+        taskTimeoutMs: settings.taskTimeoutMs!,
+      };
     Object.assign(job.view, settings, {
       providerName: provider.name,
       status: job.session ? 'running' : 'joining',
@@ -676,7 +1337,12 @@ export class AgentManager {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
-    if (active(job.view.status) || job.updating || job.controlling)
+    if (
+      active(job.view.status) ||
+      job.updating ||
+      job.controlling ||
+      job.taskMutating
+    )
       throw new ManagementError('请等待 Agent 待命，或关闭后再修改参数。', 409);
     const input = object(value);
     const provider = this.providers.get(
@@ -726,6 +1392,8 @@ export class AgentManager {
         settings.model !== job.view.model
       ) {
         clearTimeout(job.timer);
+        this.captureTask(job);
+        delete job.book.currentRunId;
         job.memory = {
           usage: job.memory.usage,
           task: settings.goal
@@ -773,6 +1441,7 @@ export class AgentManager {
     if (
       this.closing ||
       job.updating ||
+      job.taskMutating ||
       ['joining', 'stopping'].includes(job.view.status)
     )
       throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
@@ -802,6 +1471,7 @@ export class AgentManager {
       this.closing ||
       job.controlling ||
       job.updating ||
+      job.taskMutating ||
       (job.view.status !== 'idle' &&
         !(job.view.status === 'failed' && job.attention.pending)) ||
       !job.session
@@ -818,6 +1488,7 @@ export class AgentManager {
       this.closing ||
       job.controlling ||
       job.updating ||
+      job.taskMutating ||
       (job.view.status !== 'idle' &&
         !(job.view.status === 'failed' && job.attention.pending)) ||
       !job.session
@@ -836,6 +1507,7 @@ export class AgentManager {
     if (
       this.closing ||
       job.updating ||
+      job.taskMutating ||
       job.controlling ||
       ['joining', 'stopping'].includes(job.view.status)
     )
@@ -884,13 +1556,32 @@ export class AgentManager {
         ? message.split(provider.apiKey).join('[已隐藏]')
         : message;
       job.view.logs = [...job.view.logs, safe].slice(-40);
+      const record = this.currentRun(job);
+      if (record) record.logs = [...record.logs, safe].slice(-40);
       this.persist();
     };
     let finalStatus: ManagedAgentView['status'] = 'idle';
     try {
+      this.captureTask(job);
+      this.persist();
+      await this.saving;
+      if (job.abort.signal.aborted || this.closing) return;
+      const record = this.currentRun(job);
+      const plan = job.book.plans.find((p) => p.id === record?.planId);
+      const limits = record?.snapshot.limits;
       const config: AgentConfig = {
         ...job.view,
         ...provider.inference,
+        ...(limits ? executionLimits(limits) : {}),
+        ...(record && plan && hasPlanTokenLimit(record.snapshot)
+          ? {
+              tokenBudget: Math.min(
+                executionLimits(limits!).tokenBudget,
+                (job.memory.task?.tokens ?? 0) +
+                  Math.max(0, plan.totalTokenBudget - plan.spentTokens),
+              ),
+            }
+          : {}),
         apiKey: provider.apiKey,
       };
       if (!job.session) {
@@ -981,6 +1672,49 @@ export class AgentManager {
           job.attention,
           log,
           () => this.persist(),
+          {
+            beforeNewTask: async (task) => {
+              this.captureTask(job);
+              const previous = this.currentRun(job);
+              if (previous && ['running', 'waiting'].includes(previous.status))
+                throw new AgentRuntimeError(
+                  '角色已有正在执行的任务，请先暂停或结束。',
+                );
+              const beforeBook = structuredClone(job.book),
+                beforeMemory = structuredClone(job.memory);
+              try {
+                const plan = newPlan(
+                  {
+                    name: task.goal.slice(0, 80),
+                    goal: task.goal,
+                    timing: { kind: 'immediate' },
+                    timeZone: 'UTC',
+                    limits: { ...DEFAULT_TASK_LIMITS },
+                    totalTokenBudget: 500000,
+                  },
+                  task.startedAt,
+                );
+                const record = newRun(plan, task.startedAt, 'chat');
+                record.task = task;
+                job.book.plans.push(plan);
+                job.book.runs.push(record);
+                job.book.currentRunId = record.id;
+                for (const key of Object.keys(job.memory))
+                  if (key !== 'usage')
+                    delete (job.memory as Record<string, unknown>)[key];
+                job.memory.task = task;
+                Object.assign(config, plan.limits);
+                this.persist();
+                await this.saving;
+              } catch (error) {
+                job.book = beforeBook;
+                for (const key of Object.keys(job.memory))
+                  delete (job.memory as Record<string, unknown>)[key];
+                Object.assign(job.memory, beforeMemory);
+                throw error;
+              }
+            },
+          },
         );
       }
       finalStatus =
@@ -1063,6 +1797,7 @@ export class AgentManager {
     );
   }
   async close() {
+    this.taskScheduler.close();
     this.persist();
     this.closing = true;
     await this.saving;

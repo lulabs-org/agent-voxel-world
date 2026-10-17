@@ -275,6 +275,7 @@ it('closing while join is pending cannot leave an orphan player or start inferen
     }));
   const m = setup(s, decide),
     job = m.create(settings);
+  await vi.waitFor(() => expect(s.join).toHaveBeenCalled());
   m.stop(job.id);
   resolve();
   await vi.waitFor(() => expect(m.list()[0]?.status).toBe('stopped'));

@@ -1,292 +1,493 @@
-import { TaskHeartbeatForm } from './TaskHeartbeatForm';
-import { agentPermissions, AGENT_PERMISSIONS } from '@voxel/shared';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  TaskBudgetFields,
-  taskBudgetOf,
-  type TaskBudget,
-} from './TaskBudgetFields';
-import type { ManagedAgentView } from '@voxel/shared';
+  isRepeating,
+  type ManagedAgentView,
+  type TaskPlan,
+  type TaskRun,
+  type TaskLimits,
+} from '@voxel/shared';
 import type { ConsoleController } from './useConsoleController';
-import { agentPresentation } from './agent-presentation';
-import { AgentTaskResources } from './AgentTaskResources';
-import { taskPresentation } from './task-presentation';
+import { consoleApi } from './api';
+import { TaskPlanEditor } from './TaskPlanEditor';
+import { TaskRunDetails } from './TaskRunDetails';
+import {
+  planStatus,
+  planTime,
+  runEnded,
+  runStatus,
+  timingLabel,
+} from './task-plan-presentation';
 
-export function AgentTaskPanel(
-  props: ConsoleController & {
-    job: ManagedAgentView;
-    disabled: boolean;
-    capacityFull: boolean;
-  },
-) {
-  const {
-    job,
-    disabled,
-    capacityFull,
-    taskEditor,
-    setTaskEditor,
-    taskGoal,
-    setTaskGoal,
-    assignTask,
-    resumeAgent,
-    pauseAgent,
-    cancelTask,
-  } = props;
-  const [composeMode, setComposeMode] = useState<'new' | 'revise'>('new');
-  const [confirmation, setConfirmation] = useState<'resume' | 'cancel'>();
-  const [limits, setLimits] = useState<TaskBudget>(() => taskBudgetOf(job));
-  const state = agentPresentation(job);
-  const task = job.task;
-  const presentation = taskPresentation(job);
-  const editing = taskEditor === job.id;
-  const cannotStart =
-    disabled || state.transitioning || (!state.occupiesSlot && capacityFull);
-  const compose = (mode: 'new' | 'revise' = 'new') => {
-    setComposeMode(mode);
-    setLimits(taskBudgetOf(job));
-    setTaskGoal(mode === 'revise' ? (task?.goal ?? '') : '');
-    setTaskEditor(job.id);
-    setConfirmation(undefined);
+export function AgentTaskPanel({
+  job,
+  active,
+  disabled,
+}: ConsoleController & {
+  job: ManagedAgentView;
+  active: boolean;
+  disabled: boolean;
+  capacityFull: boolean;
+}) {
+  const historyDepth = useRef(20);
+  const runRequests = useRef<Record<string, string>>({});
+  const [plans, setPlans] = useState<TaskPlan[]>([]),
+    [runs, setRuns] = useState<TaskRun[]>([]);
+  const [selected, setSelected] = useState<string>(),
+    [editing, setEditing] = useState<string>();
+  const [shownRun, setShownRun] = useState<string>(),
+    [page, setPage] = useState<number>();
+  const [revision, setRevision] = useState(0),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  const [loading, setLoading] = useState(true),
+    [archived, setArchived] = useState(false),
+    [extend, setExtend] = useState(false),
+    [extra, setExtra] = useState(500000);
+  useEffect(() => {
+    setSelected(undefined);
+    setEditing(undefined);
+    setPlans([]);
+    setRuns([]);
+    setLoading(true);
+  }, [job.id]);
+  useEffect(() => {
+    if (!active) return;
+    const abort = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const values = await consoleApi.listTaskPlans(job.id, abort.signal);
+        const history = selected
+          ? await consoleApi.listTaskRuns(job.id, selected, 0, abort.signal)
+          : undefined;
+        if (abort.signal.aborted) return;
+        setPlans(values);
+        setLoading(false);
+        if (history) {
+          const current = [
+            ...history.active,
+            ...history.items.filter(
+              (r) => !history.active.some((a) => a.id === r.id),
+            ),
+          ];
+          setRuns((old) => [
+            ...current,
+            ...old.filter(
+              (r) => runEnded(r) && !current.some((n) => n.id === r.id),
+            ),
+          ]);
+          setPage(
+            historyDepth.current < history.total
+              ? historyDepth.current
+              : undefined,
+          );
+        }
+      } catch (e) {
+        if (!abort.signal.aborted) {
+          setError(e instanceof Error ? e.message : '无法读取任务');
+          setLoading(false);
+        }
+      } finally {
+        if (!abort.signal.aborted) timer = setTimeout(() => void poll(), 2000);
+      }
+    };
+    void poll();
+    return () => {
+      abort.abort();
+      clearTimeout(timer);
+    };
+  }, [job.id, active, selected, revision]);
+  const plan = plans.find((p) => p.id === selected),
+    editPlan = plans.find((p) => p.id === editing);
+  const occupied =
+    job.status === 'joining' ||
+    job.status === 'stopping' ||
+    job.status === 'running' ||
+    (job.status !== 'failed' &&
+      ['running', 'waiting'].includes(job.task?.status ?? ''));
+  const blocked = !job.sessionId
+    ? '角色尚未上线'
+    : occupied
+      ? '角色正在执行其他工作'
+      : '';
+  const locked = busy || disabled;
+  const mutate = async (action: () => Promise<unknown>) => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await action();
+      setRevision((v) => v + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作未完成');
+      throw e;
+    } finally {
+      setBusy(false);
+    }
   };
-  const needsRevision =
-    job.taskRequiresReassignment ||
-    ['needs_input', 'blocked'].includes(task?.status ?? '');
+  const planAction = async (
+    p: TaskPlan,
+    op: 'run' | 'pause' | 'resume' | 'archive' | 'extend',
+    body: unknown = {},
+  ) => {
+    try {
+      await mutate(() =>
+        consoleApi.taskPlanAction(
+          job.id,
+          p.id,
+          op,
+          op === 'run'
+            ? { requestId: (runRequests.current[p.id] ??= crypto.randomUUID()) }
+            : body,
+        ),
+      );
+      if (op === 'run') delete runRequests.current[p.id];
+      if (op === 'archive') setSelected(undefined);
+    } catch {
+      /* error is shown locally */
+    }
+  };
+  const runAction = async (
+    r: TaskRun,
+    op: 'pause' | 'resume' | 'cancel',
+    limits?: TaskLimits,
+  ) => {
+    try {
+      await mutate(() => consoleApi.taskRunAction(job.id, r.id, op, limits));
+    } catch {
+      /* error is shown locally */
+    }
+  };
+  const open = (p: TaskPlan) => {
+    historyDepth.current = 20;
+    setSelected(p.id);
+    setRuns([]);
+    setPage(undefined);
+    setShownRun(undefined);
+    setExtend(false);
+    setError('');
+  };
+  const shown = plans.filter((p) =>
+    archived ? p.state === 'archived' : p.state !== 'archived',
+  );
   return (
-    <section className="agents-task-panel" aria-label="任务管理">
-      {task ? (
+    <section className="agents-task-panel task-workspace" aria-label="任务管理">
+      {error && (
+        <p role="alert" className="agent-error">
+          {error}
+        </p>
+      )}
+      {editing ? (
+        <TaskPlanEditor
+          key={editing}
+          plan={editPlan}
+          busy={locked}
+          blocked={blocked}
+          onCancel={() => setEditing(undefined)}
+          onSave={async (draft, requestId) => {
+            try {
+              await mutate(() =>
+                consoleApi.saveTaskPlan(job.id, draft, editPlan?.id, requestId),
+              );
+              setEditing(undefined);
+            } catch {
+              /* retain draft */
+            }
+          }}
+        />
+      ) : plan ? (
+        <>
+          <div className="task-detail-overview">
+            <button
+              className="agents-text-button task-detail-back"
+              onClick={() => {
+                setSelected(undefined);
+                setRuns([]);
+              }}
+            >
+              ← 任务列表
+            </button>
+            <div className="task-detail-heading">
+              <h4 className="task-plan-title">{plan.name}</h4>
+              <span className="task-plan-badge">{planStatus[plan.state]}</span>
+            </div>
+            {plan.goal.trim() !== plan.name.trim() && (
+              <p className="task-run-goal">{plan.goal}</p>
+            )}
+            <div className="task-plan-schedule">
+              <span>{timingLabel(plan)}</span>
+              {plan.nextRunAt && plan.timing.kind !== 'once' && (
+                <span>下次 {planTime(plan.nextRunAt, plan.timeZone)}</span>
+              )}
+              {plan.timing.kind !== 'immediate' && <span>{plan.timeZone}</span>}
+            </div>
+            {plan.reason &&
+              !runs.some((r) => !runEnded(r) && r.reason === plan.reason) && (
+                <p className="task-run-reason" role="status">
+                  {plan.reason}
+                </p>
+              )}
+            {plan.state !== 'archived' && (
+              <div className="agents-actions task-detail-actions">
+                <button
+                  className="primary"
+                  disabled={locked || !!blocked}
+                  onClick={() => void planAction(plan, 'run')}
+                >
+                  立即执行
+                </button>
+                {(isRepeating(plan.timing) || plan.timing.kind === 'once') && (
+                  <button
+                    disabled={locked}
+                    title="只控制后续触发，不影响本次执行"
+                    onClick={() =>
+                      void planAction(
+                        plan,
+                        plan.state === 'enabled' ? 'pause' : 'resume',
+                      )
+                    }
+                  >
+                    {plan.state === 'enabled' ? '暂停计划' : '恢复计划'}
+                  </button>
+                )}
+                <button disabled={locked} onClick={() => setEditing(plan.id)}>
+                  编辑安排
+                </button>
+                <button
+                  disabled={locked || runs.some((r) => !runEnded(r))}
+                  onClick={() => void planAction(plan, 'archive')}
+                >
+                  归档
+                </button>
+              </div>
+            )}
+            {blocked && plan.state !== 'archived' && (
+              <p className="agent-hint">{blocked}，暂时不能手动执行。</p>
+            )}
+            {isRepeating(plan.timing) && (
+              <div className="task-plan-budget">
+                <span>
+                  累计用量 <strong>{plan.spentTokens.toLocaleString()}</strong>
+                  {plan.limits.enabled === false
+                    ? ' tokens · 不设上限'
+                    : ` / ${plan.totalTokenBudget.toLocaleString()} tokens`}
+                </span>
+                {plan.state !== 'archived' && plan.limits.enabled !== false && (
+                  <button
+                    className="agents-text-button"
+                    onClick={() => setExtend(!extend)}
+                  >
+                    追加额度
+                  </button>
+                )}
+                {extend && plan.limits.enabled !== false && (
+                  <form
+                    className="agent-form"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await planAction(plan, 'extend', { tokens: extra });
+                      setExtend(false);
+                    }}
+                  >
+                    <label>
+                      追加 tokens
+                      <input
+                        type="number"
+                        min={1000}
+                        max={1000000000}
+                        required
+                        value={extra}
+                        onChange={(e) => setExtra(e.target.valueAsNumber)}
+                      />
+                    </label>
+                    <button disabled={locked}>确认追加</button>
+                    <small>保留历史用量；追加后仍需手动恢复计划。</small>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="task-run-section">
+            <div className="task-section-heading">
+              <h4>当前执行</h4>
+              {!runs.some((r) => !runEnded(r)) && (
+                <small>暂无进行中的执行</small>
+              )}
+            </div>
+            {runs
+              .filter((r) => !runEnded(r))
+              .map((r) => (
+                <TaskRunDetails
+                  key={r.id}
+                  run={r}
+                  planGoal={plan.goal}
+                  busy={locked}
+                  blocked={blocked}
+                  onAction={runAction}
+                />
+              ))}
+          </div>
+          <div className="task-run-section">
+            <div className="task-section-heading">
+              <h4>历史执行</h4>
+              {!runs.some(runEnded) && <small>暂无记录</small>}
+            </div>
+            {runs.filter(runEnded).map((r) => (
+              <div key={r.id} className="task-history-item">
+                <button
+                  className="task-history-toggle"
+                  aria-expanded={shownRun === r.id}
+                  onClick={() =>
+                    setShownRun(shownRun === r.id ? undefined : r.id)
+                  }
+                >
+                  <span>
+                    {planTime(
+                      r.startedAt ?? r.scheduledAt,
+                      r.snapshot.timeZone,
+                    )}{' '}
+                    · {r.snapshot.timeZone}
+                    <small>
+                      {r.source === 'scheduled'
+                        ? '计划触发'
+                        : r.source === 'chat'
+                          ? '聊天安排'
+                          : r.source === 'legacy'
+                            ? '旧任务迁移'
+                            : '手动执行'}
+                    </small>
+                  </span>
+                  <span>{runStatus[r.status]}</span>
+                </button>
+                {shownRun === r.id && (
+                  <TaskRunDetails
+                    run={r}
+                    planGoal={plan.goal}
+                    hideHeading
+                    busy={locked}
+                    blocked={blocked}
+                    onAction={runAction}
+                  />
+                )}
+              </div>
+            ))}
+            {page !== undefined && (
+              <button
+                disabled={locked}
+                onClick={async () => {
+                  try {
+                    await mutate(async () => {
+                      const result = await consoleApi.listTaskRuns(
+                        job.id,
+                        plan.id,
+                        page,
+                      );
+                      setRuns((old) => [
+                        ...old,
+                        ...result.items.filter(
+                          (r) => !old.some((o) => o.id === r.id),
+                        ),
+                      ]);
+                      historyDepth.current = page + result.items.length;
+                      setPage(result.nextOffset);
+                    });
+                  } catch {
+                    /* displayed */
+                  }
+                }}
+              >
+                加载更早记录
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
         <>
           <div className="agents-task-heading">
-            <span className="agents-section-label">
-              {state.ended ? '上一次任务目标' : '任务目标'}
-            </span>
+            <div>
+              <h4>任务安排</h4>
+              <p className="agent-hint">一次性目标，或按时重复执行。</p>
+            </div>
             <button
-              className="agents-new-task"
-              disabled={cannotStart}
-              onClick={() => compose()}
+              className="primary"
+              disabled={locked}
+              onClick={() => setEditing('new')}
             >
               ＋ 新建任务
             </button>
           </div>
-          <h4 className="agents-goal">{task.goal}</h4>
-          <section
-            className="agents-task-state"
-            data-attention={presentation!.attention}
-            aria-label="当前状态"
-          >
-            <span className="agents-section-label">当前状态</span>
-            <h4>{presentation!.status}</h4>
-            <p>
-              <span>{presentation!.reasonLabel}：</span>
-              {presentation!.reason}
-            </p>
-            {job.taskRequiresReassignment && (
-              <p>原私聊会话已失效，请修改任务后重新开始。</p>
-            )}
-          </section>
-          <section className="agents-task-result" aria-label="执行结果">
-            <div className="agents-task-heading">
-              <h4>执行结果</h4>
-              <span className="agents-section-label">Agent 最近汇报</span>
+          <div className="task-list-filter">
+            <button aria-pressed={!archived} onClick={() => setArchived(false)}>
+              任务
+            </button>
+            <button aria-pressed={archived} onClick={() => setArchived(true)}>
+              已归档
+            </button>
+          </div>
+          {loading ? (
+            <p role="status">正在读取任务…</p>
+          ) : shown.length === 0 ? (
+            <div className="agents-task-empty">
+              <h4>{archived ? '没有已归档任务' : '安排下一件事'}</h4>
+              <p>
+                {archived
+                  ? '结束执行后，可归档任务并保留历史。'
+                  : '现在做一次，或设定时间让角色定期执行。'}
+              </p>
             </div>
-            <p>{task.summary || '尚无执行汇报。'}</p>
-            <small>
-              汇报可能包含后续计划，不代表动作已完成；实际执行情况可在“运行记录”中查看。
-            </small>
-          </section>
-          {!editing && !confirmation && (
-            <div className="agents-actions">
-              {state.canPause && (
-                <button
-                  className="primary"
-                  disabled={disabled}
-                  onClick={() => void pauseAgent(job)}
-                >
-                  暂停任务
-                </button>
-              )}
-              {state.canResume && !needsRevision && (
-                <button
-                  className={state.ended ? '' : 'primary'}
-                  disabled={cannotStart}
-                  onClick={() => {
-                    if (state.ended || task.status === 'budget') {
-                      setLimits(taskBudgetOf(job));
-                      setConfirmation('resume');
-                    } else void resumeAgent(job);
-                  }}
-                >
-                  {state.online
-                    ? state.resumeLabel
-                    : `加入并${state.resumeLabel}`}
-                </button>
-              )}
-              {!state.ended && (
-                <button
-                  className={needsRevision ? 'primary' : ''}
-                  disabled={cannotStart}
-                  onClick={() => compose('revise')}
-                >
-                  {needsRevision ? '补充任务说明' : '修改任务'}
-                </button>
-              )}
-              {state.canCancel && (
-                <button
-                  className="agents-text-button"
-                  disabled={disabled}
-                  onClick={() => setConfirmation('cancel')}
-                >
-                  结束任务
-                </button>
-              )}
+          ) : (
+            <div className="task-plan-list">
+              {shown.map((p) => (
+                <article className="task-plan-card" key={p.id}>
+                  <button className="task-plan-open" onClick={() => open(p)}>
+                    <div className="task-card-heading">
+                      <strong title={p.name}>{p.name}</strong>
+                      <span className="task-plan-badge">
+                        {planStatus[p.state]}
+                      </span>
+                    </div>
+                    <div className="task-card-meta">
+                      <span>{timingLabel(p)}</span>
+                      {p.nextRunAt && p.timing.kind !== 'once' && (
+                        <span>下次 {planTime(p.nextRunAt, p.timeZone)}</span>
+                      )}
+                      {p.timing.kind !== 'immediate' && (
+                        <span>{p.timeZone}</span>
+                      )}
+                    </div>
+                    <div className="task-plan-latest">
+                      <span>
+                        {p.latestRun
+                          ? runStatus[p.latestRun.status]
+                          : '尚未执行'}
+                      </span>
+                      <span>
+                        {p.latestRun?.reason ||
+                          p.latestRun?.task?.summary ||
+                          '执行结果将在这里显示'}
+                      </span>
+                    </div>
+                  </button>
+                  <div className="task-card-actions">
+                    <button onClick={() => open(p)}>查看详情</button>
+                    {p.state !== 'archived' && (
+                      <button
+                        disabled={locked || !!blocked}
+                        title={blocked || undefined}
+                        onClick={() => void planAction(p, 'run')}
+                      >
+                        立即执行
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
             </div>
           )}
-          {confirmation && (
-            <form
-              className="agents-confirm agent-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setConfirmation(undefined);
-                void (confirmation === 'cancel'
-                  ? cancelTask(job)
-                  : resumeAgent(job, limits));
-              }}
-              role="group"
-              aria-label="确认任务操作"
-            >
-              <p>
-                {confirmation === 'cancel'
-                  ? '结束后不再执行此任务，已发生的世界改动和运行记录保留。'
-                  : task.status === 'budget'
-                    ? `保留目标与已有进展，继续执行。下一额度周期最多 ${limits.maxTurns} 次模型调用、${(limits.tokenBudget ?? 50000).toLocaleString()} tokens、${(limits.taskTimeoutMs ?? 900000) / 60000} 分钟。云端模型按服务商规则计费。`
-                    : '将从头执行同一任务，可能重复移动、发言或建造，并产生新的模型用量。'}
-              </p>
-              {confirmation === 'resume' && (
-                <TaskBudgetFields value={limits} onChange={setLimits} />
-              )}
-              <div className="agents-actions">
-                <button
-                  className="primary"
-                  disabled={confirmation === 'resume' ? cannotStart : disabled}
-                >
-                  {confirmation === 'cancel'
-                    ? '确认结束任务'
-                    : task.status === 'budget'
-                      ? '确认额度并继续'
-                      : '确认重新执行'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmation(undefined)}
-                >
-                  返回
-                </button>
-              </div>
-            </form>
+          {blocked && (
+            <p className="agent-hint">{blocked}。可以创建未来的任务安排。</p>
           )}
         </>
-      ) : (
-        !editing && (
-          <div className="agents-task-empty">
-            <span className="agents-section-label">任务</span>
-            <h4>接下来，一起做点什么？</h4>
-            <p>
-              让它观察附近环境，或在开启放置方块权限后协助搭建。
-              <br />
-              {agentPermissions(job).chat
-                ? '也可以先在世界中聊聊。'
-                : '发送聊天已关闭，进展会显示在控制台。'}
-            </p>
-            <button
-              className="primary"
-              disabled={cannotStart}
-              onClick={() => compose()}
-            >
-              安排第一个任务
-            </button>
-          </div>
-        )
-      )}
-      {editing && (
-        <form
-          className="agents-composer agent-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void assignTask(job, limits);
-          }}
-        >
-          <h4>{composeMode === 'revise' ? '修改任务' : '新建任务'}</h4>
-          <label>
-            任务目标与完成条件
-            <textarea
-              autoFocus
-              required
-              rows={4}
-              maxLength={2000}
-              value={taskGoal}
-              onChange={(event) => setTaskGoal(event.target.value)}
-              placeholder="例如：探索营地附近的三处建筑，汇报各自的位置和特点，汇报完毕后结束任务。"
-              aria-describedby="agent-task-goal-hint"
-            />
-          </label>
-          <p className="agent-hint" id="agent-task-goal-hint">
-            说明范围、预期结果和结束条件，避免任务无限持续。
-          </p>
-          <p className="agent-hint">
-            {composeMode === 'revise'
-              ? '修改后将从头规划，当前任务进度和本轮额度重新计数，已发生的世界改动保留。'
-              : ''}
-            {task && !state.ended ? '开始后会替换当前任务。' : ''}
-            {state.online
-              ? '角色将在当前位置开始。'
-              : '角色将加入世界并开始执行。'}
-            {'已开启权限：' +
-              (AGENT_PERMISSIONS.filter(({ id }) => agentPermissions(job)[id])
-                .map(({ name }) => name)
-                .join('、') || '仅基础观察与等待') +
-              '。'}
-          </p>
-          <TaskBudgetFields value={limits} onChange={setLimits} />
-          <div className="agents-actions">
-            <button
-              className="primary"
-              disabled={cannotStart || !taskGoal.trim()}
-            >
-              {props.busy
-                ? '正在处理…'
-                : composeMode === 'revise'
-                  ? '应用修改并重新开始'
-                  : state.online
-                    ? '开始任务'
-                    : '加入并开始任务'}
-            </button>
-            <button
-              type="button"
-              disabled={props.busy}
-              onClick={() => setTaskEditor(undefined)}
-            >
-              取消编辑
-            </button>
-          </div>
-        </form>
-      )}
-      {!state.occupiesSlot && capacityFull && (
-        <p className="agent-hint">在线名额已满，请先让其他角色离开世界。</p>
-      )}
-      {task && <AgentTaskResources job={job} />}
-      {!editing && !confirmation && (
-        <TaskHeartbeatForm
-          key={[
-            job.id,
-            job.intervalMode,
-            job.intervalMs,
-            job.intervalMinMs,
-            job.intervalMaxMs,
-          ].join(':')}
-          job={job}
-          busy={disabled}
-          canEdit={state.canEdit}
-          onSave={(schedule) => void props.saveTaskSchedule(job, schedule)}
-        />
       )}
     </section>
   );

@@ -1,5 +1,8 @@
 import type {
   AgentSettings,
+  TaskPlanDraft,
+  TaskPlan,
+  TaskRunPage,
   ManagedAgentView,
   ProviderView,
   VoiceServiceView,
@@ -30,6 +33,53 @@ const agentPath = (id: string) => `/${encodeURIComponent(id)}`;
 const providerPath = (id: string) => `/providers/${encodeURIComponent(id)}`;
 
 export const consoleApi = {
+  listTaskPlans: (id: string, signal?: AbortSignal) =>
+    request<TaskPlan[]>(`${agentPath(id)}/tasks`, 'GET', undefined, signal),
+  saveTaskPlan: (
+    id: string,
+    draft: TaskPlanDraft,
+    planId?: string,
+    requestId?: string,
+  ) =>
+    request<TaskPlan>(
+      `${agentPath(id)}/tasks${planId ? `/${encodeURIComponent(planId)}` : ''}`,
+      planId ? 'PUT' : 'POST',
+      { ...draft, requestId },
+    ),
+  taskPlanAction: (
+    id: string,
+    planId: string,
+    operation: 'run' | 'pause' | 'resume' | 'archive' | 'extend',
+    body: unknown = {},
+  ) =>
+    request<void>(
+      `${agentPath(id)}/tasks/${encodeURIComponent(planId)}/${operation}`,
+      'POST',
+      body,
+    ),
+  listTaskRuns: (
+    id: string,
+    planId: string,
+    offset = 0,
+    signal?: AbortSignal,
+  ) =>
+    request<TaskRunPage>(
+      `${agentPath(id)}/tasks/${encodeURIComponent(planId)}/runs?offset=${offset}`,
+      'GET',
+      undefined,
+      signal,
+    ),
+  taskRunAction: (
+    id: string,
+    runId: string,
+    operation: 'pause' | 'resume' | 'cancel',
+    limits?: TaskBudget,
+  ) =>
+    request<void>(
+      `${agentPath(id)}/task-runs/${encodeURIComponent(runId)}/${operation}`,
+      'POST',
+      limits ?? {},
+    ),
   listLocalVoices: async (signal: AbortSignal) => {
     const response = await fetch(`${serverHttpUrl()}/voice/tts/voices`, {
       signal,
@@ -80,7 +130,10 @@ export const consoleApi = {
     ),
   deleteProvider: (id: string) => request<void>(providerPath(id), 'DELETE'),
   saveAgent: (
-    settings: Partial<AgentSettings> & { startTask?: boolean },
+    settings: Partial<AgentSettings> & {
+      startTask?: boolean;
+      taskTimeZone?: string;
+    },
     id?: string,
   ) =>
     request<ManagedAgentView>(

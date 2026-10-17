@@ -444,6 +444,92 @@ try {
       .find((j) => j.id === capabilityJob.id)!
       .logs.some((line) => line.includes('聊天权限')),
   );
+  // Task schedules use the same permission-checked runtime and origin boundary.
+  await api(`/${capabilityJob.id}/pause`, 'POST', {});
+  const schedule = await api(`/${capabilityJob.id}/tasks`, 'POST', {
+    name: 'Scheduled capability check',
+    goal: 'Validate permissions',
+    timing: { kind: 'interval', everyMs: 60000 },
+    timeZone: 'Asia/Shanghai',
+    requestId: 'create-schedule',
+  });
+  assert.equal(schedule.status, 201);
+  const plan = await schedule.json();
+  const plannedAt = plan.nextRunAt;
+  const repeatCreate = await api(`/${capabilityJob.id}/tasks`, 'POST', {
+    name: 'Scheduled capability check',
+    goal: 'Validate permissions',
+    timing: { kind: 'interval', everyMs: 60000 },
+    timeZone: 'Asia/Shanghai',
+    requestId: 'create-schedule',
+  });
+  assert.equal((await repeatCreate.json()).id, plan.id);
+  const beforeScheduled = calls;
+  assert.equal(
+    (
+      await api(`/${capabilityJob.id}/tasks/${plan.id}/run`, 'POST', {
+        requestId: 'manual-schedule',
+      })
+    ).status,
+    200,
+  );
+  await until(
+    () =>
+      calls > beforeScheduled &&
+      manager!.list().find((j) => j.id === capabilityJob.id)?.status === 'idle',
+  );
+  const history = await (
+    await api(`/${capabilityJob.id}/tasks/${plan.id}/runs`)
+  ).json();
+  assert.equal(history.items.length, 1);
+  assert.equal(history.items[0].task.calls, 1);
+  assert.equal(
+    room.state.revision,
+    revisionBefore,
+    'Scheduled work keeps atomic permission checks',
+  );
+  assert.equal(
+    emitted.length,
+    0,
+    'Scheduled work cannot bypass silent chat policy',
+  );
+  assert.equal(
+    (
+      await api(`/${capabilityJob.id}/tasks/${plan.id}/run`, 'POST', {
+        requestId: 'manual-schedule',
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    calls,
+    beforeScheduled + 1,
+    'Retried manual request never calls model twice',
+  );
+  const summary = (await (await api(`/${capabilityJob.id}/tasks`)).json()).find(
+    (p: { id: string }) => p.id === plan.id,
+  );
+  assert.equal(
+    summary.nextRunAt,
+    plannedAt,
+    'Manual execution does not move scheduled trigger',
+  );
+  assert(!JSON.stringify(history).includes('fixture-secret'));
+  assert.equal(
+    (
+      await api(
+        `/${capabilityJob.id}/task-runs/${history.items[0].id}/cancel`,
+        'POST',
+        {},
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await api(`/${capabilityJob.id}/tasks/${plan.id}/archive`, 'POST', {}))
+      .status,
+    200,
+  );
   manager.stop(capabilityJob.id);
   await speaker.close();
   speaker = undefined;

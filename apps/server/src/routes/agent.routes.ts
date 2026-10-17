@@ -1,3 +1,4 @@
+import { TaskPlanError } from '../agent/task-scheduler';
 import express, {
   type Express,
   type ErrorRequestHandler,
@@ -124,6 +125,68 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     ),
   );
   app.get(
+    '/agents/:id/tasks',
+    route((req, res) => res.json(manager.taskPlans(String(req.params.id)))),
+  );
+  app.post(
+    '/agents/:id/tasks',
+    route(async (req, res) =>
+      res
+        .status(201)
+        .json(await manager.createTaskPlan(String(req.params.id), req.body)),
+    ),
+  );
+  app.put(
+    '/agents/:id/tasks/:planId',
+    route(async (req, res) =>
+      res.json(
+        await manager.updateTaskPlan(
+          String(req.params.id),
+          String(req.params.planId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.get(
+    '/agents/:id/tasks/:planId/runs',
+    route((req, res) =>
+      res.json(
+        manager.taskRuns(
+          String(req.params.id),
+          String(req.params.planId),
+          Number(req.query.offset ?? 0),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    '/agents/:id/tasks/:planId/:operation',
+    route(async (req, res) =>
+      res.json(
+        await manager.controlTaskPlan(
+          String(req.params.id),
+          String(req.params.planId),
+          String(req.params.operation),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    '/agents/:id/task-runs/:runId/:operation',
+    route(async (req, res) =>
+      res.json(
+        await manager.controlTaskRun(
+          String(req.params.id),
+          String(req.params.runId),
+          String(req.params.operation),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.get(
     '/agents',
     route((_req, res) => res.json(manager.list())),
   );
@@ -174,7 +237,11 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     res.status(404).json({ error: 'Agent 接口不存在，请确认前后端版本一致。' });
   });
   const errors: ErrorRequestHandler = (error, _req, res, _next) => {
-    if (error instanceof ManagementError || error instanceof SpeechError)
+    if (
+      error instanceof ManagementError ||
+      error instanceof SpeechError ||
+      error instanceof TaskPlanError
+    )
       res.status(error.status).json({ error: error.message });
     else
       res

@@ -1,5 +1,3 @@
-import { TaskBudgetFields } from './TaskBudgetFields';
-import { AgentScheduleSettings } from './AgentScheduleSettings';
 import type { ConsoleController } from './useConsoleController';
 import { agentPresentation } from './agent-presentation';
 import {
@@ -369,18 +367,6 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
                 </label>
               )}
             </div>
-          )}
-          {!editingAgent && startTaskOnCreate && (
-            <TaskBudgetFields
-              value={agent}
-              onChange={(limits) => setAgent({ ...agent, ...limits })}
-            />
-          )}
-          {!editingAgent && startTaskOnCreate && (
-            <AgentScheduleSettings
-              value={agent}
-              onChange={(schedule) => setAgent({ ...agent, ...schedule })}
-            />
           )}
           <p className="agent-hint">
             {editingAgent
