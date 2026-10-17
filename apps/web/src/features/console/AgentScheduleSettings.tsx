@@ -1,19 +1,33 @@
 import type { AgentSettings } from '@voxel/shared';
-import type { ConsoleController } from './useConsoleController';
+export type TaskSchedule = Pick<
+  AgentSettings,
+  'intervalMode' | 'intervalMs' | 'intervalMinMs' | 'intervalMaxMs'
+>;
+export function taskScheduleOf(value: TaskSchedule): TaskSchedule {
+  return {
+    intervalMode: value.intervalMode,
+    intervalMs: value.intervalMs,
+    intervalMinMs: value.intervalMinMs,
+    intervalMaxMs: value.intervalMaxMs,
+  };
+}
 
 export function AgentScheduleSettings({
-  agent,
-  setAgent,
-}: Pick<ConsoleController, 'agent' | 'setAgent'>) {
+  value: agent,
+  onChange: setAgent,
+}: {
+  value: TaskSchedule;
+  onChange: (value: TaskSchedule) => void;
+}) {
   return (
     <div className="agents-form-section">
-      <h4>运行设置</h4>
+      <h4>任务心跳</h4>
       <p className="agent-hint">
-        任务进行中按此间隔检查进展；空闲或等待条件未变化时不调用模型。
+        每轮结束后按此间隔推进任务，收到消息可提前唤醒。
       </p>
-      <div className="agent-grid">
+      <div className="agent-grid agents-heartbeat-fields">
         <label>
-          检查方式
+          间隔方式
           <select
             value={agent.intervalMode}
             onChange={(event) =>
@@ -30,7 +44,7 @@ export function AgentScheduleSettings({
         </label>
         {agent.intervalMode === 'fixed' ? (
           <label>
-            检查间隔（秒）
+            心跳间隔（秒）
             <input
               type="number"
               required
@@ -49,7 +63,7 @@ export function AgentScheduleSettings({
             />
           </label>
         ) : (
-          <div className="agent-grid agents-interval-range">
+          <div className="agent-grid agents-heartbeat-range">
             <label>
               最短间隔（秒）
               <input

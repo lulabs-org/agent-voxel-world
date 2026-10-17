@@ -84,6 +84,44 @@ const settings = {
   goal: 'Wait',
   maxTurns: 1,
 };
+it('saves task heartbeat independently without resetting or resuming progress', async () => {
+  const decide = vi.fn<Planner['decide']>(async () => ({
+    actions: [{ type: 'wait' }],
+    task: { intent: 'continue', status: 'needs_input', summary: '地基已完成' },
+  }));
+  const m = setup(fakeSession(), decide);
+  const created = m.create({ ...settings, maxTurns: 30 });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.controlTask(created.id, 'pause');
+  const before = m.list()[0];
+  const schedule = {
+    intervalMode: 'random',
+    intervalMs: 3000,
+    intervalMinMs: 5000,
+    intervalMaxMs: 9000,
+  };
+  const saved = await m.update(created.id, schedule);
+  expect(saved).toMatchObject(schedule);
+  expect(saved.task).toEqual(before.task);
+  expect(saved.usage).toEqual(before.usage);
+  expect(saved.logs).toEqual(before.logs);
+  await expect(m.update(created.id, { intervalMinMs: 10000 })).rejects.toThrow(
+    '下限',
+  );
+  expect(m.list()[0]).toMatchObject(schedule);
+  // A subsequent role-only save must retain the independently saved heartbeat.
+  await m.update(created.id, { roleDescription: '负责营地建造' });
+  expect(m.list()[0]).toMatchObject(schedule);
+  await m.close();
+  const restored = setup(fakeSession(), decide);
+  await restored.load();
+  expect(restored.list()[0]).toMatchObject({
+    ...schedule,
+    task: JSON.parse(JSON.stringify(before.task)),
+    usage: before.usage,
+  });
+  expect(decide).toHaveBeenCalledTimes(1);
+});
 it('protects a new voice binding while an Agent update is waiting for the world', async () => {
   const voices = new VoiceServiceStore(join(dir, 'voices.json'));
   await voices.load();

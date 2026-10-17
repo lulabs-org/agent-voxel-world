@@ -1,3 +1,4 @@
+import { TaskHeartbeatForm } from './TaskHeartbeatForm';
 import { agentPermissions, AGENT_PERMISSIONS } from '@voxel/shared';
 import { useState } from 'react';
 import {
@@ -272,6 +273,21 @@ export function AgentTaskPanel(
         <p className="agent-hint">在线名额已满，请先让其他角色离开世界。</p>
       )}
       {task && <AgentTaskResources job={job} />}
+      {!editing && !confirmation && (
+        <TaskHeartbeatForm
+          key={[
+            job.id,
+            job.intervalMode,
+            job.intervalMs,
+            job.intervalMinMs,
+            job.intervalMaxMs,
+          ].join(':')}
+          job={job}
+          busy={disabled}
+          canEdit={state.canEdit}
+          onSave={(schedule) => void props.saveTaskSchedule(job, schedule)}
+        />
+      )}
     </section>
   );
 }

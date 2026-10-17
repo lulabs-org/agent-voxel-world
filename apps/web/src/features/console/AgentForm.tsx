@@ -376,7 +376,12 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
               onChange={(limits) => setAgent({ ...agent, ...limits })}
             />
           )}
-          <AgentScheduleSettings agent={agent} setAgent={setAgent} />
+          {!editingAgent && startTaskOnCreate && (
+            <AgentScheduleSettings
+              value={agent}
+              onChange={(schedule) => setAgent({ ...agent, ...schedule })}
+            />
+          )}
           <p className="agent-hint">
             {editingAgent
               ? '保存设置不会启动任务。更换模型会重置当前任务进度。修改技能或动作权限会暂停未结束任务，保留进度，需确认后继续。'

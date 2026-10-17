@@ -685,8 +685,23 @@
   line-height: 1.7;
 }
 
-.agents-interval-range {
-  grid-column: 1 / -1;
+.agent-form .agents-heartbeat-fields label {
+  margin-bottom: 0;
+}
+.agents-heartbeat-range {
+  min-width: 0;
+}
+.agents-heartbeat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.agents-heartbeat-actions .agent-hint {
+  flex: 1 1 260px;
+  margin: 0;
 }
 
 .agent-dialog .agents-new-task {
