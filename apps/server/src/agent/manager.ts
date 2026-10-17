@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { VoiceServiceStore } from '../audio/voice-services';
+import { AGENT_ROLE_DESCRIPTION_LIMIT } from '@voxel/shared';
 import type {
   ChatData,
   AgentSettings,
@@ -182,6 +183,11 @@ export function validateAgent(
     model,
     name,
     goal,
+    roleDescription: text(
+      input.roleDescription,
+      '角色设定',
+      AGENT_ROLE_DESCRIPTION_LIMIT,
+    ),
     thinking,
     reasoningEffort: reasoningEffort as AgentSettings['reasoningEffort'],
     maxTurns: integer(input.maxTurns, '任务调用上限', 100, 1, 200),

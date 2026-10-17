@@ -550,12 +550,19 @@ it('creates and restores a standby character with no task or automatic model cal
   const session = fakeSession(),
     decide = vi.fn();
   const m = setup(session, decide);
-  const created = m.create({ ...settings, goal: '', startTask: false });
+  const created = m.create({
+    ...settings,
+    goal: '',
+    startTask: false,
+    roleDescription: '你是一名建筑师，负责建造房屋。',
+  });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   expect(m.list()[0]).toMatchObject({
     id: created.id,
     goal: '',
     sessionId: 'player-1',
+    roleDescription: '你是一名建筑师，负责建造房屋。',
+    allowEdits: false,
   });
   expect(m.list()[0].task).toBeUndefined();
   expect(decide).not.toHaveBeenCalled();
@@ -565,6 +572,7 @@ it('creates and restores a standby character with no task or automatic model cal
     name: 'Renamed standby',
     model: 'deepseek-chat',
     allowEdits: true,
+    roleDescription: '你是一名建筑师，施工前先确认玩家需求。',
   });
   expect(m.list()[0].task).toBeUndefined();
   await m.close();
@@ -574,9 +582,32 @@ it('creates and restores a standby character with no task or automatic model cal
     id: created.id,
     name: 'Renamed standby',
     status: 'idle',
+    roleDescription: '你是一名建筑师，施工前先确认玩家需求。',
   });
   expect(restored.list()[0].task).toBeUndefined();
   expect(decide).not.toHaveBeenCalled();
+  await restored.update(created.id, { roleDescription: '' });
+  expect(restored.list()[0].roleDescription).toBe('');
+  expect(restored.list()[0].task).toBeUndefined();
+});
+
+it('keeps task progress and usage when only the role description changes', async () => {
+  const decide = vi.fn<Planner['decide']>(async () => ({
+    actions: [{ type: 'wait' }],
+    task: { intent: 'continue', status: 'running', summary: '地基已完成' },
+  }));
+  const m = setup(fakeSession(), decide);
+  const created = m.create({ ...settings, maxTurns: 30, intervalMs: 60000 });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.controlTask(created.id, 'pause');
+  const task = structuredClone(m.list()[0].task);
+  const usage = structuredClone(m.list()[0].usage);
+  await m.update(created.id, {
+    roleDescription: '你是一名建筑师，先检查已有施工进度。',
+  });
+  expect(m.list()[0].task).toEqual(task);
+  expect(m.list()[0].usage).toEqual(usage);
+  expect(decide).toHaveBeenCalledTimes(1);
 });
 
 it('joining a stopped character preserves the task without executing or resetting its budget', async () => {

@@ -78,10 +78,6 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
     setError('');
     setNotice('');
   };
-  const openModelServices = () => {
-    setTab('providers');
-    editProvider(selected ?? providers[0]);
-  };
   useEffect(() => {
     if (!open) return;
     setLoadingModels(false);
@@ -349,7 +345,6 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
     selectAgent,
     startTaskOnCreate,
     setStartTaskOnCreate,
-    openModelServices,
     agent,
     setAgent,
     editingAgent,

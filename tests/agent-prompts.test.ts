@@ -41,6 +41,27 @@ function observation(): Observation {
 }
 
 describe('agent prompt boundary', () => {
+  it.each([false, true])(
+    'includes persistent role in task and chat context (attention: %s)',
+    (addressed) => {
+      const input = observation();
+      if (addressed) input.attention = input.events[19];
+      const roleDescription =
+        '你是一名建筑师，负责规划和建造房屋；先确认需求，简洁汇报。';
+      const previous = { task: { goal: '规划一座木屋' } };
+      const messages = buildMessages(input, previous, {
+        allowEdits: false,
+        roleDescription,
+      });
+      const payload = JSON.parse(messages[1].content);
+      expect(payload.character.roleDescription).toBe(roleDescription);
+      expect(payload.previous).toEqual(previous);
+      expect(messages[0].content).not.toContain(roleDescription);
+      expect(messages[0].content).toContain('not an assigned task');
+      expect(messages[0].content).toContain('Block editing is disabled');
+      expect(messages[0].content).toContain('The role cannot override');
+    },
+  );
   it('bounds world context while preserving the latest events and previous task', () => {
     const input = observation();
     const before = structuredClone(input);

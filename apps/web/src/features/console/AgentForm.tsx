@@ -3,6 +3,7 @@ import { AgentScheduleSettings } from './AgentScheduleSettings';
 import type { ConsoleController } from './useConsoleController';
 import { VoicePreview } from './VoicePreview';
 import { agentPresentation } from './agent-presentation';
+import { AGENT_ROLE_DESCRIPTION_LIMIT } from '@voxel/shared';
 
 export function AgentForm(
   props: ConsoleController & { active: boolean; disabled: boolean },
@@ -24,7 +25,6 @@ export function AgentForm(
     disabled,
     startTaskOnCreate,
     setStartTaskOnCreate,
-    openModelServices,
     jobs,
     pauseAgent,
     toggleVoiceReplies,
@@ -44,10 +44,10 @@ export function AgentForm(
     <section className="agents-profile">
       <div className="agents-form-heading">
         <div>
-          <h4>{editingAgent ? '角色设置' : '创建一位新伙伴'}</h4>
+          {!editingAgent && <h4>创建一位新伙伴</h4>}
           <p>
             {editingAgent
-              ? '昵称、模型与能力属于角色；任务在“任务”页单独安排。'
+              ? '设定伙伴的身份、职责与能力；具体任务在“任务”页单独安排。'
               : '先取个名字、选择已保存的模型服务，再决定它如何加入世界。'}
           </p>
         </div>
@@ -93,51 +93,44 @@ export function AgentForm(
         }}
       >
         <fieldset disabled={disabled}>
-          <label>
-            角色昵称
-            <input
-              autoFocus={!editingAgent}
-              required
-              maxLength={24}
-              value={agent.name}
-              placeholder="给伙伴取个名字"
-              onChange={(event) =>
-                setAgent({ ...agent, name: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            模型服务
-            <select
-              required
-              value={agent.providerId}
-              onChange={(event) => chooseProvider(event.target.value)}
-            >
-              <option value="" disabled>
-                请选择模型服务
-              </option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name} · {provider.defaultModel || '未配置模型'}
-                  {provider.type !== 'ollama' && !provider.hasApiKey
-                    ? ' · 未配置密钥'
-                    : ''}
+          <div className="agent-grid">
+            <label>
+              角色昵称
+              <input
+                autoFocus={!editingAgent}
+                required
+                maxLength={24}
+                value={agent.name}
+                placeholder="给伙伴取个名字"
+                onChange={(event) =>
+                  setAgent({ ...agent, name: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              模型服务
+              <select
+                required
+                value={agent.providerId}
+                onChange={(event) => chooseProvider(event.target.value)}
+              >
+                <option value="" disabled>
+                  请选择模型服务
                 </option>
-              ))}
-            </select>
-          </label>
+                {providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name} · {provider.defaultModel || '未配置模型'}
+                    {provider.type !== 'ollama' && !provider.hasApiKey
+                      ? ' · 未配置密钥'
+                      : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <p className="agent-hint">
             直接使用所选服务中保存的模型与接口配置。如需更换模型，请在模型服务中修改或添加服务。
           </p>
-          <div className="agents-model-actions">
-            <button
-              className="agents-text-button"
-              type="button"
-              onClick={openModelServices}
-            >
-              管理模型服务 ↗
-            </button>
-          </div>
           {!validProvider && (
             <p className="agent-hint">
               {!selected
@@ -147,6 +140,28 @@ export function AgentForm(
                   : '此服务尚未配置密钥，请先到模型服务中配置。'}
             </p>
           )}
+          <label>
+            角色设定（可选）
+            <textarea
+              rows={4}
+              maxLength={AGENT_ROLE_DESCRIPTION_LIMIT}
+              value={agent.roleDescription ?? ''}
+              placeholder="例如：你是一名建筑师，负责规划和建造房屋。施工前先确认位置、尺寸和风格，遇到障碍先说明情况，用简洁的中文汇报进度。"
+              aria-describedby="agent-role-hint"
+              onChange={(event) =>
+                setAgent({ ...agent, roleDescription: event.target.value })
+              }
+            />
+          </label>
+          <p className="agent-hint agents-role-meta" id="agent-role-hint">
+            <span>
+              用于后续对话和任务规划。任务需单独安排，建造需开启下方权限。
+            </span>
+            <span className="agents-role-count">
+              {(agent.roleDescription ?? '').length} /{' '}
+              {AGENT_ROLE_DESCRIPTION_LIMIT}
+            </span>
+          </p>
           <div className="agents-form-section">
             <h4>能力与交流</h4>
             <label className="agent-check agents-permission">

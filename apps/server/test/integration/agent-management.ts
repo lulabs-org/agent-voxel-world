@@ -41,8 +41,13 @@ try {
   const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
   const store = new ProviderStore(join(dir, 'providers.json'));
   await store.load({ DEEPSEEK_API_KEY: 'fixture-secret' });
-  const request: typeof fetch = async () => {
+  const rolesInRequests: string[] = [];
+  const request: typeof fetch = async (_url, init) => {
     calls++;
+    const body = JSON.parse(init!.body as string);
+    rolesInRequests.push(
+      JSON.parse(body.messages[1].content).character.roleDescription,
+    );
     return new Response(
       JSON.stringify({
         choices: [
@@ -141,6 +146,7 @@ try {
     const response = await api('', 'POST', {
       providerId,
       name: 'Managed AI',
+      roleDescription: '你是一名建筑师，负责规划房屋。',
       goal: 'Say hello once',
       maxTurns: 1,
     });
@@ -155,6 +161,8 @@ try {
       'completed rounds keep the player online',
     );
     const idle: ManagedAgentView = manager.list().find((j) => j.id === job.id)!;
+    assert.equal(idle.roleDescription, '你是一名建筑师，负责规划房屋。');
+    assert.equal(rolesInRequests.at(-1), idle.roleDescription);
     const original = room.state.players.get(idle.sessionId!)!;
     const originalPosition = { x: original.x, y: original.y, z: original.z };
     assert.equal(
@@ -186,6 +194,7 @@ try {
     assert.equal(calls, callsWhenIdle, 'idle does not invoke the model');
     const edited = await api(`/${job.id}`, 'PUT', {
       name: 'Renamed AI',
+      roleDescription: '你是一名建筑师，先确认位置和尺寸，再规划施工。',
       intervalMode: 'random',
       intervalMinMs: 4000,
       intervalMaxMs: 8000,
@@ -212,6 +221,10 @@ try {
     );
     assert.equal(observations.at(-1)?.attention?.actor, speaker.room.sessionId);
     assert.equal(
+      rolesInRequests.at(-1),
+      '你是一名建筑师，先确认位置和尺寸，再规划施工。',
+    );
+    assert.equal(
       manager.list().find((j) => j.id === job.id)?.sessionId,
       idle.sessionId,
     );
@@ -229,6 +242,10 @@ try {
     assert.equal(
       (observations.at(-1)?.attention?.data as { scope: string }).scope,
       'private',
+    );
+    assert.equal(
+      rolesInRequests.at(-1),
+      '你是一名建筑师，先确认位置和尺寸，再规划施工。',
     );
     await until(() =>
       speaker!.events.some(

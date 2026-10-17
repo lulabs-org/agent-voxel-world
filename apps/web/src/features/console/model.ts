@@ -40,6 +40,7 @@ export const initialAgent: AgentSettings = {
   model: '',
   name: '',
   goal: '',
+  roleDescription: '',
   continuous: false,
   intervalMode: 'fixed',
   intervalMinMs: 4000,

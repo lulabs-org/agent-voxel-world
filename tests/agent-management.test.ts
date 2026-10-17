@@ -117,6 +117,30 @@ describe('provider configuration boundary', () => {
       validateAgent({ ...input, thinking: 'enabled' }, local),
     ).toThrow();
   });
+  it('accepts optional role guidance without treating it as a task or permission', () => {
+    const p = provider();
+    const input = { name: '建筑师', goal: '' };
+    expect(validateAgent(input, p).roleDescription).toBe('');
+    expect(
+      validateAgent(
+        { ...input, roleDescription: '  负责规划和建造房屋。\n先确认需求。  ' },
+        p,
+      ),
+    ).toMatchObject({
+      roleDescription: '负责规划和建造房屋。\n先确认需求。',
+      goal: '',
+      allowEdits: false,
+    });
+    expect(
+      validateAgent({ ...input, roleDescription: '建'.repeat(2000) }, p)
+        .roleDescription,
+    ).toHaveLength(2000);
+    for (const roleDescription of ['建'.repeat(2001), {}, null, 42]) {
+      expect(() => validateAgent({ ...input, roleDescription }, p)).toThrow(
+        '角色设定',
+      );
+    }
+  });
 });
 describe('multi-provider SDK requests', () => {
   it.each(['ollama', 'compatible'] as const)(

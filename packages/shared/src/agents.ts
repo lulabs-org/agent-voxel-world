@@ -1,4 +1,5 @@
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
+export const AGENT_ROLE_DESCRIPTION_LIMIT = 2000;
 export type ProviderView = {
   id: string;
   name: string;
@@ -14,6 +15,8 @@ export type AgentSettings = {
   model: string;
   name: string;
   goal: string;
+  /** Persistent identity, responsibilities and style, independent of a task. */
+  roleDescription?: string;
   /** Legacy compatibility only; task continuation is decided from progress. */
   continuous: boolean;
   /** Maximum model calls per task, not a target number of turns. */

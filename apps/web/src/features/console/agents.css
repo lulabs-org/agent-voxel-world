@@ -478,12 +478,13 @@
 .agents-form-heading > button {
   flex-shrink: 0;
 }
-.agents-model-actions {
+.agents-role-meta {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 18px;
+  justify-content: space-between;
+  gap: 16px;
+}
+.agents-role-count {
+  white-space: nowrap;
 }
 .agents-form-section {
   padding-top: 20px;
