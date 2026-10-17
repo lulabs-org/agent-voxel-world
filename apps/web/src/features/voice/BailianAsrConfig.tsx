@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { BailianAsrDraft } from '@voxel/shared';
 import type { AsrProvider } from './browser-asr-services';
 import { browserLanguages } from './browser-asr-languages';
@@ -22,6 +23,18 @@ export function BailianAsrConfig({
     remove,
     reload,
   } = manager;
+  const [editingKey, setEditingKey] = useState(false);
+  useEffect(() => setEditingKey(false), [saved]);
+  const hasSavedKey =
+    saved?.provider !== 'whisper' &&
+    saved?.provider !== 'browser' &&
+    !!saved?.hasApiKey;
+  const canKeepKey =
+    hasSavedKey &&
+    draft.provider !== 'whisper' &&
+    draft.provider !== 'browser' &&
+    saved?.region === draft.region &&
+    saved?.workspaceId === draft.workspaceId;
   return (
     <form
       onSubmit={(e) => {
@@ -184,25 +197,50 @@ export function BailianAsrConfig({
                 </option>
               </select>
             </label>
-            <label>
-              API Key
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={draft.apiKey}
-                placeholder={
-                  saved?.provider !== 'whisper' &&
-                  saved?.provider !== 'browser' &&
-                  saved?.hasApiKey
-                    ? '已配置，留空保留'
-                    : '填写百炼 API Key'
-                }
-                onChange={(e) => change({ apiKey: e.target.value })}
-              />
-            </label>
-            <small>
-              密钥仅保存于服务器。地域与业务空间须与密钥匹配，更换后需重新填写密钥。
-            </small>
+            <div className="voice-key-field">
+              <span className="voice-key-label">API Key</span>
+              {canKeepKey && !editingKey ? (
+                <div className="voice-key-saved">
+                  <span role="status">密钥已配置</span>
+                  <button type="button" onClick={() => setEditingKey(true)}>
+                    更换密钥
+                  </button>
+                </div>
+              ) : (
+                <div className="voice-key-input">
+                  <input
+                    aria-label="API Key"
+                    type="password"
+                    autoComplete="new-password"
+                    value={draft.apiKey}
+                    placeholder={
+                      canKeepKey ? '输入新密钥，保存后生效' : '填写百炼 API Key'
+                    }
+                    onChange={(e) => change({ apiKey: e.target.value })}
+                  />
+                  {canKeepKey && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (draft.apiKey) change({ apiKey: '' });
+                        setEditingKey(false);
+                      }}
+                    >
+                      取消更换
+                    </button>
+                  )}
+                </div>
+              )}
+              <small>
+                {canKeepKey
+                  ? editingKey
+                    ? '留空保存仍使用已有密钥。'
+                    : '密钥已保存在服务端，不回显到浏览器。'
+                  : hasSavedKey
+                    ? '地域或业务空间已更改，请重新填写密钥。'
+                    : '密钥仅保存在服务端，须与地域及业务空间匹配。'}
+              </small>
+            </div>
           </>
         )}
         <div className="voice-service-actions">

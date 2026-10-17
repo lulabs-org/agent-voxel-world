@@ -46,12 +46,24 @@ export function VoiceServices({
   const [selected, setSelected] = useState<string | null | undefined>();
   const [draft, setDraft] = useState(fresh);
   const [dirty, setDirty] = useState(false);
+  const [editingKey, setEditingKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const saved = services.find((s) => s.id === selected);
+  const canKeepKey = (() => {
+    if (!saved?.hasApiKey || saved.type !== draft.type) return false;
+    try {
+      return (
+        new URL(draft.baseUrl.trim()).href.replace(/\/$/, '') === saved.baseUrl
+      );
+    } catch {
+      return false;
+    }
+  })();
   const choose = (service?: VoiceServiceView) => {
     setSelected(service?.id ?? null);
+    setEditingKey(false);
     setDraft(service ? { ...service, apiKey: '' } : fresh());
     setDirty(!service);
     setNotice('');
@@ -204,18 +216,50 @@ export function VoiceServices({
                     />
                   )}
                 </label>
-                <label>
-                  API Key
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={draft.apiKey}
-                    placeholder={
-                      saved?.hasApiKey ? '已配置，留空保留' : '填写服务密钥'
-                    }
-                    onChange={(e) => change({ apiKey: e.target.value })}
-                  />
-                </label>
+                <div className="voice-key-field">
+                  <span className="voice-key-label">API Key</span>
+                  {canKeepKey && !editingKey ? (
+                    <div className="voice-key-saved">
+                      <span role="status">密钥已配置</span>
+                      <button type="button" onClick={() => setEditingKey(true)}>
+                        更换密钥
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="voice-key-input">
+                      <input
+                        aria-label="API Key"
+                        type="password"
+                        autoComplete="new-password"
+                        value={draft.apiKey}
+                        placeholder={
+                          canKeepKey ? '输入新密钥，保存后生效' : '填写服务密钥'
+                        }
+                        onChange={(e) => change({ apiKey: e.target.value })}
+                      />
+                      {canKeepKey && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (draft.apiKey) change({ apiKey: '' });
+                            setEditingKey(false);
+                          }}
+                        >
+                          取消更换
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <small>
+                    {canKeepKey
+                      ? editingKey
+                        ? '留空保存仍使用已有密钥。'
+                        : '密钥已保存在服务端，不回显到浏览器。'
+                      : saved?.hasApiKey
+                        ? '接口地址或服务类型已更改，请重新填写密钥。'
+                        : '密钥仅保存在服务端。'}
+                  </small>
+                </div>
                 <label>
                   语音模型
                   <input
@@ -225,9 +269,6 @@ export function VoiceServices({
                     onChange={(e) => change({ model: e.target.value })}
                   />
                 </label>
-                <small>
-                  密钥仅保存在服务端。更换接口地址或服务类型时需重新填写。
-                </small>
               </>
             )}
             {draft.type === 'browser' ? (

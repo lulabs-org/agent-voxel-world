@@ -37,32 +37,37 @@ export function LocalVoiceSelect({
   }, [active, retry]);
   return (
     <>
-      <label>
-        音色
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">按中英文自动选择</option>
-          {value && !voices.some((voice) => voice.name === value) && (
-            <option value={value}>{value}（当前配置，未在列表中找到）</option>
-          )}
-          {voices.map((voice) => (
-            <option key={`${voice.name}-${voice.language}`} value={voice.name}>
-              {voice.name} · {voice.language}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="voice-select-field">
+        <label>
+          音色
+          <select value={value} onChange={(e) => onChange(e.target.value)}>
+            <option value="">按中英文自动选择</option>
+            {value && !voices.some((voice) => voice.name === value) && (
+              <option value={value}>{value}（当前配置，未在列表中找到）</option>
+            )}
+            {voices.map((voice) => (
+              <option
+                key={`${voice.name}-${voice.language}`}
+                value={voice.name}
+              >
+                {voice.name} · {voice.language}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => setRetry((count) => count + 1)}
+        >
+          {loading ? '加载音色中…' : '刷新音色列表'}
+        </button>
+      </div>
       {loading && <small role="status">正在读取服务器音色…</small>}
       {error && <small role="alert">{error}</small>}
       {!loading && !error && voices.length === 0 && (
         <small>服务器未返回可选音色。</small>
       )}
-      <button
-        type="button"
-        disabled={loading}
-        onClick={() => setRetry((count) => count + 1)}
-      >
-        {loading ? '加载音色中…' : '刷新音色列表'}
-      </button>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   LocalRecorder,
   type SpeechCapabilities,
@@ -34,6 +34,8 @@ export function SpeechRecognitionPanel({
   const isWhisper = asr.draft.provider === 'whisper';
   const whisperServiceId =
     asr.selected?.provider === 'whisper' ? service : undefined;
+  const fileTestId = useId();
+  const [showFileTest, setShowFileTest] = useState(false);
   const [partial, setPartial] = useState('');
   const [capabilities, setCapabilities] = useState<SpeechCapabilities>();
   const [checking, setChecking] = useState(false);
@@ -62,6 +64,7 @@ export function SpeechRecognitionPanel({
     setStatus('已停止识别。');
   };
   useEffect(() => {
+    setShowFileTest(false);
     setState('idle');
     setStatus('');
     return () => {
@@ -358,6 +361,18 @@ export function SpeechRecognitionPanel({
               >
                 开始录音
               </button>
+              {!isBrowser && asr.selected?.provider === 'whisper' && (
+                <button
+                  type="button"
+                  className="asr-file-toggle"
+                  aria-expanded={showFileTest}
+                  aria-controls={fileTestId}
+                  disabled={busy}
+                  onClick={() => setShowFileTest((value) => !value)}
+                >
+                  {showFileTest ? '收起文件测试' : '用音频文件测试'}
+                </button>
+              )}
               {state === 'listening' && (
                 <button
                   type="button"
@@ -390,19 +405,25 @@ export function SpeechRecognitionPanel({
               </p>
             )}
             {!isBrowser && asr.selected?.provider === 'whisper' && (
-              <label>
-                选择音频文件（最长 20 秒 / 5 MiB）
-                <input
-                  type="file"
-                  accept=".wav,.webm,.mp4,.m4a,.ogg"
-                  disabled={!ready || busy}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = '';
-                    if (file) start(file);
-                  }}
-                />
-              </label>
+              <div
+                id={fileTestId}
+                hidden={!showFileTest}
+                className="asr-file-test"
+              >
+                <label>
+                  选择音频文件（最长 20 秒 / 5 MiB）
+                  <input
+                    type="file"
+                    accept=".wav,.webm,.mp4,.m4a,.ogg"
+                    disabled={!ready || busy}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (file) start(file);
+                    }}
+                  />
+                </label>
+              </div>
             )}
             <small className="asr-help">
               {isBrowser

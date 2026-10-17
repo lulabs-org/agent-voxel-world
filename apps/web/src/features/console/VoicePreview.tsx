@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { VoiceServiceView } from '@voxel/shared';
 import { speakBrowserText } from '../../audio/browser-tts';
 import { consoleApi } from './api';
+import { voicePreviewSamples } from './voice-preview-samples';
 
 export function VoicePreview({
   serviceId,
@@ -14,9 +15,9 @@ export function VoicePreview({
   active: boolean;
   disabled?: boolean;
 }) {
-  const [text, setText] = useState(
-    '你好，我是你的 AI 伙伴，很高兴和你一起探索这个世界。',
-  );
+  const textId = useId();
+  const [text, setText] = useState(voicePreviewSamples[0].text);
+  const [language, setLanguage] = useState(voicePreviewSamples[0].language);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
@@ -69,41 +70,65 @@ export function VoicePreview({
     }
   };
   return (
-    <section className="voice-preview" aria-label="语音试听">
-      <h4>试听</h4>
-      <label>
-        试听文字
-        <textarea
-          rows={2}
-          maxLength={240}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      </label>
-      <div className="voice-service-actions">
+    <section className="voice-preview tts-preview" aria-label="语音试听">
+      <div className="tts-preview-heading">
+        <label htmlFor={textId}>试听文字</label>
+        <select
+          className="tts-preview-language"
+          aria-label="试听示例语言"
+          title="选择示例文字；不会更改已保存的音色"
+          value={language}
+          onChange={(event) => {
+            const sample = voicePreviewSamples.find(
+              (item) => item.language === event.target.value,
+            );
+            if (!sample) return;
+            stop();
+            setLanguage(sample.language);
+            setText(sample.text);
+          }}
+        >
+          {language === 'custom' && <option value="custom">自定义文字</option>}
+          {voicePreviewSamples.map((sample) => (
+            <option key={sample.language} value={sample.language}>
+              {sample.label}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
-          disabled={!serviceId || disabled || busy || !text.trim()}
-          onClick={() => void preview()}
+          disabled={
+            !busy && (!serviceId || disabled || !active || !text.trim())
+          }
+          onClick={() => (busy ? stop() : void preview())}
+          title={busy ? '取消当前试听' : '使用已保存的配置测试连接并试听'}
         >
-          {busy
-            ? '合成中…'
-            : service?.type === 'browser'
-              ? '浏览器试听'
-              : '测试连接并试听'}
+          {busy ? '停止试听' : url ? '重新试听' : '试听'}
         </button>
-        {(busy || url) && (
-          <button type="button" onClick={stop}>
-            停止试听
-          </button>
-        )}
       </div>
-      <small>
+      <textarea
+        id={textId}
+        rows={2}
+        maxLength={240}
+        value={text}
+        lang={language === 'custom' ? undefined : language}
+        dir="auto"
+        onChange={(e) => {
+          stop();
+          setText(e.target.value);
+          setLanguage('custom');
+        }}
+      />
+      <small className="tts-preview-hint">
         {service?.type === 'browser'
-          ? '使用当前设备的浏览器音色朗读；远程音色可能联网。'
-          : '使用已保存的服务配置；云端合成会发送这段文字，并按服务商规则计费。'}
+          ? '使用当前浏览器音色，请确认支持所选语言；远程音色可能联网。'
+          : '使用已保存的音色，请确认支持所选语言；云端服务会接收文字并按服务商规则计费。'}
       </small>
-      {status && <p role="status">{status}</p>}
+      {status && (
+        <p className="tts-preview-status" role="status">
+          {status}
+        </p>
+      )}
       <audio
         ref={audio}
         controls

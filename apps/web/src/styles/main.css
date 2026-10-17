@@ -838,11 +838,90 @@ footer {
   gap: 32px;
   align-items: start;
 }
+.voice-key-field {
+  margin-bottom: 13px;
+  font-size: 12px;
+}
+.voice-key-label {
+  display: block;
+  margin-bottom: 6px;
+}
+.voice-key-saved,
+.voice-key-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.voice-key-saved {
+  padding: 6px 10px;
+  border: 1px solid #d8e1d2;
+  border-radius: 4px;
+  background: #edf2e8;
+  justify-content: space-between;
+  color: #3d614a;
+}
+.agent-dialog .voice-key-field button {
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.agent-form .voice-key-input input {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+.voice-key-field small {
+  display: block;
+  margin-top: 5px;
+  color: #627767;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.voice-select-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 13px;
+}
+.agent-form .voice-select-field label {
+  min-width: 0;
+  margin: 0;
+}
+.agent-form .voice-select-field select,
+.agent-dialog .voice-select-field button {
+  box-sizing: border-box;
+  height: 36px;
+  font-size: 12px;
+}
+.agent-dialog .voice-select-field button {
+  padding: 0 12px;
+  white-space: nowrap;
+}
 .voice-service-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
+}
+.agent-dialog .asr-file-toggle {
+  padding: 6px 4px;
+  background: transparent;
+  color: #52705c;
+  font-size: 12px;
+}
+.agent-dialog .asr-file-toggle:hover {
+  background: #edf2e8;
+}
+.asr-file-test {
+  padding: 10px 12px;
+  border: 1px solid #d8e1d2;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+.agent-form .asr-file-test label {
+  margin: 0;
 }
 .asr-help {
   display: block;
@@ -875,6 +954,64 @@ footer {
 .voice-preview audio {
   width: 100%;
   margin-top: 12px;
+}
+/* TTS preview stays compact without changing the ASR trial layout. */
+.agent-dialog .tts-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  min-width: 0;
+}
+.tts-preview-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.agent-form .tts-preview-heading label {
+  margin: 0;
+  font-weight: 600;
+}
+.agent-form .tts-preview-heading .tts-preview-language {
+  width: 180px;
+  max-width: 45%;
+  min-width: 0;
+  margin: 0 0 0 auto;
+  padding: 5px 8px;
+  font-size: 12px;
+  line-height: 20px;
+}
+.agent-dialog .tts-preview-heading button {
+  min-height: 30px;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 20px;
+}
+.agent-form .tts-preview textarea {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.tts-preview .tts-preview-hint,
+.tts-preview .tts-preview-status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.tts-preview audio {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+  margin: 0;
+}
+.tts-preview audio[hidden] {
+  display: none;
 }
 @media (max-width: 700px) {
   .voice-services-layout {
