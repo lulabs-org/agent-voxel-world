@@ -28,7 +28,7 @@ export function ProviderEditor({
   return (
     <div className="agent-columns">
       <aside className="agent-sidebar">
-        <h3>已保存的服务商</h3>
+        <h3>已保存的模型服务</h3>
         {providers.map((p) => (
           <button
             key={p.id}
@@ -48,17 +48,17 @@ export function ProviderEditor({
           </button>
         ))}
         <button onClick={() => editProvider()} disabled={busy}>
-          ＋ 添加服务商
+          ＋ 添加模型服务
         </button>
         <p>
           密钥仅保存在本机服务端，不会返回到浏览器。已有环境变量会在首次启动时导入。
         </p>
       </aside>
       <form onSubmit={saveProvider} className="agent-form">
-        <h3>{editing ? '编辑服务商' : '添加模型服务商'}</h3>
+        <h3>{editing ? '编辑模型服务' : '添加模型服务'}</h3>
         <fieldset disabled={busy}>
           <label>
-            服务商类型
+            服务类型
             <select
               value={draft.type}
               onChange={(e) =>
@@ -71,7 +71,7 @@ export function ProviderEditor({
             </select>
           </label>
           <label>
-            服务商名称
+            服务名称
             <input
               value={draft.name}
               required
@@ -110,7 +110,7 @@ export function ProviderEditor({
             <input
               value={draft.defaultModel}
               maxLength={128}
-              placeholder="填写该服务商支持的模型 ID"
+              placeholder="填写该服务支持的模型 ID"
               onChange={(e) =>
                 setDraft({ ...draft, defaultModel: e.target.value })
               }
@@ -151,11 +151,11 @@ export function ProviderEditor({
           </p>
           <div className="agent-actions">
             <button className="primary">
-              {busy ? '保存中…' : '保存服务商'}
+              {busy ? '保存中…' : '保存模型服务'}
             </button>
             {editing && (
               <button type="button" onClick={() => void removeProvider()}>
-                删除服务商
+                删除模型服务
               </button>
             )}
           </div>

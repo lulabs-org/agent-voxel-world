@@ -75,9 +75,9 @@ export function validateProvider(
   const input = object(value);
   const type = input.type;
   if (type !== 'deepseek' && type !== 'ollama' && type !== 'compatible')
-    throw new ManagementError('不支持此服务商类型。');
-  const name = text(input.name, '服务商名称', 50);
-  if (!name) throw new ManagementError('请输入服务商名称。');
+    throw new ManagementError('不支持此服务类型。');
+  const name = text(input.name, '服务名称', 50);
+  if (!name) throw new ManagementError('请输入服务名称。');
   const defaults = {
     deepseek: 'https://api.deepseek.com',
     ollama: 'http://127.0.0.1:11434/v1',
@@ -139,7 +139,7 @@ export function validateAgent(
   if (provider.type === 'ollama' && /cloud/i.test(model))
     throw new ManagementError('本机 Ollama 请选择已下载的本地模型。');
   if (provider.type !== 'ollama' && !provider.apiKey)
-    throw new ManagementError('请先为该服务商配置 API Key。');
+    throw new ManagementError('请先为该模型服务配置 API Key。');
   const name = text(input.name, '玩家昵称', 24);
   const goal = text(input.goal, '任务目标', 2000);
   if (!name || !goal) throw new ManagementError('请填写玩家昵称和任务目标。');
@@ -153,7 +153,7 @@ export function validateAgent(
   )
     throw new ManagementError('推理强度无效。');
   if (provider.type !== 'deepseek' && thinking !== 'disabled')
-    throw new ManagementError('此服务商暂不提供 DeepSeek 思考参数。');
+    throw new ManagementError('此模型服务暂不提供 DeepSeek 思考参数。');
   const intervalMode = input.intervalMode ?? 'fixed';
   if (intervalMode !== 'fixed' && intervalMode !== 'random')
     throw new ManagementError('轮询方式无效。');
@@ -243,7 +243,7 @@ export class ProviderStore {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
         throw new ManagementError(
-          '无法读取服务商配置，请检查本地配置文件。',
+          '无法读取模型服务配置，请检查本地配置文件。',
           500,
         );
       this.values = [
@@ -273,7 +273,7 @@ export class ProviderStore {
   }
   get(id: string) {
     const provider = this.values.find((p) => p.id === id);
-    if (!provider) throw new ManagementError('服务商不存在。', 404);
+    if (!provider) throw new ManagementError('模型服务不存在。', 404);
     return { ...provider };
   }
   private async persist(values: SavedProvider[]) {
@@ -297,7 +297,7 @@ export class ProviderStore {
   save(value: unknown, id?: string) {
     return this.mutate(async () => {
       if (!id && this.values.length >= 20)
-        throw new ManagementError('最多保存 20 个服务商。');
+        throw new ManagementError('最多保存 20 个模型服务。');
       const provider = validateProvider(value, id ? this.get(id) : undefined);
       const next = id
         ? this.values.map((p) => (p.id === id ? provider : p))
@@ -479,7 +479,7 @@ export class AgentManager {
   }
   async models(id: string) {
     if (this.probing.has(id))
-      throw new ManagementError('正在连接此服务商，请稍候。', 429);
+      throw new ManagementError('正在连接此模型服务，请稍候。', 429);
     const provider = this.providers.get(id);
     if (provider.type !== 'ollama' && !provider.apiKey)
       throw new ManagementError('请先配置 API Key。');
@@ -498,7 +498,7 @@ export class AgentManager {
   create(value: unknown) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const provider = this.providers.get(
-      text(object(value).providerId, '服务商', 80),
+      text(object(value).providerId, '模型服务', 80),
     );
     const settings = validateAgent(value, provider);
     this.checkVoice(settings);
@@ -595,7 +595,7 @@ export class AgentManager {
       throw new ManagementError('请等待 Agent 待命，或关闭后再修改参数。', 409);
     const input = object(value);
     const provider = this.providers.get(
-      text(input.providerId, '服务商', 80, job.view.providerId),
+      text(input.providerId, '模型服务', 80, job.view.providerId),
     );
     const currentGoal = job.memory.task?.goal ?? job.view.goal;
     const settings = validateAgent(
@@ -907,7 +907,7 @@ export class AgentManager {
   async removeProvider(id: string) {
     if ([...this.jobs.values()].some((j) => j.view.providerId === id))
       throw new ManagementError(
-        '已有可复用 Agent 关联此服务商，请保留配置或更新其密钥。',
+        '已有可复用 Agent 关联此模型服务，请保留配置或更新其密钥。',
         409,
       );
     await this.providers.remove(id);

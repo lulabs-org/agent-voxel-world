@@ -190,7 +190,7 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
         thinking: 'disabled',
       }));
       setModels([]);
-      setNotice('服务商已保存。切换到 Agent 玩家，选择模型后即可加入世界。');
+      setNotice('模型服务已保存。切换到 Agent 玩家，选择模型后即可加入世界。');
     });
   };
 
@@ -207,7 +207,7 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
           model: list[0]?.defaultModel ?? '',
         }));
       editProvider();
-      setNotice('服务商已删除。');
+      setNotice('模型服务已删除。');
     });
   const saveAgent = () =>
     perform(async () => {

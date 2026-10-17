@@ -86,7 +86,7 @@ export function ControlConsole({
               editProvider(selected ?? providers[0]);
             }}
           >
-            模型服务商
+            模型服务
           </button>
           <button
             aria-pressed={tab === 'voice'}

@@ -73,14 +73,14 @@ export function AgentForm({
           <h4 className="agent-section-title">基本信息</h4>
           <div className="agent-grid">
             <label>
-              选择服务商
+              选择模型服务
               <select
                 required
                 value={agent.providerId}
                 onChange={(e) => chooseProvider(e.target.value)}
               >
                 <option value="" disabled>
-                  请先添加服务商
+                  请先添加模型服务
                 </option>
                 {providers.map((p) => (
                   <option key={p.id} value={p.id}>
