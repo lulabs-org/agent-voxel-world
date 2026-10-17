@@ -69,6 +69,8 @@ export type AgentTask = {
   elapsedMs: number;
   waitFor?: 'world' | 'players';
 };
+export const AGENT_LOG_LIMIT = 500;
+
 export type AgentUsage = { calls: number; tokens: number; estimated: boolean };
 export type ManagedAgentView = AgentSettings & {
   voiceServiceName?: string;
@@ -85,6 +87,8 @@ export type ManagedAgentView = AgentSettings & {
   createdAt: number;
   sessionId?: string;
   logs: string[];
+  /** UTC epoch milliseconds aligned with logs; null means legacy time is unknown. */
+  logTimes?: (number | null)[];
   task?: AgentTask;
   usage?: AgentUsage;
   lastResponse?: string;

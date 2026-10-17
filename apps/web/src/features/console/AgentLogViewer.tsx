@@ -1,4 +1,4 @@
-import type { ManagedAgentView } from '@voxel/shared';
+import { AGENT_LOG_LIMIT, type ManagedAgentView } from '@voxel/shared';
 export function AgentLogViewer({ job }: { job: ManagedAgentView }) {
   return (
     <section className="agents-activity" aria-label="运行记录与用量">
@@ -26,13 +26,41 @@ export function AgentLogViewer({ job }: { job: ManagedAgentView }) {
       )}
       <div className="agents-task-heading">
         <h4>最近运行记录</h4>
-        <span className="agent-hint">最多保留 40 条 · 最新在上</span>
+        <span className="agent-hint">
+          最多保留 {AGENT_LOG_LIMIT} 条 · 最新在上 · 本地时间
+        </span>
       </div>
       {job.logs.length ? (
         <ol className="agents-log-list">
-          {[...job.logs].reverse().map((message, index) => (
-            <li key={`${job.logs.length - index}-${message}`}>{message}</li>
-          ))}
+          {[...job.logs].reverse().map((message, index) => {
+            const timestamp = job.logTimes?.[job.logs.length - index - 1];
+            const date =
+              typeof timestamp === 'number' ? new Date(timestamp) : undefined;
+            const valid = date && Number.isFinite(date.getTime());
+            return (
+              <li key={`${job.logs.length - index}-${message}`}>
+                {valid ? (
+                  <time
+                    dateTime={date.toISOString()}
+                    title={date.toISOString()}
+                  >
+                    {date.toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: false,
+                    })}
+                  </time>
+                ) : (
+                  <span className="agents-log-time">时间未记录</span>
+                )}
+                <span>{message}</span>
+              </li>
+            );
+          })}
         </ol>
       ) : (
         <p className="agents-list-empty">

@@ -3,7 +3,7 @@ export * from './voice-services';
 export * from './asr';
 export * from './agent-capabilities';
 export const WORLD_ID = 'meadow';
-export { AGENT_ROLE_DESCRIPTION_LIMIT } from './agents';
+export { AGENT_ROLE_DESCRIPTION_LIMIT, AGENT_LOG_LIMIT } from './agents';
 export type {
   ProviderType,
   ProviderView,

@@ -922,3 +922,28 @@ it('uses newly saved provider inference settings on the next decision without re
   );
   expect(configs[0]).toMatchObject(inference);
 });
+
+it('persists and reloads 500 timestamped activity records without truncating to the old limit', async () => {
+  const { readFile, writeFile } = await import('node:fs/promises');
+  const m = setup(fakeSession());
+  const created = m.create({ ...settings, goal: '', startTask: false });
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  const logged = m.list()[0];
+  expect(logged.logs.length).toBeGreaterThan(0);
+  expect(logged.logTimes).toHaveLength(logged.logs.length);
+  expect(logged.logTimes?.every((time) => typeof time === 'number')).toBe(true);
+  await m.stop(created.id);
+  await m.close();
+  const path = `${store.path}.agents.json`;
+  const archive = JSON.parse(await readFile(path, 'utf8'));
+  archive[0].status = 'stopped';
+  archive[0].logs = Array.from({ length: 510 }, (_, i) => `entry-${i}`);
+  archive[0].logTimes = Array.from({ length: 510 }, (_, i) => 1000 + i);
+  await writeFile(path, JSON.stringify(archive));
+  const restored = setup(fakeSession());
+  await restored.load();
+  expect(restored.list()[0].logs).toEqual(archive[0].logs.slice(-500));
+  expect(restored.list()[0].logTimes).toEqual(archive[0].logTimes.slice(-500));
+  const persisted = JSON.parse(await readFile(path, 'utf8'));
+  expect(persisted[0].logTimes).toEqual(archive[0].logTimes.slice(-500));
+});

@@ -1,3 +1,4 @@
+import { appendAgentLog, restoreAgentLogs } from './agent-logs';
 import {
   TaskScheduler,
   emptyTaskBook,
@@ -475,9 +476,7 @@ export class AgentManager {
           createdAt: view.createdAt,
           providerName: provider.name,
           status: 'stopped',
-          logs: Array.isArray(view.logs)
-            ? view.logs.filter((x) => typeof x === 'string').slice(-40)
-            : [],
+          ...restoreAgentLogs(view.logs, view.logTimes),
         },
         abort: new AbortController(),
         memory: view.runtime ?? {
@@ -576,7 +575,7 @@ export class AgentManager {
         if (!isRepeating(plan.timing)) plan.state = 'completed';
       }
       this.jobs.set(view.id, job);
-      if (voiceWarning) job.view.logs.push(voiceWarning);
+      if (voiceWarning) appendAgentLog(job.view, voiceWarning);
       if (
         ['idle', 'running', 'joining', 'failed'].includes(view.status) &&
         [...this.jobs.values()].filter(resident).length < 4
@@ -1420,10 +1419,10 @@ export class AgentManager {
           job.memory.task.reason =
             '角色技能或动作权限已修改，进度已保留，请确认后继续。';
         }
-        job.view.logs = [
-          ...job.view.logs,
+        appendAgentLog(
+          job.view,
           '角色能力已更新；后续按新权限重新规划，已有进度保留。',
-        ].slice(-40);
+        );
       }
       Object.assign(job.view, settings, { providerName: provider.name });
       this.bindVoice(job);
@@ -1555,7 +1554,7 @@ export class AgentManager {
       const safe = provider.apiKey
         ? message.split(provider.apiKey).join('[已隐藏]')
         : message;
-      job.view.logs = [...job.view.logs, safe].slice(-40);
+      appendAgentLog(job.view, safe);
       const record = this.currentRun(job);
       if (record) record.logs = [...record.logs, safe].slice(-40);
       this.persist();
