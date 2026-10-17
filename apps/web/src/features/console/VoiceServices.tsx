@@ -120,6 +120,9 @@ export function VoiceServices({
     <div className="voice-services-layout">
       <aside className="agent-sidebar" aria-label="语音服务列表">
         <h3>语音服务</h3>
+        <button disabled={busy} onClick={() => choose()}>
+          ＋ 添加语音服务
+        </button>
         {services.map((service) => (
           <button
             key={service.id}
@@ -135,9 +138,6 @@ export function VoiceServices({
             </small>
           </button>
         ))}
-        <button disabled={busy} onClick={() => choose()}>
-          ＋ 添加语音服务
-        </button>
         <p>同一服务商可保存多份音色配置，供不同 Agent 复用。</p>
       </aside>
       <div className="agent-form">

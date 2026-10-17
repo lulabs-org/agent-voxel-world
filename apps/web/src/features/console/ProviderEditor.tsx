@@ -43,6 +43,9 @@ export function ProviderEditor({
     <div className="agent-columns">
       <aside className="agent-sidebar">
         <h3>模型服务</h3>
+        <button onClick={() => editProvider()} disabled={busy}>
+          ＋ 添加模型服务
+        </button>
         {providers.map((p) => (
           <button
             key={p.id}
@@ -61,9 +64,6 @@ export function ProviderEditor({
             </small>
           </button>
         ))}
-        <button onClick={() => editProvider()} disabled={busy}>
-          ＋ 添加模型服务
-        </button>
         <p>
           密钥仅保存在本机服务端，不会返回到浏览器。已有环境变量会在首次启动时导入。
         </p>

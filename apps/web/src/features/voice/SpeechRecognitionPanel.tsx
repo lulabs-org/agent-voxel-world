@@ -226,6 +226,14 @@ export function SpeechRecognitionPanel({
       <div className="voice-services-layout">
         <aside className="agent-sidebar" aria-label="识别服务列表">
           <h3>识别服务</h3>
+          <button
+            type="button"
+            aria-pressed={service === 'new'}
+            disabled={busy || asr.saving || !asr.canAdd}
+            onClick={() => chooseService('new')}
+          >
+            ＋ 添加识别服务
+          </button>
           {!asr.loading && asr.services.length === 0 && (
             <p className="agent-hint">暂无已保存的识别服务，请添加服务。</p>
           )}
@@ -252,14 +260,6 @@ export function SpeechRecognitionPanel({
                 <small>{item.detail}</small>
               </button>
             ))}
-          <button
-            type="button"
-            aria-pressed={service === 'new'}
-            disabled={busy || asr.saving || !asr.canAdd}
-            onClick={() => chooseService('new')}
-          >
-            ＋ 添加识别服务
-          </button>
           {asr.loading && (
             <p className="agent-hint" role="status">
               正在加载识别服务…
