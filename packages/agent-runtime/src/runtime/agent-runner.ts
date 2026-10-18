@@ -84,7 +84,7 @@ export class AgentRunner {
     // Finish the addressed reply before yielding; queued messages must not discard it.
     const shouldYield = () =>
       !!attention?.pending &&
-      (state.mode !== 'reply' || !addressed || state.responseSent);
+      (state.mode === 'task' || !addressed || state.responseSent);
     const deadline = Number.isFinite(budget.remainingMs)
       ? AbortSignal.timeout(Math.max(1, budget.remainingMs))
       : new AbortController().signal;

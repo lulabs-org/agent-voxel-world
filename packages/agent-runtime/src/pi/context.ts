@@ -51,7 +51,9 @@ export function createPiTurnState(
 ): PiTurnState {
   return {
     prepared,
-    mode: prepared.addressed ? 'reply' : 'task',
+    // A message is not a reply until the model explicitly classifies it.
+    // Otherwise a premature chat promise terminates the wake before any task exists.
+    mode: prepared.addressed ? undefined : 'task',
     terminal: false,
     skipBatch: false,
     persistenceFailed: false,

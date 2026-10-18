@@ -1,5 +1,5 @@
 import { key, type AgentTask, type ChatData } from '@voxel/shared';
-import type { AgentSession, Observation } from '../contracts';
+import type { AgentSession, BatchResult, Observation } from '../contracts';
 import type { AgentRunState } from './state';
 import { arrived } from '../actions/navigation/controller';
 import { observedEmpty } from '../actions/building';
@@ -57,6 +57,18 @@ export async function prepareDecision(
     }
   }
   if (memory.pendingEffects) {
+    const latest = memory.previous as BatchResult | undefined;
+    // A verified replacement destination supersedes a known navigation failure.
+    // Unknown effects and failed edits still need their own reconciliation.
+    const correctedArrival = latest?.results?.some(
+      (r) =>
+        r.action.type === 'goto' &&
+        r.status === 'succeeded' &&
+        r.result?.ok &&
+        'status' in r.result &&
+        r.result.status === 'arrived' &&
+        arrived(raw, r.action),
+    );
     const resolved = memory.pendingEffects.results
       .filter((r) => !['pending', 'succeeded'].includes(r.status))
       .every((r) => {
@@ -70,7 +82,15 @@ export async function prepareDecision(
                   b.material ===
                     (r.action as import('../contracts').PlannedEdit).material,
               );
-        if (r.action.type === 'goto') return arrived(raw, r.action);
+        if (r.action.type === 'goto')
+          return (
+            arrived(raw, r.action) ||
+            (r.status === 'failed' &&
+              r.result &&
+              'status' in r.result &&
+              r.result.status === 'failed' &&
+              correctedArrival)
+          );
         if (r.action.type === 'follow')
           return (
             !!memory.follow && memory.follow.taskStartedAt === task?.startedAt
