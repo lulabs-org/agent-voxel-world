@@ -1,0 +1,68 @@
+.world-panel {
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+.world-panel h1 {
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 500;
+  margin: 18px 0 14px;
+}
+.presence-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: #6d7e74;
+}
+.presence-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b6874e;
+}
+.presence-status.live i {
+  background: #3c7960;
+}
+.world-panel .presence-notice {
+  font-size: 10px;
+  color: #916a38;
+}
+.world-panel .stats {
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 0 8px;
+}
+.world-panel .stats small {
+  font-size: 10px;
+}
+.world-panel .world-occupancy {
+  margin: 0 0 20px;
+  font-size: 10px;
+}
+.player-list {
+  max-height: 230px;
+  overflow-y: auto;
+}
+.player-name {
+  overflow-wrap: anywhere;
+}
+.player.away span {
+  color: #b6874e;
+}
+.player .player-position {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  font-size: 9px;
+}
+.world-membership {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid #dfe4d8;
+  color: #537064;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.world-panel .storage {
+  margin-top: 10px;
+}

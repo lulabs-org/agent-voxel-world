@@ -1,0 +1,5 @@
+.join .join-agents {
+  margin-top: 0;
+  background: var(--surface-control);
+  color: var(--color-action);
+}

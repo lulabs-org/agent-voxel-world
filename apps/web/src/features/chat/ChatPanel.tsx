@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import type { Connection } from '../../network/connection';
-import { VoiceDraft } from './VoiceDraft';
 import { mentionQuery } from './chat-mentions';
-import { useChatController } from './useChatController';
-import { ChatMessages } from './ChatMessages';
-import { MentionPicker } from './MentionPicker';
+import { ChatMessages } from './components/ChatMessages';
+import { MentionPicker } from './components/MentionPicker';
+import { VoiceDraft } from './components/VoiceDraft';
+import { useChatController } from './hooks/useChatController';
 export function ChatPanel({
   connection,
   expanded,

@@ -4,7 +4,7 @@ import {
   pcmWav,
   speechTransport,
   type SpeechTransport,
-} from '../apps/web/src/audio/live-speech';
+} from '../apps/web/src/audio/services/live-speech';
 import { validatePcmWav } from '../apps/server/src/modules/audio/asr/local-speech';
 const flush = async () => {
   for (let i = 0; i < 12; i++) await Promise.resolve();

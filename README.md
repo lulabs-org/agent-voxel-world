@@ -103,7 +103,7 @@ pnpm format:check
 
 ## 结构
 
-- `apps/web`：React UI、Three.js 实例化体素、插值、重连。
+- `apps/web`：按 feature 拆分的 React UI、Three.js 实例化体素、插值、重连。目录、依赖边界及浏览器验收见 [Web 架构](apps/web/README.md)。
 - `apps/server`：Colyseus 单一权威世界、事务存储、语音 provider 接口。
 - `apps/server/prisma`：PostgreSQL schema 和可重放迁移。
 - `apps/agent-cli`：脚本测试机器人（Scout）与 AI Agent CLI 入口、命令行配置、集成检查。

@@ -1,0 +1,17 @@
+@media (max-width: 900px) {
+  .panel {
+    width: 190px;
+    padding: 16px;
+    left: 16px;
+    top: 95px;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  header {
+    padding: 20px;
+  }
+  .join {
+    width: 340px;
+  }
+}

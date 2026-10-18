@@ -1,0 +1,111 @@
+/* The lobby has its own layout; game HUD only mounts after joining. */
+.lobby-layout {
+  display: contents;
+}
+.in-lobby {
+  overflow-y: auto;
+}
+.in-lobby::before {
+  z-index: 1;
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, #d9eeebd9, #bbdcd7b8 55%, #a1ccc7b8);
+}
+.in-lobby header {
+  position: relative;
+  z-index: 2;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 30px 40px;
+  align-items: center;
+  gap: 20px;
+}
+.in-lobby .lobby-layout {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.35fr);
+  gap: 28px;
+  align-items: stretch;
+  align-content: center;
+  width: min(960px, calc(100% - 80px));
+  min-height: calc(100dvh - 116px);
+  padding: 24px 0 64px;
+  margin: 0 auto;
+}
+.in-lobby .join {
+  position: static;
+  transform: none;
+  width: auto;
+  padding: 42px;
+  border: 1px solid #ffffff80;
+  border-radius: 16px;
+  background: #f8f8f0f5;
+  box-shadow: 0 20px 70px #2d615119;
+}
+.in-lobby .join h2 {
+  font:
+    500 40px/1.3 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: -1.5px;
+  margin: 25px 0 18px;
+}
+.lobby-description {
+  color: #688074;
+  font-size: 13px;
+  line-height: 1.9;
+  margin: 0 0 30px;
+}
+.in-lobby .join label {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.in-lobby .join input {
+  padding: 13px 14px;
+  border-radius: var(--radius-control);
+}
+.in-lobby .join button {
+  border-radius: var(--radius-control);
+  padding: 14px;
+  margin: 12px 0 10px;
+}
+.in-lobby .join .join-agents {
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+.in-lobby .join small {
+  font-size: 10px;
+  color: #748779;
+}
+.in-lobby .world-panel {
+  position: static;
+  width: auto;
+  max-height: none;
+  padding: 28px;
+  border-radius: 14px;
+  background: #f2f7ecbc;
+  box-shadow: none;
+}
+.in-lobby .world-panel h1 {
+  font-size: 23px;
+  margin: 19px 0 12px;
+}
+.in-lobby .world-panel .stats {
+  padding: 20px 0 10px;
+  margin: 4px 0;
+}
+.in-lobby .world-panel .stats strong {
+  font-size: 32px;
+}
+.in-lobby .world-panel .player-list {
+  max-height: 230px;
+}
+.in-lobby .world-panel .player {
+  padding: 0 0 10px;
+}
+.in-lobby .world-panel .storage {
+  margin-top: 8px;
+}

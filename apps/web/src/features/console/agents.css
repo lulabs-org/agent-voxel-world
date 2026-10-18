@@ -55,7 +55,7 @@
   padding: 9px;
   border: 1px solid var(--agents-border);
   background: white;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   margin-bottom: 10px;
   font: inherit;
   font-size: 12px;
@@ -232,11 +232,11 @@
   border: 1px solid var(--agents-border);
   background: transparent;
   padding: 9px 13px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .agent-dialog .agents-actions button.primary {
-  background: #314f42;
-  border-color: #314f42;
+  background: var(--color-hud-ink);
+  border-color: var(--color-hud-ink);
 }
 .agent-dialog .agents-actions .agents-text-button {
   border-color: transparent;
@@ -594,7 +594,7 @@
   background: transparent;
   padding: 7px 11px;
   font-size: 11px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   flex-shrink: 0;
 }
 .agents-task-state {
@@ -762,7 +762,7 @@
   gap: 8px 12px;
   padding: 12px 14px;
   border: 1px solid #d5dfcf;
-  border-radius: 10px;
+  border-radius: var(--radius-panel);
 }
 .task-plan-card:hover {
   border-color: #a7b99f;
@@ -886,7 +886,7 @@
   padding: 8px 10px;
   margin: 0;
   background: #faf2e3;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: #865d26;
   font-size: 12px;
   line-height: 1.6;
@@ -967,7 +967,7 @@
   margin: 0;
   padding: 8px 10px;
   background: #f4f6ef;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .task-run-usage dt {
   font-size: 11px;
@@ -1123,7 +1123,7 @@
   gap: 5px;
   padding: 8px;
   background: #eef2e8;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .agent-form .task-weekdays input {
   width: 16px;
@@ -1227,7 +1227,7 @@
   border: 1px solid var(--agents-border);
   border-radius: 12px;
   background: #fffef9;
-  color: #263a36;
+  color: var(--color-text);
   box-shadow: 0 20px 70px #16382f44;
 }
 .agents-delete-dialog::backdrop {

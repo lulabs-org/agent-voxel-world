@@ -1,6 +1,6 @@
-import { serverHttpUrl } from '../../network/endpoints';
-import type { SpeechCapabilities } from '../../audio/local-recorder';
 import type { AsrServiceDraft, AsrServiceView } from '@voxel/shared';
+import type { SpeechCapabilities } from '../../audio';
+import { serverHttpUrl } from '../../network/endpoints';
 
 async function asrRequest<T>(
   path: string,

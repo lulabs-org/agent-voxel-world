@@ -335,3 +335,46 @@
 - `Dockerfile.server` 构建通过；独立容器以内存模式启动，验证健康、完整 OpenAPI、Origin 拒绝、配置写入、真实 WebSocket 玩家移动和私聊投递，重启后配置仍从 `/app/.data` 读取。入口、装配、配置及传输模块 SHA-256 与工作区一致。证据：`artifacts/server-architecture/docker-verification.json`。未启动额外数据库，未部署替换当前游戏容器或修改现有世界。
 - Docker 的现有 pnpm/tsx 启动包装器将 SIGTERM 记为退出码 1；容器在 10 秒超时前退出，未发生强杀或 OOM。直接服务器生命周期测试另行确认连接、房间和存储清理。该包装器行为未在本次架构重构中变更。
 - 首次生命周期测试遇到 Colyseus PM2 遥测占用 Vitest fork IPC，改为线程池后完整通过；未屏蔽服务器或网络。Docker 临时验收脚本最初错读 `event.text`，修正为现有协议的 `event.data.text` 后通过，业务聊天代码未因此修改。
+
+## 2026-10-19：Web 架构重构
+
+基线为 `main` 的 `e952c45`。本次保持服务器接口、共享协议、Agent 运行时与现有交互语义，拆分 Web 领域目录、控制台 API/controller、App 的视口/HUD/世界会话职责、原生 Dialog 生命周期，以及音频与图形基础设施。架构说明见 [apps/web/README.md](../apps/web/README.md)。
+
+### 自动检查
+
+- `pnpm check`：59 个测试文件、566 项测试通过，类型检查与全部工作区构建通过。
+- `pnpm format:check`、`git diff --check` 通过。
+- 新增 6 项 Web 边界检查：基础设施独立于 feature、跨域公共入口、请求边界、包含类型导入的循环依赖、两处 PCM Worklet 路径、HUD 样式覆盖顺序。
+- 将样式变量展开回原值后，对拆分前后的 CSS AST 比较：规则、声明、顺序完全相同。浏览器验收发现自动整理 import 会改变副作用 CSS 顺序，已恢复原顺序并增加检查。
+
+### 浏览器与生产构建
+
+使用独立的 5189 前端及 2589 内存测试世界，未重启数据库或修改现有 `localhost` 世界。真实 Chromium 验证：
+
+- 大厅入退世界，画布节点保持同一实例；退出后通信面板卸载。
+- 控制台分类切换、模型列表查询与配置保存、API Key 编辑框保持空白、创建临时 Agent。
+- 创建任务并执行到完成、查看任务详情；此控制台沙箱使用固定模型响应，不算真实模型证据。
+- TTS/ASR 分类切换保留语音子树；关闭控制台停止 Agent 轮询，焦点回到入口。
+- 删除确认默认聚焦取消；Escape 只关闭嵌套确认框并恢复焦点；删除后旧轮询不会恢复已删除角色。
+- 聊天发送、输入区数字不触发材料快捷键、全局材料键与 Enter/Escape；390×844 窄屏面板互斥、390×420 短视口输入按钮可见。
+- `vite build` 后由静态 preview 提供页面，再完成下述真实模型 UI 验收。实际打包的 Worklet URL 在浏览器中成功加载，合成振荡器经过 `pcm16-capture` 返回 3,200 字节 PCM，随后释放节点和 AudioContext。
+
+**保留的基线限制：** 390px 窄屏下，语音面板展开后，其工具栏的透明区域会遮挡左侧聊天入口的鼠标点击。对同一 DOM 加载原始 main/HUD CSS 后，控件坐标与命中元素完全一致，确认不是本次目录迁移引入。关闭语音后可点击聊天，也可通过 Enter 切换；这些路径已验证。本次不修改该既有布局行为。未实际使用麦克风设备或重新调用外部 ASR/TTS；Worklet 合成音频验证不等于真实设备验收。
+
+### 真实模型导航
+
+模型为已配置的 DeepSeek `deepseek-flash`，没有模型响应替身，也未向运行时注入任务意图。
+
+`NAVIGATION_PROVIDERS=… pnpm test:navigation:live` 使用真实 Colyseus、物理引擎和 AgentManager，检查新建任务、发送者身份、running、goto、到达坐标、完成状态及持久化聊天运行记录：
+
+| 场景                 | 模型调用 |     耗时 | 最终水平误差 | 结果                      |
+| -------------------- | -------: | -------: | -----------: | ------------------------- |
+| 平地，无旧任务       |        3 | 5,453 ms |         0 格 | 到达并完成                |
+| 已取消旧任务后绕墙   |        3 | 8,054 ms |         0 格 | 绕行最大 z=3，到达并完成  |
+| 已取消旧任务后上台阶 |        2 | 3,893 ms |         0 格 | 最大高度 3.55，到达并完成 |
+
+以上合计 8 次真实调用、63,868 tokens。
+
+另用独立 2590 内存世界连接生产 Web：通过浏览器实际选择 AI 为私聊对象，在输入框发送“到我这里来”。仅在发送前设置起点和目标位置，发送后由真实模型与物理引擎执行。AI 从 `(0, 2.55, 0)` 移动到 `(4, 2.5, 0)`，与发送者最终水平距离 0，累计移动 4 格；任务进入 running 并 completed。通过正式 `/agents/:id/tasks/:planId/runs` API 验证持久化 `source: chat`、发送者 owner、`goto: succeeded`、`result.status: arrived`。这次 UI 验收为 3 次调用、23,676 tokens。
+
+本地证据保存在忽略目录 `output/playwright/web-architecture/`：自动检查日志、CSS 对照、浏览器断言 JSON、桌面/窄屏/任务截图、`production-worklet.json`、`navigation-live-model.json`、`navigation-browser.json` 与到达截图。凭据不写入报告；临时模型配置随测试世界清理。此次验证未覆盖 Docker 镜像部署与真实数据库迁移。

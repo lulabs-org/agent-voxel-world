@@ -1,6 +1,6 @@
+import { DEFAULT_BAILIAN_ASR } from '@voxel/shared';
 import { afterEach, expect, it, vi } from 'vitest';
 import { voiceApi } from './api';
-import { DEFAULT_BAILIAN_ASR } from '@voxel/shared';
 afterEach(() => vi.unstubAllGlobals());
 it('rejects malformed capabilities instead of advertising local speech readiness', async () => {
   vi.stubGlobal(

@@ -1,0 +1,26 @@
+.messages {
+  max-height: 125px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.chat form {
+  display: flex;
+  margin-top: 12px;
+}
+.chat input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #cbd5c8;
+  padding: 8px 0;
+  font-size: 12px;
+  outline: none;
+}
+.chat button {
+  background: transparent;
+  color: #466b55;
+  font-size: 22px;
+}

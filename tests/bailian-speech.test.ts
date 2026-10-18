@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { BailianSpeechSession } from '../apps/web/src/audio/bailian-speech';
-import type { LiveSpeechEvents } from '../apps/web/src/audio/live-speech';
+import { BailianSpeechSession } from '../apps/web/src/audio/services/bailian-speech';
+import type { LiveSpeechEvents } from '../apps/web/src/audio/services/live-speech';
 function setup() {
   vi.useFakeTimers();
   vi.stubGlobal('WebSocket', { OPEN: 1 });

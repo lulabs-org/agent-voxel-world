@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { Connection } from './network/connection';
 import './styles/main.css';
+// HUD overrides the shared surfaces; keep this stylesheet last.
 import './features/hud/hud.css';
 
 const connection = new Connection();

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { consoleApi } from './api';
-import { freshProvider, initialAgent } from './model';
+import { agentsApi } from './agents/api';
+import { initialAgent } from './agents/model';
+import { providersApi } from './providers/api';
+import { freshProvider } from './providers/model';
+import { tasksApi } from './tasks/api';
+import { voiceApi } from './voice/api';
 
 const request = vi.fn<typeof fetch>();
 beforeEach(() => {
@@ -16,9 +20,9 @@ afterEach(() => {
 
 it('propagates cancellation to list and model requests, encoding provider IDs', async () => {
   const signal = new AbortController().signal;
-  await consoleApi.listProviders(signal);
-  await consoleApi.listAgents(signal);
-  await consoleApi.listModels('custom/provider', signal);
+  await providersApi.listProviders(signal);
+  await agentsApi.listAgents(signal);
+  await providersApi.listModels('custom/provider', signal);
   expect(
     request.mock.calls.map(([url, init]) => [
       url,
@@ -40,11 +44,11 @@ it('propagates cancellation to list and model requests, encoding provider IDs', 
 
 it('keeps provider create, edit, key preservation and deletion contracts', async () => {
   const draft = freshProvider('compatible');
-  await consoleApi.saveProvider(draft);
-  await consoleApi.saveProvider(draft, 'provider/id');
+  await providersApi.saveProvider(draft);
+  await providersApi.saveProvider(draft, 'provider/id');
   request.mockResolvedValueOnce(new Response(null, { status: 204 }));
   await expect(
-    consoleApi.deleteProvider('provider/id'),
+    providersApi.deleteProvider('provider/id'),
   ).resolves.toBeUndefined();
   expect(request.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
     ['https://world.example/agents/providers', 'POST'],
@@ -60,7 +64,7 @@ it('loads server voice choices with cancellation and preserves server errors', a
   const signal = new AbortController().signal;
   const voices = [{ name: 'Tingting', language: 'zh_CN' }];
   request.mockResolvedValueOnce(new Response(JSON.stringify(voices)));
-  await expect(consoleApi.listPiperModels(signal)).resolves.toEqual(voices);
+  await expect(voiceApi.listPiperModels(signal)).resolves.toEqual(voices);
   expect(request).toHaveBeenCalledWith(
     'https://world.example/agents/voice-services/piper/models',
     expect.objectContaining({ signal, method: 'GET' }),
@@ -68,9 +72,7 @@ it('loads server voice choices with cancellation and preserves server errors', a
   request.mockResolvedValueOnce(
     new Response(JSON.stringify({ error: '音色不可用' }), { status: 503 }),
   );
-  await expect(consoleApi.listPiperModels(signal)).rejects.toThrow(
-    '音色不可用',
-  );
+  await expect(voiceApi.listPiperModels(signal)).rejects.toThrow('音色不可用');
 });
 
 it('keeps editing separate from creation and preserves explicit agent settings', async () => {
@@ -81,8 +83,8 @@ it('keeps editing separate from creation and preserves explicit agent settings',
     intervalMaxMs: 8500,
     voiceReplies: false,
   };
-  await consoleApi.saveAgent(settings);
-  await consoleApi.saveAgent(settings, 'agent/id');
+  await agentsApi.saveAgent(settings);
+  await agentsApi.saveAgent(settings, 'agent/id');
   expect(
     request.mock.calls.map(([url, init]) => [
       url,
@@ -96,17 +98,13 @@ it('keeps editing separate from creation and preserves explicit agent settings',
 });
 
 it.each([
-  ['join', () => consoleApi.joinAgent('a/b'), {}],
-  ['resume', () => consoleApi.resumeAgent('a/b'), {}],
-  ['pause', () => consoleApi.pauseAgent('a/b'), {}],
-  ['cancel', () => consoleApi.cancelTask('a/b'), {}],
-  ['stop', () => consoleApi.stopAgent('a/b'), {}],
-  [
-    'task',
-    () => consoleApi.assignTask('a/b', '建造木屋'),
-    { goal: '建造木屋' },
-  ],
-  ['voice', () => consoleApi.setVoiceReplies('a/b', false), { enabled: false }],
+  ['join', () => agentsApi.joinAgent('a/b'), {}],
+  ['resume', () => tasksApi.resumeAgent('a/b'), {}],
+  ['pause', () => tasksApi.pauseAgent('a/b'), {}],
+  ['cancel', () => tasksApi.cancelTask('a/b'), {}],
+  ['stop', () => agentsApi.stopAgent('a/b'), {}],
+  ['task', () => tasksApi.assignTask('a/b', '建造木屋'), { goal: '建造木屋' }],
+  ['voice', () => agentsApi.setVoiceReplies('a/b', false), { enabled: false }],
 ] as const)('sends %s as a scoped action', async (path, action, body) => {
   await action();
   expect(request).toHaveBeenCalledWith(
@@ -119,17 +117,17 @@ it('preserves actionable errors for HTML responses and server rejections', async
   request.mockResolvedValueOnce(
     new Response('<html>not found</html>', { status: 404 }),
   );
-  await expect(consoleApi.listAgents()).rejects.toThrow('Agent 接口不可用');
+  await expect(agentsApi.listAgents()).rejects.toThrow('Agent 接口不可用');
   request.mockResolvedValueOnce(
     new Response(JSON.stringify({ error: '请先暂停任务' }), { status: 409 }),
   );
-  await expect(consoleApi.saveAgent(initialAgent, 'busy')).rejects.toThrow(
+  await expect(agentsApi.saveAgent(initialAgent, 'busy')).rejects.toThrow(
     '请先暂停任务',
   );
 });
 
 it('sends standby creation explicitly without inventing a task', async () => {
-  await consoleApi.saveAgent({
+  await agentsApi.saveAgent({
     ...initialAgent,
     name: 'Partner',
     goal: '',
@@ -143,8 +141,8 @@ it('sends standby creation explicitly without inventing a task', async () => {
 
 it('submits task-specific quotas with assignment and renewal', async () => {
   const limits = { maxTurns: 12, tokenBudget: 15000, taskTimeoutMs: 180000 };
-  await consoleApi.assignTask('fixture', '观察营地', limits);
-  await consoleApi.resumeAgent('fixture', limits);
+  await tasksApi.assignTask('fixture', '观察营地', limits);
+  await tasksApi.resumeAgent('fixture', limits);
   expect(
     request.mock.calls.map(([, init]) => JSON.parse(init!.body as string)),
   ).toEqual([{ goal: '观察营地', ...limits }, limits]);
@@ -152,12 +150,12 @@ it('submits task-specific quotas with assignment and renewal', async () => {
 
 it('keeps task history cancellation, encoded routes and idempotency keys in the API boundary', async () => {
   const signal = new AbortController().signal;
-  await consoleApi.listTaskPlans('a/b', signal);
-  await consoleApi.listTaskRuns('a/b', 'p/q', 20, signal);
-  await consoleApi.taskPlanAction('a/b', 'p/q', 'run', {
+  await tasksApi.listTaskPlans('a/b', signal);
+  await tasksApi.listTaskRuns('a/b', 'p/q', 20, signal);
+  await tasksApi.taskPlanAction('a/b', 'p/q', 'run', {
     requestId: 'stable-retry',
   });
-  await consoleApi.taskRunAction('a/b', 'r/s', 'resume', {
+  await tasksApi.taskRunAction('a/b', 'r/s', 'resume', {
     maxTurns: 150,
     tokenBudget: 100000,
   });

@@ -1,0 +1,105 @@
+.voice {
+  position: absolute;
+  right: 34px;
+  top: 126px;
+  width: 285px;
+  background: #f6f7eee8;
+  padding: 18px;
+  border-radius: 8px;
+}
+.voice-state {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #608267;
+  margin-top: 12px;
+}
+.voice p {
+  font-size: 11px;
+  line-height: 1.5;
+  min-height: 35px;
+  overflow-wrap: anywhere;
+}
+.voice form {
+  display: flex;
+  gap: 5px;
+}
+.voice input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+  font-size: 11px;
+  border: 1px solid #d0d9cd;
+  border-radius: 3px;
+}
+.voice button {
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: #dce7d5;
+  padding: 8px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+.voice .interrupt {
+  margin-top: 8px;
+}
+.voice small {
+  display: block;
+  font-size: 9px;
+  color: #8a958b;
+  margin-top: 9px;
+}
+@media (max-width: 900px) {
+  .voice {
+    right: 16px;
+    top: 95px;
+    width: 220px;
+  }
+}
+.voice {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
+.voice select {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #d0d9cd;
+  border-radius: 3px;
+  background: #fff;
+  font-size: 11px;
+}
+.voice-label {
+  display: block;
+  margin-top: 12px;
+  font-size: 11px;
+}
+.voice-label select {
+  margin-top: 6px;
+}
+.voice-options,
+.voice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.voice-options select {
+  width: auto;
+}
+.voice-options label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+.voice-options input {
+  width: auto;
+}
+.voice p {
+  max-height: 110px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.voice button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

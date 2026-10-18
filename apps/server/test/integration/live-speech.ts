@@ -5,7 +5,7 @@ import { LocalSpeech } from '../../src/modules/audio/asr/local-speech';
 import {
   LiveSpeechSession,
   speechTransport,
-} from '../../../web/src/audio/live-speech';
+} from '../../../web/src/audio/services/live-speech';
 
 // Isolated production assembly; no database, microphone, cloud provider or paid model is used.
 const realFile = process.env.ASR_TEST_WAV;

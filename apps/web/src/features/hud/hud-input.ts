@@ -40,12 +40,3 @@ export function hudShortcut(
   const index = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(event.code);
   return index >= 0 ? MATERIALS[index] : undefined;
 }
-
-export function isInteractiveTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    !!target.closest(
-      'input, textarea, button, select, a, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
-    )
-  );
-}

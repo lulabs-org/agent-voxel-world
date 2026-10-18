@@ -1,0 +1,12 @@
+:root {
+  --color-text: #263a36;
+  --color-hud-ink: #314f42;
+  --color-action: #304c40;
+  --surface-console: #f8f8ef;
+  --surface-control: #e2e9da;
+  --color-focus: #365e4d;
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --z-hud: 4;
+  --z-popover: 5;
+}

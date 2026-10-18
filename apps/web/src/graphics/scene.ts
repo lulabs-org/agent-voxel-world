@@ -1,8 +1,8 @@
-import * as THREE from 'three';
 import { REACH, type Block, type Material } from '@voxel/shared';
+import * as THREE from 'three';
 import { Connection } from '../network/connection';
-import { VoxelAvatar } from './avatar';
-import { isInteractiveTarget } from '../features/hud/hud-input';
+import { isInteractiveTarget } from './controls/input-target';
+import { VoxelAvatar } from './entities/avatar';
 export type TargetBlock = Pick<Block, 'material' | 'x' | 'y' | 'z'>;
 const colors = {
   grass: 0x6b9c52,

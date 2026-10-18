@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import {
   chooseBrowserVoice,
   speakBrowserText,
-} from '../apps/web/src/audio/browser-tts';
+} from '../apps/web/src/audio/services/browser-tts';
 
 afterEach(() => vi.unstubAllGlobals());
 const voices = [
