@@ -17,7 +17,7 @@ export function TaskActionList({
             const view = presentAction(action);
             return (
               <li
-                key={`${action.call}:${action.index}`}
+                key={`${action.batchId ?? action.call}:${action.index}`}
                 className="task-action-item"
               >
                 <span className="task-action-number" aria-hidden="true">

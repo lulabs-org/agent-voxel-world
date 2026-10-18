@@ -81,7 +81,11 @@ describe('agent runtime dependency boundaries', () => {
         expect(
           Object.keys(manifest.dependencies),
           relative(runtime, path),
-        ).toContain(name);
+        ).toContain(
+          name.startsWith('@')
+            ? name.split('/').slice(0, 2).join('/')
+            : name.split('/')[0],
+        );
       }
     }
     for (const path of sources(resolve(root, 'apps/server'))) {

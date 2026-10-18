@@ -1,5 +1,11 @@
-import { agentPermissions, AGENT_SKILLS } from '@voxel/shared';
-import type { AgentConfig, Observation } from '../contracts';
+import {
+  agentPermissions,
+  AGENT_SKILLS,
+} from '../../packages/shared/src/index';
+import type {
+  AgentConfig,
+  Observation,
+} from '../../packages/agent-runtime/src/contracts';
 
 /** Keep untrusted observations in the user message and bound context size. */
 export function buildMessages(

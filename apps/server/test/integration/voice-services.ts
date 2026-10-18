@@ -1,3 +1,5 @@
+import { AgentRunner } from '@voxel/agent-runtime';
+import { toolResponse } from '../../../../tests/support/pi-response';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { createServer } from 'node:http';
@@ -78,21 +80,24 @@ try {
       bots.push(session);
       return session;
     },
-    planner: () => ({
-      decide: async () => {
+    runner: () =>
+      new AgentRunner(undefined, async () => {
         calls++;
-        return {
-          actions: [
-            { type: 'chat' as const, text: 'Hello from my selected voice.' },
-          ],
-          task: {
-            intent: 'continue' as const,
-            status: 'completed' as const,
-            summary: 'Done',
+        return toolResponse([
+          {
+            name: 'chat',
+            arguments: { text: 'Hello from my selected voice.' },
           },
-        };
-      },
-    }),
+          {
+            name: 'update_task',
+            arguments: {
+              intent: 'continue',
+              status: 'completed',
+              summary: 'Done',
+            },
+          },
+        ]);
+      }),
     models: async () => ['fixture-model'],
   };
   manager = new AgentManager(

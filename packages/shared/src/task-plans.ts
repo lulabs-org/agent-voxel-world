@@ -45,6 +45,7 @@ export type TaskRun = {
   totalTokens: number;
   logs: string[];
   actions?: {
+    batchId?: string;
     call: number;
     index: number;
     kind: string;

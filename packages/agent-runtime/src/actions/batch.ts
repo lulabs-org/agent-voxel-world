@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { AgentPermissions } from '@voxel/shared';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
@@ -13,10 +14,13 @@ import { parseActions } from './parse';
 
 export type BatchOptions = {
   pending?: (index: number) => boolean;
-  checkpoint?: (batch: BatchResult) => void;
-  buildCheckpoint?: (action: BuildAction, result: BuildResult) => void;
-  beforeAction?: (action: AgentAction) => void;
-  log?: (message: string) => void;
+  checkpoint?: (batch: BatchResult) => unknown | Promise<unknown>;
+  buildCheckpoint?: (
+    action: BuildAction,
+    result: BuildResult,
+  ) => unknown | Promise<unknown>;
+  beforeAction?: (action: AgentAction) => unknown | Promise<unknown>;
+  log?: (message: string) => unknown | Promise<unknown>;
 };
 
 /** Abort waiting without replaying requests whose effects may already have happened. */
@@ -24,7 +28,7 @@ async function cancellable<T>(
   request: Promise<T>,
   signal: AbortSignal,
 ): Promise<T> {
-  let abort!: () => void;
+  let abort!: () => unknown | Promise<unknown>;
   const cancelled = new Promise<never>((_, reject) => {
     abort = () => reject(signal.reason);
     if (signal.aborted) abort();
@@ -48,6 +52,7 @@ export async function executeBatch(
   // Defense in depth at the effect boundary, including an invalid final action.
   actions = parseActions(actions, allowEdits);
   const batch: BatchResult = {
+    batchId: randomUUID(),
     actions,
     results: actions.map((action) => ({ action, status: 'pending' })),
     remaining: [...actions],
@@ -57,13 +62,13 @@ export async function executeBatch(
   let observation = initial;
   let lastChat = 0;
   const log = options.log ?? (() => {});
-  const save = () => {
+  const save = async () => {
     batch.remaining = batch.results
       .filter((r) => r.status === 'pending')
       .map((r) => r.action);
-    options.checkpoint?.(structuredClone(batch));
+    await options.checkpoint?.(structuredClone(batch));
   };
-  save();
+  await save();
   for (const [index, entry] of batch.results.entries()) {
     if (signal.aborted) {
       batch.stopReason = 'aborted';
@@ -108,14 +113,14 @@ export async function executeBatch(
         }
       }
       signal.throwIfAborted();
-      options.beforeAction?.(action);
+      await options.beforeAction?.(action);
       entry.status = 'executing';
       entry.before = {
         x: observation.self.x,
         y: observation.self.y,
         z: observation.self.z,
       };
-      save();
+      await save();
       log(`第 ${index + 1}/${actions.length} 个动作：${action.type}`);
       phase = 'execute';
       entry.result = await executeAction(
@@ -125,16 +130,16 @@ export async function executeBatch(
         allowEdits,
         signal,
         log,
-        (result) => {
+        async (result) => {
           entry.result = result;
           if (action.type === 'build' || action.type === 'house')
-            options.buildCheckpoint?.(action, result);
-          save();
+            await options.buildCheckpoint?.(action, result);
+          await save();
         },
       );
       if (action.type === 'chat') lastChat = Date.now();
       entry.status = entry.result.ok ? 'succeeded' : 'failed';
-      save();
+      await save();
       if (['move', 'edit', 'build', 'house'].includes(action.type)) {
         phase = 'observe';
         const fresh = await guarded.observe();
@@ -167,7 +172,7 @@ export async function executeBatch(
         batch.stopReason = 'failed';
         break;
       }
-      save();
+      await save();
     } catch {
       if (awaitingEffect) {
         entry.status = 'unknown';
@@ -187,7 +192,7 @@ export async function executeBatch(
     batch.ok = batch.results.every((r) => r.status === 'succeeded');
     batch.stopReason = batch.ok ? 'completed' : 'failed';
   }
-  save();
+  await save();
   log(
     `批次${batch.ok ? '完成' : '中断'}：${batch.stopReason} · 剩余 ${batch.remaining.length} 个动作`,
   );

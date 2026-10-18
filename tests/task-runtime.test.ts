@@ -1,10 +1,10 @@
+import { runTaskStep } from './support/decision-step';
 import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AgentAttention,
   type AgentDecision,
   newTask,
-  runTaskStep,
   parseTaskDirective,
   type AgentRunState,
   type Session,

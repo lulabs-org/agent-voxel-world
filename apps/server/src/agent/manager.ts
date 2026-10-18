@@ -38,16 +38,15 @@ import type {
 } from '@voxel/shared';
 import {
   Session,
-  runTaskStep,
   newTask,
   restoreBatchHistory,
   AgentAttention,
-  ModelPlanner,
+  AgentRunner,
+  restorePiCheckpoint,
   AgentRuntimeError,
   listModels,
   nextIntervalMs,
   type AgentConfig,
-  type Planner,
   type AgentRunState,
 } from '@voxel/agent-runtime';
 
@@ -447,6 +446,13 @@ export class AgentManager {
     }
     if (!Array.isArray(saved) || saved.length > 50)
       throw new ManagementError('Agent 记录格式无效。', 500);
+    await writeFile(
+      `${this.archivePath}.before-pi.bak`,
+      await readFile(this.archivePath),
+      { mode: 0o600, flag: 'wx' },
+    ).catch((error) => {
+      if (error.code !== 'EEXIST') throw error;
+    });
     if (saved.some((view) => !view.taskBook)) {
       await writeFile(
         `${this.archivePath}.before-task-plans.bak`,
@@ -490,6 +496,7 @@ export class AgentManager {
         book: view.taskBook ?? emptyTaskBook(),
       };
       job.memory.previous = restoreBatchHistory(job.memory.previous);
+      restorePiCheckpoint(job.memory);
       if (
         job.memory.task &&
         ['running', 'waiting'].includes(job.memory.task.status)
@@ -594,8 +601,10 @@ export class AgentManager {
     private serverUrl: string,
     private dependencies = {
       session: (url: string) => new Session(url),
-      planner: (config: AgentConfig, provider: SavedProvider): Planner =>
-        new ModelPlanner(config, fetch, provider),
+      runner: (
+        _config: AgentConfig,
+        provider: SavedProvider,
+      ): Pick<AgentRunner, 'run'> => new AgentRunner(provider),
       models: (provider: SavedProvider) =>
         listModels(provider, provider.apiKey),
     },
@@ -691,6 +700,7 @@ export class AgentManager {
     run.accountedTokens = task.tokens;
     const batch = job.memory.previous as
       | {
+          batchId?: string;
           results?: {
             action?: { type?: string };
             status?: string;
@@ -708,6 +718,7 @@ export class AgentManager {
       batch.results.forEach((result, index) => {
         if (!result.action?.type || !result.status) return;
         const entry = {
+          batchId: batch.batchId,
           call,
           index,
           kind: result.action.type,
@@ -718,7 +729,8 @@ export class AgentManager {
           }),
         };
         const existing = run!.actions!.findIndex(
-          (a) => a.call === call && a.index === index,
+          (a) =>
+            a.call === call && a.index === index && a.batchId === batch.batchId,
         );
         if (existing < 0) run!.actions!.push(entry);
         else run!.actions![existing] = entry;
@@ -1661,17 +1673,19 @@ export class AgentManager {
       if (!voiceResult.ok) log('语音回复开关未生效，请检查服务器版本。');
       if (!job.abort.signal.aborted && run) {
         job.view.status = 'running';
-        log(job.attention.pending ? '处理当前消息。' : '推进一次任务决策。');
-        await runTaskStep(
-          job.session,
-          this.dependencies.planner(config, provider),
+        log(job.attention.pending ? '处理当前消息。' : '启动 Pi 任务执行。');
+        await this.dependencies.runner(config, provider).run({
+          session: job.session,
           config,
-          job.abort.signal,
-          job.memory,
-          job.attention,
+          signal: job.abort.signal,
+          memory: job.memory,
+          attention: job.attention,
           log,
-          () => this.persist(),
-          {
+          checkpoint: async () => {
+            this.persist();
+            await this.saving;
+          },
+          hooks: {
             beforeNewTask: async (task) => {
               this.captureTask(job);
               const previous = this.currentRun(job);
@@ -1714,7 +1728,7 @@ export class AgentManager {
               }
             },
           },
-        );
+        });
       }
       finalStatus =
         job.abort.signal.aborted && !job.controlling ? 'failed' : 'idle';

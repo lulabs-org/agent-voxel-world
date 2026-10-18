@@ -117,7 +117,7 @@ export async function executeBuild(
   action: BuildAction,
   signal: AbortSignal,
   progress: (message: string) => void = () => {},
-  checkpoint: (result: BuildResult) => void = () => {},
+  checkpoint: (result: BuildResult) => void | Promise<void> = () => {},
 ): Promise<BuildResult> {
   const blocks = action.type === 'house' ? houseBlocks(action) : action.blocks;
   let observation = await session.request<Observation>('observe');
@@ -133,11 +133,11 @@ export async function executeBuild(
     note: '',
   };
   const save = () => checkpoint(structuredClone(result));
-  const resolved = (block: PlannedEdit) => {
+  const resolved = async (block: PlannedEdit) => {
     result.remaining = result.remaining.filter((b) => key(b) !== key(block));
-    save();
+    await save();
   };
-  save();
+  await save();
   if (action.type === 'house') {
     const shell = new Set(blocks.map(key));
     const obstruction = observation.blocks.find(
@@ -160,7 +160,7 @@ export async function executeBuild(
       ];
       result.note =
         '房屋内部或门洞已有方块，尚未开始施工；请选择空地或明确规划清理，不会自动拆除已有地形。';
-      save();
+      await save();
       progress(result.note);
       return result;
     }
@@ -177,7 +177,7 @@ export async function executeBuild(
         observedEmpty(observation, block))
     ) {
       result.skipped++;
-      resolved(block);
+      await resolved(block);
       continue;
     }
     if (index > 0) await pause(BUILD_STEP_MS, undefined, { signal });
@@ -185,16 +185,16 @@ export async function executeBuild(
     for (let attempt = 0; attempt < 2; attempt++) {
       signal.throwIfAborted();
       result.uncertain = [block];
-      save();
+      await save();
       const reply = await session.request('edit', { ...block, revision });
       result.uncertain = [];
-      save();
+      await save();
       revision = reply.revision;
       if (reply.ok) {
         if (block.material === null) known.delete(key(block));
         else known.set(key(block), block.material);
         result.completed++;
-        resolved(block);
+        await resolved(block);
         failure = undefined;
         break;
       }
@@ -208,7 +208,7 @@ export async function executeBuild(
           known.get(key(block)) === block.material
         ) {
           result.skipped++;
-          resolved(block);
+          await resolved(block);
           failure = undefined;
           break;
         }
@@ -218,7 +218,7 @@ export async function executeBuild(
     }
     if (failure) {
       result.failures.push({ block, error: failure });
-      save();
+      await save();
       if (
         ![
           'out-of-reach',
@@ -240,7 +240,7 @@ export async function executeBuild(
   result.note = `建造${result.ok ? '完成' : '未完成'}：${result.completed} 个已修改，${result.skipped} 个已存在，${result.remaining.length} 个待处理。`;
   if (!result.ok)
     result.note += '根据失败原因调整位置/蓝图后重试；不要宣称房屋已完成。';
-  save();
+  await save();
   progress(result.note);
   return result;
 }

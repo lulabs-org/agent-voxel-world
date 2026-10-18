@@ -108,7 +108,7 @@ pnpm format:check
 - `apps/server/prisma`：PostgreSQL schema 和可重放迁移。
 - `apps/agent`：Scout 与 DeepSeek CLI 入口、命令行配置、集成检查。
 - `packages/agent-runtime`：CLI 与服务端共用的会话客户端、动作、模型规划和任务运行时，通过 `@voxel/agent-runtime` 引用。
-- DeepSeek AI 玩家：配置 `DEEPSEEK_API_KEY` 后运行 `pnpm agent:deepseek`，支持观察、移动、聊天和显式开启的方块编辑。使用 OpenAI 官方 SDK，支持 DeepSeek 思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
+- DeepSeek AI 玩家：配置 `DEEPSEEK_API_KEY` 后运行 `pnpm agent:deepseek`，支持观察、移动、聊天和显式开启的方块编辑。使用 Pi 模型适配与工具循环，支持 DeepSeek 思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
 - `packages/shared`：协议、确定性地形、物理与校验。
 
 服务端按职责组织，`src/index.ts` 负责启动、依赖装配和关闭清理：
@@ -164,7 +164,7 @@ Agent 观察是以自身为中心半径 8 的距离裁剪，最多 500 个最近
 
 ### 在大厅创建 AI 玩家
 
-点击 **控制台 → 模型服务** 配置接口，再到 **Agent 玩家 → 创建 Agent** 设置昵称、模型与能力。默认创建后加入世界待命，也可选择立即执行任务。角色工作区将任务、角色设置和运行记录分开；离开世界保留设置和进度，再次加入待命不会自动重跑旧任务。已有 DeepSeek 环境变量会在首次启动管理服务时导入。Agent 每次推理可规划最多 8 个顺序动作，逐步观察，失败停止；按任务进展自主继续或停止，普通消息在动作边界插入，空闲不调用模型。支持固定/随机轮询、任务暂停/继续/取消、进度与 token 用量，以及高级预算保护。详见 [AI 玩家接入](docs/AGENT_PLAYERS.md)。
+点击 **控制台 → 模型服务** 配置接口，再到 **Agent 玩家 → 创建 Agent** 设置昵称、模型与能力。默认创建后加入世界待命，也可选择立即执行任务。角色工作区将任务、角色设置和运行记录分开；离开世界保留设置和进度，再次加入待命不会自动重跑旧任务。已有 DeepSeek 环境变量会在首次启动管理服务时导入。Agent 通过 Pi 顺序调用世界工具，一次唤醒可在预算内持续多轮推理，逐步观察，失败停止后续工具；按任务进展自主继续或停止，普通消息在动作边界插入，空闲不调用模型。支持固定/随机轮询、任务暂停/继续/取消、进度与 token 用量，以及高级预算保护。详见 [AI 玩家接入](docs/AGENT_PLAYERS.md)。
 
 ## 开源协议
 

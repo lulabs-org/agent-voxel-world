@@ -1,3 +1,5 @@
+import { type Planner } from './support/decision-fixture';
+import { fixtureRunnerFactory } from './support/decision-fixture';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,7 +8,6 @@ import { AgentManager, ProviderStore } from '../apps/server/src/agent/manager';
 import { VoiceServiceStore } from '../apps/server/src/audio/voice-services';
 import {
   AgentRuntimeError,
-  type Planner,
   type Session,
   type Observation,
 } from '@voxel/agent-runtime';
@@ -70,7 +71,7 @@ function setup(
     'ws://fixture',
     {
       session: () => s as unknown as Session,
-      planner: () => ({ decide }),
+      runner: fixtureRunnerFactory(() => ({ decide })),
       models: async () => [],
     },
     voices,
@@ -896,7 +897,7 @@ it('uses newly saved provider inference settings on the next decision without re
   manager = new AgentManager(store, 'ws://fixture', {
     session: () => s as unknown as Session,
     models: async () => [],
-    planner: (config) => {
+    runner: fixtureRunnerFactory((config) => {
       configs.push(config);
       return {
         decide: async () => ({
@@ -904,7 +905,7 @@ it('uses newly saved provider inference settings on the next decision without re
           task: { intent: 'continue', status: 'completed', summary: 'done' },
         }),
       };
-    },
+    }),
   });
   const job = manager.create({ ...settings, startTask: false, maxTokens: 777 });
   await vi.waitFor(() => expect(manager!.list()[0].status).toBe('idle'));

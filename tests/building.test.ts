@@ -1,9 +1,9 @@
+import { runAgent } from './support/decision-loop';
 import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
 import { describe, it, expect, vi } from 'vitest';
 import {
   parseAction,
   executeAction,
-  runAgent,
   houseBlocks,
   type BuildAction,
   type Observation,

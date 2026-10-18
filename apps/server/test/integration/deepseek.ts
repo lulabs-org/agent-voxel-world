@@ -1,3 +1,4 @@
+import { toolResponse } from '../../../../tests/support/pi-response';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { createServer } from 'node:http';
@@ -6,9 +7,9 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { WorldRoom } from '../../src/world/room';
 import {
   Session,
-  until,
-  ModelPlanner,
+  AgentRunner,
   runAgent,
+  until,
   houseBlocks,
   type BuildAction,
 } from '@voxel/agent-runtime';
@@ -54,28 +55,19 @@ try {
   const request: typeof fetch = async (url, init) => {
     assert.equal(url, 'https://api.deepseek.com/chat/completions');
     calls.push(init!);
-    return new Response(
-      JSON.stringify({
-        choices: [
-          {
-            finish_reason: 'stop',
-            message: {
-              content: JSON.stringify({
-                actions: calls.length === 1 ? actions : [{ type: 'wait' }],
-                task: {
-                  intent: 'continue',
-                  status: calls.length === 1 ? 'running' : 'completed',
-                  summary:
-                    calls.length === 1
-                      ? '执行移动、聊天、编辑和房屋建造'
-                      : '观察确认房屋完成',
-                },
-              }),
+    return toolResponse(
+      calls.length === 1
+        ? actions.map(({ type, ...args }) => ({ name: type, arguments: args }))
+        : [
+            {
+              name: 'update_task',
+              arguments: {
+                intent: 'continue',
+                status: 'completed',
+                summary: '观察确认房屋完成',
+              },
             },
-          },
-        ],
-      }),
-      { headers: { 'Content-Type': 'application/json' } },
+          ],
     );
   };
   const config = {
@@ -100,7 +92,7 @@ try {
   };
   await runAgent(
     session,
-    new ModelPlanner(config, request),
+    new AgentRunner(undefined, request),
     config,
     new AbortController().signal,
     () => {},
@@ -139,16 +131,12 @@ try {
     2,
     'one model call executes four actions; a second verifies completion',
   );
-  assert(
-    JSON.parse(calls[1].body as string).messages[1].content.includes(
-      '移动输入已发送',
-    ),
-  );
+  assert(String(calls[1].body).includes('移动输入已发送'));
   await session.close();
   await session.close(); // SIGINT + finally cleanup must be idempotent.
   await until(() => room.state.players.size === 0);
   console.log(
-    'PASS: one SDK call executes move + chat + edit + 32-block house, fresh revisions and observations, second-call completion verification, idempotent cleanup. Fixture inference only.',
+    'PASS: Pi tool loop executes move + chat + edit + 32-block house, fresh revisions and observations, second-call completion verification, idempotent cleanup. Fixture inference only.',
   );
 } finally {
   await session?.close();

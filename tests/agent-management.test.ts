@@ -1,3 +1,4 @@
+import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
 import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
@@ -8,11 +9,7 @@ import {
   validateAgent,
   validateProvider,
 } from '../apps/server/src/agent/manager';
-import {
-  ModelPlanner,
-  listModels,
-  type Observation,
-} from '@voxel/agent-runtime';
+import { listModels, type Observation } from '@voxel/agent-runtime';
 
 const folders: string[] = [];
 afterEach(async () => {

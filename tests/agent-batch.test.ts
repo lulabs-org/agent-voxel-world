@@ -1,12 +1,13 @@
+import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
+import { type Planner } from './support/decision-fixture';
+import { runTaskStep } from './support/decision-step';
 import { describe, expect, it, vi } from 'vitest';
 import {
   parseDecision,
   executeBatch,
-  runTaskStep,
   newTask,
   AgentAttention,
   restoreBatchHistory,
-  ModelPlanner,
   type AgentAction,
   type AgentSession,
   type Observation,
@@ -14,7 +15,6 @@ import {
   type BatchResult,
   type BuildResult,
   type AgentDecision,
-  type Planner,
 } from '@voxel/agent-runtime';
 import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
 
@@ -259,6 +259,7 @@ describe('sequential batch effects', () => {
         }),
     );
     const running = f.run([edit(), chat]);
+    await vi.waitFor(() => expect(f.request).toHaveBeenCalled());
     f.abort.abort();
     const { batch } = await running;
     expect(batch.results[0].status).toBe('unknown');

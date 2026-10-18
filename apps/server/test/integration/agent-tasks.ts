@@ -1,3 +1,5 @@
+import { DecisionFixture as ModelPlanner } from './../../../../tests/support/decision-fixture';
+import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { createServer } from 'node:http';
@@ -10,7 +12,7 @@ import { WorldRoom } from '../../src/world/room';
 import { AgentManager, ProviderStore } from '../../src/agent/manager';
 import { installAgentRoutes } from '../../src/routes/agent.routes';
 import { installPresenceRoutes } from '../../src/routes/presence.routes';
-import { Session, until, delay, ModelPlanner } from '@voxel/agent-runtime';
+import { Session, until, delay } from '@voxel/agent-runtime';
 
 import type { ManagedAgentView } from '@voxel/shared';
 
@@ -220,8 +222,9 @@ try {
   const makeManager = () =>
     new AgentManager(store, url.replace('http', 'ws'), {
       session: (url) => new Session(url),
-      planner: (config, provider) =>
-        new ModelPlanner(config, request, provider),
+      runner: fixtureRunnerFactory(
+        (config, provider) => new ModelPlanner(config, request, provider),
+      ),
       models: async () => ['fixture-model'],
     });
   manager = makeManager();

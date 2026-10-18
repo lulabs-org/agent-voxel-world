@@ -18,7 +18,7 @@ export async function executeAction(
   allowEdits: boolean | AgentPermissions,
   signal: AbortSignal,
   progress: (message: string) => void = () => {},
-  checkpoint: (result: BuildResult) => void = () => {},
+  checkpoint: (result: BuildResult) => void | Promise<void> = () => {},
 ): Promise<Result | BuildResult | { ok: boolean; note: string }> {
   signal.throwIfAborted();
   // Revalidate at the execution boundary as well as the provider boundary.

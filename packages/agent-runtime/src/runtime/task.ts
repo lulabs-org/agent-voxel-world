@@ -1,3 +1,4 @@
+import type { Message } from '@earendil-works/pi-ai';
 import type { AgentTask, AgentUsage } from '@voxel/shared';
 import type {
   TaskDirective,
@@ -49,9 +50,11 @@ export function parseTaskDirective(value: unknown): TaskDirective {
 }
 
 export type AgentRunState = {
+  pi?: PiCheckpoint;
   task?: AgentTask;
   usage?: AgentUsage;
   previous?: unknown;
+  pendingEffects?: BatchResult;
   lastReply?: BatchResult;
   unfinishedBuild?: { action: BuildAction; result: BuildResult };
   waitSignature?: string;
@@ -103,3 +106,11 @@ export function restoreBatchHistory(value: unknown): BatchResult | undefined {
   }
   return batch;
 }
+
+export type PiCheckpoint = {
+  version: 1;
+  taskStartedAt: number;
+  audience: string;
+  messages: Message[];
+  inFlight?: { id: string; name: string; state: 'executing' | 'unknown' };
+};

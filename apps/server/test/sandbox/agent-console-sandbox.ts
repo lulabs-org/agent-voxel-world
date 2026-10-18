@@ -1,3 +1,4 @@
+import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
 /** Isolated UI acceptance world: no dotenv, no production config and no paid model calls. */
 import express from 'express';
 import { createServer } from 'node:http';
@@ -45,7 +46,7 @@ try {
     {
       session: (url) => new Session(url),
       models: async () => ['fixture-model'],
-      planner: () => ({
+      runner: fixtureRunnerFactory(() => ({
         decide: async (_observation, memory) => {
           calls++;
           const goal = (memory as AgentRunState | undefined)?.task?.goal ?? '';
@@ -63,7 +64,7 @@ try {
             },
           };
         },
-      }),
+      })),
     },
     voices,
   );

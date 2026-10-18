@@ -100,6 +100,7 @@ export type ActionExecution = {
   after?: Vec3;
 };
 export type BatchResult = {
+  batchId?: string;
   actions: AgentAction[];
   results: ActionExecution[];
   remaining: AgentAction[];
@@ -132,11 +133,10 @@ export interface AgentSession {
   move(x: number, z: number, jump?: boolean): void;
   observe(): Promise<Observation>;
 }
-export interface Planner {
-  decide(
-    observation: Observation,
-    previous: unknown,
-    signal: AbortSignal,
-  ): Promise<AgentDecision>;
-  lastUsage?: { tokens: number; estimated: boolean };
+export interface RequestAccounting {
+  readonly usage: { calls: number; tokens: number; estimated: boolean };
+  readonly remainingMs: number;
+  begin(): number;
+  finish(tokens: number, estimated: boolean): void;
+  check(): void;
 }

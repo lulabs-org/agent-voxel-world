@@ -1,3 +1,6 @@
+import { toolResponse } from './support/pi-response';
+import type { Planner } from './support/decision-fixture';
+import { fixtureRunnerFactory } from './support/decision-fixture';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, readFile, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -10,10 +13,10 @@ import {
   type WorldEvent,
 } from '../packages/shared/src/index';
 import {
-  type Planner,
   type Session,
   type Observation,
   AgentRuntimeError,
+  AgentRunner,
 } from '@voxel/agent-runtime';
 let dir: string, store: ProviderStore, manager: AgentManager;
 let now: number;
@@ -60,7 +63,10 @@ function build() {
       currentSession = session();
       return currentSession as unknown as Session;
     },
-    planner: () => ({ decide, lastUsage: { tokens: 600, estimated: false } }),
+    runner: fixtureRunnerFactory(() => ({
+      decide,
+      lastUsage: { tokens: 600, estimated: false },
+    })),
     models: async () => [],
   });
 }
@@ -542,4 +548,57 @@ it('unchecked limits survive restart, resume and scheduled/manual executions wit
     spentTokens: 2400,
   });
   expect(manager.taskRuns(id, p.id).items).toHaveLength(3);
+});
+
+it('retains multiple Pi tool batches within the same model call in actual action history', async () => {
+  await manager.close();
+  manager = new AgentManager(store, 'ws://fixture', {
+    session: () => {
+      const s = session();
+      s.observe = async () => ({
+        id: 'o',
+        revision: 1,
+        radius: 8,
+        self: {
+          id: 'fixture-player',
+          name: 'AI',
+          kind: 'ai-agent',
+          connected: true,
+          x: 0,
+          y: 2.5,
+          z: 0,
+          yaw: 0,
+        },
+        players: [],
+        blocks: [],
+        events: [],
+        allowedActions: [],
+      });
+      return s as unknown as Session;
+    },
+    models: async () => [],
+    runner: () =>
+      new AgentRunner(undefined, async () =>
+        toolResponse([
+          { name: 'chat', arguments: { text: '完成' } },
+          {
+            name: 'update_task',
+            arguments: {
+              intent: 'continue',
+              status: 'completed',
+              summary: '完成',
+            },
+          },
+        ]),
+      ),
+  });
+  const id = await role();
+  const plan = await manager.createTaskPlan(id, {
+    ...draft(),
+    requestId: 'pi-batches',
+  });
+  await idle();
+  const history = manager.taskRuns(id, plan.id).items;
+  expect(history[0].actions?.map((a) => a.kind)).toEqual(['chat', 'wait']);
+  expect(new Set(history[0].actions?.map((a) => a.batchId)).size).toBe(2);
 });

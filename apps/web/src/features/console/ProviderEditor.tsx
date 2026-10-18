@@ -264,16 +264,6 @@ export function ProviderEditor({
               </div>
             )}
 
-            <label className="agent-check">
-              <input
-                type="checkbox"
-                checked={draft.jsonMode}
-                onChange={(e) =>
-                  setDraft({ ...draft, jsonMode: e.target.checked })
-                }
-              />
-              请求 JSON 输出模式
-            </label>
             {draft.type === 'compatible' && (
               <>
                 <label>

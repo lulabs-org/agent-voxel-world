@@ -3,7 +3,6 @@ export type {
   Observation,
   Result,
   AgentSession,
-  Planner,
   PlannedEdit,
   BuildAction,
   BuildResult,
@@ -37,7 +36,7 @@ export {
 
 export { parseDecision } from './planner/decision';
 
-export { ModelPlanner, listModels } from './planner/model-planner';
+export { listModels } from './planner/models';
 
 export { AgentAttention } from './runtime/attention';
 
@@ -48,8 +47,13 @@ export {
   type AgentRunState,
 } from './runtime/task';
 
-export { runTaskStep, worldSignature } from './runtime/task-runtime';
+export { worldSignature } from './runtime/task-policy';
 
 export { agentChatContext } from './runtime/context';
 
 export { runAgent, nextIntervalMs } from './runtime/runner';
+
+export { RequestBudget } from './runtime/budget';
+
+export { AgentRunner, type RunOptions } from './runtime/agent-runner';
+export { restorePiCheckpoint } from './runtime/pi-context';

@@ -1,12 +1,12 @@
+import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
+import { runAgent } from './support/decision-loop';
 import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
 import { describe, it, expect, vi } from 'vitest';
 import {
   parseAction,
   parseDecision,
-  ModelPlanner,
   AgentRuntimeError,
   executeAction,
-  runAgent,
   nextIntervalMs,
   type Observation,
   type Session,

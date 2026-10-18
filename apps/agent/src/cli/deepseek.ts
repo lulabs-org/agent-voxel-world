@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import {
   agentPermissions,
   Session,
-  ModelPlanner,
+  AgentRunner,
   AgentRuntimeError,
   runAgent,
 } from '@voxel/agent-runtime';
@@ -42,7 +42,7 @@ try {
     await session.request('agent.voice', {
       enabled: !!config.voiceReplies && agentPermissions(config).chat,
     });
-  await runAgent(session, new ModelPlanner(config), config, abort.signal);
+  await runAgent(session, new AgentRunner(), config, abort.signal);
 } catch (error) {
   if (!abort.signal.aborted) {
     console.error(

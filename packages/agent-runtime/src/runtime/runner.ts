@@ -1,8 +1,8 @@
 import { setTimeout as pause } from 'node:timers/promises';
-import type { AgentConfig, AgentSession, Planner } from '../contracts';
+import type { AgentConfig, AgentSession } from '../contracts';
 import type { AgentAttention } from './attention';
 import { newTask, type AgentRunState } from './task';
-import { runTaskStep } from './task-runtime';
+import type { AgentRunner } from './agent-runner';
 
 /** Draw a fresh inclusive interval after a completed turn; requests never overlap. */
 export function nextIntervalMs(
@@ -18,10 +18,10 @@ export function nextIntervalMs(
     : config.intervalMs;
 }
 
-/** CLI task runner. Managed agents schedule exactly one runTaskStep per wake. */
+/** CLI host: Pi owns active execution; only waiting/event wake-ups are scheduled here. */
 export async function runAgent(
   session: Pick<AgentSession, 'observe' | 'move' | 'request'>,
-  planner: Planner,
+  runner: Pick<AgentRunner, 'run'>,
   config: AgentConfig,
   signal: AbortSignal,
   log: (message: string) => void = console.log,
@@ -31,10 +31,10 @@ export async function runAgent(
   memory.task ??= newTask(config.goal);
   do {
     if (signal.aborted) break;
-    await runTaskStep(session, planner, config, signal, memory, attention, log);
+    await runner.run({ session, config, signal, memory, attention, log });
     if (
       signal.aborted ||
-      (!attention?.pending && memory.task?.status !== 'running')
+      (!attention?.pending && memory.task?.status !== 'waiting')
     )
       break;
     if (attention) await attention.wait(nextIntervalMs(config), signal);
