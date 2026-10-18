@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: voxel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-voxel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voxelpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-voxel}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # 可选映射到宿主机，方便数据库工具查看
+      - "${POSTGRES_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-voxel} -d ${POSTGRES_DB:-voxel}"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 3s
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: voxel-server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 2567
+      DATABASE_URL: postgresql://${POSTGRES_USER:-voxel}:${POSTGRES_PASSWORD:-voxelpassword}@db:5432/${POSTGRES_DB:-voxel}?schema=public
+      WEB_ORIGIN: "${WEB_ORIGIN:-*}"
+      VOICE_PROVIDER: "${VOICE_PROVIDER:-mock}"
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      DEEPSEEK_MODEL: "${DEEPSEEK_MODEL:-deepseek-flash}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-}"
+    ports:
+      - "${SERVER_PORT:-2567}:2567"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: voxel-web
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "${WEB_PORT:-80}:80"
+
+volumes:
+  postgres_data:
+    name: voxel_postgres_data

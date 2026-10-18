@@ -28,10 +28,11 @@ try {
 
 const app = express();
 app.use((req, res, next) => {
-  if (
-    req.headers.origin === (process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173')
-  )
-    res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const origin = req.headers.origin;
+  const webOrigin = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
+  if (!origin || webOrigin === '*' || origin === webOrigin) {
+    if (origin) res.header('Access-Control-Allow-Origin', origin);
+  }
   next();
 });
 
@@ -53,17 +54,19 @@ const voiceServices = new VoiceServiceStore();
 await voiceServices.load();
 server.define('world', WorldRoom, { voiceServices });
 const port = Number(process.env.PORT ?? 2567);
+const host = process.env.HOST ?? '127.0.0.1';
 const providers = new ProviderStore();
 await providers.load();
+const internalHost = host === '0.0.0.0' ? '127.0.0.1' : host;
 const agents = new AgentManager(
   providers,
-  `ws://127.0.0.1:${port}`,
+  `ws://${internalHost}:${port}`,
   undefined,
   voiceServices,
 );
 installAgentRoutes(app, agents);
 server.onBeforeShutdown(() => agents.close());
-await server.listen(port, '127.0.0.1');
+await server.listen(port, host);
 const world = await matchMaker.createRoom('world', {});
 installWorldRoutes(app, () => world.roomId);
 await agents.load();
@@ -81,6 +84,6 @@ installPresenceRoutes(app, () =>
     matchMaker.getLocalRoomById(world.roomId) as WorldRoom | undefined
   )?.getPresence(),
 );
-console.log(`Voxel server http://127.0.0.1:${port}`);
-console.log(`Swagger UI   http://127.0.0.1:${port}/api-docs`);
-console.log(`OpenAPI JSON http://127.0.0.1:${port}/api-docs.json`);
+console.log(`Voxel server http://${host}:${port}`);
+console.log(`Swagger UI   http://${host}:${port}/api-docs`);
+console.log(`OpenAPI JSON http://${host}:${port}/api-docs.json`);

@@ -14,11 +14,14 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     '/agents',
     (req, res, next) => {
       // These local controls can spend API credit. Require the configured page origin.
-      if (req.headers.origin !== origin) {
+      if (origin !== '*' && req.headers.origin !== origin) {
         res.status(403).json({ error: '仅允许配置的本机游戏页面管理 Agent。' });
         return;
       }
-      res.header('Access-Control-Allow-Origin', origin);
+      res.header(
+        'Access-Control-Allow-Origin',
+        origin === '*' ? (req.headers.origin ?? '*') : origin,
+      );
       res.header('Vary', 'Origin');
       res.header('Cache-Control', 'no-store');
       if (req.method === 'OPTIONS') {

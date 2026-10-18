@@ -24,6 +24,49 @@ pnpm agent
 
 `pnpm dev` 不会自动启动数据库。后端会在监听端口前检查数据库连接及世界表，失败时显示中文原因和处理命令，不再输出重复的 Prisma 启动堆栈。若提示无法连接 `127.0.0.1:55432`，请手动运行 `pnpm db:start`，然后重启 `pnpm dev`；若提示表结构未准备好，请先确认数据库配置再运行 `pnpm db:migrate`。Vite 显示 `ready` 只表示前端就绪，后端启动失败时仍无法进入世界。未配置数据库时会明确警告内存模式不保留重启后的编辑。
 
+## Docker 容器化部署
+
+本项目支持使用 Docker Compose 进行一键全栈容器化部署，包含 PostgreSQL 17 数据库、Node 后端服务（自动执行迁移并启动 Colyseus/Express）以及 Web 前端（Nginx 静态托管与统一反向代理）。
+
+### 1. 一键启动
+
+```sh
+# 使用 pnpm 快捷脚本
+pnpm docker:up
+
+# 或直接使用 Docker Compose 原生命令
+docker compose up -d --build
+```
+
+启动完成后：
+
+- **Web 前端**：打开浏览器访问 `http://localhost`（默认 80 端口，前端通过 Nginx 自动反代 API 与 WebSocket）
+- **Swagger API 文档**：访问 `http://localhost:2567/api-docs`
+- **数据库**：PostgreSQL 数据自动持久化在 `voxel_postgres_data` 数据卷中，宿主机端口 `55432`
+
+### 2. 常用管理命令
+
+```sh
+# 查看运行日志（含迁移与启动状态）
+pnpm docker:logs
+# 或：docker compose logs -f
+
+# 停止并移除容器
+pnpm docker:down
+# 或：docker compose down
+
+# 停止并清理数据卷（清空世界数据）
+docker compose down -v
+```
+
+### 3. 自定义配置（可选）
+
+如需修改端口或注入模型 API Key，可参考 `.env.docker.example` 创建或在环境中设置：
+
+- `WEB_PORT`：前端访问端口（默认 80）
+- `DEEPSEEK_API_KEY`：DeepSeek Agent API 密钥
+- `WEB_ORIGIN`：跨域 Origin 允许列表（默认为 `*` 允许所有网络地址访问）
+
 ## 操作
 
 - 点击画面锁定鼠标；WASD 移动、Space 跳跃、鼠标转向，Esc 释放。

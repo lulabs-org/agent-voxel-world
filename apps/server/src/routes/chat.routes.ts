@@ -11,11 +11,14 @@ export function installChatRoutes(
 ) {
   const origin = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
   app.use('/chat', (req, res, next) => {
-    if (req.headers.origin !== origin) {
+    if (origin !== '*' && req.headers.origin !== origin) {
       res.status(403).json({ error: '不允许此页面访问聊天音频。' });
       return;
     }
-    res.header('Access-Control-Allow-Origin', origin);
+    res.header(
+      'Access-Control-Allow-Origin',
+      origin === '*' ? (req.headers.origin ?? '*') : origin,
+    );
     res.header('Cache-Control', 'no-store');
     res.header('Vary', 'Origin');
     if (req.method === 'OPTIONS') {

@@ -12,12 +12,17 @@ import { SpeechError } from '../audio/local-speech';
 import { bridgeBailianAsr } from '../audio/bailian-asr';
 
 export function installAsrRoutes(app: Express, store: AsrSettingsStore) {
+  const origin = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
   app.use('/voice/asr', (req, res, next) => {
-    if (
-      req.headers.origin !== (process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173')
-    ) {
+    if (origin !== '*' && req.headers.origin !== origin) {
       res.status(403).json({ error: '仅允许配置的游戏页面管理语音识别。' });
       return;
+    }
+    if (req.headers.origin) {
+      res.header(
+        'Access-Control-Allow-Origin',
+        origin === '*' ? req.headers.origin : origin,
+      );
     }
     res.header('Cache-Control', 'no-store');
     next();
@@ -188,10 +193,8 @@ export class AsrWebSocketTransport extends WebSocketTransport {
         client.send(JSON.stringify({ type: 'error', message }));
         client.close();
       };
-      if (
-        req.headers.origin !==
-        (process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173')
-      ) {
+      const allowed = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
+      if (allowed !== '*' && req.headers.origin !== allowed) {
         reject('不允许此页面访问实时识别。');
         return;
       }

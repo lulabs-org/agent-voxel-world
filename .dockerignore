@@ -1,0 +1,11 @@
+node_modules
+.git
+.data
+.vscode
+.playwright-cli
+.pnpm-store
+output
+dist
+*.log
+.env
+.env.local

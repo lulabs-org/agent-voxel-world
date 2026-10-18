@@ -28,10 +28,8 @@ export function installPresenceRoutes(
    */
   app.get('/world/presence', (req, res) => {
     const origin = req.headers.origin;
-    if (
-      origin &&
-      origin !== (process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173')
-    ) {
+    const allowed = process.env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
+    if (origin && allowed !== '*' && origin !== allowed) {
       res.sendStatus(403);
       return;
     }
