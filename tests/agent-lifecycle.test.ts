@@ -786,10 +786,18 @@ it('retains capability settings and construction progress across edits, reload a
 it.each(['completed', 'cancelled'] as const)(
   'keeps %s tasks ended when capabilities change',
   async (status) => {
-    const m = setup(fakeSession());
+    const m = setup(fakeSession(), async () => ({
+      actions: [{ type: 'wait' }],
+      task: {
+        intent: 'continue',
+        status: status === 'cancelled' ? 'needs_input' : 'completed',
+        summary: 'test',
+      },
+    }));
     const job = m.create(settings);
     await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
     if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
+    expect(m.list()[0].task?.status).toBe(status);
     const task = structuredClone(m.list()[0].task);
     await m.update(job.id, {
       skills: ['guide'],
@@ -1011,3 +1019,75 @@ it('keeps a stopped character recoverable when deletion cannot be persisted', as
     await rm(blocked, { recursive: true, force: true });
   }
 });
+
+it.each(['completed', 'cancelled'] as const)(
+  'preserves %s task history, usage and restart state after repeated pause/cancel',
+  async (status) => {
+    const m = setup(fakeSession(), async () => ({
+      actions: [{ type: 'wait' }],
+      task: {
+        intent: 'continue',
+        status: status === 'cancelled' ? 'needs_input' : 'completed',
+        summary: '保留结果',
+      },
+    }));
+    const job = m.create(settings);
+    await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+    if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
+    const before = m.list()[0];
+    const plan = m.taskPlans(job.id)[0];
+    const history = m.taskRuns(job.id, plan.id);
+    for (const op of ['cancel', 'pause', 'cancel'] as const) {
+      const after = await m.controlTask(job.id, op);
+      expect(after.task).toEqual(before.task);
+      expect(after.usage).toEqual(before.usage);
+      expect(m.taskRuns(job.id, plan.id)).toEqual(history);
+      await expect(
+        m.controlTaskRun(job.id, history.items[0].id, op),
+      ).rejects.toThrow('执行已结束');
+    }
+    await m.close();
+    const restored = setup(fakeSession());
+    await restored.load();
+    expect(restored.list()[0].task).toEqual(before.task);
+    const reloaded = restored.taskRuns(job.id, plan.id);
+    expect(reloaded.items.map(({ logs: _, ...run }) => run)).toEqual(
+      history.items.map(({ logs: _, ...run }) => run),
+    );
+    expect(
+      reloaded.items[0].logs.slice(0, history.items[0].logs.length),
+    ).toEqual(history.items[0].logs);
+  },
+);
+
+it.each(['cancel', 'pause'] as const)(
+  'preserves completion that settles while %s waits for the runner',
+  async (operation) => {
+    const s = fakeSession();
+    let entered = false;
+    manager = new AgentManager(store, 'ws://fixture', {
+      session: () => s as unknown as Session,
+      models: async () => [],
+      runner: () => ({
+        async run({ memory, signal, checkpoint }) {
+          entered = true;
+          await new Promise<void>((resolve) =>
+            signal.addEventListener('abort', () => resolve(), { once: true }),
+          );
+          // Simulate an already-confirmed action finishing its durable checkpoint.
+          memory.task!.status = 'completed';
+          memory.task!.reason = '动作已确认完成';
+          await checkpoint?.();
+        },
+      }),
+    });
+    const job = manager.create(settings);
+    await vi.waitFor(() => expect(entered).toBe(true));
+    await manager.controlTask(job.id, operation);
+    expect(manager.list()[0].task).toMatchObject({
+      status: 'completed',
+      reason: '动作已确认完成',
+    });
+    expect(manager.taskPlans(job.id)[0].latestRun?.status).toBe('completed');
+  },
+);

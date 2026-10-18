@@ -725,18 +725,29 @@ export class AgentManager {
       ['joining', 'stopping'].includes(job.view.status)
     )
       throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
+    const taskEnded = () =>
+      !!job.memory.task &&
+      ['completed', 'cancelled'].includes(job.memory.task.status);
+    // Repeated controls on an ended task are idempotent. An active reply can
+    // still be interrupted, but must not rewrite the task it follows.
+    if (taskEnded() && !active(job.view.status)) {
+      await this.saving;
+      return this.list().find((v) => v.id === id)!;
+    }
     job.controlling = true;
     clearTimeout(job.timer);
     job.attention.clear();
     job.abort.abort();
     try {
       await job.done;
-      if (job.memory.task) {
+      // Completion can win while the in-flight runner settles after abort.
+      // Recheck here rather than relying on the status at request admission.
+      if (job.memory.task && !taskEnded()) {
         job.memory.task.status = operation === 'pause' ? 'paused' : 'cancelled';
         job.memory.task.reason =
           operation === 'pause' ? '已由玩家暂停，进度保留。' : '已由玩家取消。';
       }
-      if (operation === 'cancel') {
+      if (operation === 'cancel' && job.memory.task?.status !== 'completed') {
         job.memory.previous = undefined;
         job.memory.unfinishedBuild = undefined;
       }
