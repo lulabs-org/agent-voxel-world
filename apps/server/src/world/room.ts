@@ -5,10 +5,14 @@ import type { VoiceServiceStore } from '../audio/voice-services';
 import { LocalTts } from '../audio/local-tts';
 import { createVoiceProvider, type VoiceSession } from '../audio/voice';
 import { WorldStore } from './store';
-import { Room, Client } from '@colyseus/core';
+import { Room, Client, ServerError } from '@colyseus/core';
 import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import {
   terrain,
+  normalizePlayerName,
+  playerNameKey,
+  PLAYER_NAME_TAKEN,
+  PLAYER_NAME_TAKEN_MESSAGE,
   key,
   simulate,
   validateEdit,
@@ -383,10 +387,18 @@ export class WorldRoom extends Room<WorldState> {
     }, 50);
   }
   onJoin(client: Client, options: { name?: string; kind?: string }) {
+    const name = normalizePlayerName(options.name);
+    // Check and claim synchronously, including avatars held for reconnection.
+    if (
+      [...this.state.players.values()].some(
+        (p) => playerNameKey(p.name) === playerNameKey(name),
+      )
+    ) {
+      throw new ServerError(PLAYER_NAME_TAKEN, PLAYER_NAME_TAKEN_MESSAGE);
+    }
     const p = new Avatar();
     p.id = client.sessionId;
-    p.name =
-      typeof options.name === 'string' ? options.name.slice(0, 24) : 'Explorer';
+    p.name = name;
     p.kind =
       options.kind === 'ai-agent'
         ? 'ai-agent'
@@ -416,6 +428,8 @@ export class WorldRoom extends Room<WorldState> {
     this.event('joined', p.id, { name: p.name, kind: p.kind });
   }
   async onLeave(client: Client, consented: boolean) {
+    // Colyseus also calls onLeave when onJoin rejects before creating an avatar.
+    if (!this.state.players.has(client.sessionId)) return;
     this.realtime.close(client.sessionId);
     this.agentSpeech.cancel(client.sessionId);
     this.voices.get(client.sessionId)?.close();

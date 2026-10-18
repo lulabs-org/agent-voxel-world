@@ -1,4 +1,5 @@
 export * from './chat';
+export * from './player-name';
 export * from './voice-services';
 export * from './asr';
 export * from './agent-capabilities';

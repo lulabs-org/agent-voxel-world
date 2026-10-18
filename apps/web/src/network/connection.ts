@@ -3,6 +3,8 @@ import type { RealtimeEvent } from '../../../../packages/shared/src/realtime';
 import { Client, type Room } from 'colyseus.js';
 import {
   key,
+  PLAYER_NAME_TAKEN,
+  PLAYER_NAME_TAKEN_MESSAGE,
   type Block,
   type Player,
   type Snapshot,
@@ -17,6 +19,7 @@ export class Connection {
   players: Player[] = [];
   revision = 0;
   status = 'lobby';
+  joinError = '';
   persistence = 'memory';
   messages: string[] = [];
   chats: ChatEntry[] = [];
@@ -88,6 +91,7 @@ export class Connection {
     const request = new AbortController();
     this.request = request;
     this.status = 'connecting';
+    this.joinError = '';
     this.onChange();
     const client = new Client(serverSocketUrl());
     try {
@@ -218,6 +222,19 @@ export class Connection {
       this.onChange();
     } catch (error) {
       if (!current()) return;
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === PLAYER_NAME_TAKEN
+      ) {
+        this.status = 'lobby';
+        this.joinError = PLAYER_NAME_TAKEN_MESSAGE;
+        sessionStorage.removeItem('voxel-reconnect');
+        sessionStorage.removeItem('voxel-name');
+        this.onChange();
+        return;
+      }
       this.status = 'offline';
       this.messages.push(String(error));
       this.onChange();
@@ -241,6 +258,7 @@ export class Connection {
     const room = this.room;
     this.room = undefined;
     this.status = 'lobby';
+    this.joinError = '';
     this.players = [];
     this.messages = [];
     this.chats = [];

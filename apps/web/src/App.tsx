@@ -90,7 +90,10 @@ export function App({ connection }: { connection: Connection }) {
     useWorldScene(connection);
 
   useEffect(() => {
-    connection.onChange = () => render((n) => n + 1);
+    connection.onChange = () => {
+      if (connection.joinError) setJoined(false);
+      render((n) => n + 1);
+    };
     if (savedName) void connection.connect(savedName);
     return () => {
       connection.onChange = () => {};
@@ -218,7 +221,11 @@ export function App({ connection }: { connection: Connection }) {
         {!joined && (
           <LobbyCard
             name={name}
-            onNameChange={setName}
+            onNameChange={(value) => {
+              connection.joinError = '';
+              setName(value);
+            }}
+            error={connection.joinError}
             onJoin={joinWorld}
             onCreateAgent={() => openConsole('agents')}
           />

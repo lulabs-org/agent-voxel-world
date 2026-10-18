@@ -1,5 +1,6 @@
 interface LobbyCardProps {
   name: string;
+  error?: string;
   onNameChange: (name: string) => void;
   onJoin: () => void;
   onCreateAgent: () => void;
@@ -7,6 +8,7 @@ interface LobbyCardProps {
 
 export function LobbyCard({
   name,
+  error,
   onNameChange,
   onJoin,
   onCreateAgent,
@@ -35,9 +37,16 @@ export function LobbyCard({
           id="name"
           value={name}
           maxLength={24}
+          aria-invalid={!!error}
+          aria-describedby={error ? 'name-error' : undefined}
           onChange={(e) => onNameChange(e.target.value)}
           required
         />
+        {error && (
+          <p id="name-error" className="agent-error" role="alert">
+            {error}
+          </p>
+        )}
         <button>进入世界 ↗</button>
       </form>
       <button className="join-agents" onClick={onCreateAgent}>

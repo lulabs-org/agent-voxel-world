@@ -150,3 +150,32 @@ describe('explicit game exit', () => {
     expect(sdk.joinById).not.toHaveBeenCalled();
   });
 });
+
+describe('nickname rejection', () => {
+  it('returns to the lobby without retries and allows changing the name', async () => {
+    const { PLAYER_NAME_TAKEN } = await import('@voxel/shared');
+    sdk.joinById.mockRejectedValue(
+      Object.assign(new Error('name taken'), { code: PLAYER_NAME_TAKEN }),
+    );
+    sessionStorage.setItem('voxel-name', 'Explorer');
+    sessionStorage.setItem('voxel-reconnect', 'expired');
+    sdk.reconnect.mockRejectedValue(new Error('expired'));
+    const connection = new Connection();
+    await connection.connect('Explorer');
+    expect(connection.status).toBe('lobby');
+    expect(connection.joinError).toContain('昵称已被使用');
+    expect(connection.room).toBeUndefined();
+    expect(sessionStorage.getItem('voxel-name')).toBeNull();
+    expect(sessionStorage.getItem('voxel-reconnect')).toBeNull();
+    await vi.runAllTimersAsync();
+    expect(sdk.joinById).toHaveBeenCalledTimes(1);
+    sdk.joinById.mockResolvedValue(roomMock());
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ roomId: 'world' })),
+    );
+    await connection.connect('Another');
+    expect(connection.status).toBe('connected');
+    expect(connection.joinError).toBe('');
+    connection.leave();
+  });
+});

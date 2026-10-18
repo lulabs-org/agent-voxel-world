@@ -23,6 +23,7 @@
     "test:agent:deepseek": "pnpm --filter @voxel/server test:agent:deepseek",
     "test:agents": "pnpm --filter @voxel/server exec tsx test/integration/agent-management.ts",
     "test:chat": "pnpm --filter @voxel/server exec tsx test/integration/chat.ts",
+    "test:player:names": "pnpm --filter @voxel/server exec tsx test/integration/player-names.ts",
     "test:agent:voice": "pnpm --filter @voxel/server exec tsx test/integration/agent-speech.ts",
     "test:voice:live": "pnpm --filter @voxel/server exec tsx test/integration/live-speech.ts",
     "test:voice:services": "pnpm --filter @voxel/server exec tsx test/integration/voice-services.ts",
