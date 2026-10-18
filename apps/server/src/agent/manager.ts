@@ -1,601 +1,127 @@
-import { appendAgentLog, restoreAgentLogs } from './agent-logs';
+import { appendAgentLog } from './agent-logs';
 import {
   TaskScheduler,
   emptyTaskBook,
   validatePlan,
   newPlan,
   newRun,
-  runView,
   nextOccurrence,
   duePlans,
-  endedRun,
-  type TaskBook,
 } from './task-scheduler';
 import {
-  DEFAULT_TASK_LIMITS,
-  executionLimits,
   hasPlanTokenLimit,
   isRepeating,
-  type TaskPlan,
-  type TaskRun,
+  agentPermissions,
+  type AgentSettings,
 } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { VoiceServiceStore } from '../audio/voice-services';
-import {
-  AGENT_ROLE_DESCRIPTION_LIMIT,
-  agentPermissions,
-  validateCapabilities,
-} from '@voxel/shared';
-import type {
-  ChatData,
-  AgentSettings,
-  ManagedAgentView,
-  ProviderView,
-  ProviderInference,
-} from '@voxel/shared';
 import {
   Session,
   newTask,
-  restoreBatchHistory,
   AgentAttention,
   AgentRunner,
-  restorePiCheckpoint,
-  AgentRuntimeError,
   listModels,
   nextIntervalMs,
   type AgentConfig,
-  type AgentRunState,
 } from '@voxel/agent-runtime';
 
-export class ManagementError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-  }
-}
-export type SavedProvider = Omit<ProviderView, 'hasApiKey'> & {
-  apiKey: string;
-};
-function object(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new ManagementError('请求格式无效。');
-  return value as Record<string, unknown>;
-}
-function text(value: unknown, label: string, max: number, fallback = '') {
-  if (value === undefined) return fallback;
-  if (typeof value !== 'string' || value.length > max)
-    throw new ManagementError(`${label}格式无效。`);
-  return value.trim();
-}
-function integer(
-  value: unknown,
-  label: string,
-  fallback: number,
-  min: number,
-  max: number,
-) {
-  if (value === undefined) return fallback;
-  if (
-    typeof value !== 'number' ||
-    !Number.isInteger(value) ||
-    value < min ||
-    value > max
-  )
-    throw new ManagementError(`${label}须为 ${min}–${max} 的整数。`);
-  return value;
-}
-function boolean(value: unknown, fallback: boolean) {
-  if (value === undefined) return fallback;
-  if (typeof value !== 'boolean') throw new ManagementError('开关参数无效。');
-  return value;
-}
-export function validateProvider(
-  value: unknown,
-  previous?: SavedProvider,
-): SavedProvider {
-  const input = object(value);
-  const type = input.type;
-  if (type !== 'deepseek' && type !== 'ollama' && type !== 'compatible')
-    throw new ManagementError('不支持此服务类型。');
-  const name = text(input.name, '服务名称', 50);
-  if (!name) throw new ManagementError('请输入服务名称。');
-  const defaults = {
-    deepseek: 'https://api.deepseek.com',
-    ollama: 'http://127.0.0.1:11434/v1',
-    compatible: '',
-  };
-  let url: URL;
-  try {
-    url = new URL(text(input.baseUrl, '接口地址', 500, defaults[type]));
-  } catch {
-    throw new ManagementError('请输入有效的 API Base URL。');
-  }
-  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if (
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
-  )
-    throw new ManagementError(
-      '接口须为 HTTPS 或本机 HTTP 地址，不能包含密码、查询参数或锚点。',
-    );
-  if (type === 'deepseek' && url.origin !== 'https://api.deepseek.com')
-    throw new ManagementError(
-      'DeepSeek 使用官方地址；第三方网关请选择 OpenAI 兼容服务。',
-    );
-  if (type === 'ollama' && !loopback)
-    throw new ManagementError('本机 Ollama 仅支持本机地址。');
-  const baseUrl = url.href.replace(/\/$/, '');
-  const apiKey = text(input.apiKey, 'API Key', 4096);
-  if (
-    previous?.apiKey &&
-    !apiKey &&
-    (new URL(previous.baseUrl).origin !== url.origin || previous.type !== type)
-  )
-    throw new ManagementError('更换服务地址或类型时，请重新填写 API Key。');
-  const tokenField = input.tokenField ?? 'max_tokens';
-  if (tokenField !== 'max_tokens' && tokenField !== 'max_completion_tokens')
-    throw new ManagementError('输出长度参数无效。');
-  return {
-    id: previous?.id ?? randomUUID(),
-    name,
-    type,
-    baseUrl,
-    apiKey: apiKey || previous?.apiKey || '',
-    defaultModel: text(input.defaultModel, '默认模型', 128),
-    jsonMode: boolean(input.jsonMode, true),
-    tokenField: type === 'compatible' ? tokenField : 'max_tokens',
-    inference:
-      input.inference === undefined
-        ? previous?.inference && validateInference(previous.inference, type)
-        : validateInference(object(input.inference), type),
-  };
-}
-function validateInference(
-  input: Record<string, unknown>,
-  type: ProviderView['type'],
-): ProviderInference {
-  const thinking = input.thinking ?? 'disabled';
-  const reasoningEffort = input.reasoningEffort ?? 'high';
-  if (thinking !== 'enabled' && thinking !== 'disabled')
-    throw new ManagementError('思考模式无效。');
-  if (
-    typeof reasoningEffort !== 'string' ||
-    !['none', 'low', 'high', 'max'].includes(reasoningEffort)
-  )
-    throw new ManagementError('推理强度无效。');
-  if (type !== 'deepseek' && thinking !== 'disabled')
-    throw new ManagementError('此模型服务暂不提供 DeepSeek 思考参数。');
-  return {
-    thinking,
-    reasoningEffort: reasoningEffort as AgentSettings['reasoningEffort'],
-    timeoutMs: integer(input.timeoutMs, '推理超时', 60000, 1000, 120000),
-    maxTokens: integer(
-      input.maxTokens,
-      '输出长度',
-      thinking === 'enabled' ? 4096 : 512,
-      128,
-      16384,
-    ),
-  };
-}
-function taskLimits(input: Record<string, unknown>) {
-  return Object.fromEntries(
-    ['maxTurns', 'tokenBudget', 'taskTimeoutMs']
-      .filter((key) => input[key] !== undefined)
-      .map((key) => [key, input[key]]),
-  );
-}
-export function validateAgent(
-  value: unknown,
-  provider: SavedProvider,
-): AgentSettings {
-  const input: Record<string, unknown> = {
-    ...object(value),
-    ...provider.inference,
-  };
-  const model = text(input.model, '模型', 128, provider.defaultModel);
-  if (!model || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+\-]{0,127}$/.test(model))
-    throw new ManagementError('请输入有效模型 ID。');
-  if (provider.type === 'ollama' && /cloud/i.test(model))
-    throw new ManagementError('本机 Ollama 请选择已下载的本地模型。');
-  if (provider.type !== 'ollama' && !provider.apiKey)
-    throw new ManagementError('请先为该模型服务配置 API Key。');
-  const name = text(input.name, '玩家昵称', 24);
-  const goal = text(input.goal, '任务目标', 2000);
-  if (!name) throw new ManagementError('请填写玩家昵称。');
-  const inference = validateInference(input, provider.type);
-  const intervalMode = input.intervalMode ?? 'fixed';
-  if (intervalMode !== 'fixed' && intervalMode !== 'random')
-    throw new ManagementError('轮询方式无效。');
-  const intervalMinMs = integer(
-    input.intervalMinMs,
-    '随机间隔下限',
-    4000,
-    1000,
-    60000,
-  );
-  const intervalMaxMs = integer(
-    input.intervalMaxMs,
-    '随机间隔上限',
-    8000,
-    1000,
-    60000,
-  );
-  if (intervalMinMs > intervalMaxMs)
-    throw new ManagementError('随机间隔下限不能大于上限。');
-  let capabilities;
-  try {
-    capabilities = validateCapabilities(input);
-  } catch (error) {
-    throw new ManagementError(
-      error instanceof Error ? error.message : '角色能力无效。',
-    );
-  }
-  return {
-    ...capabilities,
-    continuous: boolean(input.continuous, false),
-    intervalMode,
-    intervalMinMs,
-    intervalMaxMs,
-    providerId: provider.id,
-    model,
-    name,
-    goal,
-    roleDescription: text(
-      input.roleDescription,
-      '角色设定',
-      AGENT_ROLE_DESCRIPTION_LIMIT,
-    ),
-    ...inference,
-    maxTurns: integer(input.maxTurns, '任务调用上限', 100, 1, 200),
-    tokenBudget: integer(
-      input.tokenBudget,
-      '任务 token 预算',
-      50000,
-      1000,
-      1000000,
-    ),
-    taskTimeoutMs: integer(
-      input.taskTimeoutMs,
-      '任务时间上限',
-      900000,
-      1000,
-      7200000,
-    ),
-    intervalMs: integer(input.intervalMs, '轮次间隔', 3000, 1000, 60000),
-    allowEdits:
-      capabilities.permissions.place && capabilities.permissions.remove,
-    voiceReplies: boolean(input.voiceReplies, false),
-    voiceServiceId: text(
-      input.voiceServiceId,
-      '语音服务',
-      80,
-      input.voiceReplies ? 'local-default' : '',
-    ),
-  };
-}
-export const providerView = ({
-  apiKey,
-  ...provider
-}: SavedProvider): ProviderView => ({ ...provider, hasApiKey: !!apiKey });
+import {
+  ManagementError,
+  object,
+  text,
+  boolean,
+  validateAgent,
+  taskLimits,
+  type SavedProvider,
+} from './validation';
+import { ProviderStore } from './provider-store';
+import { active, resident, type Job } from './types';
+import {
+  captureTask,
+  commitTaskBook,
+  currentRun,
+  getTaskPlans,
+  getTaskRuns,
+  reserveRun,
+  taskBusy,
+  executeTaskPlanControl,
+  executeTaskRunControl,
+} from './task-operations';
+import {
+  readAgentArchive,
+  restoreAgentJob,
+  writeAgentArchive,
+} from './agent-storage';
+import { executeAgentJob, type ExecutionContext } from './agent-executor';
 
-export class ProviderStore {
-  private values: SavedProvider[] = [];
-  private queue: Promise<unknown> = Promise.resolve();
-  constructor(
-    readonly path = fileURLToPath(
-      new URL('../../../../.data/agent-providers.json', import.meta.url),
-    ),
-  ) {}
-  async load(env = process.env) {
-    try {
-      const saved = JSON.parse(await readFile(this.path, 'utf8'));
-      if (!Array.isArray(saved) || saved.length > 20) throw Error('invalid');
-      this.values = saved.map((p: SavedProvider) => {
-        if (typeof p.id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(p.id))
-          throw Error('invalid');
-        return { ...validateProvider(p), id: p.id };
-      });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new ManagementError(
-          '无法读取模型服务配置，请检查本地配置文件。',
-          500,
-        );
-      this.values = [
-        {
-          ...validateProvider({
-            name: 'DeepSeek',
-            type: 'deepseek',
-            apiKey: env.DEEPSEEK_API_KEY ?? '',
-            defaultModel: env.DEEPSEEK_MODEL || 'deepseek-flash',
-          }),
-          id: 'deepseek',
-        },
-        {
-          ...validateProvider({
-            name: '本机 Ollama',
-            type: 'ollama',
-            defaultModel: env.OLLAMA_MODEL ?? '',
-          }),
-          id: 'ollama',
-        },
-      ];
-      await this.persist(this.values);
-    }
-  }
-  list() {
-    return this.values.map(providerView);
-  }
-  get(id: string) {
-    const provider = this.values.find((p) => p.id === id);
-    if (!provider) throw new ManagementError('模型服务不存在。', 404);
-    return { ...provider };
-  }
-  private async persist(values: SavedProvider[]) {
-    await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
-    const temporary = `${this.path}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporary, JSON.stringify(values, null, 2), {
-        mode: 0o600,
-        flag: 'wx',
-      });
-      await rename(temporary, this.path);
-    } finally {
-      await unlink(temporary).catch(() => {});
-    }
-  }
-  private mutate<T>(fn: () => Promise<T>): Promise<T> {
-    const operation = this.queue.then(fn);
-    this.queue = operation.catch(() => {});
-    return operation;
-  }
-  save(value: unknown, id?: string) {
-    return this.mutate(async () => {
-      if (!id && this.values.length >= 20)
-        throw new ManagementError('最多保存 20 个模型服务。');
-      const provider = validateProvider(value, id ? this.get(id) : undefined);
-      const next = id
-        ? this.values.map((p) => (p.id === id ? provider : p))
-        : [...this.values, provider];
-      await this.persist(next);
-      this.values = next;
-      return providerView(provider);
-    });
-  }
-  remove(id: string) {
-    return this.mutate(async () => {
-      this.get(id);
-      const next = this.values.filter((p) => p.id !== id);
-      await this.persist(next);
-      this.values = next;
-    });
-  }
-}
+export * from './validation';
+export * from './provider-store';
 
-type Job = {
-  view: ManagedAgentView;
-  abort: AbortController;
-  session?: Session;
-  done?: Promise<void>;
-  memory: AgentRunState;
-  book: TaskBook;
-  taskMutating?: boolean;
-  attention: AgentAttention;
-  updating?: boolean;
-  timer?: ReturnType<typeof setTimeout>;
-  controlling?: boolean;
-};
-const active = (status: ManagedAgentView['status']) =>
-  ['joining', 'running', 'stopping'].includes(status);
-const resident = (job: Job) => !!job.session || active(job.view.status);
 export class AgentManager {
   private jobs = new Map<string, Job>();
   private closing = false;
   private probing = new Set<string>();
   private taskScheduler = new TaskScheduler(() => this.dispatchDue());
   private saving: Promise<void> = Promise.resolve();
+
   private get archivePath() {
     return `${this.providers.path}.agents.json`;
   }
+
   private persist() {
     if (this.closing) return;
-    for (const job of this.jobs.values()) this.captureTask(job);
-    const data = JSON.stringify(
-      this.list()
-        .reverse()
-        .map((view) => ({
-          ...view,
-          sessionId: undefined,
-          runtime: this.jobs.get(view.id)?.memory,
-          taskBook: this.jobs.get(view.id)?.book,
-        })),
-      null,
-      2,
-    );
+    for (const job of this.jobs.values()) captureTask(job);
+    const records = this.list()
+      .reverse()
+      .map((view) => ({
+        ...view,
+        sessionId: undefined,
+        runtime: this.jobs.get(view.id)?.memory,
+        taskBook: this.jobs.get(view.id)?.book,
+      }));
     this.saving = this.saving
       .catch(() => {})
-      .then(async () => {
-        const temp = `${this.archivePath}.tmp`;
-        await writeFile(temp, data, { mode: 0o600 });
-        await rename(temp, this.archivePath);
-      });
+      .then(() => writeAgentArchive(this.archivePath, records));
     void this.saving.catch(() => console.error('无法保存 Agent 记录。'));
   }
+
+  private save(): Promise<void> {
+    this.persist();
+    return this.saving;
+  }
+
   async load() {
-    let saved: (ManagedAgentView & {
-      runtime?: AgentRunState;
-      taskBook?: TaskBook;
-    })[];
-    try {
-      saved = JSON.parse(await readFile(this.archivePath, 'utf8'));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        this.taskScheduler.start();
-        return;
-      }
-      throw new ManagementError('无法读取 Agent 记录。', 500);
-    }
-    if (!Array.isArray(saved) || saved.length > 50)
-      throw new ManagementError('Agent 记录格式无效。', 500);
-    await writeFile(
-      `${this.archivePath}.before-pi.bak`,
-      await readFile(this.archivePath),
-      { mode: 0o600, flag: 'wx' },
-    ).catch((error) => {
-      if (error.code !== 'EEXIST') throw error;
-    });
-    if (saved.some((view) => !view.taskBook)) {
-      await writeFile(
-        `${this.archivePath}.before-task-plans.bak`,
-        await readFile(this.archivePath),
-        { mode: 0o600, flag: 'wx' },
-      ).catch((error) => {
-        if (error.code !== 'EEXIST') throw error;
-      });
+    const saved = await readAgentArchive(this.archivePath);
+    if (!saved) {
+      this.taskScheduler.start();
+      return;
     }
     for (const view of saved) {
-      const provider = this.providers.get(view.providerId);
-      const settings = validateAgent(view, provider);
-      let voiceWarning = '';
-      try {
-        this.checkVoice(settings);
-      } catch {
-        settings.voiceReplies = false;
-        settings.voiceServiceId = '';
-        voiceWarning = '原语音服务不可用，已保留文字回复；请重新选择语音服务。';
-      }
-      if (typeof view.id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(view.id))
-        throw new ManagementError('Agent 标识无效。', 500);
-      const job: Job = {
-        view: {
-          ...settings,
-          id: view.id,
-          createdAt: view.createdAt,
-          providerName: provider.name,
-          status: 'stopped',
-          ...restoreAgentLogs(view.logs, view.logTimes),
-        },
-        abort: new AbortController(),
-        memory: view.runtime ?? {
-          task: view.task ?? {
-            ...newTask(settings.goal),
-            status: 'paused',
-            reason: '旧任务已迁移，请确认后继续。',
-          },
-        },
-        attention: new AgentAttention(),
-        book: view.taskBook ?? emptyTaskBook(),
-      };
-      job.memory.previous = restoreBatchHistory(job.memory.previous);
-      restorePiCheckpoint(job.memory);
-      if (
-        job.memory.task &&
-        ['running', 'waiting'].includes(job.memory.task.status)
-      ) {
-        job.memory.task.status = 'paused';
-        job.memory.task.reason = '服务重启，任务进度已保留，请手动继续。';
-      }
-      if (job.memory.task && !job.memory.task.privateTo)
-        delete job.memory.task.owner;
-      if (
-        job.memory.task?.privateTo &&
-        !['completed', 'cancelled'].includes(job.memory.task.status)
-      ) {
-        job.memory.audienceExpired = true;
-        job.memory.task.status = 'needs_input';
-        job.memory.task.reason =
-          '服务重启后原私聊会话已失效，请在控制台重新布置任务。';
-      }
-      if (
-        job.book.version !== 1 ||
-        !Array.isArray(job.book.plans) ||
-        !Array.isArray(job.book.runs)
-      )
-        throw new ManagementError('任务存档格式无效。', 500);
-      const interruptedRuns = new Set(
-        job.book.runs
-          .filter((r) =>
-            [
-              'running',
-              'waiting',
-              'failed',
-              'budget',
-              'blocked',
-              'needs_input',
-            ].includes(r.status),
-          )
-          .map((r) => r.id),
+      const { job, voiceWarning, shouldAutoJoin } = restoreAgentJob(
+        view,
+        this.providers,
+        (settings) => this.checkVoice(settings),
       );
-      const migrating = !view.taskBook;
-      this.captureTask(job);
-      for (const run of job.book.runs) {
-        for (const action of run.actions ?? [])
-          if (action.status === 'executing') action.status = 'unknown';
-        if (run.runtime?.previous)
-          run.runtime.previous = restoreBatchHistory(run.runtime.previous);
-        if (run.runtime?.task?.privateTo && !endedRun(run)) {
-          run.runtime.audienceExpired = true;
-          run.runtime.task.status = 'needs_input';
-          run.runtime.task.reason = '原私聊会话已失效，请新建任务。';
-          run.status = 'needs_input';
-          run.task = structuredClone(run.runtime.task);
-        }
-        if (['running', 'waiting'].includes(run.status)) {
-          run.status = 'paused';
-          run.reason = '服务重启，进度保留，请手动继续。';
-          if (run.runtime?.task) {
-            run.runtime.task.status = 'paused';
-            run.runtime.task.reason = run.reason;
-            run.task = structuredClone(run.runtime.task);
-          }
-        }
-        if (
-          !endedRun(run) &&
-          (migrating ||
-            interruptedRuns.has(run.id) ||
-            run.runtime?.audienceExpired)
-        ) {
-          const p = job.book.plans.find((p) => p.id === run.planId);
-          if (p) {
-            p.state = 'paused';
-            p.reason = '执行尚未结束，请确认后恢复计划。';
-            delete p.nextRunAt;
-          }
-        }
-      }
-      for (const plan of duePlans(job.book, Date.now())) {
-        const run = newRun(plan, plan.nextRunAt!, 'scheduled');
-        run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
-        run.reason = '服务未运行，错过的触发不补跑。';
-        run.finishedAt = Date.now();
-        job.book.runs.push(run);
-        plan.nextRunAt = nextOccurrence(plan, Date.now());
-        if (!isRepeating(plan.timing)) plan.state = 'completed';
-      }
       this.jobs.set(view.id, job);
       if (voiceWarning) appendAgentLog(job.view, voiceWarning);
       if (
-        ['idle', 'running', 'joining', 'failed'].includes(view.status) &&
+        shouldAutoJoin &&
         [...this.jobs.values()].filter(resident).length < 4
       ) {
         job.view.status = 'joining';
-        job.done = this.execute(job, provider, false);
+        job.done = this.execute(
+          job,
+          this.providers.get(job.view.providerId),
+          false,
+        );
         await job.done;
       }
     }
-    this.persist();
-    await this.saving;
+    await this.save();
     this.taskScheduler.start();
   }
+
   constructor(
     readonly providers: ProviderStore,
     private serverUrl: string,
@@ -610,12 +136,14 @@ export class AgentManager {
     },
     readonly voiceServices?: VoiceServiceStore,
   ) {}
+
   private checkVoice(settings: AgentSettings) {
     if (settings.voiceReplies && !settings.voiceServiceId)
       throw new ManagementError('请先选择语音服务。');
     if (settings.voiceServiceId)
       this.voiceServices?.get(settings.voiceServiceId);
   }
+
   private bindVoice(job: Job) {
     if (job.view.sessionId)
       this.voiceServices?.bind(
@@ -625,6 +153,7 @@ export class AgentManager {
           : '',
       );
   }
+
   list() {
     return [...this.jobs.values()]
       .map(({ view, memory }) =>
@@ -643,237 +172,29 @@ export class AgentManager {
       )
       .reverse();
   }
+
   private taskJob(id: string) {
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     return job;
   }
-  private currentRun(job: Job) {
-    return job.book.runs.find((r) => r.id === job.book.currentRunId);
-  }
-  private taskBusy(job: Job) {
-    const run = this.currentRun(job);
-    return (
-      !!job.taskMutating ||
-      job.updating ||
-      job.controlling ||
-      active(job.view.status) ||
-      (!!run &&
-        ['running', 'waiting'].includes(run.status) &&
-        job.view.status !== 'failed')
-    );
-  }
-  private captureTask(job: Job) {
-    if (!job.memory.task) return;
-    let run = this.currentRun(job);
-    if (
-      !run ||
-      (run.task && run.task.startedAt !== job.memory.task.startedAt)
-    ) {
-      const p = newPlan(
-        {
-          name: job.memory.task.goal.slice(0, 80) || '任务',
-          goal: job.memory.task.goal,
-          timing: { kind: 'immediate' },
-          timeZone: 'UTC',
-          limits: {
-            maxTurns: job.view.maxTurns,
-            tokenBudget: job.view.tokenBudget ?? 50000,
-            taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
-          },
-          totalTokenBudget: 500000,
-        },
-        job.memory.task.startedAt,
-      );
-      job.book.plans.push(p);
-      run = newRun(p, p.createdAt, 'legacy');
-      run.logs = [...job.view.logs];
-      job.book.runs.push(run);
-      job.book.currentRunId = run.id;
-    }
-    const plan = job.book.plans.find((p) => p.id === run!.planId)!;
-    const task = job.memory.task;
-    const delta = Math.max(0, task.tokens - run.accountedTokens);
-    run.totalTokens += delta;
-    plan.spentTokens += delta;
-    run.accountedTokens = task.tokens;
-    const batch = job.memory.previous as
-      | {
-          batchId?: string;
-          results?: {
-            action?: { type?: string };
-            status?: string;
-            result?: unknown;
-          }[];
-        }
-      | undefined;
-    if (
-      Array.isArray(batch?.results) &&
-      JSON.stringify(batch) !== run.lastBatch
-    ) {
-      run.lastBatch = JSON.stringify(batch);
-      const call = job.memory.usage?.calls ?? task.calls;
-      run.actions ??= [];
-      batch.results.forEach((result, index) => {
-        if (!result.action?.type || !result.status) return;
-        const entry = {
-          batchId: batch.batchId,
-          call,
-          index,
-          kind: result.action.type,
-          status: result.status,
-          detail: JSON.stringify({
-            action: result.action,
-            result: result.result,
-          }),
-        };
-        const existing = run!.actions!.findIndex(
-          (a) =>
-            a.call === call && a.index === index && a.batchId === batch.batchId,
-        );
-        if (existing < 0) run!.actions!.push(entry);
-        else run!.actions![existing] = entry;
-      });
-    }
-    run.task = structuredClone(task);
-    const { usage, ...runtime } = job.memory;
-    run.runtime = structuredClone(runtime);
-    run.startedAt ??= task.startedAt;
-    run.status =
-      job.view.status === 'failed' &&
-      !['completed', 'cancelled', 'budget'].includes(task.status)
-        ? 'failed'
-        : task.status;
-    run.reason =
-      run.status === 'failed'
-        ? job.view.logs.at(-1) || '执行中断，请检查后继续。'
-        : task.reason;
-    if (endedRun(run)) run.finishedAt ??= Date.now();
-    if (['failed', 'budget', 'needs_input', 'blocked'].includes(run.status)) {
-      plan.state = 'paused';
-      plan.reason = run.reason || '本次执行需要处理。';
-      delete plan.nextRunAt;
-    } else if (
-      endedRun(run) &&
-      !isRepeating(plan.timing) &&
-      plan.state === 'enabled' &&
-      !plan.nextRunAt
-    )
-      plan.state = 'completed';
-    if (
-      hasPlanTokenLimit(plan) &&
-      plan.spentTokens >= plan.totalTokenBudget &&
-      plan.state !== 'archived'
-    ) {
-      plan.state = 'paused';
-      plan.reason = '计划累计 token 额度已用尽，请追加额度后恢复。';
-      delete plan.nextRunAt;
-    }
-  }
-  private async commitTaskBook<T>(
-    job: Job,
-    change: () => T,
-    swapsExecution = false,
-  ): Promise<T> {
-    if (job.taskMutating || job.updating || job.controlling)
-      throw new ManagementError('任务状态正在更新，请稍候。', 409);
-    this.captureTask(job);
-    const before = {
-      book: structuredClone(job.book),
-      memory: structuredClone(job.memory),
-      view: structuredClone(job.view),
-    };
-    job.taskMutating = true;
-    try {
-      const result = change();
-      this.persist();
-      await this.saving;
-      return result;
-    } catch (error) {
-      job.book = before.book;
-      if (swapsExecution) {
-        job.memory = before.memory;
-        job.view = before.view;
-      } else this.captureTask(job);
-      throw error;
-    } finally {
-      job.taskMutating = false;
-      this.schedule(job);
-    }
-  }
+
   taskPlans(id: string) {
-    const job = this.taskJob(id);
-    this.captureTask(job);
-    return job.book.plans.map((p) => ({
-      ...structuredClone(p),
-      latestRun: (() => {
-        const run = job.book.runs.filter((r) => r.planId === p.id).at(-1);
-        return run
-          ? { ...runView(run), actions: undefined, logs: [] }
-          : undefined;
-      })(),
-    }));
+    return getTaskPlans(this.taskJob(id));
   }
+
   taskRuns(id: string, planId: string, offset = 0) {
-    const job = this.taskJob(id);
-    this.captureTask(job);
-    if (!Number.isSafeInteger(offset) || offset < 0)
-      throw new ManagementError('分页参数无效。');
-    if (!job.book.plans.some((p) => p.id === planId))
-      throw new ManagementError('任务不存在。', 404);
-    const all = job.book.runs
-      .filter((r) => r.planId === planId)
-      .slice()
-      .reverse();
-    return {
-      items: all.slice(offset, offset + 20).map(runView),
-      active: all.filter((r) => !endedRun(r)).map(runView),
-      total: all.length,
-      nextOffset: offset + 20 < all.length ? offset + 20 : undefined,
-    };
+    return getTaskRuns(this.taskJob(id), planId, offset);
   }
-  private reserveRun(
-    job: Job,
-    plan: TaskPlan,
-    source: TaskRun['source'],
-    at: number,
-    skip?: string,
-  ) {
-    if (
-      source === 'scheduled' &&
-      job.book.runs.some(
-        (r) =>
-          r.planId === plan.id && r.source === source && r.scheduledAt === at,
-      )
-    )
-      return undefined;
-    this.captureTask(job);
-    const run = newRun(plan, at, source);
-    job.book.runs.push(run);
-    if (skip) {
-      run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
-      run.reason = skip;
-      run.finishedAt = Date.now();
-      if (!isRepeating(plan.timing)) plan.state = 'completed';
-      return undefined;
-    }
-    const task = newTask(plan.goal);
-    run.task = task;
-    run.runtime = { task };
-    run.startedAt = task.startedAt;
-    job.book.currentRunId = run.id;
-    job.memory = { task, usage: job.memory.usage };
-    job.view.status = 'idle';
-    Object.assign(job.view, plan.limits, { goal: plan.goal });
-    return run.id;
-  }
+
   private launchReserved(job: Job) {
     clearTimeout(job.timer);
     job.view.status = 'running';
     job.abort = new AbortController();
     job.done = this.execute(job, this.providers.get(job.view.providerId));
   }
+
   async createTaskPlan(id: string, value: unknown) {
     const job = this.taskJob(id);
     const requestId = object(value).requestId;
@@ -891,29 +212,29 @@ export class AgentManager {
     if (priorId)
       return structuredClone(job.book.plans.find((p) => p.id === priorId)!);
     const draft = validatePlan(value);
-    if (
-      draft.timing.kind === 'immediate' &&
-      (!job.session || this.taskBusy(job))
-    )
+    if (draft.timing.kind === 'immediate' && (!job.session || taskBusy(job)))
       throw new ManagementError('请先让角色上线并结束或暂停当前执行。', 409);
     let runId: string | undefined;
-    const plan = await this.commitTaskBook(
+    const plan = await commitTaskBook(
       job,
       () => {
         const p = newPlan(draft, Date.now());
         job.book.plans.push(p);
         if (p.timing.kind === 'immediate')
-          runId = this.reserveRun(job, p, 'manual', Date.now());
+          runId = reserveRun(job, p, 'manual', Date.now());
         if (typeof requestId === 'string')
           (job.book.requests ??= {})[requestId] = p.id;
         return p;
       },
+      () => this.save(),
+      (j) => this.schedule(j),
       draft.timing.kind === 'immediate',
     );
     if (runId) this.launchReserved(job);
     this.taskScheduler.start();
     return structuredClone(plan);
   }
+
   async updateTaskPlan(id: string, planId: string, value: unknown) {
     const job = this.taskJob(id),
       plan = job.book.plans.find((p) => p.id === planId);
@@ -921,102 +242,39 @@ export class AgentManager {
     if (plan.state === 'archived')
       throw new ManagementError('已归档任务不能修改。');
     const draft = validatePlan(value, Date.now(), plan);
-    return this.commitTaskBook(job, () => {
-      Object.assign(plan, draft, { updatedAt: Date.now() });
-      plan.nextRunAt =
-        plan.state === 'enabled' ? nextOccurrence(plan, Date.now()) : undefined;
-      return structuredClone(plan);
-    });
+    return commitTaskBook(
+      job,
+      () => {
+        Object.assign(plan, draft, { updatedAt: Date.now() });
+        plan.nextRunAt =
+          plan.state === 'enabled'
+            ? nextOccurrence(plan, Date.now())
+            : undefined;
+        return structuredClone(plan);
+      },
+      () => this.save(),
+      (j) => this.schedule(j),
+    );
   }
+
   async controlTaskPlan(
     id: string,
     planId: string,
     operation: string,
     value: unknown = {},
   ) {
-    const job = this.taskJob(id),
-      plan = job.book.plans.find((p) => p.id === planId);
-    if (!plan) throw new ManagementError('任务不存在。', 404);
-    if (plan.state === 'archived') throw new ManagementError('任务已归档。');
-    if (operation === 'run') {
-      const requestId = object(value).requestId;
-      if (
-        typeof requestId !== 'string' ||
-        !/^[a-zA-Z0-9-]{1,80}$/.test(requestId)
-      )
-        throw new ManagementError('执行请求标识无效。');
-      const prior = job.book.runs.find(
-        (r) => r.planId === planId && r.requestId === requestId,
-      );
-      if (prior) return runView(prior);
-      if (!job.session || this.taskBusy(job))
-        throw new ManagementError(
-          '角色离线或忙碌，请先上线或暂停当前执行。',
-          409,
-        );
-      if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
-        throw new ManagementError('请先追加计划累计额度。');
-      let runId: string | undefined;
-      await this.commitTaskBook(
-        job,
-        () => {
-          runId = this.reserveRun(job, plan, 'manual', Date.now());
-          this.currentRun(job)!.requestId = requestId;
-        },
-        true,
-      );
-      if (runId) this.launchReserved(job);
-      return runView(this.currentRun(job)!);
-    }
-    return this.commitTaskBook(job, () => {
-      if (operation === 'pause') {
-        plan.state = 'paused';
-        plan.reason = '计划已暂停，本次执行不受影响。';
-        delete plan.nextRunAt;
-      } else if (operation === 'resume') {
-        if (!isRepeating(plan.timing) && plan.timing.kind !== 'once')
-          throw new ManagementError('一次性任务请使用立即执行。');
-        if (
-          job.book.runs.some(
-            (r) =>
-              r.planId === planId &&
-              ['failed', 'blocked', 'needs_input', 'budget'].includes(r.status),
-          )
-        )
-          throw new ManagementError('请先处理或结束异常执行。');
-        if (
-          hasPlanTokenLimit(plan) &&
-          plan.spentTokens >= plan.totalTokenBudget
-        )
-          throw new ManagementError('请先追加计划累计额度。');
-        plan.nextRunAt = nextOccurrence(plan, Date.now());
-        if (!plan.nextRunAt)
-          throw new ManagementError(
-            '指定时间已错过，请编辑未来时间或手动执行。',
-          );
-        plan.state = 'enabled';
-        plan.reason = '';
-      } else if (operation === 'archive') {
-        if (job.book.runs.some((r) => r.planId === planId && !endedRun(r)))
-          throw new ManagementError('请先结束所有未完成的执行。', 409);
-        plan.state = 'archived';
-        delete plan.nextRunAt;
-      } else if (operation === 'extend') {
-        const amount = integer(
-          object(value).tokens,
-          '追加 token 额度',
-          0,
-          1000,
-          1000000000,
-        );
-        if (plan.totalTokenBudget + amount > 1000000000)
-          throw new ManagementError('累计额度过大。');
-        plan.totalTokenBudget += amount;
-      } else throw new ManagementError('计划操作无效。');
-      plan.updatedAt = Date.now();
-      return structuredClone(plan);
-    });
+    const job = this.taskJob(id);
+    return executeTaskPlanControl(
+      job,
+      planId,
+      operation,
+      value,
+      () => this.save(),
+      (j) => this.schedule(j),
+      (j) => this.launchReserved(j),
+    );
   }
+
   async controlTaskRun(
     id: string,
     runId: string,
@@ -1024,84 +282,19 @@ export class AgentManager {
     value: unknown = {},
   ) {
     const job = this.taskJob(id);
-    this.captureTask(job);
-    const run = job.book.runs.find((r) => r.id === runId);
-    if (!run || !run.runtime?.task)
-      throw new ManagementError('执行记录不存在或不可继续。', 404);
-    if (endedRun(run))
-      throw new ManagementError('执行已结束，请重新执行任务。');
-    if (operation === 'pause' || operation === 'cancel') {
-      if (job.book.currentRunId === runId)
-        return this.controlTask(id, operation);
-      return this.commitTaskBook(job, () => {
-        run.runtime!.task!.status =
-          operation === 'cancel' ? 'cancelled' : 'paused';
-        run.runtime!.task!.reason =
-          '已由玩家' + (operation === 'cancel' ? '结束。' : '暂停。');
-        run.task = structuredClone(run.runtime!.task);
-        run.status = run.task!.status;
-        run.reason = run.task!.reason;
-        if (operation === 'cancel') run.finishedAt = Date.now();
-        return runView(run);
-      });
-    }
-    if (operation !== 'resume') throw new ManagementError('执行操作无效。');
-    if (!job.session || this.taskBusy(job))
-      throw new ManagementError(
-        '角色离线或忙碌，请先上线或暂停当前执行。',
-        409,
-      );
-    if (run.runtime.audienceExpired)
-      throw new ManagementError('原私聊会话已失效，请新建任务。', 409);
-    const plan = job.book.plans.find((p) => p.id === run.planId)!;
-    if (
-      hasPlanTokenLimit(run.snapshot) &&
-      plan.spentTokens >= plan.totalTokenBudget
-    )
-      throw new ManagementError('请先追加计划累计额度。');
-    const enabled = run.snapshot.limits.enabled !== false;
-    const settings = validateAgent(
-      { ...job.view, ...run.snapshot.limits, ...taskLimits(object(value)) },
-      this.providers.get(job.view.providerId),
-    );
-    if (
-      enabled &&
-      (settings.maxTurns <= run.task!.calls ||
-        settings.tokenBudget! <= run.task!.tokens ||
-        settings.taskTimeoutMs! <= run.task!.elapsedMs)
-    )
-      throw new ManagementError('继续执行的额度必须大于已使用额度。');
-    await this.commitTaskBook(
+    return executeTaskRunControl(
       job,
-      () => {
-        this.captureTask(job);
-        run.snapshot.limits = {
-          enabled,
-          maxTurns: settings.maxTurns,
-          tokenBudget: settings.tokenBudget!,
-          taskTimeoutMs: settings.taskTimeoutMs!,
-        };
-        job.memory = {
-          ...structuredClone(run.runtime!),
-          usage: job.memory.usage,
-        };
-        job.memory.task!.status = 'running';
-        job.memory.task!.reason = '';
-        job.memory.failures = 0;
-        job.memory.noProgress = 0;
-        job.book.currentRunId = run.id;
-        Object.assign(job.view, run.snapshot.limits, {
-          goal: run.snapshot.goal,
-        });
-        run.status = 'running';
-        job.view.status = 'idle';
-        delete run.finishedAt;
-      },
-      true,
+      runId,
+      operation,
+      value,
+      this.providers.get(job.view.providerId),
+      () => this.save(),
+      (j) => this.schedule(j),
+      (j) => this.launchReserved(j),
+      (op) => this.controlTask(id, op),
     );
-    this.launchReserved(job);
-    return runView(run);
   }
+
   async dispatchDue(now = Date.now()) {
     if (this.closing) return;
     for (const job of this.jobs.values()) {
@@ -1111,13 +304,13 @@ export class AgentManager {
       for (const plan of due) {
         const at = plan.nextRunAt!;
         const skip =
-          selected || this.taskBusy(job)
+          selected || taskBusy(job)
             ? '角色忙碌，本次触发已跳过。'
             : !job.session
               ? '角色离线，本次触发已错过。'
               : undefined;
         let runId: string | undefined;
-        await this.commitTaskBook(
+        await commitTaskBook(
           job,
           () => {
             if (
@@ -1129,11 +322,13 @@ export class AgentManager {
               delete plan.nextRunAt;
               return;
             }
-            runId = this.reserveRun(job, plan, 'scheduled', at, skip);
+            runId = reserveRun(job, plan, 'scheduled', at, skip);
             plan.nextRunAt = isRepeating(plan.timing)
               ? nextOccurrence(plan, now)
               : undefined;
           },
+          () => this.save(),
+          (j) => this.schedule(j),
           !skip,
         );
         if (runId) {
@@ -1162,6 +357,7 @@ export class AgentManager {
       this.probing.delete(id);
     }
   }
+
   create(value: unknown) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const provider = this.providers.get(
@@ -1218,14 +414,15 @@ export class AgentManager {
       job.book.currentRunId = run.id;
     }
     this.jobs.set(job.view.id, job);
-    this.captureTask(job);
-    const createdRun = this.currentRun(job);
+    captureTask(job);
+    const createdRun = currentRun(job);
     if (createdRun) createdRun.source = 'manual';
     this.taskScheduler.start();
     job.done = this.execute(job, provider, startTask);
     this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
   }
+
   join(id: string) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
@@ -1259,6 +456,7 @@ export class AgentManager {
     this.persist();
     return this.list().find((v) => v.id === id)!;
   }
+
   resume(id: string, value: unknown = {}) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
@@ -1290,13 +488,13 @@ export class AgentManager {
     if (!job.session && [...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError('最多同时在线 4 个 Agent，请先关闭一个。', 409);
     clearTimeout(job.timer);
-    this.captureTask(job);
+    captureTask(job);
     if (
       input.goal !== undefined ||
       !job.memory.task ||
       ['completed', 'cancelled'].includes(job.memory.task.status)
     ) {
-      const previousRun = this.currentRun(job);
+      const previousRun = currentRun(job);
       const previousPlan = job.book.plans.find(
         (p) => p.id === previousRun?.planId,
       );
@@ -1308,7 +506,7 @@ export class AgentManager {
           previousPlan.spentTokens >= previousPlan.totalTokenBudget
         )
           throw new ManagementError('请先追加计划累计额度。');
-        this.reserveRun(job, previousPlan, 'manual', Date.now());
+        reserveRun(job, previousPlan, 'manual', Date.now());
       } else {
         delete job.book.currentRunId;
         job.memory = { usage: job.memory.usage, task: newTask(settings.goal) };
@@ -1316,7 +514,7 @@ export class AgentManager {
     } else {
       const task = job.memory.task;
       if (
-        this.currentRun(job)?.snapshot.limits.enabled !== false &&
+        currentRun(job)?.snapshot.limits.enabled !== false &&
         (task.calls >= settings.maxTurns ||
           task.tokens >= settings.tokenBudget! ||
           task.elapsedMs >= settings.taskTimeoutMs!)
@@ -1327,7 +525,7 @@ export class AgentManager {
       job.memory.failures = 0;
       job.memory.noProgress = 0;
     }
-    const resumedRecord = this.currentRun(job);
+    const resumedRecord = currentRun(job);
     if (resumedRecord)
       resumedRecord.snapshot.limits = {
         enabled: resumedRecord.snapshot.limits.enabled,
@@ -1344,6 +542,7 @@ export class AgentManager {
     this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
   }
+
   async update(id: string, value: unknown) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
@@ -1403,7 +602,7 @@ export class AgentManager {
         settings.model !== job.view.model
       ) {
         clearTimeout(job.timer);
-        this.captureTask(job);
+        captureTask(job);
         delete job.book.currentRunId;
         job.memory = {
           usage: job.memory.usage,
@@ -1438,14 +637,14 @@ export class AgentManager {
       }
       Object.assign(job.view, settings, { providerName: provider.name });
       this.bindVoice(job);
-      this.persist();
-      await this.saving;
+      await this.save();
       return this.list().find((v) => v.id === job.view.id)!;
     } finally {
       job.updating = false;
       this.schedule(job);
     }
   }
+
   async setVoice(id: string, value: unknown) {
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
@@ -1469,14 +668,14 @@ export class AgentManager {
       }
       job.view.voiceReplies = enabled;
       this.bindVoice(job);
-      this.persist();
-      await this.saving;
+      await this.save();
       return this.list().find((v) => v.id === job.view.id)!;
     } finally {
       job.updating = false;
       this.schedule(job);
     }
   }
+
   private wake(job: Job) {
     if (
       this.closing ||
@@ -1493,6 +692,7 @@ export class AgentManager {
     job.abort = new AbortController();
     job.done = this.execute(job, this.providers.get(job.view.providerId));
   }
+
   private schedule(job: Job) {
     clearTimeout(job.timer);
     if (
@@ -1512,6 +712,7 @@ export class AgentManager {
     }
     job.timer?.unref();
   }
+
   async controlTask(id: string, operation: 'pause' | 'cancel') {
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
@@ -1539,13 +740,13 @@ export class AgentManager {
         job.memory.unfinishedBuild = undefined;
       }
       if (job.session) job.view.status = 'idle';
-      this.persist();
-      await this.saving;
+      await this.save();
       return this.list().find((v) => v.id === id)!;
     } finally {
       job.controlling = false;
     }
   }
+
   async assignTask(id: string, value: unknown) {
     const input = object(value);
     const goal = text(input.goal, '任务目标', 2000);
@@ -1560,204 +761,23 @@ export class AgentManager {
     await this.controlTask(id, 'pause');
     return this.resume(id, { goal, ...limits });
   }
+
   private async execute(job: Job, provider: SavedProvider, run = true) {
-    const log = (message: string) => {
-      // Configurable providers/nicknames can contain user input; never return the key.
-      const safe = provider.apiKey
-        ? message.split(provider.apiKey).join('[已隐藏]')
-        : message;
-      appendAgentLog(job.view, safe);
-      const record = this.currentRun(job);
-      if (record) record.logs = [...record.logs, safe].slice(-40);
-      this.persist();
+    const ctx: ExecutionContext = {
+      serverUrl: this.serverUrl,
+      dependencies: this.dependencies,
+      voiceServices: this.voiceServices,
+      closing: () => this.closing,
+      bindVoice: (j) => this.bindVoice(j),
+      controlTask: (targetId, op) => this.controlTask(targetId, op),
+      wake: (j) => this.wake(j),
+      schedule: (j) => this.schedule(j),
+      save: () => this.save(),
+      persist: () => this.persist(),
     };
-    let finalStatus: ManagedAgentView['status'] = 'idle';
-    try {
-      this.captureTask(job);
-      this.persist();
-      await this.saving;
-      if (job.abort.signal.aborted || this.closing) return;
-      const record = this.currentRun(job);
-      const plan = job.book.plans.find((p) => p.id === record?.planId);
-      const limits = record?.snapshot.limits;
-      const config: AgentConfig = {
-        ...job.view,
-        ...provider.inference,
-        ...(limits ? executionLimits(limits) : {}),
-        ...(record && plan && hasPlanTokenLimit(record.snapshot)
-          ? {
-              tokenBudget: Math.min(
-                executionLimits(limits!).tokenBudget,
-                (job.memory.task?.tokens ?? 0) +
-                  Math.max(0, plan.totalTokenBudget - plan.spentTokens),
-              ),
-            }
-          : {}),
-        apiKey: provider.apiKey,
-      };
-      if (!job.session) {
-        const session = this.dependencies.session(this.serverUrl);
-        job.attention = new AgentAttention();
-        job.session = session;
-        await session.join(job.view.name, 'ai-agent');
-        job.view.sessionId = session.room.sessionId;
-        session.onEvent = (event) => {
-          if (
-            this.closing ||
-            job.controlling ||
-            job.session !== session ||
-            !['running', 'idle', 'failed'].includes(job.view.status)
-          )
-            return;
-          if (!job.attention.push(event, session.room.sessionId)) return;
-          const command = (event.data as ChatData).text
-            .trim()
-            .replace(/^@[^\n]+?\s+(?=(?:暂停|停止|取消|别建))/u, '')
-            .replace(/[！!。.?？\s]+$/u, '');
-          const task = job.memory.task;
-          if (
-            task &&
-            (!task.owner || task.owner === event.actor) &&
-            (!task.privateTo ||
-              (task.privateTo === event.actor &&
-                (event.data as ChatData).scope !== 'public')) &&
-            /^(暂停|暂停任务|停止|停止任务|别建了|取消|取消任务)$/u.test(
-              command,
-            )
-          ) {
-            void this.controlTask(
-              job.view.id,
-              command.startsWith('取消') ? 'cancel' : 'pause',
-            )
-              .then(() =>
-                agentPermissions(job.view).chat
-                  ? session.request('chat', {
-                      text: command.startsWith('取消')
-                        ? '任务已取消，我会留在这里待命。'
-                        : '任务已暂停，进度已保留。',
-                      scope: 'private',
-                      recipients: [event.actor],
-                    })
-                  : undefined,
-              )
-              .catch(() => {});
-            return;
-          }
-          if (['idle', 'failed'].includes(job.view.status)) {
-            log('收到玩家消息，处理一次唤醒。');
-            this.wake(job);
-          }
-        };
-        session.room.onMessage(
-          'agent.speech.error',
-          (value: { message: string }) => log(`语音：${value.message}`),
-        );
-        session.room.onLeave(() => {
-          this.voiceServices?.unbind(session.room.sessionId);
-          if (job.session !== session) return;
-          job.session = undefined;
-          delete job.view.sessionId;
-          job.abort.abort();
-          if (job.view.status !== 'stopping') {
-            job.view.status = 'failed';
-            log('世界连接已断开，可点击继续运行重新加入。');
-          }
-          this.persist();
-        });
-        log('已加入世界。');
-      }
-      const voiceResult = await job.session.request('agent.voice', {
-        enabled: !!job.view.voiceReplies && agentPermissions(job.view).chat,
-      });
-      this.bindVoice(job);
-      if (!voiceResult.ok) log('语音回复开关未生效，请检查服务器版本。');
-      if (!job.abort.signal.aborted && run) {
-        job.view.status = 'running';
-        log(job.attention.pending ? '处理当前消息。' : '启动 Pi 任务执行。');
-        await this.dependencies.runner(config, provider).run({
-          session: job.session,
-          config,
-          signal: job.abort.signal,
-          memory: job.memory,
-          attention: job.attention,
-          log,
-          checkpoint: async () => {
-            this.persist();
-            await this.saving;
-          },
-          hooks: {
-            beforeNewTask: async (task) => {
-              this.captureTask(job);
-              const previous = this.currentRun(job);
-              if (previous && ['running', 'waiting'].includes(previous.status))
-                throw new AgentRuntimeError(
-                  '角色已有正在执行的任务，请先暂停或结束。',
-                );
-              const beforeBook = structuredClone(job.book),
-                beforeMemory = structuredClone(job.memory);
-              try {
-                const plan = newPlan(
-                  {
-                    name: task.goal.slice(0, 80),
-                    goal: task.goal,
-                    timing: { kind: 'immediate' },
-                    timeZone: 'UTC',
-                    limits: { ...DEFAULT_TASK_LIMITS },
-                    totalTokenBudget: 500000,
-                  },
-                  task.startedAt,
-                );
-                const record = newRun(plan, task.startedAt, 'chat');
-                record.task = task;
-                job.book.plans.push(plan);
-                job.book.runs.push(record);
-                job.book.currentRunId = record.id;
-                for (const key of Object.keys(job.memory))
-                  if (key !== 'usage')
-                    delete (job.memory as Record<string, unknown>)[key];
-                job.memory.task = task;
-                Object.assign(config, plan.limits);
-                this.persist();
-                await this.saving;
-              } catch (error) {
-                job.book = beforeBook;
-                for (const key of Object.keys(job.memory))
-                  delete (job.memory as Record<string, unknown>)[key];
-                Object.assign(job.memory, beforeMemory);
-                throw error;
-              }
-            },
-          },
-        });
-      }
-      finalStatus =
-        job.abort.signal.aborted && !job.controlling ? 'failed' : 'idle';
-      if (finalStatus === 'idle')
-        log(
-          run
-            ? '本次唤醒结束，按任务状态安排下一次检查。'
-            : '已在世界中待命；可通过私聊或 @ 交流，也可以安排新任务。',
-        );
-    } catch (error) {
-      finalStatus = 'failed';
-      if (!job.abort.signal.aborted)
-        log(
-          error instanceof AgentRuntimeError
-            ? error.message
-            : '无法加入世界或执行动作，请检查世界连接和模型配置。',
-        );
-    } finally {
-      if (!job.view.sessionId) {
-        await job.session
-          ?.close()
-          .catch(() => job.session?.room?.connection.close());
-        job.session = undefined;
-      }
-      if (job.view.status !== 'stopping') job.view.status = finalStatus;
-      this.persist();
-      this.schedule(job);
-    }
+    return executeAgentJob(job, provider, run, ctx);
   }
+
   stop(id: string) {
     const job = this.jobs.get(id);
     if (!job) throw new ManagementError('Agent 不存在。', 404);
@@ -1793,6 +813,7 @@ export class AgentManager {
     }
     return this.list().find((v) => v.id === job.view.id)!;
   }
+
   async removeProvider(id: string) {
     if ([...this.jobs.values()].some((j) => j.view.providerId === id))
       throw new ManagementError(
@@ -1801,6 +822,7 @@ export class AgentManager {
       );
     await this.providers.remove(id);
   }
+
   async removeVoiceService(id: string) {
     if (!this.voiceServices) throw new ManagementError('语音服务未就绪。', 503);
     await this.voiceServices.remove(id, () =>
@@ -1809,6 +831,7 @@ export class AgentManager {
       ),
     );
   }
+
   async close() {
     this.taskScheduler.close();
     this.persist();

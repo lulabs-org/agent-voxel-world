@@ -3,7 +3,6 @@ export { nextOccurrence, wallClockInstant } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_TASK_LIMITS,
-  isRepeating,
   type TaskPlanDraft,
   type TaskPlan,
   type TaskRun,
