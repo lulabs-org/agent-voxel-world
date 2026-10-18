@@ -32,15 +32,21 @@ export function ControlsHelp({ onClose }: ControlsHelpProps) {
           <dt>
             <kbd>Esc</kbd>
           </dt>
-          <dd>释放鼠标 / 关闭帮助</dd>
+          <dd>释放鼠标 / 收起当前面板</dd>
         </div>
         <div>
           <dt>鼠标左键 / 右键</dt>
           <dd>移除 / 放置方块</dd>
         </div>
         <div>
-          <dt>点击底部材质栏</dt>
+          <dt>数字键 1–4 / 点击材料栏</dt>
           <dd>切换方块材质</dd>
+        </div>
+        <div>
+          <dt>
+            <kbd>Enter</kbd>
+          </dt>
+          <dd>打开聊天</dd>
         </div>
       </dl>
       <p>瞄准 6 格内的方块进行搭建。</p>

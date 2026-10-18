@@ -5,9 +5,12 @@ import { LiveRecorder } from '../../audio/live-recorder';
 import { ClipRecorder } from '../../audio/clip-recorder';
 import { mentionQuery, consumeMention } from './chat-mentions';
 import { chatApi } from './api';
-export function useChatController(connection: Connection) {
-  const [collapsed, setCollapsed] = useState(false);
+export function useChatController(connection: Connection, expanded = true) {
+  const collapsed = !expanded;
   const [collapsedAt, setCollapsedAt] = useState(0);
+  useEffect(() => {
+    if (expanded) setCollapsedAt(connection.chats.at(-1)?.seq ?? 0);
+  }, [expanded, connection.chats.at(-1)?.seq]);
   const unread = collapsed
     ? connection.chats.filter(
         (entry) =>
@@ -296,7 +299,6 @@ export function useChatController(connection: Connection) {
   return {
     connection,
     collapsed,
-    setCollapsed,
     setCollapsedAt,
     unread,
     text,

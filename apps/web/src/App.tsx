@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Connection } from './network/connection';
 import { WorldPanel } from './features/world/WorldPanel';
 import { LobbyCard } from './features/world/LobbyCard';
@@ -8,17 +8,81 @@ import { ChatPanel } from './features/chat/ChatPanel';
 import { SpatialVoicePanel } from './features/voice/SpatialVoicePanel';
 import { GameHeader } from './features/hud/GameHeader';
 import { GameFooter } from './features/hud/GameFooter';
+import { ControlsHelp } from './features/hud/ControlsHelp';
+import {
+  hudShortcut,
+  isInteractiveTarget,
+  MATERIAL_LABELS,
+} from './features/hud/hud-input';
 import { releasePointerLock } from './utils/pointer-lock';
 
 const savedName = sessionStorage.getItem('voxel-name');
 
 export function App({ connection }: { connection: Connection }) {
   const [, render] = useState(0);
-  const [activePanel, setActivePanel] = useState<'players' | null>(null);
+  const [activePanel, setActivePanel] = useState<
+    'players' | 'menu' | 'help' | null
+  >(null);
   const [consoleEntry, setConsoleEntry] = useState<{
     initialTab?: 'agents';
   } | null>(null);
-  const [showControls, setShowControls] = useState(false);
+  const [showCoordinates, setShowCoordinates] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [voiceExpanded, setVoiceExpanded] = useState(false);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [narrow, setNarrow] = useState(
+    () => matchMedia('(max-width: 899px)').matches,
+  );
+  const [shortViewport, setShortViewport] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const query = matchMedia('(max-width: 899px)');
+    const update = () => setNarrow(query.matches);
+    query.addEventListener('change', update);
+    const viewport = window.visualViewport;
+    const resize = () => {
+      setShortViewport((viewport?.height ?? innerHeight) < 560);
+      mainRef.current?.style.setProperty(
+        '--hud-height',
+        `${viewport?.height ?? innerHeight}px`,
+      );
+      mainRef.current?.style.setProperty(
+        '--hud-top',
+        `${viewport?.offsetTop ?? 0}px`,
+      );
+    };
+    resize();
+    viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
+    return () => {
+      query.removeEventListener('change', update);
+      viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
+    };
+  }, []);
+  useEffect(() => {
+    if (narrow && chatExpanded) setVoiceExpanded(false);
+  }, [narrow, chatExpanded]);
+  const changeChat = (expanded: boolean) => {
+    if (!expanded && chatBusy) return;
+    if (expanded) {
+      releasePointerLock();
+      if (narrow) setVoiceExpanded(false);
+    }
+    setChatExpanded(expanded);
+  };
+  const changeVoice = (expanded: boolean) => {
+    if (expanded && narrow && chatBusy) return;
+    if (expanded) {
+      releasePointerLock();
+      if (narrow) setChatExpanded(false);
+    }
+    setVoiceExpanded(expanded);
+  };
+  const togglePanel = (panel: 'players' | 'menu' | 'help') => {
+    releasePointerLock();
+    setActivePanel((previous) => (previous === panel ? null : panel));
+  };
   const [name, setName] = useState(savedName ?? 'Explorer');
   const [joined, setJoined] = useState(!!savedName);
 
@@ -35,14 +99,43 @@ export function App({ connection }: { connection: Connection }) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !joined ||
+        document.querySelector('dialog[open]') ||
+        event.defaultPrevented ||
+        event.isComposing
+      )
+        return;
       if (event.key === 'Escape') {
-        setActivePanel(null);
-        setShowControls(false);
+        if (activePanel) {
+          setActivePanel(null);
+          document
+            .querySelector<HTMLButtonElement>(
+              activePanel === 'players'
+                ? '[aria-controls="world-panel"]'
+                : '[aria-controls="game-menu"]',
+            )
+            ?.focus();
+        } else if (voiceExpanded) changeVoice(false);
+        else if (chatExpanded) changeChat(false);
+        return;
+      }
+      const shortcut = hudShortcut(
+        event,
+        isInteractiveTarget(event.target),
+        !!activePanel,
+      );
+      if (shortcut === 'chat') {
+        event.preventDefault();
+        changeChat(true);
+      } else if (shortcut) {
+        event.preventDefault();
+        setMaterial(shortcut);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  });
 
   const openConsole = (initialTab?: 'agents') => {
     releasePointerLock();
@@ -66,11 +159,24 @@ export function App({ connection }: { connection: Connection }) {
     connection.leave();
     setJoined(false);
     setActivePanel(null);
-    setShowControls(false);
+    setChatExpanded(false);
+    setVoiceExpanded(false);
   };
 
   return (
-    <main className={joined ? 'in-game' : 'in-lobby'}>
+    <main
+      ref={mainRef}
+      data-game-overlay={activePanel || undefined}
+      className={
+        joined
+          ? `in-game${narrow && shortViewport && chatExpanded ? ' hud-short-chat' : ''}`
+          : 'in-lobby'
+      }
+      onPointerDownCapture={(event) => {
+        if ((event.target as HTMLElement).closest('[data-hud], #world-panel'))
+          releasePointerLock();
+      }}
+    >
       <div className="world" ref={hostRef} />
 
       <GameHeader
@@ -79,12 +185,35 @@ export function App({ connection }: { connection: Connection }) {
         isConsoleOpen={consoleEntry !== null}
         isPlayersOpen={activePanel === 'players'}
         onOpenConsole={() => openConsole()}
-        onTogglePlayers={() =>
-          setActivePanel((prev) => (prev === 'players' ? null : 'players'))
-        }
-        onLeaveWorld={leaveWorld}
+        onTogglePlayers={() => togglePanel('players')}
+        isMenuOpen={activePanel === 'menu'}
+        onToggleMenu={() => togglePanel('menu')}
       />
 
+      {joined && activePanel === 'menu' && (
+        <section
+          id="game-menu"
+          className="hud-popover game-menu"
+          aria-label="游戏菜单"
+          data-hud
+        >
+          <button onClick={() => togglePanel('help')}>操作帮助</button>
+          <label>
+            <input
+              type="checkbox"
+              checked={showCoordinates}
+              onChange={(event) => setShowCoordinates(event.target.checked)}
+            />
+            显示目标坐标
+          </label>
+          <button onClick={leaveWorld}>退出游戏</button>
+        </section>
+      )}
+      {joined && activePanel === 'help' && (
+        <div className="hud-help" data-hud>
+          <ControlsHelp onClose={() => setActivePanel(null)} />
+        </div>
+      )}
       <div className="lobby-layout">
         {!joined && (
           <LobbyCard
@@ -104,7 +233,12 @@ export function App({ connection }: { connection: Connection }) {
       {joined && (
         <>
           <div className="crosshair">+</div>
-          <div className="target">{target}</div>
+          {target && (
+            <div className="target">
+              {MATERIAL_LABELS[target.material]}
+              {showCoordinates && ` · ${target.x}, ${target.y}, ${target.z}`}
+            </div>
+          )}
         </>
       )}
 
@@ -116,9 +250,21 @@ export function App({ connection }: { connection: Connection }) {
       />
 
       {joined && (
-        <div className="communication">
-          <SpatialVoicePanel connection={connection} />
-          <ChatPanel connection={connection} />
+        <div
+          className={`game-communication${chatExpanded || voiceExpanded ? ' has-expanded' : ''}`}
+        >
+          <SpatialVoicePanel
+            connection={connection}
+            expanded={voiceExpanded}
+            onExpandedChange={changeVoice}
+            expandDisabled={narrow && chatBusy}
+          />
+          <ChatPanel
+            connection={connection}
+            expanded={chatExpanded}
+            onExpandedChange={changeChat}
+            onBusyChange={setChatBusy}
+          />
         </div>
       )}
 
@@ -126,9 +272,6 @@ export function App({ connection }: { connection: Connection }) {
         <GameFooter
           material={material}
           isConnected={connection.status === 'connected'}
-          showControls={showControls}
-          onToggleControls={() => setShowControls((prev) => !prev)}
-          onCloseControls={() => setShowControls(false)}
           onSelectMaterial={setMaterial}
           onEditBlock={editBlock}
         />

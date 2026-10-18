@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { REACH, type Block, type Material } from '@voxel/shared';
 import { Connection } from '../network/connection';
 import { VoxelAvatar } from './avatar';
+import { isInteractiveTarget } from '../features/hud/hud-input';
+export type TargetBlock = Pick<Block, 'material' | 'x' | 'y' | 'z'>;
 const colors = {
   grass: 0x6b9c52,
   dirt: 0x9c7353,
@@ -24,7 +26,7 @@ export class WorldScene {
   private highlight: THREE.LineSegments;
   private selected?: { block: Block; normal: THREE.Vector3 };
   material: Material = 'wood';
-  onTarget = (text: string) => {};
+  onTarget = (target: TargetBlock | null) => {};
   constructor(
     private host: HTMLDivElement,
     private connection: Connection,
@@ -106,9 +108,8 @@ export class WorldScene {
   };
   private keydown = (event: KeyboardEvent) => {
     if (this.connection.status !== 'connected') return;
-    if (document.querySelector('dialog[open]')) return;
-    if ((event.target as HTMLElement).matches('input,textarea,button,select'))
-      return;
+    if (document.querySelector('dialog[open], [data-game-overlay]')) return;
+    if (event.defaultPrevented || isInteractiveTarget(event.target)) return;
     this.keys.add(event.code);
     if (event.code === 'Space') event.preventDefault();
   };
@@ -130,9 +131,28 @@ export class WorldScene {
     );
   };
   private mouse = (event: MouseEvent) => {
-    if (this.connection.status !== 'connected') return;
+    if (
+      this.connection.status !== 'connected' ||
+      document.querySelector('dialog[open], [data-game-overlay]')
+    )
+      return;
     if (document.pointerLockElement !== this.renderer.domElement) {
-      void this.renderer.domElement.requestPointerLock();
+      if (document.activeElement instanceof HTMLElement)
+        document.activeElement.blur();
+      void Promise.resolve(this.renderer.domElement.requestPointerLock())
+        .then(() => {
+          // A chat/menu may have taken focus while the browser granted lock.
+          if (
+            isInteractiveTarget(document.activeElement) ||
+            document.querySelector('dialog[open]')
+          ) {
+            if (document.pointerLockElement === this.renderer.domElement)
+              document.exitPointerLock();
+          }
+        })
+        .catch(() => {
+          /* The browser can deny lock after Escape or navigation. */
+        });
       return;
     }
     if (event.button === 0) this.edit(false);
@@ -224,8 +244,8 @@ export class WorldScene {
     if (this.selected) {
       const b = this.selected.block;
       this.highlight.position.set(b.x, b.y, b.z);
-      this.onTarget(`${b.material} · ${b.x}, ${b.y}, ${b.z}`);
-    } else this.onTarget('Aim at a block');
+      this.onTarget({ material: b.material, x: b.x, y: b.y, z: b.z });
+    } else this.onTarget(null);
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame(this.frame);
   };

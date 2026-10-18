@@ -5,8 +5,17 @@ import {
   SpatialTranscriber,
   type TranscriptionState,
 } from '../../audio/spatial-transcriber';
-export function SpatialVoicePanel({ connection }: { connection: Connection }) {
-  const [collapsed, setCollapsed] = useState(false);
+export function SpatialVoicePanel({
+  connection,
+  expanded,
+  onExpandedChange,
+  expandDisabled,
+}: {
+  connection: Connection;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+  expandDisabled: boolean;
+}) {
   const [state, setState] = useState<SpatialStatus>({
     sending: false,
     listening: false,
@@ -21,6 +30,15 @@ export function SpatialVoicePanel({ connection }: { connection: Connection }) {
     error: '',
   });
   const engine = useRef<SpatialVoice | null>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const details = useRef<HTMLDivElement>(null);
+  const wasExpanded = useRef(expanded);
+  useEffect(() => {
+    if (expanded)
+      details.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    else if (wasExpanded.current) toggle.current?.focus();
+    wasExpanded.current = expanded;
+  }, [expanded]);
   useEffect(() => {
     const voice = new SpatialVoice(connection, setState);
     const transcriber = new SpatialTranscriber(
@@ -50,100 +68,108 @@ export function SpatialVoicePanel({ connection }: { connection: Connection }) {
   useEffect(() => {
     engine.current?.update();
   }, [connection.players, connection.status]);
+  const micButton = (
+    <button
+      aria-label={
+        state.pending
+          ? '取消开启麦克风'
+          : state.sending
+            ? '关闭麦克风'
+            : '开启麦克风'
+      }
+      aria-pressed={state.sending}
+      className={state.sending ? 'mic-live' : ''}
+      disabled={connection.status !== 'connected' || connection.chatRecording}
+      onClick={() =>
+        state.sending || state.pending
+          ? engine.current?.stopMic()
+          : void engine.current?.startMic()
+      }
+    >
+      {state.pending
+        ? '授权中 · 取消'
+        : state.sending
+          ? '● 麦克风开'
+          : '麦克风关'}
+    </button>
+  );
+  const listenButton = (
+    <button
+      aria-label={state.listening ? '关闭收听' : '开启收听'}
+      aria-pressed={state.listening}
+      disabled={connection.status !== 'connected'}
+      onClick={() => void engine.current?.setListening(!state.listening)}
+    >
+      {state.listening ? '收听开' : '收听关'}
+    </button>
+  );
   return (
     <section
-      className={`spatial-voice dock-panel${collapsed ? ' is-collapsed' : ''}`}
+      className={`spatial-voice${expanded ? ' is-expanded' : ''}`}
       aria-label="附近空间语音"
+      data-hud
     >
-      <button
-        className="dock-tab"
-        aria-label="展开附近语音"
-        aria-expanded={false}
-        hidden={!collapsed}
-        onClick={() => setCollapsed(false)}
+      <div
+        ref={details}
+        className="spatial-details"
+        hidden={!expanded}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            onExpandedChange(false);
+          }
+        }}
       >
-        <span>‹ 语音</span>
-        <small className={state.sending ? 'dock-live' : ''}>
-          {state.sending
-            ? '● 外放中'
-            : state.pending
-              ? '授权中'
-              : state.listening
-                ? '收听中'
-                : '已关闭'}
-        </small>
-        {(state.error || transcript.error) && <small>有错误</small>}
-      </button>
-      <div className="chat-title">
-        <strong>附近语音</strong>
-        <small>
-          {state.sending
-            ? '● 正在外放'
-            : state.pending
-              ? '等待麦克风授权'
-              : '麦克风已关闭'}
-        </small>
+        <div className="chat-title">
+          <strong>附近语音</strong>
+          <button
+            aria-label="收起附近语音"
+            onClick={() => onExpandedChange(false)}
+          >
+            ×
+          </button>
+        </div>
+        <small>18 格内随距离、朝向变化 · {state.connected} 个语音连接</small>
+        <small>整句确认后附近 Agent 才会收到；私聊语音仅接收者可听。</small>
+        <small role="status">{transcript.status}</small>
+        {transcript.text && (
+          <p className="spatial-caption">{transcript.text}</p>
+        )}
+        {(state.error || transcript.error) && (
+          <p role="alert" className="chat-error">
+            {state.error || transcript.error}
+          </p>
+        )}
+      </div>
+      {(state.agentSpeaking || transcript.partial) && (
+        <div className="spatial-live-caption" role="status">
+          {state.agentSpeaking && <span>正在说话 · {state.agentSpeaking}</span>}
+          {transcript.partial && <span>临时字幕 · {transcript.partial}</span>}
+        </div>
+      )}
+      {!expanded && (state.error || transcript.error) && (
         <button
-          className="dock-collapse"
-          aria-label="收起附近语音"
-          aria-expanded={true}
-          title="收起到侧边（保持语音状态）"
-          onClick={() => setCollapsed(true)}
+          className="spatial-error-summary"
+          aria-label="语音异常 · 查看详情"
+          disabled={expandDisabled}
+          onClick={() => onExpandedChange(true)}
         >
-          ›
+          <span role="status">语音异常 · 查看详情</span>
+        </button>
+      )}
+      <div className="spatial-toolbar">
+        {micButton}
+        {listenButton}
+        <button
+          ref={toggle}
+          aria-label={expanded ? '收起附近语音' : '展开附近语音'}
+          aria-expanded={expanded}
+          disabled={!expanded && expandDisabled}
+          onClick={() => onExpandedChange(!expanded)}
+        >
+          {expanded ? '⌄' : '⌃'}
         </button>
       </div>
-      <div className="spatial-actions">
-        <button
-          aria-pressed={state.sending}
-          disabled={
-            connection.status !== 'connected' || connection.chatRecording
-          }
-          onClick={() =>
-            state.sending || state.pending
-              ? engine.current?.stopMic()
-              : void engine.current?.startMic()
-          }
-        >
-          {state.pending
-            ? '取消开启'
-            : state.sending
-              ? '关闭麦克风'
-              : '开启麦克风'}
-        </button>
-        <button
-          aria-pressed={state.listening}
-          disabled={connection.status !== 'connected'}
-          onClick={() => void engine.current?.setListening(!state.listening)}
-        >
-          {state.listening ? '关闭收听' : '开启收听'}
-        </button>
-      </div>
-      <small>18 格内随距离、朝向变化 · {state.connected} 个语音连接</small>
-      <small>说话时显示临时字幕，整句确认后附近 Agent 才会收到。</small>
-      <small>开启收听可听见附近 Agent 的语音回复；私聊仅接收者可听。</small>
-      {state.agentSpeaking && (
-        <p className="spatial-caption" role="status">
-          正在说话 · {state.agentSpeaking}
-        </p>
-      )}
-      <small role="status">{transcript.status}</small>
-      {transcript.partial && (
-        <p className="speech-interim" role="status">
-          临时字幕 · {transcript.partial}
-        </p>
-      )}
-      {transcript.text && <p className="spatial-caption">{transcript.text}</p>}
-      {transcript.error && (
-        <p role="alert" className="chat-error">
-          {transcript.error}
-        </p>
-      )}
-      {state.error && (
-        <p role="alert" className="chat-error">
-          {state.error}
-        </p>
-      )}
     </section>
   );
 }

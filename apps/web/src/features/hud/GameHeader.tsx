@@ -5,7 +5,8 @@ interface GameHeaderProps {
   isPlayersOpen: boolean;
   onOpenConsole: () => void;
   onTogglePlayers: () => void;
-  onLeaveWorld: () => void;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
 }
 
 export function GameHeader({
@@ -15,10 +16,59 @@ export function GameHeader({
   isPlayersOpen,
   onOpenConsole,
   onTogglePlayers,
-  onLeaveWorld,
+  isMenuOpen,
+  onToggleMenu,
 }: GameHeaderProps) {
   const isConnected = connectionStatus === 'connected';
 
+  if (joined) {
+    const status = isConnected
+      ? '已连接'
+      : connectionStatus === 'connecting'
+        ? '正在连接…'
+        : '连接中断，正在恢复';
+    return (
+      <header className="game-header" data-hud>
+        <div
+          className="world-identity"
+          tabIndex={0}
+          title={status}
+          aria-label={`WORLD 01 · ${status}`}
+        >
+          <i
+            className={isConnected ? 'online' : 'offline'}
+            aria-hidden="true"
+          />
+          <strong>WORLD 01</strong>
+          {!isConnected && <span role="status">{status}</span>}
+        </div>
+        <nav className="hud-navigation" aria-label="游戏功能">
+          <button
+            aria-expanded={isPlayersOpen}
+            aria-controls="world-panel"
+            onClick={onTogglePlayers}
+          >
+            玩家
+          </button>
+          <button
+            aria-haspopup="dialog"
+            aria-expanded={isConsoleOpen}
+            aria-controls="control-console"
+            onClick={onOpenConsole}
+          >
+            控制台
+          </button>
+          <button
+            aria-expanded={isMenuOpen}
+            aria-controls="game-menu"
+            onClick={onToggleMenu}
+          >
+            菜单
+          </button>
+        </nav>
+      </header>
+    );
+  }
   return (
     <header>
       <div className="brand">
@@ -50,15 +100,6 @@ export function GameHeader({
               玩家
             </button>
           </nav>
-        )}
-        {joined && (
-          <button
-            className="exit-game"
-            onClick={onLeaveWorld}
-            title="退出当前世界并返回进入页面"
-          >
-            退出游戏
-          </button>
         )}
       </div>
     </header>
