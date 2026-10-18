@@ -527,7 +527,20 @@ try {
       .status,
     200,
   );
-  manager.stop(capabilityJob.id);
+  assert.equal(
+    (
+      await api(
+        `/${capabilityJob.id}`,
+        'DELETE',
+        undefined,
+        'https://untrusted.example',
+      )
+    ).status,
+    403,
+  );
+  assert.equal((await api(`/${capabilityJob.id}`, 'DELETE')).status, 204);
+  assert(!manager.list().some((j) => j.id === capabilityJob.id));
+  assert.equal((await api(`/${capabilityJob.id}`, 'DELETE')).status, 404);
   await speaker.close();
   speaker = undefined;
   await until(() => room.state.players.size === 3);
@@ -564,6 +577,8 @@ try {
       manager!.create({ providerId: 'deepseek', name: 'overflow', goal: 'Hi' }),
     /最多同时在线/,
   );
+  await manager.remove(stopped.id);
+  await until(() => room.state.players.size === 3);
   for (const j of manager.list().filter((j) => j.sessionId)) manager.stop(j.id);
   await until(() => room.state.players.size === 0);
   console.log(

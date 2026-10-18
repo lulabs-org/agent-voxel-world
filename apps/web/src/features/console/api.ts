@@ -158,6 +158,7 @@ export const consoleApi = {
   cancelTask: (id: string) =>
     request<void>(`${agentPath(id)}/cancel`, 'POST', {}),
   stopAgent: (id: string) => request<void>(`${agentPath(id)}/stop`, 'POST', {}),
+  deleteAgent: (id: string) => request<void>(agentPath(id), 'DELETE'),
   assignTask: (id: string, goal: string, limits?: TaskBudget) =>
     request<void>(`${agentPath(id)}/task`, 'POST', { goal, ...limits }),
   setVoiceReplies: (id: string, enabled: boolean) =>

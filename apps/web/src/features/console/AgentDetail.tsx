@@ -4,6 +4,7 @@ import type { ManagedAgentView } from '@voxel/shared';
 import type { ConsoleController } from './useConsoleController';
 import { agentPresentation } from './agent-presentation';
 import { AgentForm } from './AgentForm';
+import { DeleteAgentDialog } from './DeleteAgentDialog';
 import { AgentLogViewer } from './AgentLogViewer';
 import { AgentTaskPanel } from './AgentTaskPanel';
 
@@ -21,6 +22,7 @@ export function AgentDetail(
     capacityFull,
     joinAgent,
     stopAgent,
+    deleteAgent,
     openAgentEditor,
     showAgentForm,
     editingAgent,
@@ -30,6 +32,7 @@ export function AgentDetail(
   } = props;
   const [view, setView] = useState<'task' | 'activity'>('task');
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const state = agentPresentation(job);
   const editing = showAgentForm && editingAgent === job.id;
   return (
@@ -111,6 +114,7 @@ export function AgentDetail(
         <button
           aria-pressed={!editing && view === 'task'}
           onClick={() => {
+            setConfirmDelete(false);
             setShowAgentForm(false);
             setView('task');
             setError('');
@@ -122,6 +126,7 @@ export function AgentDetail(
         <button
           aria-pressed={!editing && view === 'activity'}
           onClick={() => {
+            setConfirmDelete(false);
             setShowAgentForm(false);
             setView('activity');
             setError('');
@@ -132,7 +137,38 @@ export function AgentDetail(
         </button>
       </nav>
       {editing ? (
-        <AgentForm {...props} disabled={disabled || !state.canEdit} />
+        <>
+          <AgentForm {...props} disabled={disabled || !state.canEdit} />
+          <section className="agents-delete-section" aria-label="删除角色">
+            <div className="agents-delete-heading">
+              <div>
+                <h4>删除角色</h4>
+                <p>永久删除角色设置、任务计划和运行记录。</p>
+              </div>
+              <button
+                className="agents-delete-button"
+                disabled={disabled || job.status === 'stopping'}
+                onClick={() => {
+                  setConfirmLeave(false);
+                  setError('');
+                  setConfirmDelete(true);
+                }}
+              >
+                删除 Agent
+              </button>
+            </div>
+            {confirmDelete && (
+              <DeleteAgentDialog
+                name={job.name}
+                busy={props.busy}
+                disabled={disabled || job.status === 'stopping'}
+                error={props.error}
+                onCancel={() => setConfirmDelete(false)}
+                onConfirm={() => void deleteAgent(job)}
+              />
+            )}
+          </section>
+        </>
       ) : view === 'activity' ? (
         <AgentLogViewer job={job} />
       ) : (

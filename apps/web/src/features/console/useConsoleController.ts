@@ -334,6 +334,16 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
       await consoleApi.stopAgent(job.id);
       setJobs(await consoleApi.listAgents());
     });
+  const deleteAgent = (job: ManagedAgentView) =>
+    perform(async () => {
+      await consoleApi.deleteAgent(job.id);
+      setJobs((list) => list.filter((item) => item.id !== job.id));
+      setSelectedAgentId(undefined);
+      setEditingAgent(undefined);
+      setShowAgentForm(false);
+      setTaskEditor(undefined);
+      setNotice(`已删除 ${job.name}。`);
+    });
   const assignTask = (job: ManagedAgentView, limits?: TaskBudget) =>
     perform(async () => {
       await consoleApi.assignTask(job.id, taskGoal, limits);
@@ -395,6 +405,7 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
     pauseAgent,
     cancelTask,
     stopAgent,
+    deleteAgent,
     assignTask,
     toggleVoiceReplies,
   };

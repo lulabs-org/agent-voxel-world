@@ -78,6 +78,8 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 执行异常、受阻、需要补充信息或额度用尽时暂停对应计划。处理后须显式恢复计划；继续本次执行不等于恢复计划。服务端负责调度，关闭浏览器不影响任务；世界服务停止期间错过的触发不补跑。心跳为执行器内部节奏，旧固定/随机配置保留，新角色默认 3 秒，角色设置不再展示调度或任务额度。
 
+“角色设置”底部的独立删除区域提供“删除 Agent”，二次确认后停止运行并永久删除角色设置、任务计划和运行记录；世界中的方块及共享模型、语音服务保留。删除失败时保留已停止的角色供重试。
+
 最多同时在线 4 个托管 Agent（含待命）。离开世界暂停正在执行的任务；加入世界待命只上线，不重跑旧记录。聊天产生的新任务登记为立即执行的一次性安排，不能隐式替换正在执行的任务。普通回复保持原有消息唤醒和私聊隔离。
 
 **角色设置** 可修改昵称、角色设定、模型服务、权限与语音服务。任务目标只在“任务”页修改，保存角色设置不会把旧表单中的目标覆盖到新任务。执行中显示暂停入口，暂停后才能保存；语音回复开关仍可在运行期间切换。更换模型会重置任务进度。单独修改技能或动作权限会暂停未结束任务，保留目标、用量、动作记录和建造检查点；确认继续后按新能力重新规划，不重放旧动作。已完成、已取消任务保持原状态。
@@ -102,7 +104,7 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 通用服务必须兼容 OpenAI **Chat Completions** 的 SSE 流式响应、工具调用及 `tool_choice=required`；不支持时明确报错，不降级到 JSON 文本解析。原生 Anthropic/Responses 等接口本期未接入。可在兼容设置中选择 `max_tokens` 或 `max_completion_tokens`。旧 `jsonMode` 字段可读取但不再生效，控制台已移除该选项。DeepSeek 专用思考字段不会发给其他服务商。本机 Ollama 使用 `http://127.0.0.1:11434/v1`，先在 Ollama 下载模型，再获取列表；配置 Ollama 失败不影响使用 DeepSeek。[Ollama 官方兼容接口说明](https://docs.ollama.com/api/openai-compatibility)。
 
-管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /agents/providers` 返回脱敏配置，`POST/PUT/DELETE /agents/providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /agents/providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（新建传 `startTask: false` 表示只加入待命，可省略 `goal`；省略此开关保持原有创建并执行语义），`PUT /agents/:id` 保存已有 Agent 参数（不启动），`POST /agents/:id/task` 布置任务（传 `goal`），`POST /agents/:id/pause` 暂停，`POST /agents/:id/cancel` 取消，`POST /agents/:id/resume` 手动继续（可传 `goal` 新建），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
+管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /agents/providers` 返回脱敏配置，`POST/PUT/DELETE /agents/providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /agents/providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（新建传 `startTask: false` 表示只加入待命，可省略 `goal`；省略此开关保持原有创建并执行语义），`DELETE /agents/:id` 停止并持久化删除角色及任务记录，`PUT /agents/:id` 保存已有 Agent 参数（不启动），`POST /agents/:id/task` 布置任务（传 `goal`），`POST /agents/:id/pause` 暂停，`POST /agents/:id/cancel` 取消，`POST /agents/:id/resume` 手动继续（可传 `goal` 新建），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
 
 ### 任务管理 API
 

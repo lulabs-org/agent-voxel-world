@@ -948,3 +948,66 @@ it('persists and reloads 500 timestamped activity records without truncating to 
   const persisted = JSON.parse(await readFile(path, 'utf8'));
   expect(persisted[0].logTimes).toEqual(archive[0].logTimes.slice(-500));
 });
+
+it('deletes a resident character and its tasks durably, preserving shared services', async () => {
+  const session = fakeSession();
+  const m = setup(session);
+  const job = m.create(settings);
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  expect(m.taskPlans(job.id).length).toBeGreaterThan(0);
+  await m.remove(job.id);
+  expect(session.close).toHaveBeenCalled();
+  expect(m.list()).toEqual([]);
+  expect(() => m.taskPlans(job.id)).toThrow('不存在');
+  expect(store.get('deepseek')).toBeDefined();
+  await expect(m.remove(job.id)).rejects.toMatchObject({ status: 404 });
+  await m.close();
+  const restored = setup(fakeSession());
+  await restored.load();
+  expect(restored.list()).toEqual([]);
+});
+
+it('aborts an active decision and blocks concurrent join/delete before removal completes', async () => {
+  let release!: () => void;
+  let signal: AbortSignal | undefined;
+  const decide = vi.fn<Planner['decide']>(async (_obs, _history, abort) => {
+    signal = abort;
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return {
+      actions: [{ type: 'chat', text: 'must not send' }],
+      task: { intent: 'continue', status: 'completed', summary: 'done' },
+    };
+  });
+  const session = fakeSession();
+  const m = setup(session, decide);
+  const job = m.create(settings);
+  await vi.waitFor(() => expect(decide).toHaveBeenCalled());
+  const removing = m.remove(job.id);
+  expect(signal?.aborted).toBe(true);
+  expect(() => m.join(job.id)).toThrow();
+  await expect(m.remove(job.id)).rejects.toMatchObject({ status: 409 });
+  release();
+  await removing;
+  expect(m.list()).toEqual([]);
+  expect(session.request.mock.calls.some(([type]) => type === 'chat')).toBe(
+    false,
+  );
+});
+
+it('keeps a stopped character recoverable when deletion cannot be persisted', async () => {
+  const { mkdir } = await import('node:fs/promises');
+  const m = setup(fakeSession());
+  const job = m.create(settings);
+  await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
+  await m.controlTask(job.id, 'pause');
+  const blocked = `${store.path}.agents.json.tmp`;
+  await mkdir(blocked);
+  try {
+    await expect(m.remove(job.id)).rejects.toThrow();
+    expect(m.list()[0]).toMatchObject({ id: job.id, status: 'stopped' });
+  } finally {
+    await rm(blocked, { recursive: true, force: true });
+  }
+});

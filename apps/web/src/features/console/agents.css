@@ -1185,3 +1185,63 @@
   flex-shrink: 0;
   accent-color: #305347;
 }
+
+.agents-delete-section {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--agents-border);
+}
+.agents-delete-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.agents-delete-heading h4 {
+  margin: 0 0 6px;
+}
+.agents-delete-heading p {
+  margin: 0;
+  color: var(--agents-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.agent-dialog button.agents-delete-button {
+  color: #943f36;
+  background: transparent;
+  border: 1px solid #d9b7b0;
+}
+.agent-dialog button.agents-delete-button:hover:not(:disabled) {
+  background: #f8eeeb;
+}
+.agents-delete-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 24px;
+  border: 1px solid var(--agents-border);
+  border-radius: 12px;
+  background: #fffef9;
+  color: #263a36;
+  box-shadow: 0 20px 70px #16382f44;
+}
+.agents-delete-dialog::backdrop {
+  background: #173a3366;
+}
+.agents-delete-dialog h3 {
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.agents-delete-dialog p {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.agents-delete-dialog .agents-actions {
+  justify-content: flex-end;
+  margin-top: 24px;
+}

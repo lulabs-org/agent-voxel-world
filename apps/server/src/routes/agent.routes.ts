@@ -833,6 +833,33 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     '/agents/:id/stop',
     route((req, res) => res.json(manager.stop(String(req.params.id)))),
   );
+  /**
+   * @openapi
+   * /agents/{id}:
+   *   delete:
+   *     summary: 停止并删除 Agent、任务计划和运行记录（保留世界建筑和共享服务）
+   *     tags: [Agents]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       204:
+   *         description: 删除已持久化
+   *       404:
+   *         description: Agent 不存在
+   *       409:
+   *         description: Agent 正在更新
+   */
+  app.delete(
+    '/agents/:id',
+    route(async (req, res) => {
+      await manager.remove(String(req.params.id));
+      res.sendStatus(204);
+    }),
+  );
   app.use('/agents', (_req, res) => {
     res.status(404).json({ error: 'Agent 接口不存在，请确认前后端版本一致。' });
   });

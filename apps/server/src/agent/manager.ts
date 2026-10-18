@@ -652,6 +652,7 @@ export class AgentManager {
       this.closing ||
       job.updating ||
       job.taskMutating ||
+      job.controlling ||
       ['joining', 'stopping'].includes(job.view.status)
     )
       throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
@@ -813,7 +814,31 @@ export class AgentManager {
     }
     return this.list().find((v) => v.id === job.view.id)!;
   }
-
+  async remove(id: string) {
+    const job = this.jobs.get(id);
+    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (this.closing || job.updating || job.taskMutating || job.controlling)
+      throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
+    // Block scheduling and mutations until all in-flight effects have settled.
+    job.controlling = true;
+    try {
+      this.stop(id);
+      await job.done;
+      this.jobs.delete(id);
+      this.persist();
+      try {
+        await this.saving;
+      } catch (error) {
+        // A failed archive write must leave a stopped, recoverable character.
+        this.jobs.set(id, job);
+        this.persist();
+        await this.saving.catch(() => {});
+        throw error;
+      }
+    } finally {
+      job.controlling = false;
+    }
+  }
   async removeProvider(id: string) {
     if ([...this.jobs.values()].some((j) => j.view.providerId === id))
       throw new ManagementError(
