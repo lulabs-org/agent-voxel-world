@@ -1,30 +1,16 @@
+import { createTestServer } from '../helpers/test-server';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
 import { Session, until } from '@voxel/agent-runtime';
 import { PLAYER_NAME_TAKEN } from '@voxel/shared';
-import { WorldRoom } from '../../src/world/room';
 
 {
   process.env.DATABASE_URL = '';
   process.env.VOICE_PROVIDER = 'mock';
-  const app = express();
-  const http = createServer(app);
-  const server = new Server({
-    transport: new WebSocketTransport({ server: http }),
-    greet: false,
-    gracefullyShutdown: false,
-  });
-  server.define('world', WorldRoom);
+  const server = await createTestServer();
   const sessions: Session[] = [];
   try {
-    await server.listen(0, '127.0.0.1');
-    const listing = await matchMaker.createRoom('world', {});
-    const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-    app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-    const url = `ws://127.0.0.1:${(http.address() as { port: number }).port}`;
+    const room = server.world;
+    const url = server.url;
     const session = () => {
       const s = new Session(url);
       sessions.push(s);
@@ -70,7 +56,7 @@ import { WorldRoom } from '../../src/world/room';
     assert.equal(room.state.players.size, 2);
   } finally {
     await Promise.all(sessions.map((s) => s.close()));
-    await server.gracefullyShutdown(false);
+    await server.close();
   }
   console.log(
     'PASS: concurrent duplicate joins, case/whitespace/truncation collisions, human/Agent shared names, reconnect identity, release after exit.',

@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc --noEmit",
     "start": "tsx src/index.ts",
-    "test:agent:deepseek": "tsx test/integration/deepseek.ts"
+    "test:agent:deepseek": "tsx test/integration/deepseek.ts",
+    "test": "vitest run --config ../../vitest.config.ts"
   },
   "dependencies": {
     "@colyseus/core": "^0.16.24",

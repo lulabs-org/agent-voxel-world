@@ -1,10 +1,6 @@
+import { createTestServer } from '../helpers/test-server';
 import { toolResponse } from '../../../../tests/support/pi-response';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { WorldRoom } from '../../src/world/room';
 import {
   Session,
   AgentRunner,
@@ -16,21 +12,11 @@ import {
 
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+const server = await createTestServer();
 let session: Session | undefined;
 try {
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  process.env.SERVER_URL = `ws://127.0.0.1:${(http.address() as { port: number }).port}`;
+  const room = server.world;
+  process.env.SERVER_URL = server.url;
   session = await new Session().join('DeepSeek fixture', 'ai-agent');
   const first = await session.observe();
   assert.equal(first.self.kind, 'ai-agent');
@@ -140,5 +126,5 @@ try {
   );
 } finally {
   await session?.close();
-  await server.gracefullyShutdown(false);
+  await server.close();
 }

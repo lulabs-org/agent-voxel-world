@@ -8,7 +8,7 @@ import {
   ProviderStore,
   validateAgent,
   validateProvider,
-} from '../apps/server/src/agent/manager';
+} from '../apps/server/src/modules/agent/manager';
 import { listModels, type Observation } from '@voxel/agent-runtime';
 
 const folders: string[] = [];

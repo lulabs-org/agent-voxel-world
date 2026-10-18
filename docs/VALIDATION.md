@@ -306,13 +306,32 @@
 - 新增显式启用的真实模型验收：在仓库根目录执行 `NAVIGATION_PROVIDERS=/absolute/path/providers.json pnpm test:navigation:live`，可用 `NAVIGATION_PROVIDER` 选择服务 ID、`NAVIGATION_OUTPUT` 指定结果文件。默认输出为 `artifacts/navigation-live-model.json`。每个场景最多 8 次真实请求、120 秒运行窗口；不会自动包含在普通测试中。
 - 本次使用现有 DeepSeek `deepseek-flash` 配置，无固定响应、无人工注入任务意图。通过独立真实 Colyseus/WebSocket 世界、生产 AgentManager 消息唤醒/任务创建/持久化流程，私聊原句“到我这里来”。场内另有旁观玩家，目标按发送者 actor ID 识别。
 
-| 场景 | 模型请求 | 耗时 | 实际结果 |
-| --- | ---: | ---: | --- |
-| 无旧任务、平地 | 4 | 5.36 秒 | `(0,2.5,0)` 到 `(4,2.5,0)` |
-| 旧任务已取消、墙体阻挡 | 3 | 7.22 秒 | 绕行至 z=3，再抵达 `(4,2.5,0)` |
-| 旧任务已取消、一格台阶 | 2 | 3.89 秒 | 跳上台阶并抵达 `(4,3.5,0)` |
+| 场景                   | 模型请求 |    耗时 | 实际结果                       |
+| ---------------------- | -------: | ------: | ------------------------------ |
+| 无旧任务、平地         |        4 | 5.36 秒 | `(0,2.5,0)` 到 `(4,2.5,0)`     |
+| 旧任务已取消、墙体阻挡 |        3 | 7.22 秒 | 绕行至 z=3，再抵达 `(4,2.5,0)` |
+| 旧任务已取消、一格台阶 |        2 | 3.89 秒 | 跳上台阶并抵达 `(4,3.5,0)`     |
 
 - 三项均断言新任务身份、发送者归属、running 状态、实际 goto 记录、权威位置变化与到达、completed 状态，以及归档中的 chat 来源任务记录。最终水平误差为 0，累计记录 71,951 tokens。这是三项有界验收，不代表所有模型或自然语言输入的成功率。
 - 第一次真实验收中平地/绕墙通过，台阶已走到但任务因旧失败记录 blocked；修复后完整三项重新通过，未将该失败隐藏为成功。
 - `pnpm test:navigation`、`pnpm test:agent:deepseek`、`pnpm test:agent:tasks` 均通过；这些回归集成使用固定推理响应，与上述真实模型验收区分。
 - 本机 `docker compose up -d --no-deps --build server` 构建和启动通过。重建前已有 Agent 为 idle，已备份服务数据；重建后健康接口正常，原 AI 自动重新加入并待命，五个修复模块 SHA-256 与已测试源码一致。数据库和语音容器未重建，数据卷保留。真实模型验收在隔离世界进行，未向既有角色发送测试任务。
+
+## 2026-10-19：服务端领域模块与统一服务器工厂
+
+- 基线 `dfa8e5f`，已包含聊天导航修复。迁移为 `config`、`common`、`transport` 和 `modules/{agent,audio,chat,realtime,world}`；拆分 Agent 路由、提取世界 Schema，保留原 HTTP 地址和 `.data` 路径。共享 Agent runtime、Web UI、Prisma schema 与迁移未改动。详细职责见 [服务端架构](../apps/server/README.md)。
+- `createApp` 仅装配 HTTP，`createServer` 管理依赖、端口、世界创建及关闭，入口仅加载环境并处理启停。全部 11 个服务端集成脚本和 3 个沙箱改用 `createTestServer`，默认临时存储、随机端口和内存世界，不加载生产数据。
+- `pnpm check` 通过：58 个测试文件、560 项测试、类型检查及全部工作区构建。新增依赖方向/循环检测和实际服务器生命周期测试，覆盖 Origin、错误格式、JSON 校验、SSE、ASR、世界连接、重复关闭及世界加载失败后的重新启动。`pnpm --filter @voxel/server test`：8 个文件、59 项通过。
+- 原有 35 条 OpenAPI 路径的完整 JSON 与迁移前深度比较一致，不仅比较路径名称。证据位于 `artifacts/server-architecture/openapi-before.json` 与 `openapi-after.json`。
+- `pnpm test:agents`、`pnpm test:agent:tasks`、`pnpm test:navigation`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:voice:services`、`pnpm test:agent:deepseek`、`pnpm test:player:names`、`pnpm test:voice:live` 和 realtime 集成脚本通过。这些使用固定模型/音频响应；不等同于真实麦克风、云端 ASR 或真实 TTS 验收。
+- 真实模型验收使用已有 DeepSeek `deepseek-flash`，通过新的生产服务器工厂在隔离世界私聊“到我这里来”；未注入任务意图或模型响应。三项均创建新任务、进入 running、执行 goto、到达发送者、完成并持久化 chat 来源记录。总计 7 次真实请求、55,806 tokens；证据：`artifacts/server-architecture/navigation-live-model.json`。凭据临时副本已删除。
+
+| 场景                   | 模型请求 |    耗时 | 实际结果                                     |
+| ---------------------- | -------: | ------: | -------------------------------------------- |
+| 无旧任务、平地         |        3 | 5.08 秒 | 到达 `(4,2.5,0)`，水平误差 0                 |
+| 旧任务已取消、墙体阻挡 |        2 | 6.01 秒 | 绕行至 z=3，到达 `(4,2.5,0)`                 |
+| 旧任务已取消、一格台阶 |        2 | 4.03 秒 | 上跳到达 `(3.998,3.502,0)`，水平误差约 0.002 |
+
+- `Dockerfile.server` 构建通过；独立容器以内存模式启动，验证健康、完整 OpenAPI、Origin 拒绝、配置写入、真实 WebSocket 玩家移动和私聊投递，重启后配置仍从 `/app/.data` 读取。入口、装配、配置及传输模块 SHA-256 与工作区一致。证据：`artifacts/server-architecture/docker-verification.json`。未启动额外数据库，未部署替换当前游戏容器或修改现有世界。
+- Docker 的现有 pnpm/tsx 启动包装器将 SIGTERM 记为退出码 1；容器在 10 秒超时前退出，未发生强杀或 OOM。直接服务器生命周期测试另行确认连接、房间和存储清理。该包装器行为未在本次架构重构中变更。
+- 首次生命周期测试遇到 Colyseus PM2 遥测占用 Vitest fork IPC，改为线程池后完整通过；未屏蔽服务器或网络。Docker 临时验收脚本最初错读 `event.text`，修正为现有协议的 `event.data.text` 后通过，业务聊天代码未因此修改。

@@ -1,17 +1,11 @@
+import { createTestServer } from '../helpers/test-server';
 import { DecisionFixture as ModelPlanner } from './../../../../tests/support/decision-fixture';
 import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { WorldRoom } from '../../src/world/room';
-import { AgentManager, ProviderStore } from '../../src/agent/manager';
-import { installAgentRoutes } from '../../src/routes/agent.routes';
-import { installPresenceRoutes } from '../../src/routes/presence.routes';
+import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
 import { Session, until, delay } from '@voxel/agent-runtime';
 
 import type { ManagedAgentView } from '@voxel/shared';
@@ -21,30 +15,13 @@ process.env.VOICE_PROVIDER = 'mock';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5188';
 const preview = process.env.TASK_PREVIEW === '1';
 const dir = await mkdtemp(join(tmpdir(), 'voxel-tasks-'));
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 let manager: AgentManager | undefined,
   human: Session | undefined,
   other: Session | undefined;
 let calls = 0;
 const prompts: any[] = [];
 try {
-  await server.listen(preview ? 2578 : 0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.use((_req, res, next) => {
-    res.header('Access-Control-Allow-Origin', process.env.WEB_ORIGIN);
-    next();
-  });
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  installPresenceRoutes(app, () => room.getPresence());
-  const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
   const store = new ProviderStore(join(dir, 'providers.json'));
   await store.load({ DEEPSEEK_API_KEY: 'fixture-only' });
   const request: typeof fetch = async (_url, init) => {
@@ -219,16 +196,26 @@ try {
       { headers: { 'Content-Type': 'application/json' } },
     );
   };
-  const makeManager = () =>
-    new AgentManager(store, url.replace('http', 'ws'), {
-      session: (url) => new Session(url),
-      runner: fixtureRunnerFactory(
-        (config, provider) => new ModelPlanner(config, request, provider),
-      ),
-      models: async () => ['fixture-model'],
-    });
-  manager = makeManager();
-  installAgentRoutes(app, manager);
+  const dependencies: NonNullable<
+    ConstructorParameters<typeof AgentManager>[2]
+  > = {
+    session: (address) => new Session(address),
+    runner: fixtureRunnerFactory(
+      (config, provider) => new ModelPlanner(config, request, provider),
+    ),
+    models: async () => ['fixture-model'],
+  };
+  server = await createTestServer({
+    directory: dir,
+    providers: store,
+    origin: process.env.WEB_ORIGIN,
+    port: preview ? 2578 : 0,
+    agentDependencies: dependencies,
+  });
+  const room = server.world,
+    url = server.httpUrl;
+  const makeManager = () => new AgentManager(store, server!.url, dependencies);
+  manager = server.agents;
   const api = async (path: string, method = 'POST', body: unknown = {}) => {
     const response = await fetch(`${url}/agents${path}`, {
       method,
@@ -504,6 +491,6 @@ try {
   await human?.close();
   await other?.close();
   await manager?.close();
-  await server.gracefullyShutdown(false);
+  await server?.close();
   await rm(dir, { recursive: true, force: true });
 }

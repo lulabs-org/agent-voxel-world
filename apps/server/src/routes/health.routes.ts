@@ -1,3 +1,4 @@
+import { readServerConfig, type ServerConfig } from '../config/env';
 import type { Express } from 'express';
 
 /**
@@ -33,17 +34,20 @@ import type { Express } from 'express';
  *                   items:
  *                     type: string
  */
-export function installHealthRoutes(app: Express) {
+export function installHealthRoutes(
+  app: Express,
+  config: ServerConfig = readServerConfig(),
+) {
   app.get('/health', (_req, res) =>
     res.json({
       ok: true,
       protocol: 1,
-      persistence: process.env.DATABASE_URL ? 'postgresql' : 'memory',
-      voice: process.env.VOICE_PROVIDER ?? 'mock',
+      persistence: config.databaseUrl ? 'postgresql' : 'memory',
+      voice: config.voice.provider,
       voiceProviders: [
         'mock',
         'browser',
-        ...(process.env.OLLAMA_MODEL ? ['ollama'] : []),
+        ...(config.voice.ollamaModel ? ['ollama'] : []),
       ],
     }),
   );

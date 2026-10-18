@@ -1,29 +1,15 @@
+import { createTestServer } from '../helpers/test-server';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { WorldRoom } from '../../src/world/room';
 import { Session, until, delay } from '@voxel/agent-runtime';
 import type { RealtimeEvent } from '../../../../packages/shared/src/realtime';
-// Isolated ephemeral world. Does not load .env, provider stores, agents, credentials or production data.
+// Isolated ephemeral world. Does not load .env, credentials or production data.
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 process.env.BAILIAN_REALTIME_ENABLED = 'false';
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http, maxPayload: 16384 }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+const server = await createTestServer();
 const sessions: Session[] = [];
 try {
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  app.get('/world', (_q, r) => r.json({ roomId: listing.roomId }));
-  const url = `ws://127.0.0.1:${(http.address() as { port: number }).port}`;
+  const url = server.url;
   for (const kind of ['human', 'human', 'scripted-agent']) {
     const s = new Session(url);
     sessions.push(s);
@@ -106,5 +92,5 @@ try {
   );
 } finally {
   await Promise.all(sessions.map((s) => s.close().catch(() => {})));
-  await server.gracefullyShutdown(false);
+  await server.close();
 }

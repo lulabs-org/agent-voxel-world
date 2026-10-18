@@ -111,25 +111,34 @@ pnpm format:check
 - AI 玩家：配置 `DEEPSEEK_API_KEY` 或 `AGENT_API_KEY` 后运行 `pnpm agent:ai`，支持观察、移动、聊天和显式开启的方块编辑。使用 Pi 模型适配与工具循环，支持思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
 - `packages/shared`：协议、确定性地形、物理与校验。
 
-服务端按职责组织，`src/index.ts` 负责启动、依赖装配和关闭清理：
+服务端按领域组织，HTTP 装配与网络生命周期分离，生产和集成测试共用服务器工厂。详细边界见 [服务端架构](apps/server/README.md)。
 
 ```text
 apps/server/
 ├── prisma/                 # schema 与 migrations
 ├── src/
-│   ├── index.ts
-│   ├── routes/             # HTTP 路由及就近维护的路由测试
-│   ├── world/              # 权威房间与世界持久化
-│   ├── agent/              # Agent 管理与语音回复
-│   ├── audio/              # 语音 provider、本地识别与合成
-│   ├── realtime/           # 实时会话、百炼适配器与离线协议模拟器
-│   └── chat/               # 消息分发与附件管理
+│   ├── index.ts            # 环境加载、监听与信号处理
+│   ├── app.ts              # createApp：HTTP 路由装配
+│   ├── server.ts           # createServer：依赖、房间与连接生命周期
+│   ├── config/             # 环境配置、校验与稳定的数据路径
+│   ├── common/             # 通用错误、中间件与 Swagger 扫描
+│   ├── transport/          # Colyseus / ASR WebSocket 适配
+│   ├── routes/             # 健康检查与 API 文档
+│   └── modules/
+│       ├── agent/          # 管理、调度、执行、存储及拆分后的路由
+│       ├── audio/          # asr、tts、session 与音频路由
+│       ├── chat/           # 聊天、附件、票据与 HTTP 路由
+│       ├── realtime/       # 实时会话、百炼适配器与离线协议模拟器
+│       └── world/          # 权威房间、Schema、存储与世界路由
 └── test/
+    ├── helpers/            # createTestServer：隔离状态的生产装配
     ├── integration/        # 独立临时世界中的集成脚本
     └── sandbox/            # 独立沙盒启动入口
 ```
 
 `pnpm test:voice:services`、`pnpm test:agents`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:agent:tasks` 和 `pnpm test:agent:deepseek` 指向服务端集成脚本，使用隔离世界和固定模型响应。实时会话集成与沙盒命令见 [百炼实时语音](docs/ALIYUN_REALTIME.md)。这些脚本由 `tsx` 显式运行，不进入默认 Vitest 扫描；根目录 `pnpm test:integration` 仍是需要已启动服务的 Agent 客户端集成检查。
+
+`pnpm --filter @voxel/server test` 运行服务端就近测试。`pnpm test:navigation:live` 需要显式提供模型配置，会产生真实模型调用；启动方式与验收范围见 [验证记录](docs/VALIDATION.md)。
 
 前端按功能与基础设施组织：
 

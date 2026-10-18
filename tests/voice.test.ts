@@ -5,7 +5,7 @@ import {
   OllamaVoiceProvider,
   createVoiceProvider,
   type VoiceEvent,
-} from '../apps/server/src/audio/voice';
+} from '../apps/server/src/modules/audio/session/voice';
 afterEach(() => vi.useRealTimers());
 describe('replaceable mock voice session', () => {
   it('streams labelled subtitles and states', () => {

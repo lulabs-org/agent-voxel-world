@@ -6,7 +6,7 @@ import {
   type Player,
   type WorldEvent,
 } from '../packages/shared/src/index';
-import { WorldChat } from '../apps/server/src/chat/chat';
+import { WorldChat } from '../apps/server/src/modules/chat/chat';
 import {
   agentChatContext,
   executeAction,
