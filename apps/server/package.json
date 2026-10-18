@@ -13,14 +13,18 @@
     "@colyseus/schema": "^3.0.69",
     "@colyseus/ws-transport": "^0.16.5",
     "@prisma/client": "6.19.0",
+    "@voxel/agent-runtime": "workspace:*",
     "@voxel/shared": "workspace:*",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "ws": "8.22.0",
-    "@voxel/agent-runtime": "workspace:*"
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "ws": "8.22.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "@types/ws": "8.18.2",
     "dotenv-cli": "^8.0.0",
     "prisma": "6.19.0"

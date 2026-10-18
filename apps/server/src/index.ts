@@ -15,6 +15,8 @@ import { installAgentRoutes } from './routes/agent.routes';
 import { checkStartupDatabase } from './startup';
 import { VoiceServiceStore } from './audio/voice-services';
 import { LocalSpeech } from './audio/local-speech';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger';
 
 try {
   await checkStartupDatabase();
@@ -31,11 +33,52 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin);
   next();
 });
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.json(swaggerSpec);
+});
+
 const speech = new LocalSpeech();
 const asrSettings = new AsrSettingsStore();
 await asrSettings.load();
 installSpeechRoutes(app, speech, asrSettings);
 installAsrRoutes(app, asrSettings);
+
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: 服务器健康状态检查
+ *     description: 获取服务器状态、协议版本、持久化方式与语音提供者配置
+ *     tags:
+ *       - System
+ *     responses:
+ *       200:
+ *         description: 成功返回系统健康信息
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *                 protocol:
+ *                   type: integer
+ *                   example: 1
+ *                 persistence:
+ *                   type: string
+ *                   example: memory
+ *                 voice:
+ *                   type: string
+ *                   example: mock
+ *                 voiceProviders:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
 app.get('/health', (_req, res) =>
   res.json({
     ok: true,
@@ -70,6 +113,26 @@ installAgentRoutes(app, agents);
 server.onBeforeShutdown(() => agents.close());
 await server.listen(port, '127.0.0.1');
 const world = await matchMaker.createRoom('world', {});
+/**
+ * @openapi
+ * /world:
+ *   get:
+ *     summary: 获取当前世界房间 ID
+ *     description: 获取 Colyseus 当前活动的 WorldRoom 实例房间 ID
+ *     tags:
+ *       - World
+ *     responses:
+ *       200:
+ *         description: 返回世界房间信息
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 roomId:
+ *                   type: string
+ *                   example: 4xK9pL2
+ */
 app.get('/world', (_req, res) => res.json({ roomId: world.roomId }));
 await agents.load();
 installChatRoutes(
@@ -87,3 +150,5 @@ installPresenceRoutes(app, () =>
   )?.getPresence(),
 );
 console.log(`Voxel server http://127.0.0.1:${port}`);
+console.log(`Swagger UI   http://127.0.0.1:${port}/api-docs`);
+console.log(`OpenAPI JSON http://127.0.0.1:${port}/api-docs.json`);

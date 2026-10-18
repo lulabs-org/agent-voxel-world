@@ -36,6 +36,40 @@ export function installChatRoutes(
       next(e);
     }
   });
+  /**
+   * @openapi
+   * /chat/audio:
+   *   post:
+   *     summary: 上传并发布语音聊天消息
+   *     tags:
+   *       - Chat
+   *     parameters:
+   *       - in: query
+   *         name: scope
+   *         schema:
+   *           type: string
+   *         description: 消息作用域
+   *       - in: query
+   *         name: to
+   *         schema:
+   *           type: string
+   *         description: 接收者列表 (逗号分隔)
+   *       - in: query
+   *         name: language
+   *         schema:
+   *           type: string
+   *           default: zh
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         audio/*:
+   *           schema:
+   *             type: string
+   *             format: binary
+   *     responses:
+   *       201:
+   *         description: 发布成功，返回消息详情
+   */
   app.post(
     '/chat/audio',
     express.raw({ type: () => true, limit: '1mb' }),
@@ -97,6 +131,25 @@ export function installChatRoutes(
       }
     },
   );
+
+  /**
+   * @openapi
+   * /chat/spatial/start:
+   *   post:
+   *     summary: 发起空间语音流
+   *     tags:
+   *       - Chat
+   *     responses:
+   *       200:
+   *         description: 返回生成的空间语音 session id
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 id:
+   *                   type: string
+   */
   app.post('/chat/spatial/start', (req, res, next) => {
     try {
       res.json({
@@ -106,6 +159,24 @@ export function installChatRoutes(
       next(e);
     }
   });
+
+  /**
+   * @openapi
+   * /chat/spatial/{id}:
+   *   delete:
+   *     summary: 结束空间语音流
+   *     tags:
+   *       - Chat
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       204:
+   *         description: 已成功结束
+   */
   app.delete('/chat/spatial/:id', (req, res) => {
     (res.locals.chat as WorldChat).endSpatial(
       res.locals.actor,
@@ -113,6 +184,52 @@ export function installChatRoutes(
     );
     res.sendStatus(204);
   });
+
+  /**
+   * @openapi
+   * /chat/spatial/{id}:
+   *   post:
+   *     summary: 提交并发布空间语音片段
+   *     tags:
+   *       - Chat
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         audio/*:
+   *           schema:
+   *             type: string
+   *             format: binary
+   *     responses:
+   *       200:
+   *         description: 成功处理语音片段
+   * /chat/spatial/{id}/preview:
+   *   post:
+   *     summary: 实时预览空间语音转录片段
+   *     tags:
+   *       - Chat
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         audio/*:
+   *           schema:
+   *             type: string
+   *             format: binary
+   *     responses:
+   *       200:
+   *         description: 实时转录部分结果
+   */
   app.post(
     ['/chat/spatial/:id', '/chat/spatial/:id/preview'],
     express.raw({ type: () => true, limit: '1mb' }),
@@ -156,6 +273,29 @@ export function installChatRoutes(
       }
     },
   );
+
+  /**
+   * @openapi
+   * /chat/agent-speech/{id}:
+   *   get:
+   *     summary: 获取 Agent 语音音频 (WAV)
+   *     tags:
+   *       - Chat
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: WAV 格式音频
+   *         content:
+   *           audio/wav:
+   *             schema:
+   *               type: string
+   *               format: binary
+   */
   app.get('/chat/agent-speech/:id', (req, res, next) => {
     try {
       const service = getAgentSpeech();
@@ -167,6 +307,29 @@ export function installChatRoutes(
       next(e);
     }
   });
+
+  /**
+   * @openapi
+   * /chat/audio/{id}:
+   *   get:
+   *     summary: 获取聊天语音音频 (WAV)
+   *     tags:
+   *       - Chat
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: WAV 格式音频
+   *         content:
+   *           audio/wav:
+   *             schema:
+   *               type: string
+   *               format: binary
+   */
   app.get('/chat/audio/:id', (req, res, next) => {
     try {
       res

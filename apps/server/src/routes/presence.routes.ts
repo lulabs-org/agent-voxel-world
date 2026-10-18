@@ -6,6 +6,26 @@ export function installPresenceRoutes(
   app: Express,
   read: () => WorldPresence | undefined,
 ) {
+  /**
+   * @openapi
+   * /world/presence:
+   *   get:
+   *     summary: 世界状态 SSE 长连接
+   *     description: 监听世界的在线玩家与在线状态 (Server-Sent Events)
+   *     tags:
+   *       - World
+   *     responses:
+   *       200:
+   *         description: 实时 SSE 事件流
+   *         content:
+   *           text/event-stream:
+   *             schema:
+   *               type: string
+   *       403:
+   *         description: Origin 不受信任
+   *       503:
+   *         description: 世界服务未就绪
+   */
   app.get('/world/presence', (req, res) => {
     const origin = req.headers.origin;
     if (

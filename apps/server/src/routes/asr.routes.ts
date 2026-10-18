@@ -37,17 +37,102 @@ export function installAsrRoutes(app: Express, store: AsrSettingsStore) {
         })
         .catch(next);
     };
+  /**
+   * @openapi
+   * /voice/asr/services:
+   *   get:
+   *     summary: 获取 ASR 语音识别服务配置列表
+   *     tags:
+   *       - ASR
+   *     responses:
+   *       200:
+   *         description: ASR 服务配置列表
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   */
   app.get('/voice/asr/services', (_req, res) => res.json(store.list()));
+
+  /**
+   * @openapi
+   * /voice/asr/services:
+   *   post:
+   *     summary: 添加新的 ASR 语音识别服务配置
+   *     tags:
+   *       - ASR
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *     responses:
+   *       201:
+   *         description: 创建成功
+   *       400:
+   *         description: 配置参数错误
+   *       415:
+   *         description: 请求非 JSON 格式
+   */
   app.post(
     '/voice/asr/services',
     route(async (req, res) => res.status(201).json(await store.save(req.body))),
   );
+
+  /**
+   * @openapi
+   * /voice/asr/services/{id}:
+   *   put:
+   *     summary: 更新 ASR 语音识别服务配置
+   *     tags:
+   *       - ASR
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: ASR 服务 ID
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *     responses:
+   *       200:
+   *         description: 更新成功
+   *       400:
+   *         description: 配置格式错误
+   */
   app.put(
     '/voice/asr/services/:id',
     route(async (req, res) =>
       res.json(await store.save(req.body, String(req.params.id))),
     ),
   );
+
+  /**
+   * @openapi
+   * /voice/asr/services/{id}:
+   *   delete:
+   *     summary: 删除 ASR 语音识别服务配置
+   *     tags:
+   *       - ASR
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: ASR 服务 ID
+   *     responses:
+   *       204:
+   *         description: 删除成功
+   */
   app.delete(
     '/voice/asr/services/:id',
     route(async (req, res) => {
