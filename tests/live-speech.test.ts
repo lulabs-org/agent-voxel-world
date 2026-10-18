@@ -44,6 +44,73 @@ function setup() {
   return { transport, events, session, feed };
 }
 describe('live speech confirmation boundary', () => {
+  it('keeps listening after a no-speech result and confirms the next sentence', async () => {
+    const t = setup();
+    t.transport.recognize.mockResolvedValue('');
+    t.feed(6);
+    t.feed(9, false);
+    await flush();
+    expect(t.events.onError).not.toHaveBeenCalled();
+    expect(t.events.onFinal).not.toHaveBeenCalled();
+    expect(t.events.onStatus).toHaveBeenCalledWith(
+      expect.stringContaining('继续说话'),
+    );
+    t.transport.recognize.mockResolvedValue('确认');
+    t.feed(6);
+    t.session.finish();
+    await flush();
+    expect(t.events.onFinal).toHaveBeenCalledExactlyOnceWith('确认');
+    expect(t.events.onEnd).toHaveBeenCalledOnce();
+  });
+  it('waits through a cold model load beyond 35 seconds but retains a bounded deadline', async () => {
+    vi.useFakeTimers();
+    const timeout = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockImplementation((ms) => {
+        const controller = new AbortController();
+        setTimeout(
+          () => controller.abort(new DOMException('deadline', 'TimeoutError')),
+          ms,
+        );
+        return controller.signal;
+      });
+    try {
+      const t = setup();
+      let finish!: (text: string) => void;
+      t.transport.recognize.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      t.feed(6);
+      t.session.finish();
+      await flush();
+      await vi.advanceTimersByTimeAsync(70000);
+      expect(t.transport.recognize.mock.calls[0][3].aborted).toBe(false);
+      finish('model ready');
+      await flush();
+      expect(t.events.onFinal).toHaveBeenCalledExactlyOnceWith('model ready');
+      const slow = setup();
+      slow.transport.recognize.mockImplementation(
+        (_id, _audio, _partial, signal) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () => reject(signal.reason), {
+              once: true,
+            });
+          }),
+      );
+      slow.feed(6);
+      slow.session.finish();
+      await flush();
+      await vi.advanceTimersByTimeAsync(100000);
+      expect(slow.events.onError).toHaveBeenCalledOnce();
+      expect(slow.events.onFinal).not.toHaveBeenCalled();
+    } finally {
+      timeout.mockRestore();
+      vi.useRealTimers();
+    }
+  });
   it('emits revisable previews while speaking and confirms once after silence', async () => {
     const t = setup();
     t.feed(12);
@@ -205,6 +272,31 @@ describe('live speech confirmation boundary', () => {
       (request.mock.calls as unknown as [string, RequestInit][])[1][1].headers,
     ).toMatchObject({ Authorization: 'Bearer private-token' });
   });
+});
+
+it('only treats explicit no-speech errors as empty live results, preserving real failures', async () => {
+  const request = vi
+    .fn()
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 'no-speech', error: 'empty' }), {
+        status: 400,
+      }),
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'broken' }), { status: 502 }),
+    )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ text: '' })));
+  const transport = speechTransport('en', undefined, request);
+  const recognize = () =>
+    transport.recognize(
+      '',
+      pcmWav([frame()]),
+      false,
+      new AbortController().signal,
+    );
+  expect(await recognize()).toBe('');
+  await expect(recognize()).rejects.toThrow('broken');
+  await expect(recognize()).rejects.toThrow('识别结果为空');
 });
 
 it('routes Whisper live snapshots to the selected profile with cancellation', async () => {

@@ -104,6 +104,18 @@ describe('local speech HTTP boundary', () => {
     expect(failed.status).toBe(429);
     expect(await failed.json()).toEqual({ error: 'busy' });
   });
+  it('distinguishes no-speech from inference failures for live recording clients', async () => {
+    transcribe.mockRejectedValueOnce(
+      new SpeechError('没有识别到文字，请重试。', 400, 'no-speech'),
+    );
+    const response = await fetch(`${url}/voice/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/wav' },
+      body: 'audio',
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'no-speech' });
+  });
   it('rejects oversized bodies before invoking inference', async () => {
     const response = await fetch(`${url}/voice/transcribe`, {
       method: 'POST',

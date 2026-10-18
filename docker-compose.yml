@@ -19,6 +19,19 @@ services:
       retries: 10
       start_period: 3s
 
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    container_name: voxel-whisper
+    restart: unless-stopped
+    environment:
+      # CPU image: reduce inference cost and avoid reloading after five idle minutes.
+      WHISPER__COMPUTE_TYPE: int8
+      WHISPER__TTL: -1
+    volumes:
+      - whisper_cache:/home/ubuntu/.cache/huggingface/hub
+    ports:
+      - "${WHISPER_PORT:-8000}:8000"
+
   server:
     build:
       context: .
@@ -28,16 +41,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      whisper:
+        condition: service_started
     environment:
       HOST: 0.0.0.0
       PORT: 2567
       DATABASE_URL: postgresql://${POSTGRES_USER:-voxel}:${POSTGRES_PASSWORD:-voxelpassword}@db:5432/${POSTGRES_DB:-voxel}?schema=public
       WEB_ORIGIN: "${WEB_ORIGIN:-*}"
       VOICE_PROVIDER: "${VOICE_PROVIDER:-mock}"
+      WHISPER_API_URL: "${WHISPER_API_URL:-http://whisper:8000/v1}"
       DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
       DEEPSEEK_MODEL: "${DEEPSEEK_MODEL:-deepseek-flash}"
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-}"
+    volumes:
+      - server_data:/app/.data
     ports:
       - "${SERVER_PORT:-2567}:2567"
 
@@ -55,3 +73,7 @@ services:
 volumes:
   postgres_data:
     name: voxel_postgres_data
+  whisper_cache:
+    name: voxel_whisper_cache
+  server_data:
+    name: voxel_server_data

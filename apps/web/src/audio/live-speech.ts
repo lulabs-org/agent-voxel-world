@@ -38,6 +38,8 @@ export function speechTransport(
       signal,
     });
     const value = await response.json();
+    if (body && response.status === 400 && value.code === 'no-speech')
+      return { text: '', noSpeech: true };
     if (!response.ok)
       throw Object.assign(new Error(value.error || '语音识别失败。'), {
         status: response.status,
@@ -52,6 +54,7 @@ export function speechTransport(
         ? `/chat/spatial/${encodeURIComponent(id)}${partial ? '/preview' : ''}`
         : `/voice/transcribe?language=${language.startsWith('zh') ? 'zh' : 'en'}${partial ? '&partial=1' : ''}${serviceId ? `&serviceId=${encodeURIComponent(serviceId)}` : ''}`;
       const value = await call(path, signal, audio);
+      if (value.noSpeech) return '';
       if (
         typeof value.text !== 'string' ||
         !value.text.trim() ||
@@ -237,11 +240,13 @@ export class LiveSpeechSession {
         AbortSignal.any([
           this.abort.signal,
           request.signal,
-          AbortSignal.timeout(final ? 35000 : 10000),
+          // Allow the server's 90-second inference deadline, including cold model loading.
+          AbortSignal.timeout(final ? 100000 : 10000),
         ]),
       );
       if (this.abort.signal.aborted) return;
-      if (final) this.events.onFinal(text);
+      if (final && text) this.events.onFinal(text);
+      else if (final) this.events.onStatus('没有识别到清晰讲话，请继续说话…');
       else if (sentence === this.current && !sentence.ended)
         this.events.onPartial(text);
     } catch (error) {

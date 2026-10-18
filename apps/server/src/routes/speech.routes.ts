@@ -212,6 +212,7 @@ export function installSpeechRoutes(
       } catch (error) {
         if (!controller.signal.aborted)
           res.status(error instanceof SpeechError ? error.status : 500).json({
+            code: error instanceof SpeechError ? error.code : undefined,
             error:
               error instanceof SpeechError
                 ? error.message

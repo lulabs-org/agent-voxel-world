@@ -127,6 +127,7 @@ export class LiveRecorder {
   private generation = 0;
   private session?: RecordingSession;
   private timer?: ReturnType<typeof setTimeout>;
+  private startupTimer?: ReturnType<typeof setTimeout>;
   private finishing = false;
   private events?: LiveRecordingEvents;
   constructor(private capture = new SpeechCapture()) {}
@@ -172,12 +173,20 @@ export class LiveRecorder {
           );
       if (this.session.ready) await this.session.ready;
       if (generation !== this.generation) return;
+      this.startupTimer = setTimeout(
+        () =>
+          fail(
+            '等待麦克风超时。请检查浏览器和系统的麦克风权限；内置浏览器未弹出授权时，可在 Chrome 或 Edge 打开同一地址，或使用音频文件测试。',
+          ),
+        20000,
+      );
       const started = await this.capture.start(
         (frame) => this.session?.feed(frame),
         () => fail('麦克风或音频处理已中断，未确认内容已取消。'),
         stream,
       );
       if (!started || generation !== this.generation) return;
+      clearTimeout(this.startupTimer);
       events.onState('listening', '正在听取讲话，停顿后自动确认整句。');
       this.timer = setTimeout(() => void this.finish(), 5 * 60 * 1000);
     } catch (error) {
@@ -201,6 +210,7 @@ export class LiveRecorder {
   cancel() {
     ++this.generation;
     clearTimeout(this.timer);
+    clearTimeout(this.startupTimer);
     this.capture.stop();
     this.session?.cancel();
     this.session = undefined;

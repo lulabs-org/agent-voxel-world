@@ -357,6 +357,7 @@ export function installChatRoutes(
             : 400,
       )
       .json({
+        code: e instanceof SpeechError ? e.code : undefined,
         error:
           e instanceof ChatError || e instanceof SpeechError
             ? e.message

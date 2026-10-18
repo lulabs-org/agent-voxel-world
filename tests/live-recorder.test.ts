@@ -63,7 +63,38 @@ function setup() {
   );
   return { stream, track, media, close, node };
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+it('recovers from a stalled permission request and stops a late grant after retry', async () => {
+  vi.useFakeTimers();
+  const t = setup(),
+    live = new LiveRecorder(),
+    e = events();
+  let grant!: (s: MediaStream) => void;
+  t.media.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        grant = resolve;
+      }),
+  );
+  const pending = live.start('zh', e);
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(e.onError).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining('等待麦克风超时'),
+  );
+  const next = { ...t.stream, getTracks: () => [] } as unknown as MediaStream;
+  t.media.mockResolvedValueOnce(next);
+  await live.start('zh', e);
+  grant(t.stream);
+  await pending;
+  expect(t.track.stop).toHaveBeenCalledOnce();
+  expect(e.onState).toHaveBeenLastCalledWith('listening', expect.any(String));
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(e.onError).toHaveBeenCalledOnce();
+  live.cancel();
+});
 it('releases a microphone granted after cancellation without starting recognition', async () => {
   const t = setup();
   let grant!: (s: MediaStream) => void;
