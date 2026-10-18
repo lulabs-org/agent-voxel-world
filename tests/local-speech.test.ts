@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import {
   LocalSpeech,
   validatePcmWav,
-} from '../apps/server/src/audio/local-speech';
+} from '../apps/server/src/modules/audio/asr/local-speech';
 function wav(seconds = 1, amplitude = 1000) {
   const data = Buffer.alloc(44 + Math.round(seconds * 32000));
   data.write('RIFF');

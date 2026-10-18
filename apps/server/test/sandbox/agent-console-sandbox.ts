@@ -1,49 +1,31 @@
+import { createTestServer } from '../helpers/test-server';
 import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
 /** Isolated UI acceptance world: no dotenv, no production config and no paid model calls. */
-import express from 'express';
-import { createServer } from 'node:http';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
 import { Session, until, type AgentRunState } from '@voxel/agent-runtime';
-import { WorldRoom } from '../../src/world/room';
-import { AgentManager, ProviderStore } from '../../src/agent/manager';
-import { VoiceServiceStore } from '../../src/audio/voice-services';
-import { installAgentRoutes } from '../../src/routes/agent.routes';
-import { installPresenceRoutes } from '../../src/routes/presence.routes';
+import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
+import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5189';
 const dir = await mkdtemp(join(tmpdir(), 'agent-console-'));
-const app = express();
-app.use((_req, res, next) => {
-  res.header('Access-Control-Allow-Origin', process.env.WEB_ORIGIN);
-  next();
-});
-const server = new Server({
-  transport: new WebSocketTransport({ server: createServer(app) }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 let manager: AgentManager | undefined;
 let calls = 0;
 try {
-  await server.listen(2589, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  installPresenceRoutes(app, () => room.getPresence());
   const providers = new ProviderStore(join(dir, 'providers.json'));
   await providers.load({ DEEPSEEK_API_KEY: 'fixture-only' });
   const voices = new VoiceServiceStore(join(dir, 'voices.json'));
   await voices.load();
-  manager = new AgentManager(
+  server = await createTestServer({
+    directory: dir,
     providers,
-    'ws://127.0.0.1:2589',
-    {
+    voiceServices: voices,
+    port: 2589,
+    origin: process.env.WEB_ORIGIN,
+    agentDependencies: {
       session: (url) => new Session(url),
       models: async () => ['fixture-model'],
       runner: fixtureRunnerFactory(() => ({
@@ -66,9 +48,9 @@ try {
         },
       })),
     },
-    voices,
-  );
-  installAgentRoutes(app, manager);
+  });
+  manager = server.agents;
+  const app = server.app;
   app.get('/fixture-status', (_req, res) =>
     res.json({ calls, agents: manager!.list() }),
   );
@@ -102,6 +84,6 @@ try {
   });
 } finally {
   await manager?.close();
-  await server.gracefullyShutdown(false);
+  await server?.close();
   await rm(dir, { recursive: true, force: true });
 }

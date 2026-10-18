@@ -1,13 +1,9 @@
+import { createTestServer } from '../helpers/test-server';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager, ProviderStore } from '../../src/agent/manager';
+import { AgentManager } from '../../src/modules/agent/manager';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { WorldRoom } from '../../src/world/room';
 import {
   Session,
   executeAction,
@@ -24,23 +20,22 @@ import { agentConfig } from '../../../agent-cli/src/cli/agent-config';
 
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 const dir = await mkdtemp(join(tmpdir(), 'voxel-navigation-'));
 let manager: AgentManager | undefined;
 let agent: Session | undefined, human: Session | undefined;
 try {
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  const url = `ws://127.0.0.1:${(http.address() as { port: number }).port}`;
+  server = await createTestServer({
+    directory: dir,
+    agentDependencies: {
+      session: (endpoint) => new Session(endpoint),
+      runner: () =>
+        new AgentRunner(undefined, (input, init) => request(input, init)),
+      models: async () => ['fixture-model'],
+    },
+  });
+  const room = server.world,
+    url = server.url;
   agent = await new Session(url).join('Navigator', 'ai-agent');
   human = await new Session(url).join('Target', 'human');
   const put = (x: number, y: number, z: number) =>
@@ -191,13 +186,7 @@ try {
     'being near target never completes a continuous task',
   );
   await reset();
-  const store = new ProviderStore(join(dir, 'providers.json'));
-  await store.load({ DEEPSEEK_API_KEY: 'fixture' });
-  manager = new AgentManager(store, url, {
-    session: (endpoint) => new Session(endpoint),
-    runner: () => new AgentRunner(undefined, request),
-    models: async () => ['fixture-model'],
-  });
+  manager = server.agents;
   const managed = manager.create({
     providerId: 'deepseek',
     name: 'Managed navigator',
@@ -253,6 +242,6 @@ try {
   await manager?.close();
   await agent?.close();
   await human?.close();
-  await server.gracefullyShutdown(false);
+  await server?.close();
   await rm(dir, { recursive: true, force: true });
 }

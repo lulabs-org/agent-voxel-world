@@ -1,15 +1,13 @@
+import { createTestServer } from '../helpers/test-server';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import express from 'express';
-import { LocalSpeech } from '../../src/audio/local-speech';
-import { installSpeechRoutes } from '../../src/routes/speech.routes';
+import { LocalSpeech } from '../../src/modules/audio/asr/local-speech';
 import {
   LiveSpeechSession,
   speechTransport,
 } from '../../../web/src/audio/live-speech';
 
-// No database, game world, microphone, cloud provider or paid model is used.
+// Isolated production assembly; no database, microphone, cloud provider or paid model is used.
 const realFile = process.env.ASR_TEST_WAV;
 const speech = new LocalSpeech();
 if (!realFile) {
@@ -17,11 +15,8 @@ if (!realFile) {
   speech.transcribe = async (bytes) =>
     `识别 ${Math.round((bytes.length - 44) / 32)} 毫秒`;
 }
-const app = express();
-installSpeechRoutes(app, speech);
-const server = createServer(app);
-await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+const server = await createTestServer({ speech });
+const url = server.httpUrl;
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const until = async (condition: () => boolean, timeout = 35000) => {
   const start = Date.now();
@@ -121,6 +116,5 @@ try {
   );
 } finally {
   session.cancel();
-  server.closeAllConnections();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await server.close();
 }

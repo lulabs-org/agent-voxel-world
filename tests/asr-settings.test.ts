@@ -6,7 +6,7 @@ import {
   AsrSettingsStore,
   asrEndpoint,
   validateAsrSettings,
-} from '../apps/server/src/audio/asr-settings';
+} from '../apps/server/src/modules/audio/asr/asr-settings';
 import {
   DEFAULT_BAILIAN_ASR,
   DEFAULT_WHISPER_ASR,

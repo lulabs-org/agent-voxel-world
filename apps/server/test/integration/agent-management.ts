@@ -1,16 +1,11 @@
+import { createTestServer } from '../helpers/test-server';
 import { DecisionFixture as ModelPlanner } from './../../../../tests/support/decision-fixture';
 import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { WorldRoom } from '../../src/world/room';
-import { AgentManager, ProviderStore } from '../../src/agent/manager';
-import { installAgentRoutes } from '../../src/routes/agent.routes';
+import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
 import { Session, until, type Observation } from '@voxel/agent-runtime';
 
 import type { ManagedAgentView } from '@voxel/shared';
@@ -18,24 +13,12 @@ process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5187';
 const dir = await mkdtemp(join(tmpdir(), 'voxel-manager-'));
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 let manager: AgentManager | undefined;
 let calls = 0;
 const observations: Observation[] = [];
 let speaker: Session | undefined;
 try {
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
   const store = new ProviderStore(join(dir, 'providers.json'));
   await store.load({ DEEPSEEK_API_KEY: 'fixture-secret' });
   const rolesInRequests: string[] = [];
@@ -75,20 +58,27 @@ try {
       { headers: { 'Content-Type': 'application/json' } },
     );
   };
-  manager = new AgentManager(store, url.replace('http', 'ws'), {
-    session: (url) => new Session(url),
-    runner: fixtureRunnerFactory((config, provider) => {
-      const planner = new ModelPlanner(config, request, provider);
-      const decide = planner.decide.bind(planner);
-      planner.decide = (...args) => {
-        observations.push(args[0]);
-        return decide(...args);
-      };
-      return planner;
-    }),
-    models: async () => ['fixture-model'],
+  server = await createTestServer({
+    directory: dir,
+    providers: store,
+    origin: process.env.WEB_ORIGIN,
+    agentDependencies: {
+      session: (url) => new Session(url),
+      runner: fixtureRunnerFactory((config, provider) => {
+        const planner = new ModelPlanner(config, request, provider);
+        const decide = planner.decide.bind(planner);
+        planner.decide = (...args) => {
+          observations.push(args[0]);
+          return decide(...args);
+        };
+        return planner;
+      }),
+      models: async () => ['fixture-model'],
+    },
   });
-  installAgentRoutes(app, manager);
+  manager = server.agents;
+  const room = server.world,
+    url = server.httpUrl;
   const api = async (
     path: string,
     method = 'GET',
@@ -587,6 +577,6 @@ try {
 } finally {
   await speaker?.close();
   await manager?.close();
-  await server.gracefullyShutdown(false);
+  await server?.close();
   await rm(dir, { recursive: true, force: true });
 }

@@ -1,3 +1,4 @@
+import { createTestServer } from '../helpers/test-server';
 import { AgentRunner } from '@voxel/agent-runtime';
 import { toolResponse } from '../../../../tests/support/pi-response';
 import assert from 'node:assert/strict';
@@ -6,20 +7,15 @@ import { createServer } from 'node:http';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
 import { Session, until, delay } from '@voxel/agent-runtime';
 import type {
   AgentSpeechEvent,
   ManagedAgentView,
   VoiceServiceView,
 } from '@voxel/shared';
-import { WorldRoom } from '../../src/world/room';
-import { AgentManager, ProviderStore } from '../../src/agent/manager';
-import { VoiceServiceStore } from '../../src/audio/voice-services';
-import { installAgentRoutes } from '../../src/routes/agent.routes';
-import { installChatRoutes } from '../../src/routes/chat.routes';
-import { validatePcmWav } from '../../src/audio/local-speech';
+import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
+import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
+import { validatePcmWav } from '../../src/modules/audio/asr/local-speech';
 
 process.env.DATABASE_URL = '';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5191';
@@ -56,24 +52,12 @@ const voices = new VoiceServiceStore(join(dir, 'voices.json'));
 await voices.load();
 const providers = new ProviderStore(join(dir, 'providers.json'));
 await providers.load({ DEEPSEEK_API_KEY: 'fixture-model-key' });
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom, { voiceServices: voices });
+let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 const humans: Session[] = [],
   bots: Session[] = [];
 let manager: AgentManager | undefined;
 let calls = 0;
 try {
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
   const dependencies = {
     session: (address: string) => {
       const session = new Session(address);
@@ -100,19 +84,15 @@ try {
       }),
     models: async () => ['fixture-model'],
   };
-  manager = new AgentManager(
+  server = await createTestServer({
+    directory: dir,
     providers,
-    url.replace('http', 'ws'),
-    dependencies,
-    voices,
-  );
-  installAgentRoutes(app, manager);
-  installChatRoutes(
-    app,
-    () => room.chat,
-    undefined,
-    () => room.agentSpeech,
-  );
+    voiceServices: voices,
+    origin: process.env.WEB_ORIGIN,
+    agentDependencies: dependencies,
+  });
+  const url = server.httpUrl;
+  manager = server.agents;
   const api = (path: string, method = 'GET', body?: unknown) =>
     fetch(`${url}/agents${path}`, {
       method,
@@ -279,7 +259,7 @@ try {
 } finally {
   await manager?.close();
   await Promise.allSettled([...humans, ...bots].map((s) => s.close()));
-  await server.gracefullyShutdown(false);
+  await server?.close();
   await new Promise<void>((resolve) => providerHttp.close(() => resolve()));
   await rm(dir, { recursive: true, force: true });
 }

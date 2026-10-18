@@ -1,37 +1,24 @@
+import { createTestServer } from '../helpers/test-server';
 import assert from 'node:assert/strict';
-import express from 'express';
-import { createServer } from 'node:http';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { WorldRoom } from '../../src/world/room';
-import { installChatRoutes } from '../../src/routes/chat.routes';
-import { LocalSpeech } from '../../src/audio/local-speech';
+import { LocalSpeech } from '../../src/modules/audio/asr/local-speech';
 import { Session, until, delay } from '@voxel/agent-runtime';
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5187';
-const app = express(),
-  http = createServer(app),
-  server = new Server({
-    transport: new WebSocketTransport({ server: http, maxPayload: 16384 }),
-    greet: false,
-    gracefullyShutdown: false,
-  });
-server.define('world', WorldRoom);
+const speech = new LocalSpeech();
+const server = await createTestServer({
+  speech,
+  origin: process.env.WEB_ORIGIN,
+});
 const sessions: Session[] = [];
 try {
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {}),
-    room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
-  app.get('/world', (_q, r) => r.json({ roomId: listing.roomId }));
-  const speech = new LocalSpeech();
+  const room = server.world;
+  const url = server.httpUrl;
   speech.normalize = async () => ({
     bytes: Buffer.from('normalized-audio'),
     durationMs: 1000,
   });
   speech.transcribe = async () => 'fixture transcript';
-  installChatRoutes(app, () => room.chat, speech);
   for (const [name, kind] of [
     ['Sender', 'human'],
     ['Receiver', 'human'],
@@ -304,5 +291,5 @@ try {
   );
 } finally {
   await Promise.all(sessions.map((s) => s.close()));
-  await server.gracefullyShutdown(false);
+  await server.close();
 }

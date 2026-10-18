@@ -4,8 +4,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager, ProviderStore } from '../apps/server/src/agent/manager';
-import { VoiceServiceStore } from '../apps/server/src/audio/voice-services';
+import {
+  AgentManager,
+  ProviderStore,
+} from '../apps/server/src/modules/agent/manager';
+import { VoiceServiceStore } from '../apps/server/src/modules/audio/tts/voice-services';
 import {
   AgentRuntimeError,
   type Session,

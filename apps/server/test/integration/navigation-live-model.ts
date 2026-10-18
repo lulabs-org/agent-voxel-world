@@ -1,14 +1,10 @@
+import { createTestServer } from '../helpers/test-server';
 /** Opt-in paid-model acceptance test. Uses real AgentManager, chat, WebSocket and physics. */
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
-import express from 'express';
-import { createServer } from 'node:http';
-import { Server, matchMaker } from '@colyseus/core';
-import { WebSocketTransport } from '@colyseus/ws-transport';
-import { AgentManager, ProviderStore } from '../../src/agent/manager';
-import { WorldRoom } from '../../src/world/room';
+import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
 import {
   AgentRunner,
   Session,
@@ -35,14 +31,7 @@ const output = resolve(
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 const dir = await mkdtemp(join(tmpdir(), 'voxel-navigation-live-'));
-const app = express(),
-  http = createServer(app);
-const server = new Server({
-  transport: new WebSocketTransport({ server: http }),
-  greet: false,
-  gracefullyShutdown: false,
-});
-server.define('world', WorldRoom);
+let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 let manager: AgentManager | undefined,
   human: Session | undefined,
   observer: Session | undefined;
@@ -64,56 +53,60 @@ try {
   await writeFile(providerPath, JSON.stringify([provider]), { mode: 0o600 });
   const store = new ProviderStore(providerPath);
   await store.load();
-  await server.listen(0, '127.0.0.1');
-  const listing = await matchMaker.createRoom('world', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-  app.get('/world', (_req, res) => res.json({ roomId: listing.roomId }));
-  const url = `ws://127.0.0.1:${(http.address() as { port: number }).port}`;
-  human = await new Session(url).join('Explorer4', 'human');
-  // Another player is nearby; the sender ID must select the destination.
-  observer = await new Session(url).join('Explorer', 'human');
   let calls = 0;
   const actions = new Map<string, unknown>();
   const taskStates = new Set<string>();
-  manager = new AgentManager(store, url, {
-    session: (endpoint) => new Session(endpoint),
-    models: async () => [provider.defaultModel],
-    runner: (_config, endpoint) => ({
-      run: async (options) => {
-        await new AgentRunner(endpoint, async (input, init) => {
-          assert(++calls <= 8, 'Bound real provider calls to eight per case.');
-          return fetch(input, init);
-        }).run({
-          ...options,
-          signal: AbortSignal.any([
-            options.signal,
-            AbortSignal.timeout(120000),
-          ]),
-          checkpoint: async () => {
-            await options.checkpoint?.();
-            const task = options.memory.task;
-            if (task) taskStates.add(task.status);
-            const batch = options.memory.previous as BatchResult | undefined;
-            if (batch?.batchId)
-              for (const r of batch.results) {
-                if (r.action.type === 'goto')
-                  actions.set(batch.batchId, {
-                    action: r.action,
-                    status: r.status,
-                    result: r.result,
-                    task: task && {
-                      goal: task.goal,
-                      status: task.status,
-                      owner: task.owner,
-                      privateTo: task.privateTo,
-                    },
-                  });
-              }
-          },
-        });
-      },
-    }),
+  server = await createTestServer({
+    directory: dir,
+    providers: store,
+    agentDependencies: {
+      session: (endpoint) => new Session(endpoint),
+      models: async () => [provider.defaultModel],
+      runner: (_config, endpoint) => ({
+        run: async (options) => {
+          await new AgentRunner(endpoint, async (input, init) => {
+            assert(
+              ++calls <= 8,
+              'Bound real provider calls to eight per case.',
+            );
+            return fetch(input, init);
+          }).run({
+            ...options,
+            signal: AbortSignal.any([
+              options.signal,
+              AbortSignal.timeout(120000),
+            ]),
+            checkpoint: async () => {
+              await options.checkpoint?.();
+              const task = options.memory.task;
+              if (task) taskStates.add(task.status);
+              const batch = options.memory.previous as BatchResult | undefined;
+              if (batch?.batchId)
+                for (const r of batch.results) {
+                  if (r.action.type === 'goto')
+                    actions.set(batch.batchId, {
+                      action: r.action,
+                      status: r.status,
+                      result: r.result,
+                      task: task && {
+                        goal: task.goal,
+                        status: task.status,
+                        owner: task.owner,
+                        privateTo: task.privateTo,
+                      },
+                    });
+                }
+            },
+          });
+        },
+      }),
+    },
   });
+  manager = server.agents;
+  const room = server.world,
+    url = server.url;
+  human = await new Session(url).join('Explorer4', 'human');
+  observer = await new Session(url).join('Explorer', 'human');
   const managed = manager.create({
     providerId: provider.id,
     name: 'AI',
@@ -237,6 +230,6 @@ try {
   await manager?.close();
   await human?.close();
   await observer?.close();
-  await server.gracefullyShutdown(false);
+  await server?.close();
   await rm(dir, { recursive: true, force: true });
 }

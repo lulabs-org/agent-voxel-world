@@ -6,7 +6,7 @@ import {
   wallClockInstant,
   duePlans,
   emptyTaskBook,
-} from '../apps/server/src/agent/task-scheduler';
+} from '../apps/server/src/modules/agent/scheduler';
 import {
   DEFAULT_TASK_LIMITS,
   type TaskTiming,

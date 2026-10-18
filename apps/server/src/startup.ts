@@ -1,3 +1,4 @@
+import { databaseUrl as configuredDatabaseUrl } from './config/env';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -62,8 +63,9 @@ export function databaseStartupMessage(error: unknown, databaseUrl: string) {
   ].join('\n');
 }
 
-export async function checkStartupDatabase() {
-  const databaseUrl = process.env.DATABASE_URL;
+export async function checkStartupDatabase(
+  databaseUrl = configuredDatabaseUrl(),
+) {
   if (!databaseUrl) {
     console.warn(
       '[警告] 未配置 DATABASE_URL，使用内存模式；服务重启后世界编辑会丢失。',

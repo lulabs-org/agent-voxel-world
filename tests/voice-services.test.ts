@@ -5,10 +5,10 @@ import { tmpdir } from 'node:os';
 import {
   VoiceServiceStore,
   validateVoiceService,
-} from '../apps/server/src/audio/voice-services';
-import { AgentSpeech } from '../apps/server/src/agent/speech';
-import { RemoteTts } from '../apps/server/src/audio/remote-tts';
-import { PiperTts } from '../apps/server/src/audio/piper-tts';
+} from '../apps/server/src/modules/audio/tts/voice-services';
+import { AgentSpeech } from '../apps/server/src/modules/agent/speech';
+import { RemoteTts } from '../apps/server/src/modules/audio/tts/remote-tts';
+import { PiperTts } from '../apps/server/src/modules/audio/tts/piper-tts';
 import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '../packages/shared/src';
 import type { Player } from '../packages/shared/src';
 
