@@ -3,8 +3,8 @@ import {
   SpeechCapture,
   LiveRecorder,
   type LiveRecordingEvents,
-} from '../apps/web/src/audio/live-recorder';
-import type { LiveSpeechEvents } from '../apps/web/src/audio/live-speech';
+} from '../apps/web/src/audio/recording/live-recorder';
+import type { LiveSpeechEvents } from '../apps/web/src/audio/services/live-speech';
 const events = (): LiveRecordingEvents => ({
   onState: vi.fn(),
   onStatus: vi.fn(),

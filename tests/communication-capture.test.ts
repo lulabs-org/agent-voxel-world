@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { SpatialVoice } from '../apps/web/src/audio/spatial-voice';
-import { ClipRecorder } from '../apps/web/src/audio/clip-recorder';
+import { SpatialVoice } from '../apps/web/src/audio/spatial/spatial-voice';
+import { ClipRecorder } from '../apps/web/src/audio/recording/clip-recorder';
 afterEach(() => vi.unstubAllGlobals());
 it('never requests a microphone by default; pending permission cancellation stops late streams', async () => {
   const track = { stop: vi.fn(), addEventListener: vi.fn() },

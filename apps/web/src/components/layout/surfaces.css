@@ -1,0 +1,186 @@
+main,
+.world {
+  position: fixed;
+  inset: 0;
+}
+.world canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 28px 34px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.brand-icon {
+  font-size: 40px;
+}
+.brand strong {
+  font-size: 15px;
+  letter-spacing: 3px;
+}
+.brand small {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  color: #53706d;
+}
+.status {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.status i {
+  width: 6px;
+  height: 6px;
+  background: #c79861;
+  border-radius: 50%;
+}
+.status .online {
+  background: #3c7960;
+}
+.status span {
+  margin-left: 18px;
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+.panel {
+  position: absolute;
+  left: 34px;
+  top: 126px;
+  width: 245px;
+  padding: 24px;
+  background: #f6f7eeeb;
+  border: 1px solid #ffffff80;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px #345c5810;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 750;
+  color: #668076;
+}
+h1 {
+  font-family: Georgia, serif;
+  font-weight: 400;
+  font-size: 31px;
+  line-height: 1.15;
+  margin: 16px 0;
+}
+.panel p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #6d7e74;
+}
+.stats {
+  display: flex;
+  gap: 30px;
+  margin: 25px 0;
+}
+.stats strong {
+  display: block;
+  font-size: 25px;
+  font-weight: 500;
+}
+.stats small {
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.rule {
+  height: 1px;
+  background: #dfe4d8;
+  margin-bottom: 20px;
+}
+.player {
+  font-size: 12px;
+  margin-top: 16px;
+}
+.player span {
+  color: #608c70;
+  margin-right: 10px;
+}
+.player small {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #819086;
+  margin: 5px 0 0 22px;
+}
+.storage {
+  font-size: 10px;
+  margin-top: 24px;
+  color: #8a958b;
+}
+.join {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface-console);
+  padding: 35px;
+  border-radius: var(--radius-panel);
+  width: 390px;
+  box-shadow: 0 24px 100px #294b4930;
+}
+.join h2 {
+  font:
+    29px Georgia,
+    serif;
+}
+.join label {
+  font-size: 11px;
+  display: block;
+  margin-bottom: 8px;
+}
+.join input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5c8;
+  background: #fff;
+  border-radius: 4px;
+}
+.join button {
+  background: var(--color-hud-ink);
+  color: white;
+  width: 100%;
+  padding: 13px;
+  margin: 14px 0;
+  border-radius: 4px;
+}
+.join small {
+  font-size: 10px;
+  color: #849183;
+}
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 22px;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.target {
+  position: absolute;
+  top: calc(50% + 25px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: white;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}

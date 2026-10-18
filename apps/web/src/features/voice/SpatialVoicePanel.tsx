@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Connection } from '../../network/connection';
-import { SpatialVoice, type SpatialStatus } from '../../audio/spatial-voice';
 import {
   SpatialTranscriber,
+  SpatialVoice,
+  type SpatialStatus,
   type TranscriptionState,
-} from '../../audio/spatial-transcriber';
+} from '../../audio';
+import type { Connection } from '../../network/connection';
 export function SpatialVoicePanel({
   connection,
   expanded,

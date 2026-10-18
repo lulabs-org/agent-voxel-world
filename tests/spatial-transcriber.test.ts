@@ -1,9 +1,9 @@
 import { expect, it, vi } from 'vitest';
-import { SpatialTranscriber } from '../apps/web/src/audio/spatial-transcriber';
+import { SpatialTranscriber } from '../apps/web/src/audio/spatial/spatial-transcriber';
 import {
   LiveRecorder,
   type SpeechCapture,
-} from '../apps/web/src/audio/live-recorder';
+} from '../apps/web/src/audio/recording/live-recorder';
 const flush = async () => {
   for (let i = 0; i < 18; i++) await Promise.resolve();
 };

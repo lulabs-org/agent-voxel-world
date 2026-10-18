@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BrowserRecognitionSession,
   type BrowserRecognition,
-} from '../apps/web/src/audio/browser-recognition';
+} from '../apps/web/src/audio/services/browser-recognition';
 class FakeRecognition implements BrowserRecognition {
   static last: FakeRecognition;
   constructor() {

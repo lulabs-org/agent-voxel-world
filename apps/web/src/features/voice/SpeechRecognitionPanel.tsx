@@ -1,17 +1,18 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
+  BailianSpeechSession,
+  BrowserRecognitionSession,
+  LiveRecorder,
+  LiveSpeechSession,
   LocalRecorder,
+  speechTransport,
   type SpeechCapabilities,
-} from '../../audio/local-recorder';
-import { LiveSpeechSession, speechTransport } from '../../audio/live-speech';
-import { LiveRecorder } from '../../audio/live-recorder';
+} from '../../audio';
 import type { Connection } from '../../network/connection';
 import { voiceApi } from './api';
 import { BailianAsrConfig } from './BailianAsrConfig';
-import { BailianSpeechSession } from '../../audio/bailian-speech';
 import { browserLanguages } from './browser-asr-languages';
 import { useAsrServices } from './useAsrServices';
-import { BrowserRecognitionSession } from '../../audio/browser-recognition';
 
 const serverLanguages = [
   ['zh-CN', '中文'],

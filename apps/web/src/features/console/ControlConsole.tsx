@@ -1,10 +1,12 @@
-import { VoiceServices } from './VoiceServices';
-import { SpeechRecognitionPanel } from '../voice/SpeechRecognitionPanel';
+import { Button } from '../../components/ui/Button';
+import { Dialog } from '../../components/ui/Dialog';
 import type { Connection } from '../../network/connection';
-import { useConsoleController } from './useConsoleController';
-import { ProviderEditor } from './ProviderEditor';
-import { AgentList } from './AgentList';
+import { SpeechRecognitionPanel } from '../voice';
+import { AgentList } from './agents/AgentList';
 import { ConsoleHelp } from './ConsoleHelp';
+import { ProviderEditor } from './providers/ProviderEditor';
+import { useConsoleController } from './useConsoleController';
+import { VoiceServices } from './voice/VoiceServices';
 type ConsoleProps = {
   connection: Connection;
   open: boolean;
@@ -19,7 +21,6 @@ export function ControlConsole({
 }: ConsoleProps) {
   const controller = useConsoleController(open, initialTab);
   const {
-    dialog,
     tab,
     setTab,
     providers,
@@ -32,8 +33,8 @@ export function ControlConsole({
     editProvider,
   } = controller;
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
+      open={open}
       id="control-console"
       className="agent-dialog"
       aria-labelledby="agent-title"
@@ -48,9 +49,9 @@ export function ControlConsole({
           </div>
           <div className="console-heading-actions">
             <ConsoleHelp />
-            <button type="button" aria-label="关闭控制台" onClick={onClose}>
+            <Button aria-label="关闭控制台" onClick={onClose}>
               关闭 ×
-            </button>
+            </Button>
           </div>
         </div>
         <nav className="agent-tabs" aria-label="控制台分类">
@@ -121,6 +122,6 @@ export function ControlConsole({
           )}
         </div>
       </div>
-    </dialog>
+    </Dialog>
   );
 }

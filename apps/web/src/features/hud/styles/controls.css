@@ -1,0 +1,95 @@
+.controls {
+  position: relative;
+  color: #3c5c51;
+}
+.controls-toggle {
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: #f6f8ecb8;
+  color: #3c5c51;
+  font-size: 11px;
+}
+.controls-toggle span {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.controls-help {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  width: min(310px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid #ffffff90;
+  border-radius: var(--radius-panel);
+  background: #f6f7eef5;
+  box-shadow: 0 10px 30px #294a4020;
+  font-size: 12px;
+}
+.controls-help .chat-title button {
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--surface-control);
+  color: var(--color-hud-ink);
+  font-size: 20px;
+}
+.controls-help dl {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+.controls-help dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.controls-help dd {
+  margin: 0;
+  color: #668076;
+}
+.controls-help kbd {
+  font: inherit;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: #e7ecdf;
+}
+.controls-help p {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #d9e1d3;
+  font-size: 11px;
+  color: #668076;
+}
+.controls-toggle:focus-visible,
+.controls-help button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.swatch {
+  display: block;
+  width: 27px;
+  height: 27px;
+  border-radius: 3px;
+  transform: rotate(-8deg);
+  margin: 0 auto 8px;
+  box-shadow: inset -6px -5px 0 #0002;
+}
+.swatch.grass {
+  background: #6b9c52;
+}
+.swatch.dirt {
+  background: #9c7353;
+}
+.swatch.stone {
+  background: #8c999b;
+}
+.swatch.wood {
+  background: #c19766;
+}

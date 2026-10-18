@@ -1,0 +1,273 @@
+/* Shared roster and service navigation. */
+.console-columns {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.console-sidebar {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+.console-sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+  margin-bottom: 12px;
+}
+.agent-dialog .console-sidebar-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+.console-sidebar-heading > span {
+  color: #66796e;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.agent-dialog .console-sidebar-add {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-control);
+}
+.console-sidebar-items {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  max-height: 440px;
+  overflow-y: auto;
+  padding: 1px;
+}
+.agent-dialog .console-sidebar-item {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  height: 72px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid #dce3d8;
+  border-radius: 8px;
+}
+.agent-dialog .console-sidebar-item:hover {
+  background: #edf2e6;
+}
+.agent-dialog .console-sidebar-item[aria-pressed='true'] {
+  background: #e5eddf;
+  border-color: #9bad99;
+}
+.console-sidebar-copy {
+  min-width: 0;
+  flex: 1;
+}
+.console-sidebar-copy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.console-sidebar-copy small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  color: #66796e;
+}
+.console-sidebar-note {
+  border-top: 1px solid #dce3d8;
+  padding-top: 12px;
+  margin: 16px 0 0;
+  color: #66796e;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.console-sidebar button:focus-visible {
+  outline: 2px solid #688c6a;
+  outline-offset: 2px;
+}
+@media (max-width: 900px) {
+  .console-columns {
+    grid-template-columns: 175px minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+@media (max-width: 700px) {
+  .console-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .console-sidebar {
+    position: static;
+  }
+  .console-sidebar-items {
+    display: flex;
+    overflow-x: auto;
+    max-height: none;
+  }
+  .agent-dialog .console-sidebar-item {
+    flex: 0 0 180px;
+  }
+  .console-sidebar-note {
+    display: none;
+  }
+}
+/* Shared content surface for all console categories. */
+.console-panel {
+  --agents-border: #dce3d8;
+  --agents-muted: #66796e;
+  --agents-paper: #fffef9;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--agents-border);
+  border-radius: 12px;
+  background: var(--agents-paper);
+  box-shadow: 0 2px 8px #24412d04;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.console-agent-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.console-agent-panel > .agents-detail,
+.console-agent-panel > .agents-profile {
+  padding: 20px;
+}
+.console-panel-heading {
+  display: block;
+  margin-bottom: 18px;
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--agents-border);
+  background: transparent;
+  box-shadow: none;
+}
+.agent-dialog .console-panel-heading h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+.console-panel-heading p {
+  margin: 6px 0 0;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.console-panel .agent-hint {
+  margin: 8px 0 12px;
+  color: var(--agents-muted);
+}
+.console-panel.agent-form input:not([type='checkbox']):not([type='radio']),
+.console-panel.agent-form select,
+.console-panel .agent-form input:not([type='checkbox']):not([type='radio']),
+.console-panel .agent-form select {
+  min-height: 36px;
+  border-radius: var(--radius-control);
+  padding: 7px 9px;
+  font-size: 12px;
+}
+.console-panel.agent-form textarea,
+.console-panel .agent-form textarea {
+  border-radius: var(--radius-control);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.console-panel .agents-form-section,
+.console-panel .console-panel-section,
+.console-panel .voice-preview {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--agents-border);
+}
+.console-panel .agents-form-section h4,
+.console-panel .console-panel-section h4,
+.console-panel .voice-preview h4 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 20px;
+}
+.console-panel .console-form-actions,
+.console-panel .agents-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--agents-border);
+}
+.agent-dialog
+  .console-panel
+  :is(
+    .agent-actions,
+    .voice-service-actions,
+    .agents-form-footer,
+    .agents-actions
+  )
+  > button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: 12px;
+  line-height: 18px;
+}
+.agent-dialog
+  .console-panel
+  :is(
+    .agent-actions,
+    .voice-service-actions,
+    .agents-form-footer,
+    .agents-actions
+  )
+  > button.primary {
+  background: var(--color-hud-ink);
+  border-color: var(--color-hud-ink);
+  color: white;
+}
+.agent-dialog
+  .console-panel
+  :is(
+    .agent-actions,
+    .voice-service-actions,
+    .agents-form-footer,
+    .agents-actions
+  )
+  > button:hover:not(:disabled) {
+  background: #edf2e6;
+  color: var(--color-action);
+}
+.console-panel .console-help-link {
+  display: inline-block;
+  font-size: 11px;
+  color: #4b6b55;
+  text-underline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .console-panel,
+  .console-agent-panel > .agents-detail,
+  .console-agent-panel > .agents-profile {
+    padding: 16px;
+  }
+  .console-agent-panel {
+    padding: 0;
+  }
+  .console-panel .agent-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

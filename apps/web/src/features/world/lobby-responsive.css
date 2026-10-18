@@ -1,0 +1,70 @@
+@media (max-width: 760px) {
+  .in-lobby header {
+    padding: 22px 24px;
+    flex-wrap: wrap;
+  }
+  .in-lobby .status {
+    gap: 7px;
+  }
+  .in-lobby .lobby-layout {
+    width: calc(100% - 48px);
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding-top: 12px;
+    padding-bottom: 32px;
+  }
+  .in-lobby .join {
+    padding: 30px;
+  }
+  .in-lobby .join h2 {
+    font-size: 34px;
+  }
+  .in-lobby .world-panel {
+    padding: 24px 30px;
+  }
+  .in-lobby .world-panel .stats {
+    justify-content: start;
+    gap: 60px;
+  }
+}
+@media (max-width: 420px) {
+  .in-lobby header {
+    padding: 20px;
+  }
+  .in-lobby .status {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .in-lobby .status .exit-game {
+    margin-left: auto;
+  }
+  .in-lobby .lobby-layout {
+    width: calc(100% - 32px);
+  }
+  .in-lobby .join {
+    padding: 26px;
+  }
+  .in-lobby .join h2 {
+    font-size: 30px;
+  }
+}
+@media (min-width: 761px) {
+  .in-lobby .join {
+    order: 2;
+  }
+  .in-lobby .world-panel {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .in-lobby .world-panel > * {
+    flex-shrink: 0;
+  }
+  .in-lobby .world-panel .player-list {
+    margin-bottom: 20px;
+  }
+  .in-lobby .world-panel .world-membership {
+    margin-top: auto;
+  }
+}

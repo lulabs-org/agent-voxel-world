@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import {
   audioDuration,
   audioProgress,
-} from '../apps/web/src/audio/audio-timeline';
+} from '../apps/web/src/audio/core/audio-timeline';
 it('replaces an estimated WebM duration with the actual duration when it becomes available', () => {
   expect(audioDuration(Infinity, 1.9)).toBe(1.9);
   expect(audioDuration(1.6237, 1.9)).toBe(1.6237);
