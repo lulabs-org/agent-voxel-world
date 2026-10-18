@@ -5,6 +5,7 @@ import type { Observation, Result } from '../contracts';
 export const delay = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Poll until a condition is met; throws if timeout expires. */
 export async function until(predicate: () => boolean, timeout = 5000) {
   const start = Date.now();
   while (!predicate()) {
@@ -14,6 +15,10 @@ export async function until(predicate: () => boolean, timeout = 5000) {
   }
 }
 
+/**
+ * Colyseus client session implementing the AgentSession contract.
+ * Bridges agent planning with the voxel room over WebSocket RPC and state streams.
+ */
 export class Session {
   room!: Room;
   client: Client;
@@ -23,6 +28,7 @@ export class Session {
     this.client = new Client(serverUrl);
   }
   snapshot?: Snapshot;
+  // Bounded ring buffers to prevent memory leaks during long-running agent loops.
   edits: Edit[] = [];
   events: WorldEvent[] = [];
   onEvent?: (event: WorldEvent) => void;
@@ -33,6 +39,8 @@ export class Session {
   private roomOpen = false;
   private closing?: Promise<void>;
   private pending = new Map<string, (value: any) => void>();
+
+  /** Discover active world room via HTTP, connect over WebSocket, and wait for initial snapshot. */
   async join(name: string, kind = 'scripted-agent') {
     const endpoint = this.serverUrl.replace(/^ws/, 'http');
     const info = (await fetch(`${endpoint}/world`).then((r) => r.json())) as {
@@ -42,6 +50,8 @@ export class Session {
     await until(() => !!this.snapshot);
     return this;
   }
+
+  /** Attach listeners and routing for Colyseus room messages. */
   attach(room: Room) {
     this.room = room;
     this.roomOpen = true;
@@ -70,6 +80,7 @@ export class Session {
       this.voice.push(value);
       if (this.voice.length > 100) this.voice.shift();
     });
+    // Resolve matching pending promises on action result or observation response.
     for (const type of ['result', 'observation'])
       room.onMessage(type, (value: { id: string }) => {
         this.pending.get(value.id)?.(value);
@@ -77,6 +88,8 @@ export class Session {
       });
     room.send('sync');
   }
+
+  /** Send an action request with correlation ID and wait for result with 5s timeout. */
   async request<T = Result>(type: string, payload: unknown = {}): Promise<T> {
     const id = `agent-${++this.id}`;
     return new Promise((resolve, reject) => {
@@ -91,6 +104,8 @@ export class Session {
       this.room.send('action', { id, type, payload });
     });
   }
+
+  /** Fire-and-forget directional movement and jump control. */
   move(x: number, z: number, jump = false) {
     this.room.send('action', {
       id: `move-${++this.id}`,
@@ -98,9 +113,13 @@ export class Session {
       payload: { x, z, jump, yaw: 0 },
     });
   }
+
+  /** Query field-of-view observation (blocks, players, events, attention) around self. */
   observe() {
     return this.request<Observation>('observe');
   }
+
+  /** Reconnect to the room using Colyseus reconnection token. */
   async reconnect() {
     const token = this.room.reconnectionToken;
     this.room.connection.close();
@@ -108,6 +127,8 @@ export class Session {
     this.attach(await this.client.reconnect(token));
     await delay(100);
   }
+
+  /** Leave room gracefully with a 1.5s timeout race to prevent hanging on disconnect. */
   async close() {
     if (this.closing) return this.closing;
     if (!this.roomOpen) return;
