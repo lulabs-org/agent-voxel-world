@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 export function databaseStartupMessage(error: unknown, databaseUrl: string) {
   const value = error as { code?: string; errorCode?: string } | null;
@@ -71,7 +72,8 @@ export async function checkStartupDatabase() {
   }
   let db: PrismaClient | undefined;
   try {
-    db = new PrismaClient();
+    const adapter = new PrismaPg({ connectionString: databaseUrl });
+    db = new PrismaClient({ adapter });
     await db.$connect();
     // Read-only check before Colyseus creates a room and logs initialization errors.
     await db.world.findFirst({ select: { id: true } });

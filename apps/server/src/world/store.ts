@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import {
   key,
   WORLD_ID,
@@ -11,7 +12,12 @@ export class WorldStore {
   private db?: PrismaClient;
   constructor() {
     this.mode = process.env.DATABASE_URL ? 'postgresql' : 'memory';
-    if (this.mode === 'postgresql') this.db = new PrismaClient();
+    if (this.mode === 'postgresql') {
+      const adapter = new PrismaPg({
+        connectionString: process.env.DATABASE_URL!,
+      });
+      this.db = new PrismaClient({ adapter });
+    }
   }
   async load(blocks: Map<string, Block>) {
     if (!this.db) return 0;
