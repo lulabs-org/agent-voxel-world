@@ -104,7 +104,7 @@ function fixture(replies: { name: string; arguments: unknown }[][]) {
       checkpoint,
     });
   let sequence = 0;
-  const message = (scope = 'private', actor = 'human') =>
+  const message = (scope = 'private', actor = 'human', text = '你好') =>
     attention.push(
       {
         seq: ++sequence,
@@ -115,7 +115,7 @@ function fixture(replies: { name: string; arguments: unknown }[][]) {
         data: {
           scope,
           kind: 'text',
-          text: '你好',
+          text,
           name: 'Player',
           recipients: ['ai'],
         },
@@ -445,8 +445,8 @@ describe('Pi provider and recovery boundaries', () => {
   });
 });
 
-it('a direct greeting completes in one request without changing a task', async () => {
-  const f = fixture([[chat()]]);
+it('an explicitly classified greeting completes in one request without changing a task', async () => {
+  const f = fixture([[update('running', 'reply'), chat()]]);
   delete f.memory.task;
   f.message();
   await f.run();
@@ -486,7 +486,10 @@ it('later chat cannot erase an unresolved world failure and allow completion', a
 });
 
 it('does not discard an addressed reply when another player message is already queued', async () => {
-  const f = fixture([[chat('reply one')], [chat('reply two')]]);
+  const f = fixture([
+    [update('running', 'reply'), chat('reply one')],
+    [update('running', 'reply'), chat('reply two')],
+  ]);
   delete f.memory.task;
   f.message('private', 'alice');
   f.message('private', 'bob');
@@ -618,4 +621,53 @@ it('stops the loop if the host cannot durably create a task', async () => {
   ).rejects.toThrow('检查点');
   expect(f.request).toHaveBeenCalledTimes(1);
   expect(f.session.move).not.toHaveBeenCalled();
+});
+
+it.each(['none', 'cancelled'] as const)(
+  'rejects a bare promise and lets the model start navigation with a %s prior task',
+  async (prior) => {
+    const f = fixture([
+      [chat('好的，我这就过去！'), move],
+      [update('running', 'task', { goal: '到玩家这里来' }), move],
+      [chat('已经到达'), update('completed')],
+    ]);
+    if (prior === 'none') delete f.memory.task;
+    else f.memory.task!.status = 'cancelled';
+    f.message('private', 'human', '到我这里来');
+    await f.run();
+    expect(f.request).toHaveBeenCalledTimes(3);
+    expect(String(f.request.mock.calls[1][1]!.body)).toContain(
+      '不能只口头答应执行',
+    );
+    expect(f.session.request).not.toHaveBeenCalledWith(
+      'chat',
+      expect.objectContaining({ text: '好的，我这就过去！' }),
+    );
+    // The goto after the rejected chat in the first batch was also skipped.
+    expect(f.world.self.x).toBeCloseTo(0.1);
+    expect(f.memory.task).toMatchObject({
+      goal: '到玩家这里来',
+      status: 'completed',
+      owner: 'human',
+      privateTo: 'human',
+    });
+    expect(f.session.request).toHaveBeenCalledWith(
+      'chat',
+      expect.objectContaining({ text: '已经到达', recipients: ['human'] }),
+    );
+  },
+);
+
+it('a task acknowledgement cannot end the wake before its world action', async () => {
+  const f = fixture([
+    [update('running', 'task', { goal: '到我这里来' }), chat('我这就过去')],
+    [move],
+    [update('completed')],
+  ]);
+  delete f.memory.task;
+  f.message('private', 'human', '到我这里来');
+  await f.run();
+  expect(f.request).toHaveBeenCalledTimes(3);
+  expect(f.world.self.x).toBeCloseTo(0.1);
+  expect(f.memory.task).toMatchObject({ status: 'completed' });
 });

@@ -157,7 +157,7 @@ export function createPiTools({
         }
         if (!state.mode)
           throw new AgentRuntimeError(
-            '先用 update_task 确认这条消息是回复、任务还是任务控制。',
+            '本次动作未执行。先用 update_task 明确消息意图：要求移动或建造时用 task（已有未结束任务用 update），然后执行对应工具；问候或问题才用 reply。不能只口头答应执行。',
           );
         if (name === 'wait') {
           if (state.mode !== 'task')
