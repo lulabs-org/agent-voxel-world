@@ -84,3 +84,13 @@ export class RequestBudget {
     this.elapsedCharged = elapsed;
   }
 }
+
+export function cap(task: AgentTask, config: AgentConfig) {
+  if (task.calls >= config.maxTurns)
+    return '已达到任务调用上限，请检查进展后手动继续。';
+  if (task.tokens >= (config.tokenBudget ?? 50000))
+    return '已达到任务 token 预算，请检查进展后手动继续。';
+  if (task.elapsedMs >= (config.taskTimeoutMs ?? 900000))
+    return '已达到任务执行时间上限，请检查进展后手动继续。';
+  return '';
+}

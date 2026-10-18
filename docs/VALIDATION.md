@@ -276,3 +276,14 @@
 - 实际 Docker 构建、备份切换、等待零请求、重启暂停、保留用量及手动继续通过。隔离旧镜像加备份验证可启动；未回滚生产世界。
 - 浏览器实测真实模型移动/聊天/完成、同轮多工具历史、私聊真实 Chaowen 播放和重启恢复。验收角色已离线，原角色保持在线。
 - Ollama 服务未运行，其他兼容模型未配置，真实效果明确未验证。完整数字、命令、截图和回退材料见 [PI_MIGRATION.md](./PI_MIGRATION.md)。
+
+## 2026-10-19：Agent runtime 按职责分层
+
+- 基线 `8eeab33`。保留单一 `@voxel/agent-runtime` 包，整理为 `client`、`models`、`actions`、`task`、`pi`、`runtime`；删除空壳 `planner`。运行器从 597 行降为 326 行；原 481 行 `task-policy` 分为观察核对、任务转换和执行编排。职责与依赖见 [包内说明](../packages/agent-runtime/README.md)。
+- 静态对比确认公共导出集合、`AgentRunState` / `PiCheckpoint` 类型、提示词、工具 schema、请求适配器和 CLI 调度逻辑保持不变；动作执行和世界连接源码未改动。证据：`artifacts/runtime-refactor/contracts-verification.json`。
+- `pnpm check` 通过：54 个测试文件、527 项测试、类型检查及全部工作区构建。依赖边界测试覆盖新分层、循环依赖、包入口及服务端/CLI 深层引用限制。Pi 专项继续覆盖权限、私聊隔离、取消、任务预算、检查点失败、未知动作恢复和多轮工具顺序。
+- `pnpm test:agents`、`pnpm test:agent:tasks`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:voice:services`、`pnpm test:agent:deepseek` 均通过。模型和音频响应为 fixtures；后者还验证 32 方块房屋及清理。`SERVER_URL=ws://127.0.0.1:12567 pnpm test:integration` 在独立 Docker / PostgreSQL 世界通过全部 9 组检查。
+- Docker 实测使用新服务端镜像、独立网络和临时 PostgreSQL，模型采用 OpenAI SSE fixture：两次请求执行移动、编辑、聊天、确认完成；重复取消/暂停保留终态；等待条件未变不新增请求。重启后完成任务与用量保留，等待任务暂停，模型请求数为零，真实方块从数据库恢复，复制的旧任务历史仍可读取。证据：`artifacts/runtime-refactor/docker-verification.json`。隔离容器、数据库和网络已清理。
+- 真实模型验证与 fixture 分开：备份任务存档、保留旧镜像后更新当前 Docker 服务端，通过其原有 DeepSeek 配置执行只观察任务。`deepseek-flash` 以 2 次实际请求、14,974 tokens 完成；再次取消没有改写完成状态。部署前后原 Agent 的当前任务、用量和已结束历史保持不变；临时验收 Agent 已删除。证据：`artifacts/runtime-refactor/real-model-verification.json`。运行容器的三个核心模块 SHA-256 与已测试源码一致。
+- 环境问题已区分：受限环境的 Vitest 因 localhost 解析失败未启动，本机重跑通过；CLI 旧脚本首次默认连接开发世界，因固定坐标场景前提不符失败，事件核对确认未产生方块编辑，改为显式隔离地址后通过。隔离启动首次因测试模型缺占位 Key 失败，补齐虚拟 Key 并重新载入备份后通过。没有复制真实模型凭据。
+- 格式检查与 `git diff --check` 通过。本次没有修改网页或语音实现，语音回归使用固定音频响应，未重复浏览器听音和真实麦克风验收。

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Observation } from '@voxel/agent-runtime';
-import {
-  piPrompt,
-  piInput,
-} from '../packages/agent-runtime/src/runtime/pi-prompts';
+import { piPrompt, piInput } from '../packages/agent-runtime/src/pi/prompts';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import type { AgentConfig } from '@voxel/agent-runtime';
 function buildMessages(

@@ -34,26 +34,23 @@ export {
   executeBuild,
 } from './actions/building';
 
-export { parseDecision } from './planner/decision';
+export { parseDecision } from './task/decision';
 
-export { listModels } from './planner/models';
+export { listModels } from './models/catalog';
 
 export { AgentAttention } from './runtime/attention';
 
-export {
-  parseTaskDirective,
-  newTask,
-  restoreBatchHistory,
-  type AgentRunState,
-} from './runtime/task';
+export { newTask, restoreBatchHistory, type AgentRunState } from './task/state';
 
-export { worldSignature } from './runtime/task-policy';
+export { worldSignature } from './task/observation';
 
-export { agentChatContext } from './runtime/context';
+export { agentChatContext } from './runtime/chat-context';
 
-export { runAgent, nextIntervalMs } from './runtime/runner';
+export { runAgent, nextIntervalMs } from './runtime/scheduled-loop';
 
-export { RequestBudget } from './runtime/budget';
+export { RequestBudget } from './task/budget';
 
 export { AgentRunner, type RunOptions } from './runtime/agent-runner';
-export { restorePiCheckpoint } from './runtime/pi-context';
+export { restorePiCheckpoint } from './pi/checkpoint';
+
+export { parseTaskDirective } from './task/directive';

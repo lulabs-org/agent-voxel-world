@@ -13,24 +13,24 @@ import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/at
 import {
   newTask,
   type AgentRunState,
-} from '../../packages/agent-runtime/src/runtime/task';
+} from '../../packages/agent-runtime/src/task/state';
 import { executeBatch } from '../../packages/agent-runtime/src/actions/batch';
-import { parseDecision } from '../../packages/agent-runtime/src/runtime/decision';
+import { parseDecision } from '../../packages/agent-runtime/src/task/decision';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
 import {
   houseBlocks,
   observedEmpty,
 } from '../../packages/agent-runtime/src/actions/building';
 import { key } from '../../packages/shared/src/index';
-import { RequestBudget } from '../../packages/agent-runtime/src/runtime/budget';
+import { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
 
 import {
   worldSignature,
-  cap,
   prepareDecision,
-  applyTaskDecision,
-} from '../../packages/agent-runtime/src/runtime/task-policy';
-export { worldSignature } from '../../packages/agent-runtime/src/runtime/task-policy';
+} from '../../packages/agent-runtime/src/task/observation';
+import { cap } from '../../packages/agent-runtime/src/task/budget';
+import { applyTaskDecision } from '../../packages/agent-runtime/src/runtime/execute-step';
+export { worldSignature } from '../../packages/agent-runtime/src/task/observation';
 /** Empty polls and unchanged waits cost no tokens; planners count actual requests. */
 export async function runTaskStep(
   session: Pick<AgentSession, 'observe' | 'move' | 'request'>,

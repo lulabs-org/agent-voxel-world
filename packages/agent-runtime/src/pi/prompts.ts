@@ -1,6 +1,6 @@
 import { AGENT_SKILLS, agentPermissions } from '@voxel/shared';
 import type { AgentConfig, Observation } from '../contracts';
-import type { AgentRunState } from './task';
+import type { AgentRunState } from '../task/state';
 
 export function worldView(o: Observation) {
   return {

@@ -5,7 +5,7 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 ## 代码职责与依赖
 
 - `apps/agent-cli`：CLI 与环境变量解析；`apps/server`：任务安排、存储、控制台路由、唤醒和取消。
-- `packages/agent-runtime`：`Session` 世界连接、`actions` 动作执行与建造、`runtime` 中的 `AgentRunner`、预算、工具、上下文和任务规则；`planner/models` 只查询模型目录。
+- `packages/agent-runtime`：`client` 世界连接、`actions` 动作执行、`task` 任务规则与预算、`models` 模型请求、`pi` 工具与上下文适配、`runtime` 执行编排；[包内架构说明](../packages/agent-runtime/README.md)。
 - 公共入口不读取 `.env`、Pi 全局凭据或开发机器登录状态，也不自动启动 Agent。
 
 模型依赖固定为 `@earendil-works/pi-ai@1.3.0` 与 `@earendil-works/pi-agent-core@1.3.0`。生产代码不再使用旧 `ModelPlanner`、`PiPlanner` 或 `AGENT_ENGINE` 开关。测试中的决策夹具仅用于独立验证共享业务规则；Pi 专项与 Colyseus 集成测试直接运行实际 Pi 核心及 SSE 适配器。

@@ -1,7 +1,7 @@
 import type { AgentPermissions } from '@voxel/shared';
 import type { AgentDecision } from '../contracts';
 import { parseActions } from '../actions/parse';
-import { parseTaskDirective } from './task';
+import { parseTaskDirective } from './directive';
 
 /** Strict model and runtime boundary: validate the complete actions/task object before effects. */
 export function parseDecision(

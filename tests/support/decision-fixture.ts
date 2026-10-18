@@ -8,7 +8,7 @@ import type {
   RequestAccounting,
 } from '../../packages/agent-runtime/src/contracts';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
-import { parseDecision } from '../../packages/agent-runtime/src/runtime/decision';
+import { parseDecision } from '../../packages/agent-runtime/src/task/decision';
 import { buildMessages } from './decision-prompts';
 import { runTaskStep } from './decision-step';
 import type { RunOptions } from '../../packages/agent-runtime/src/runtime/agent-runner';

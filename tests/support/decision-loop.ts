@@ -9,7 +9,7 @@ import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/at
 import {
   newTask,
   type AgentRunState,
-} from '../../packages/agent-runtime/src/runtime/task';
+} from '../../packages/agent-runtime/src/task/state';
 import { runTaskStep } from './decision-step';
 
 /** Draw a fresh inclusive interval after a completed turn; requests never overlap. */
