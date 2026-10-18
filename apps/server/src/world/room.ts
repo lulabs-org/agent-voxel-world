@@ -9,6 +9,8 @@ import { Room, Client, ServerError } from '@colyseus/core';
 import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import {
   terrain,
+  LIMIT,
+  MAX_Y,
   normalizePlayerName,
   playerNameKey,
   PLAYER_NAME_TAKEN,
@@ -542,12 +544,45 @@ export class WorldRoom extends Room<WorldState> {
   }
   private observe(client: Client, id: string) {
     const self = this.state.players.get(client.sessionId)!;
+    // Unlike the model summary, navigation must never silently truncate solids.
+    const center = {
+      x: Math.round(self.x),
+      y: Math.round(self.y),
+      z: Math.round(self.z),
+    };
+    const min = {
+      x: Math.max(-LIMIT, center.x - 8),
+      y: Math.max(0, center.y - 8),
+      z: Math.max(-LIMIT, center.z - 8),
+    };
+    const max = {
+      x: Math.min(LIMIT, center.x + 8),
+      y: Math.min(MAX_Y, center.y + 8),
+      z: Math.min(LIMIT, center.z + 8),
+    };
+    const body = this.bodies.get(client.sessionId)!;
     client.send('observation', {
       id,
       protocol: 1,
       revision: this.state.revision,
       self: self.toJSON(),
       radius: 8,
+      motion: { grounded: body.grounded, vy: body.vy },
+      navigation: {
+        complete: true,
+        revision: this.state.revision,
+        min,
+        max,
+        blocks: [...this.blocks.values()].filter(
+          (b) =>
+            b.x >= min.x &&
+            b.x <= max.x &&
+            b.y >= min.y &&
+            b.y <= max.y &&
+            b.z >= min.z &&
+            b.z <= max.z,
+        ),
+      },
       blocks: [...this.blocks.values()]
         .filter((b) => distance(self, b) <= 8)
         .sort((a, b) => distance(self, a) - distance(self, b))

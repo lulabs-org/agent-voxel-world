@@ -5,11 +5,12 @@ import type {
   AgentSession,
   AgentAction,
   Observation,
-  Result,
   BuildResult,
+  ActionResult,
 } from '../contracts';
 import { parseAction } from './parse';
 import { executeBuild } from './building';
+import { navigate, type NavigationOptions } from './navigation/controller';
 
 export async function executeAction(
   session: Pick<AgentSession, 'move' | 'request'>,
@@ -19,10 +20,13 @@ export async function executeAction(
   signal: AbortSignal,
   progress: (message: string) => void = () => {},
   checkpoint: (result: BuildResult) => void | Promise<void> = () => {},
-): Promise<Result | BuildResult | { ok: boolean; note: string }> {
+  navigation?: NavigationOptions,
+): Promise<ActionResult> {
   signal.throwIfAborted();
   // Revalidate at the execution boundary as well as the provider boundary.
   action = parseAction(action, allowEdits);
+  if (action.type === 'goto' || action.type === 'follow')
+    return navigate(session, action, observation, signal, navigation);
   if (action.type === 'build' || action.type === 'house')
     return executeBuild(session, action, signal, progress, checkpoint);
   if (action.type === 'wait') return { ok: true, note: '等待下一次观察。' };

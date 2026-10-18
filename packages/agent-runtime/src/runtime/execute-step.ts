@@ -117,6 +117,7 @@ export async function applyTaskDecision(
   let outcome;
   // Keep older unfinished coordinates when a new batch only works on a subset.
   const priorBuild = memory.unfinishedBuild;
+  const followControl = { pursuing: true };
   try {
     outcome = await executeBatch(
       session,
@@ -125,10 +126,20 @@ export async function applyTaskDecision(
       agentPermissions(config),
       AbortSignal.any([decisionSignal, actionLimit.signal]),
       {
+        navigation: { follow: followControl },
         pending: (index) =>
           (d.intent !== 'reply' || index > 0) && !!attention?.pending,
         log,
         beforeAction: async (action) => {
+          if (chargedTask && action.type === 'follow') {
+            memory.follow = {
+              action,
+              taskStartedAt: chargedTask.startedAt,
+              pursuing: true,
+            };
+            await checkpoint();
+          }
+          if (action.type === 'goto') delete memory.follow;
           if (
             chargedTask &&
             (action.type === 'build' || action.type === 'house')
@@ -206,6 +217,14 @@ export async function applyTaskDecision(
     clearTimeout(timer);
   }
   const { batch, observation: finalObservation } = outcome;
+  const followResult = batch.results.find(
+    (r) => r.action.type === 'follow',
+  )?.result;
+  if (memory.follow && followResult && 'status' in followResult) {
+    memory.follow.pursuing = followControl.pursuing;
+    memory.follow.lastResult = followResult;
+    if (!followResult.ok) delete memory.follow;
+  }
   if (actionLimit.signal.aborted || budget.remainingMs <= 0) {
     batch.stopReason = 'timeout';
     batch.ok = false;

@@ -18,6 +18,7 @@ import { recentTurns, createPiTurnState } from '../pi/context';
 import { restorePiCheckpoint, updatePiCheckpoint } from '../pi/checkpoint';
 import { createPiTools } from '../pi/tools';
 import { piInput, piPrompt } from '../pi/prompts';
+import { runFollowStep } from './follow-step';
 
 export type RunOptions = {
   session: AgentSession;
@@ -67,6 +68,10 @@ export class AgentRunner {
       }
     }
     signal.throwIfAborted();
+    if (!addressed && memory.follow) {
+      await runFollowStep(options);
+      return;
+    }
     const prepared = await prepareDecision(session, memory, signal, addressed);
     if (!prepared) return;
     memory.usage ??= { calls: 0, tokens: 0, estimated: false };

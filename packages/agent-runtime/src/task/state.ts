@@ -3,6 +3,13 @@ import type { AgentTask, AgentUsage } from '@voxel/shared';
 import type { BuildAction, BuildResult, BatchResult } from '../contracts';
 
 export type AgentRunState = {
+  follow?: {
+    action: { type: 'follow'; playerId: string; distance: number };
+    taskStartedAt: number;
+    pursuing: boolean;
+    stalledSlices?: number;
+    lastResult?: import('../contracts').NavigationResult;
+  };
   pi?: PiCheckpoint;
   task?: AgentTask;
   usage?: AgentUsage;

@@ -70,7 +70,7 @@ export function createPiTools({
       if (
         !addressed &&
         unknownEffect === name &&
-        ['chat', 'move'].includes(name)
+        ['chat', 'move', 'goto', 'follow'].includes(name)
       )
         throw new AgentRuntimeError(
           '上次聊天或移动结果未知，不能自动重放；请等待玩家确认或明确的新指令。',
@@ -196,7 +196,7 @@ export function createPiTools({
           if (
             batch &&
             state.mode === 'task' &&
-            ['move', 'edit', 'build', 'house'].includes(name)
+            ['move', 'goto', 'follow', 'edit', 'build', 'house'].includes(name)
           )
             memory.pendingEffects = batch;
           state.skipBatch = true;
@@ -204,13 +204,14 @@ export function createPiTools({
             JSON.stringify(batch ?? { error: '动作未执行' }),
           );
         }
+        if (name === 'follow' && memory.follow) state.terminal = true;
         if (name === 'chat') {
           state.lastChat = Date.now();
           state.responseSent = true;
           memory.lastResponse = args.text;
           if (state.mode === 'reply') state.terminal = true;
         }
-        if (['move', 'edit', 'build', 'house'].includes(name))
+        if (['move', 'goto', 'follow', 'edit', 'build', 'house'].includes(name))
           state.turnMutated = true;
         const action = {
           ...args,

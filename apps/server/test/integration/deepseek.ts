@@ -46,7 +46,7 @@ try {
     door: 'west',
   };
   const actions = [
-    { type: 'move', x: 1, z: 0, jump: false, durationMs: 300 },
+    { type: 'goto', x: 0.2, y: 2.5, z: -1 },
     { type: 'chat', text: 'SDK fixture hello' },
     { type: 'edit', x: 2, y: 3, z: 1, material: 'wood' },
     house,
@@ -131,12 +131,12 @@ try {
     2,
     'one model call executes four actions; a second verifies completion',
   );
-  assert(String(calls[1].body).includes('移动输入已发送'));
+  assert(String(calls[1].body).includes('已从连续位置观察确认到达'));
   await session.close();
   await session.close(); // SIGINT + finally cleanup must be idempotent.
   await until(() => room.state.players.size === 0);
   console.log(
-    'PASS: Pi tool loop executes move + chat + edit + 32-block house, fresh revisions and observations, second-call completion verification, idempotent cleanup. Fixture inference only.',
+    'PASS: Pi tool loop executes goto + chat + edit + 32-block house, fresh revisions and observations, second-call completion verification, idempotent cleanup. Fixture inference only.',
   );
 } finally {
   await session?.close();

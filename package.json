@@ -32,7 +32,9 @@
     "test:agent:voice": "pnpm --filter @voxel/server exec tsx test/integration/agent-speech.ts",
     "test:voice:live": "pnpm --filter @voxel/server exec tsx test/integration/live-speech.ts",
     "test:voice:services": "pnpm --filter @voxel/server exec tsx test/integration/voice-services.ts",
-    "test:agent:tasks": "pnpm --filter @voxel/server exec tsx test/integration/agent-tasks.ts"
+    "test:agent:tasks": "pnpm --filter @voxel/server exec tsx test/integration/agent-tasks.ts",
+    "test:navigation": "pnpm --filter @voxel/server exec tsx test/integration/navigation.ts",
+    "bench:navigation": "tsx tests/benchmarks/navigation.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

@@ -167,7 +167,8 @@ export async function executeAgentJob(
 
     if (!job.abort.signal.aborted && run) {
       job.view.status = 'running';
-      log(job.attention.pending ? '处理当前消息。' : '启动 Pi 任务执行。');
+      if (!job.memory.follow || job.attention.pending)
+        log(job.attention.pending ? '处理当前消息。' : '启动 Pi 任务执行。');
 
       await ctx.dependencies.runner(config, provider).run({
         session: job.session,
@@ -226,7 +227,7 @@ export async function executeAgentJob(
 
     finalStatus =
       job.abort.signal.aborted && !job.controlling ? 'failed' : 'idle';
-    if (finalStatus === 'idle')
+    if (finalStatus === 'idle' && !job.memory.follow)
       log(
         run
           ? '本次唤醒结束，按任务状态安排下一次检查。'

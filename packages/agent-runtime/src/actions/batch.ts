@@ -11,8 +11,10 @@ import type {
 } from '../contracts';
 import { executeAction } from './execute';
 import { parseActions } from './parse';
+import type { NavigationOptions } from './navigation/controller';
 
 export type BatchOptions = {
+  navigation?: NavigationOptions;
   pending?: (index: number) => boolean;
   checkpoint?: (batch: BatchResult) => unknown | Promise<unknown>;
   buildCheckpoint?: (
@@ -136,11 +138,19 @@ export async function executeBatch(
             await options.buildCheckpoint?.(action, result);
           await save();
         },
+        {
+          ...options.navigation,
+          shouldYield: () => !!options.pending?.(index),
+        },
       );
       if (action.type === 'chat') lastChat = Date.now();
       entry.status = entry.result.ok ? 'succeeded' : 'failed';
       await save();
-      if (['move', 'edit', 'build', 'house'].includes(action.type)) {
+      if (
+        ['move', 'goto', 'follow', 'edit', 'build', 'house'].includes(
+          action.type,
+        )
+      ) {
         phase = 'observe';
         const fresh = await guarded.observe();
         // Never introduce raw historical chat into this decision's audience.
@@ -170,6 +180,15 @@ export async function executeBatch(
       }
       if (!entry.result.ok) {
         batch.stopReason = 'failed';
+        break;
+      }
+      if (
+        action.type === 'goto' &&
+        'status' in entry.result &&
+        entry.result.status === 'progress'
+      ) {
+        entry.status = 'interrupted';
+        batch.stopReason = 'message';
         break;
       }
       await save();

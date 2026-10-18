@@ -15,9 +15,31 @@ const update = (status = 'running', intent = 'continue', extra = {}) => ({
 });
 const chat = (text = '你好') => ({ name: 'chat', arguments: { text } });
 const move = {
-  name: 'move',
-  arguments: { x: 1, z: 0, jump: false, durationMs: 100 },
+  name: 'goto',
+  arguments: { x: 1, y: 2.5, z: 0 },
 };
+// These tests isolate Pi lifecycle policy. Navigation physics is exercised in navigation.test.ts.
+vi.mock(
+  '../packages/agent-runtime/src/actions/navigation/controller',
+  async (original) => ({
+    ...(await original<
+      typeof import('../packages/agent-runtime/src/actions/navigation/controller')
+    >()),
+    navigate: async (session: any, action: any, observation: Observation) => {
+      session.move(1, 0, false);
+      session.move(0, 0, false);
+      const fresh = await session.request('observe');
+      return {
+        ok: true,
+        status: 'arrived',
+        note: 'fixture arrival',
+        position: fresh.self,
+        target: action,
+        replans: 0,
+      };
+    },
+  }),
+);
 function fixture(replies: { name: string; arguments: unknown }[][]) {
   const config = {
     ...agentConfig({ DEEPSEEK_API_KEY: 'test-secret' }),
@@ -131,7 +153,7 @@ describe('Pi world tool runtime', () => {
   });
   it('returns tool validation failures for correction and skips the remainder of that batch', async () => {
     const f = fixture([
-      [{ name: 'move', arguments: { x: 99 } }, chat('must not send')],
+      [{ name: 'goto', arguments: { x: 99 } }, chat('must not send')],
       [move],
       [update('completed')],
     ]);

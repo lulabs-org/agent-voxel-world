@@ -287,3 +287,13 @@
 - 真实模型验证与 fixture 分开：备份任务存档、保留旧镜像后更新当前 Docker 服务端，通过其原有 DeepSeek 配置执行只观察任务。`deepseek-flash` 以 2 次实际请求、14,974 tokens 完成；再次取消没有改写完成状态。部署前后原 Agent 的当前任务、用量和已结束历史保持不变；临时验收 Agent 已删除。证据：`artifacts/runtime-refactor/real-model-verification.json`。运行容器的三个核心模块 SHA-256 与已测试源码一致。
 - 环境问题已区分：受限环境的 Vitest 因 localhost 解析失败未启动，本机重跑通过；CLI 旧脚本首次默认连接开发世界，因固定坐标场景前提不符失败，事件核对确认未产生方块编辑，改为显式隔离地址后通过。隔离启动首次因测试模型缺占位 Key 失败，补齐虚拟 Key 并重新载入备份后通过。没有复制真实模型凭据。
 - 格式检查与 `git diff --check` 通过。本次没有修改网页或语音实现，语音回归使用固定音频响应，未重复浏览器听音和真实麦克风验收。
+
+## 2026-10-19：完整局部地图与 goto / follow
+
+- `pnpm check`：55 个测试文件、545 项测试通过，类型检查和全部工作区构建通过。
+- `pnpm test:navigation`：临时端口的独立内存 Colyseus 世界，验证导航区域全部方块（超过 500 个）完整返回，以及真实 WebSocket/20Hz 物理下绕墙、上跳台阶、远距离分段前进、途中新增障碍。CLI 与服务端 AgentManager 均验证持续跟随；服务端另验证暂停、恢复、取消。两个宿主各一次固定 SSE 模型响应，后续跟随无需模型调用；配置 60 秒普通心跳仍能及时跟随。
+- `tests/navigation.test.ts`：100 个确定性可达地形场景全部到达，失败/卡死率 0%。另覆盖低天花板、深坑、未知/过期地图、目标占据、观察失败、取消、跟随迟滞、目标丢失和重现、权限撤销、预算、检查点失败、JSON 状态恢复，以及未完成导航不能冒充成功。
+- `pnpm bench:navigation`：Apple M2 Pro / Node v22.23.1，预热 20 次后测量 200 次地图索引构建 + A\* 搜索；本次 p50 0.438ms、p95 1.474ms、最大 1.630ms，最大搜索计算片 1.544ms。性能脚本持续检查 p95 < 5ms；测量不是所有硬件/负载下的硬实时保证。复杂搜索每约 2ms 让出事件循环，并有 4096 节点上限。
+- `pnpm test:agent:deepseek`：原生 Pi 工具循环中的 goto + chat + edit + 32 方块 house 和完成验证通过。
+- `pnpm test:agents`、`pnpm test:agent:tasks`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:voice:services` 全部通过。
+- 上述模型与语音使用固定响应；真实网络和物理已验证，未将其宣称为真实付费模型的自然语言理解成功率。100 场景的卡死率仅适用于该测试矩阵。未启动数据库，未修改正在使用的世界。

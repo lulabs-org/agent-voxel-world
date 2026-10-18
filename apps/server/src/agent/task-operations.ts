@@ -371,7 +371,10 @@ export async function executeTaskRunControl(
         run.task = structuredClone(run.runtime!.task);
         run.status = run.task!.status;
         run.reason = run.task!.reason;
-        if (operation === 'cancel') run.finishedAt = Date.now();
+        if (operation === 'cancel') {
+          run.finishedAt = Date.now();
+          delete run.runtime!.follow;
+        }
         return runView(run);
       },
       save,

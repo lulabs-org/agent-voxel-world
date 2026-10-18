@@ -37,10 +37,14 @@ export async function runAgent(
       (!attention?.pending && memory.task?.status !== 'waiting')
     )
       break;
-    if (attention) await attention.wait(nextIntervalMs(config), signal);
-    else
-      await pause(nextIntervalMs(config), undefined, { signal }).catch(
-        () => {},
+    if (attention)
+      await attention.wait(
+        memory.follow ? 100 : nextIntervalMs(config),
+        signal,
       );
+    else
+      await pause(memory.follow ? 100 : nextIntervalMs(config), undefined, {
+        signal,
+      }).catch(() => {});
   } while (!signal.aborted);
 }
