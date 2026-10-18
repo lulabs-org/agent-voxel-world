@@ -6,7 +6,7 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { WorldRoom } from '../../src/world/room';
 import { AgentSpeech } from '../../src/agent/speech';
 import { installChatRoutes } from '../../src/routes/chat.routes';
-import { LocalTts } from '../../src/audio/local-tts';
+import { PiperTts } from '../../src/audio/piper-tts';
 import { validatePcmWav } from '../../src/audio/local-speech';
 import { Session, until, delay } from '@voxel/agent-runtime';
 import type { AgentSpeechEvent } from '@voxel/shared';
@@ -30,7 +30,7 @@ try {
   const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
   app.get('/world', (_q, r) => r.json({ roomId: listing.roomId }));
   let synthesisCount = 0;
-  const tts = new LocalTts();
+  const tts = new PiperTts();
   room.agentSpeech.close();
   room.agentSpeech = new AgentSpeech(
     () => room.state.players.values(),
@@ -141,7 +141,7 @@ try {
   assert.equal(synthesisCount, 2);
   assert.equal(received[2].length, 1);
   console.log(
-    `PASS: ${real ? 'real macOS TTS → FFmpeg WAV' : 'fixture TTS'}, public proximity fanout, private event and HTTP ACL, mute/disable revocation, text-only fallback; no model calls. Agent at ${source.x},${source.z}.`,
+    `PASS: ${real ? 'real Piper PCM WAV' : 'fixture TTS'}, public proximity fanout, private event and HTTP ACL, mute/disable revocation, text-only fallback; no model calls. Agent at ${source.x},${source.z}.`,
   );
 } finally {
   await Promise.allSettled(sessions.map((s) => s.close()));

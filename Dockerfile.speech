@@ -1,0 +1,5 @@
+# Shared Whisper ASR + Piper TTS. Keep the base reproducible while applying
+# two minimal fixes: preserve CJK text and exclude incomplete model downloads.
+FROM ghcr.io/speaches-ai/speaches:latest-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+COPY --chown=ubuntu:ubuntu docker/patch-speaches.py /tmp/patch-speaches.py
+RUN python /tmp/patch-speaches.py && rm /tmp/patch-speaches.py

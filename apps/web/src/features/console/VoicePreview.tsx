@@ -122,7 +122,9 @@ export function VoicePreview({
       <small className="tts-preview-hint">
         {service?.type === 'browser'
           ? '使用当前浏览器音色，请确认支持所选语言；远程音色可能联网。'
-          : '使用已保存的音色，请确认支持所选语言；云端服务会接收文字并按服务商规则计费。'}
+          : service?.type === 'piper'
+            ? '使用服务器本地模型，请选择与模型匹配的语言。'
+            : '使用已保存的音色，请确认支持所选语言；云端服务会接收文字并按服务商规则计费。'}
       </small>
       {status && (
         <p className="tts-preview-status" role="status">

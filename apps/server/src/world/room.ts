@@ -2,7 +2,7 @@ import { RealtimeHub } from '../realtime/hub';
 import { WorldChat } from '../chat/chat';
 import { AgentSpeech } from '../agent/speech';
 import type { VoiceServiceStore } from '../audio/voice-services';
-import { LocalTts } from '../audio/local-tts';
+import { PiperTts } from '../audio/piper-tts';
 import { createVoiceProvider, type VoiceSession } from '../audio/voice';
 import { WorldStore } from './store';
 import { Room, Client, ServerError } from '@colyseus/core';
@@ -73,7 +73,7 @@ export class WorldRoom extends Room<WorldState> {
       this.clients
         .find((c) => c.sessionId === actor)
         ?.send('agent.speech.error', { message }),
-    (actor) => this.voiceServices?.forActor(actor) ?? new LocalTts(),
+    (actor) => this.voiceServices?.forActor(actor) ?? new PiperTts(),
   );
   chat = new WorldChat(
     () => this.state.players.values(),

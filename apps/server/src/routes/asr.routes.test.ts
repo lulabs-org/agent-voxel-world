@@ -177,6 +177,10 @@ it('routes each selected service to its own model and key, rejects missing or de
     sa.client.once('close', resolve);
     sa.client.close();
   });
+  // Client close may arrive before the server releases the service reference.
+  await vi.waitFor(() =>
+    expect(bridge.mock.calls[0][0].readyState).toBe(WebSocket.CLOSED),
+  );
   expect(
     (await fetch(path, { method: 'DELETE', headers: { Origin: origin } }))
       .status,

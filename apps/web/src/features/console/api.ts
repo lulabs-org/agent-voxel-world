@@ -1,3 +1,4 @@
+import type { PiperModelView } from '@voxel/shared';
 import type {
   AgentSettings,
   TaskPlanDraft,
@@ -80,12 +81,20 @@ export const consoleApi = {
       'POST',
       limits ?? {},
     ),
-  listLocalVoices: async (signal: AbortSignal) => {
-    const response = await fetch(`${serverHttpUrl()}/voice/tts/voices`, {
+  listPiperModels: (signal?: AbortSignal) =>
+    request<PiperModelView[]>(
+      '/voice-services/piper/models',
+      'GET',
+      undefined,
       signal,
-    });
-    return readAgentResponse<{ name: string; language: string }[]>(response);
-  },
+    ),
+  installPiperModel: (model: string, signal?: AbortSignal) =>
+    request<{ model: string; state: 'installing' }>(
+      '/voice-services/piper/install',
+      'POST',
+      { model },
+      signal,
+    ),
   listVoiceServices: (signal?: AbortSignal) =>
     request<VoiceServiceView[]>('/voice-services', 'GET', undefined, signal),
   saveVoiceService: (draft: VoiceServiceDraft, id?: string) =>

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { VoiceServiceDraft } from '@voxel/shared';
 import { SpeechError, validatePcmWav } from './local-speech';
-import type { SpeechSynthesizer } from './local-tts';
+import type { SpeechSynthesizer } from './speech-synthesizer';
 
 const exec = promisify(execFile);
 async function boundedBody(response: Response, limit: number) {

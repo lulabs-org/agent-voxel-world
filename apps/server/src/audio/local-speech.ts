@@ -1,3 +1,4 @@
+import { speechEndpoint } from './speech-endpoint';
 import type { WhisperAsrSettings } from '@voxel/shared';
 import { whisperModelPath } from './whisper-settings';
 import { execFile } from 'node:child_process';
@@ -121,7 +122,11 @@ export class LocalSpeech {
     private whisper = process.env.WHISPER_BIN ?? 'whisper-cli',
     private ffmpeg = process.env.FFMPEG_BIN ?? 'ffmpeg',
     private runner: CommandRunner = run,
-    private apiUrl = process.env.WHISPER_API_URL,
+    private apiUrl = !process.env.WHISPER_API_URL?.trim() &&
+    !process.env.SPEECH_API_URL?.trim() &&
+    (process.env.WHISPER_BIN?.trim() || process.env.WHISPER_MODEL?.trim())
+      ? ''
+      : speechEndpoint('whisper'),
     private fetcher: typeof fetch = fetch,
   ) {}
   async status(settings?: WhisperAsrSettings) {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -8,7 +8,8 @@ import {
 } from '../apps/server/src/audio/voice-services';
 import { AgentSpeech } from '../apps/server/src/agent/speech';
 import { RemoteTts } from '../apps/server/src/audio/remote-tts';
-import { LocalTts } from '../apps/server/src/audio/local-tts';
+import { PiperTts } from '../apps/server/src/audio/piper-tts';
+import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '../packages/shared/src';
 import type { Player } from '../packages/shared/src';
 
 let dir: string;
@@ -20,8 +21,9 @@ afterEach(async () => {
 });
 const local = (name = 'Local', voice = '') => ({
   name,
-  type: 'local',
-  voice,
+  type: 'piper',
+  model: voice === 'Samantha' ? PIPER_MODELS[1].id : DEFAULT_PIPER_MODEL,
+  voice: '',
   speed: 1,
 });
 const remote = {
@@ -62,7 +64,7 @@ it('persists multiple configurations privately, masks credentials, and preserves
   const restored = new VoiceServiceStore(store.path);
   await restored.load();
   expect(restored.list()).toHaveLength(3);
-  expect(restored.get(localVoice.id).voice).toBe('Tingting');
+  expect(restored.get(localVoice.id).model).toBe(DEFAULT_PIPER_MODEL);
   expect((await stat(store.path)).mode & 0o777).toBe(0o600);
   expect(JSON.parse(await readFile(store.path, 'utf8'))).toHaveLength(3);
 });
@@ -86,22 +88,43 @@ it('rejects credential reuse for a different endpoint and invalid configuration'
     '官方接口',
   );
 });
-it('saves and reloads localized macOS voice names without changing the CLI value', async () => {
-  const store = new VoiceServiceStore(join(dir, 'voices.json'));
+it('migrates old local services once, keeps IDs and speeds, and backs up the original', async () => {
+  const path = join(dir, 'voices.json');
+  const original = JSON.stringify([
+    {
+      id: 'local-default',
+      name: 'macOS 系统语音',
+      type: 'local',
+      voice: 'Tingting',
+      speed: 0.8,
+    },
+    {
+      id: 'custom',
+      name: 'My voice',
+      type: 'local',
+      voice: 'Samantha',
+      speed: 1.2,
+    },
+  ]);
+  await writeFile(path, original);
+  const store = new VoiceServiceStore(path);
   await store.load();
-  const voice = 'Shelley (中文（中国大陆）)';
-  const saved = await store.save(local('中文系统语音', voice));
-  const restored = new VoiceServiceStore(store.path);
-  await restored.load();
-  expect(restored.get(saved.id).voice).toBe(voice);
-  expect(validateVoiceService(local('French', 'Ame\u0301lie')).voice).toBe(
-    'Ame\u0301lie',
-  );
-  for (const invalid of ['voice\nname', 'voice\0name', 'voice;command'])
-    expect(() => validateVoiceService(local('Invalid', invalid))).toThrow();
-  expect(() => validateVoiceService({ ...remote, voice })).toThrow(
-    '音色名称格式无效',
-  );
+  expect(store.get('local-default')).toMatchObject({
+    type: 'piper',
+    name: 'Piper 本地语音',
+    voice: '',
+    model: DEFAULT_PIPER_MODEL,
+    speed: 0.8,
+  });
+  expect(store.get('custom')).toMatchObject({ name: 'My voice', speed: 1.2 });
+  store.bind('actor', 'custom');
+  expect(await readFile(`${path}.pre-piper.bak`, 'utf8')).toBe(original);
+  await store.load();
+  expect(await readFile(`${path}.pre-piper.bak`, 'utf8')).toBe(original);
+  expect(() => validateVoiceService({ ...local(), type: 'local' })).toThrow();
+  expect(() =>
+    validateVoiceService({ ...local(), model: 'arbitrary/model' }),
+  ).toThrow();
 });
 it('rejects deletion of referenced services and validates bindings before changing them', async () => {
   const store = new VoiceServiceStore(join(dir, 'voices.json'));
@@ -122,13 +145,13 @@ it('keeps unmanaged world clients on local TTS even if the initial profile becom
   const store = new VoiceServiceStore(join(dir, 'voices.json'));
   await store.load();
   await store.save(remote, 'local-default');
-  expect(store.forActor('unmanaged-client')).toBeInstanceOf(LocalTts);
+  expect(store.forActor('unmanaged-client')).toBeInstanceOf(PiperTts);
 });
 it('routes previews and different actors through the saved voice and speed, never by a client payload', async () => {
   const calls: string[] = [];
   const store = new VoiceServiceStore(join(dir, 'voices.json'), (config) => ({
     synthesize: async (text) => {
-      calls.push(`${config.voice}:${config.speed}:${text}`);
+      calls.push(`${config.model}:${config.speed}:${text}`);
       return { bytes: wav(), durationMs: 1000 };
     },
   }));
@@ -141,9 +164,9 @@ it('routes previews and different actors through the saved voice and speed, neve
   await store.forActor('a').synthesize('Agent A', new AbortController().signal);
   await store.forActor('b').synthesize('Agent B', new AbortController().signal);
   expect(calls).toEqual([
-    'Tingting:0.8:Preview',
-    'Tingting:0.8:Agent A',
-    'Samantha:1:Agent B',
+    `${DEFAULT_PIPER_MODEL}:0.8:Preview`,
+    `${DEFAULT_PIPER_MODEL}:0.8:Agent A`,
+    `${PIPER_MODELS[1].id}:1:Agent B`,
   ]);
   store.bind('b', '');
   await expect(

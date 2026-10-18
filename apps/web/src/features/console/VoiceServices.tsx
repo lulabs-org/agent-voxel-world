@@ -7,15 +7,21 @@ import type {
 import { consoleApi } from './api';
 import { VoicePreview } from './VoicePreview';
 import { BrowserVoiceSelect } from './BrowserVoiceSelect';
-import { LocalVoiceSelect } from './LocalVoiceSelect';
+import { PiperModelSelect } from './PiperModelSelect';
+import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '@voxel/shared';
+const voiceLabel = (service: VoiceServiceView) =>
+  service.type === 'piper'
+    ? PIPER_MODELS.find((model) => model.id === service.model)?.name ||
+      service.model
+    : service.voice || '自动选择音色';
 
 const labels: Record<VoiceServiceType, string> = {
-  local: 'macOS 系统语音',
+  piper: 'Piper 本地语音',
   browser: '浏览器系统语音（Web Speech API）',
   bailian: '百炼语音合成',
   compatible: '兼容语音接口',
 };
-const fresh = (type: VoiceServiceType = 'local'): VoiceServiceDraft => ({
+const fresh = (type: VoiceServiceType = 'piper'): VoiceServiceDraft => ({
   name: '',
   type,
   apiKey: '',
@@ -31,7 +37,9 @@ const fresh = (type: VoiceServiceType = 'local'): VoiceServiceDraft => ({
       ? 'qwen3-tts-flash'
       : type === 'compatible'
         ? 'tts-1'
-        : '',
+        : type === 'piper'
+          ? DEFAULT_PIPER_MODEL
+          : '',
   voice: type === 'bailian' ? 'Cherry' : type === 'compatible' ? 'alloy' : '',
 });
 export function VoiceServices({
@@ -141,11 +149,11 @@ export function VoiceServices({
               <span className="console-sidebar-copy">
                 <strong title={service.name}>{service.name}</strong>
                 <small
-                  title={`${labels[service.type]} · ${service.voice || '自动选择音色'}`}
+                  title={`${labels[service.type]} · ${voiceLabel(service)}`}
                 >
                   {labels[service.type]}
                   <br />
-                  {service.voice || '自动选择音色'}
+                  {voiceLabel(service)}
                 </small>
               </span>
             </button>
@@ -208,7 +216,7 @@ export function VoiceServices({
                 ))}
               </select>
             </label>
-            {draft.type !== 'local' && draft.type !== 'browser' && (
+            {draft.type !== 'piper' && draft.type !== 'browser' && (
               <>
                 <label>
                   API Base URL
@@ -297,10 +305,10 @@ export function VoiceServices({
                 }
                 active={active}
               />
-            ) : draft.type === 'local' ? (
-              <LocalVoiceSelect
-                value={draft.voice}
-                onChange={(voice) => change({ voice })}
+            ) : draft.type === 'piper' ? (
+              <PiperModelSelect
+                value={draft.model}
+                onChange={(model) => change({ model })}
                 active={active}
               />
             ) : (
@@ -335,10 +343,10 @@ export function VoiceServices({
                 Key。音色因设备而异，缺失时按语言回退；远程音色可能联网。不支持左右声道空间定位。
               </p>
             )}
-            {draft.type === 'local' && (
+            {draft.type === 'piper' && (
               <p className="agent-hint">
-                使用服务器上的 macOS say 与
-                ffmpeg，合成的声音发送给玩家，不从服务器扬声器播放。
+                使用服务器上的 Piper
+                模型合成语音，音色由模型决定。声音发送给玩家播放。
               </p>
             )}
             {draft.type === 'bailian' && (

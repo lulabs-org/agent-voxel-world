@@ -1,4 +1,26 @@
-export type VoiceServiceType = 'local' | 'browser' | 'bailian' | 'compatible';
+export type VoiceServiceType = 'piper' | 'browser' | 'bailian' | 'compatible';
+export const PIPER_MODELS = [
+  {
+    id: 'speaches-ai/piper-zh_CN-huayan-medium',
+    name: '中文 · Huayan',
+    language: 'zh',
+    voice: 'huayan',
+  },
+  {
+    id: 'speaches-ai/piper-en_US-lessac-medium',
+    name: 'English · Lessac',
+    language: 'en',
+    voice: 'lessac',
+  },
+] as const;
+export const DEFAULT_PIPER_MODEL = PIPER_MODELS[0].id;
+export type PiperModelView = {
+  id: string;
+  name: string;
+  language: string;
+  state: 'missing' | 'installing' | 'installed' | 'failed';
+  error?: string;
+};
 export type VoiceServiceSettings = {
   name: string;
   type: VoiceServiceType;

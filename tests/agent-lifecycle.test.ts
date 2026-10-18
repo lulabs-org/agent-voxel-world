@@ -125,7 +125,7 @@ it('saves task heartbeat independently without resetting or resuming progress', 
 it('protects a new voice binding while an Agent update is waiting for the world', async () => {
   const voices = new VoiceServiceStore(join(dir, 'voices.json'));
   await voices.load();
-  const next = await voices.save({ name: 'Next', type: 'local' });
+  const next = await voices.save({ name: 'Next', type: 'piper' });
   const session = fakeSession();
   const m = setup(session, undefined, voices);
   const job = m.create({ ...settings, voiceReplies: true });

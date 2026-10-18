@@ -7,7 +7,8 @@ import {
   type Player,
 } from '@voxel/shared';
 import { ChatError } from '../chat/chat';
-import { LocalTts, type SpeechSynthesizer } from '../audio/local-tts';
+import type { SpeechSynthesizer } from '../audio/speech-synthesizer';
+import { PiperTts } from '../audio/piper-tts';
 
 type Pending = {
   actor: string;
@@ -28,7 +29,7 @@ export class AgentSpeech {
     private report: (actor: string, message: string) => void,
     private tts:
       | SpeechSynthesizer
-      | ((actor: string) => SpeechSynthesizer) = new LocalTts(),
+      | ((actor: string) => SpeechSynthesizer) = new PiperTts(),
   ) {}
   private speaker(actor: string) {
     return [...this.players()].find(

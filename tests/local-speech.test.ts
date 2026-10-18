@@ -35,11 +35,26 @@ describe('local Whisper transcription', () => {
   });
   it('checks missing dependencies before recording is offered', async () => {
     expect(
-      (await new LocalSpeech(join(dir, 'missing')).status()).available,
+      (
+        await new LocalSpeech(
+          join(dir, 'missing'),
+          undefined,
+          undefined,
+          undefined,
+          '',
+        ).status()
+      ).available,
     ).toBe(false);
     expect(
-      (await new LocalSpeech(model, join(dir, 'missing-binary')).status())
-        .available,
+      (
+        await new LocalSpeech(
+          model,
+          join(dir, 'missing-binary'),
+          undefined,
+          undefined,
+          '',
+        ).status()
+      ).available,
     ).toBe(false);
   });
   it('rejects silence, malformed, too short and too long audio', () => {
@@ -63,6 +78,7 @@ describe('local Whisper transcription', () => {
       process.execPath,
       process.execPath,
       runner,
+      '',
     );
     const text = await speech.transcribe(
       Buffer.from('compressed'),
@@ -88,6 +104,7 @@ describe('local Whisper transcription', () => {
       process.execPath,
       process.execPath,
       runner,
+      '',
     );
     await expect(
       speech.transcribe(
@@ -122,6 +139,7 @@ describe('local Whisper transcription', () => {
       process.execPath,
       process.execPath,
       runner,
+      '',
     );
     await expect(
       speech.transcribe(
@@ -162,6 +180,7 @@ describe('local Whisper transcription', () => {
       process.execPath,
       process.execPath,
       runner,
+      '',
     );
     const controller = new AbortController();
     const first = speech.transcribe(
@@ -194,6 +213,7 @@ describe('local Whisper transcription', () => {
       process.execPath,
       process.execPath,
       runner,
+      '',
     );
     const settings = {
       model: 'default',

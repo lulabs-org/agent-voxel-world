@@ -218,7 +218,7 @@ try {
   assert.equal((await api(`/voice-services/${a.id}`, 'DELETE')).status, 204);
   if (process.env.REAL_TTS === '1') {
     const local = await api('/voice-services/local-default/preview', 'POST', {
-      text: 'Hello, this is the local voice preview.',
+      text: '你好，这是本地语音试听。',
     });
     assert.equal(local.status, 200);
     assert(validatePcmWav(Buffer.from(await local.arrayBuffer()), 90.5) > 250);

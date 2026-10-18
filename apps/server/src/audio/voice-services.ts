@@ -3,7 +3,10 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { VoiceServiceDraft, VoiceServiceView } from '@voxel/shared';
-import { LocalTts, type SpeechSynthesizer } from './local-tts';
+import type { SpeechSynthesizer } from './speech-synthesizer';
+import { PiperTts } from './piper-tts';
+import { PiperModels, piperModel } from './piper-models';
+import { DEFAULT_PIPER_MODEL } from '@voxel/shared';
 import { RemoteTts } from './remote-tts';
 import { SpeechError } from './local-speech';
 
@@ -28,7 +31,7 @@ export function validateVoiceService(
   };
   const type = input.type;
   if (
-    type !== 'local' &&
+    type !== 'piper' &&
     type !== 'browser' &&
     type !== 'bailian' &&
     type !== 'compatible'
@@ -39,15 +42,15 @@ export function validateVoiceService(
   let baseUrl = '',
     apiKey = '',
     model = '';
-  const voice = str('voice', type === 'browser' ? 200 : 100);
+  const voice =
+    type === 'piper' ? '' : str('voice', type === 'browser' ? 200 : 100);
+  if (type === 'piper')
+    model = piperModel(input.model ?? DEFAULT_PIPER_MODEL).id;
   const voiceLanguage =
     type === 'browser' ? str('voiceLanguage', 40) : undefined;
   if (voiceLanguage && !/^[a-zA-Z0-9-]+$/.test(voiceLanguage))
     throw new SpeechError('音色语言格式无效。');
-  const voicePattern =
-    type === 'local'
-      ? /^[\p{L}\p{M}\p{N}_. ()（）-]+$/u
-      : /^[\p{L}\p{N}_. ()-]+$/u;
+  const voicePattern = /^[\p{L}\p{N}_. ()-]+$/u;
   if (type !== 'browser' && voice && !voicePattern.test(voice))
     throw new SpeechError('音色名称格式无效。');
   const speed = input.speed ?? 1;
@@ -58,7 +61,7 @@ export function validateVoiceService(
     speed > 2
   )
     throw new SpeechError('语速须为 0.5–2。');
-  if (type !== 'local' && type !== 'browser') {
+  if (type !== 'piper' && type !== 'browser') {
     let url: URL;
     try {
       url = new URL(str('baseUrl', 500));
@@ -111,6 +114,7 @@ export function validateVoiceService(
 }
 
 export class VoiceServiceStore {
+  readonly piperModels = new PiperModels();
   private values: SavedVoice[] = [];
   private queue: Promise<unknown> = Promise.resolve();
   private deleting = new Set<string>();
@@ -122,11 +126,14 @@ export class VoiceServiceStore {
       new URL('../../../../.data/voice-services.json', import.meta.url),
     ),
     private factory: (value: SavedVoice) => SpeechSynthesizer = (value) =>
-      value.type === 'local' ? new LocalTts(value) : new RemoteTts(value),
+      value.type === 'piper' ? new PiperTts(value) : new RemoteTts(value),
   ) {}
   async load() {
     try {
-      const saved: SavedVoice[] = JSON.parse(await readFile(this.path, 'utf8'));
+      const original = await readFile(this.path, 'utf8');
+      const saved: (Omit<SavedVoice, 'type'> & { type: string })[] =
+        JSON.parse(original);
+      let migrated = false;
       if (
         !Array.isArray(saved) ||
         saved.length > 20 ||
@@ -139,8 +146,28 @@ export class VoiceServiceStore {
           !/^[a-zA-Z0-9-]{1,80}$/.test(value.id)
         )
           throw Error('invalid');
+        if (value.type === 'local') {
+          migrated = true;
+          value = {
+            ...value,
+            type: 'piper',
+            model: DEFAULT_PIPER_MODEL,
+            voice: '',
+            name:
+              value.name === 'macOS 系统语音' ? 'Piper 本地语音' : value.name,
+          };
+        }
         return { ...validateVoiceService(value), id: value.id };
       });
+      if (migrated) {
+        await writeFile(`${this.path}.pre-piper.bak`, original, {
+          mode: 0o600,
+          flag: 'wx',
+        }).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== 'EEXIST') throw error;
+        });
+        await this.persist(this.values);
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
         throw new SpeechError(
@@ -150,8 +177,8 @@ export class VoiceServiceStore {
       this.values = [
         {
           ...validateVoiceService({
-            name: 'macOS 系统语音',
-            type: 'local',
+            name: 'Piper 本地语音',
+            type: 'piper',
             voice: '',
             speed: 1,
           }),
@@ -243,7 +270,7 @@ export class VoiceServiceStore {
   forActor(actor: string): SpeechSynthesizer {
     // Only trusted Agent management binds cloud services; raw world actions cannot select them.
     const id = this.bindings.get(actor);
-    if (id === undefined) return new LocalTts();
+    if (id === undefined) return new PiperTts();
     const entry = id ? this.get(id) : undefined;
     return {
       ...(entry?.type === 'browser'

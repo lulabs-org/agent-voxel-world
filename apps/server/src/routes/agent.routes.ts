@@ -55,6 +55,53 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
   };
   /**
    * @openapi
+   * /agents/voice-services/piper/models:
+   *   get:
+   *     summary: 查询 Piper 模型目录与安装状态
+   *     tags: [Agents]
+   *     responses:
+   *       200:
+   *         description: 固定中英文模型目录，状态为 missing、installing、installed 或 failed
+   *       503:
+   *         description: 无法连接共享语音服务
+   * /agents/voice-services/piper/install:
+   *   post:
+   *     summary: 后台安装 Piper 模型
+   *     tags: [Agents]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [model]
+   *             properties:
+   *               model:
+   *                 type: string
+   *     responses:
+   *       202:
+   *         description: 安装已开始或复用已有任务，通过模型目录查询结果
+   *       400:
+   *         description: 不支持的模型
+   *       409:
+   *         description: 另一个模型正在安装
+   */
+  // Fixed catalog and server-owned downloads; never accept an upstream URL.
+  app.get(
+    '/agents/voice-services/piper/models',
+    route(async (_req, res) => {
+      res.json(await voices().piperModels.list());
+    }),
+  );
+  app.post(
+    '/agents/voice-services/piper/install',
+    route(async (req, res) => {
+      res.status(202).json(voices().piperModels.start(req.body?.model));
+    }),
+  );
+
+  /**
+   * @openapi
    * /agents/voice-services:
    *   get:
    *     summary: 获取 Agent 语音合成服务配置列表

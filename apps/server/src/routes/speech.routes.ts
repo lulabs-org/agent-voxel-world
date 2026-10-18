@@ -7,7 +7,7 @@ import {
   MAX_AUDIO_BYTES,
 } from '../audio/local-speech';
 import { createVoiceProvider } from '../audio/voice';
-import { LocalTts } from '../audio/local-tts';
+import { PiperModels } from '../audio/piper-models';
 import { scheduleSpeech } from '../audio/speech-scheduler';
 export function installSpeechRoutes(
   app: Express,
@@ -42,36 +42,6 @@ export function installSpeechRoutes(
       return;
     }
     next();
-  });
-
-  /**
-   * @openapi
-   * /voice/tts/voices:
-   *   get:
-   *     summary: 获取本机 TTS 可用音色列表
-   *     tags:
-   *       - Voice
-   *     responses:
-   *       200:
-   *         description: 音色列表
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: array
-   *               items:
-   *                 type: object
-   */
-  app.get('/voice/tts/voices', async (_req, res) => {
-    try {
-      res.json(await new LocalTts().voices());
-    } catch (error) {
-      res.status(error instanceof SpeechError ? error.status : 500).json({
-        error:
-          error instanceof SpeechError
-            ? error.message
-            : '无法读取本机音色列表。',
-      });
-    }
   });
 
   /**
@@ -126,7 +96,7 @@ export function installSpeechRoutes(
         local: await speech.status(selected),
         whisperModels: await listWhisperModels(),
         ollamaConfigured,
-        agentSpeech: await new LocalTts().status(),
+        agentSpeech: await new PiperModels().status(),
       });
     } catch (error) {
       res.status(error instanceof SpeechError ? error.status : 500).json({

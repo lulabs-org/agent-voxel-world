@@ -11,7 +11,7 @@
 
 | 类型                             | 配置                                                  | 发声方式                                                    |
 | -------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------- |
-| macOS 系统语音                   | 已安装音色、0.5–2 倍语速；音色留空按中英文选择        | 服务器上的 macOS `say` + FFmpeg，无需 API Key               |
+| Piper 本地语音                   | 中文 Huayan / 英文 Lessac 模型，0.5–2 倍语速          | 共享 Speaches 容器，安装模型后离线合成，无需 API Key        |
 | 浏览器系统语音（Web Speech API） | 当前设备音色、0.5–2 倍语速；自动音色按中英文选择      | 接收者浏览器通过 `speechSynthesis` 朗读，不要求后端安装 TTS |
 | 百炼语音合成                     | 北京或新加坡接口、该地域 API Key、Qwen-TTS 模型及音色 | 调用百炼语音合成接口，下载结果音频，不另行生成回答          |
 | 兼容语音接口                     | API Base URL、API Key、模型、音色、语速               | 请求 `POST /audio/speech`，要求支持 WAV 响应                |
@@ -20,7 +20,11 @@
 
 百炼按模型区分两套协议：`qwen3-tts-*` 使用多模态合成接口；`qwen-audio-3.0-tts-*`、`qwen-audio-3.1-tts-*` 使用 `/services/audio/tts/SpeechSynthesizer`，显式请求 16 kHz WAV。例如 `qwen-audio-3.1-tts-flash` 可搭配 `longanhuan_v3.1`，无需修改已有服务配置。依据 [Qwen-Audio-TTS HTTP API](https://help.aliyun.com/zh/model-studio/qwen-audio-tts-http-api) 和[音色列表](https://help.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list)。试听与 Agent 发声共用此路由；错误按鉴权、模型、音色、限流分类提示，不回显服务商可能包含密钥或试听文字的原始错误体。
 
-本机音色留空时，中文默认 `Tingting`，英文默认 `Samantha`，可用 `TTS_VOICE_ZH` / `TTS_VOICE_EN` 覆盖。`FFMPEG_BIN` 可指定音频转换工具。合成输出为音频文件，不从服务器扬声器外放。其他操作系统可使用云端或本地兼容 TTS 服务；本机 `say` 类型会明确报告不可用。
+Piper 使用共享 `speech` 服务，默认中文 `speaches-ai/piper-zh_CN-huayan-medium`，可选英文 `speaches-ai/piper-en_US-lessac-medium`。音色由模型决定。控制台点击安装，状态显示“已安装”后即可试听；关闭控制台不取消下载。模型保存于原 `voxel_whisper_cache` 卷，重启后无需重新下载。安装等待上限 10 分钟，失败可刷新重试。合成输出为 16 kHz 单声道 PCM WAV，复用空间播放及取消机制。
+
+旧 macOS 服务原位迁移到 Piper，保留 ID、自定义名称、语速和 Agent 绑定，清空旧音色。迁移前原文件备份为 `voice-services.json.pre-piper.bak`（仅首次写入）。缺少模型不影响服务器启动，合成时提示安装；不会自动切换云端。回滚时先停止后端并备份当前配置，再将该备份恢复为 `voice-services.json`，配合旧版本代码启动。
+
+地址优先级：ASR 为 `WHISPER_API_URL` → `SPEECH_API_URL` → `http://127.0.0.1:8000/v1`；Piper 为 `PIPER_API_URL` → `SPEECH_API_URL` → `WHISPER_API_URL` → 本地默认地址。空值按未配置处理。其他供应商的音频转换仍可使用 `FFMPEG_BIN`。
 
 ## Agent 绑定与运行
 
@@ -83,7 +87,7 @@ Agent 使用浏览器服务时，服务器沿用私聊接收者、距离和收�
 
 讲话过程中持续滚动识别，约 0.9 秒停顿后重新识别完整句子并确认；连续讲话达到 12 秒时会分句，避免无限缓冲。点击“结束录音”提交最后一句；点击“取消识别”、切换分类或关闭控制台会停止录音并取消识别请求。试用会避让聊天录音，并在开始录音时关闭附近语音麦克风。语言选择只作用于这次试用。取消会丢弃未确认内容，已确认结果保留。识别失败不把临时字幕当作最终结果，也不重放结果未知的请求。
 
-实现使用 AudioWorklet 连续采集 16 kHz PCM，每约 1.2 秒将当前句子的完整 WAV 快照上传识别。临时结果可以覆盖修正，停顿后的最终结果按句子顺序提交。它是基于现有 `whisper-cli` 的滚动识别，不是原生流式解码；每次推理仍会启动 CLI 并加载模型，延迟取决于模型、CPU 和服务负载。短句可能在临时推理完成前已结束，直接出现最终结果。
+实现使用 AudioWorklet 连续采集 16 kHz PCM，每约 1.2 秒将当前句子的完整 WAV 快照上传识别。临时结果可以覆盖修正，停顿后的最终结果按句子顺序提交。它是向 Whisper 提交音频快照的滚动识别，不是原生流式解码；Docker 复用已加载的模型，延迟取决于模型、CPU 和服务负载。短句可能在临时推理完成前已结束，直接出现最终结果。
 
 服务端共用串行识别队列，临时请求不排队，最终请求最多等待 4 个。浏览器最多保留两个待确认句子，积压时停止并提示，不悄悄丢句继续发送。临时推理最多 8 秒，实时客户端最终请求最多等待 35 秒；取消和断开会中断识别并清理音频资源。
 
@@ -101,11 +105,12 @@ ASR 左侧仅列出已保存的识别服务，浏览器识别与其他服务采�
 
 这份服务列表管理 **语音合成（TTS）**。聊天录音和附近语音继续使用现有 Whisper 识别链路，配置 Agent 的发声服务不会改变玩家录音或转写方式。
 
-在运行项目后端的机器上安装识别工具与模型；例如 macOS 开发环境可用：
+默认连接 Speaches HTTP 服务。若仍需 CLI 模式，在未配置识别/统一 API 地址时显式设置 `WHISPER_BIN=whisper-cli` 或 `WHISPER_MODEL`；例如 macOS 开发环境可用：
 
 ```sh
 brew install whisper-cpp ffmpeg
 pnpm voice:setup
+# 在 .env 中配置 WHISPER_BIN=whisper-cli
 ```
 
 模型位于 `.data/voice/ggml-base.bin`，也可以设置 `WHISPER_MODEL`、`WHISPER_BIN`、`FFMPEG_BIN`。Whisper、模型文件和 FFmpeg 部署在项目服务器上，玩家电脑无需安装。录音使用浏览器麦克风权限并上传至项目服务器识别；使用方式见 [聊天与附近语音](CHAT.md)。
@@ -120,6 +125,8 @@ pnpm voice:setup
 - `POST /agents/voice-services` / `PUT /agents/voice-services/:id`：创建和更新配置。
 - `DELETE /agents/voice-services/:id`：删除未被引用的配置。
 - `POST /agents/voice-services/:id/preview`：`{ text }`，返回 `audio/wav`，断开请求取消合成。
+- `GET /agents/voice-services/piper/models`：固定模型目录与安装状态。
+- `POST /agents/voice-services/piper/install`：`{ model }`，返回 `202`；同模型复用任务，不同模型同时安装返回 `409`。
 - Agent 创建/更新支持 `voiceServiceId`，`voiceReplies` 仍控制是否发声。
 
 ```sh
@@ -128,7 +135,11 @@ pnpm format:check
 pnpm test:voice:services
 pnpm test:voice:live # 固定响应的滚动字幕 HTTP 联调
 ASR_TEST_WAV=/absolute/path/mono-16khz.wav pnpm test:voice:live # 真实 Whisper，实时速率回放
-REAL_TTS=1 pnpm test:voice:services # macOS 本机真实合成
+REAL_TTS=1 pnpm test:voice:services # 真实 Piper 合成（先安装中文模型）
 ```
 
-集成测试使用临时配置、隔离内存世界、固定思考模型及本机兼容 TTS 测试接口，覆盖保存、试听、不同 Agent 音色、修改绑定、私聊隔离、删除保护和恢复。`REAL_TTS=1` 额外验证本机试听和 Agent 合成音频；不调用付费模型。真实百炼及第三方云端账号、音质、计费需要另行联调。
+集成测试使用临时配置、隔离内存世界、固定思考模型及本机兼容 TTS 测试接口，覆盖保存、试听、不同 Agent 音色、修改绑定、私聊隔离、删除保护和恢复。`REAL_TTS=1` 额外验证 Piper 试听和 Agent 合成音频；不调用付费模型。真实百炼及第三方云端账号、音质、计费需要另行联调。
+
+### Speaches 镜像兼容修复
+
+`Dockerfile.speech` 固定上游摘要并应用两个构建时校验的小补丁：修正误把中日韩文字当作 emoji 删除的 Unicode 范围；模型目录只有在 ONNX 与配置文件下载完成后才返回模型。否则纯中文可能仅生成几十毫秒音频，中断下载也可能被误报为已安装。升级上游镜像时重新审查补丁，不能仅修改摘要跳过检查。
