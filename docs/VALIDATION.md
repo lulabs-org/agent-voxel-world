@@ -258,3 +258,13 @@
 - 中英文各测试 0.8、1、1.2 倍语速，均为 16 kHz 单声道 PCM16，有效波形及音频时长检查通过；语速提高时音频时长缩短。共享容器同时运行真实 Whisper 识别与 Piper 合成成功，该次请求约 3.95 秒和 0.29 秒（单次观察，不是性能保证）。
 - 临时容器设置 `--network none`、`HF_HUB_OFFLINE=1` 并只读挂载缓存，中英文通过同一 HTTP 路由完成合成，分别得到约 3.19 秒和 3.41 秒音频。
 - 本地验证产物位于忽略目录 `artifacts/piper-verification/`：音频、`results.json`、离线日志和 `piper-console.png`。音频可用性已验证，音色自然度不作为自动化评分。
+
+## 2026-10-18：新增超文 Chaowen
+
+- 在现有 `speech` 容器升级至 Piper 1.8.0，适配新版音频流接口；目录新增 `rhasspy/piper-voices/zh_CN-chaowen-medium`，没有接入小雅。原 Huayan 默认值和已有服务绑定不变。
+- 控制台真实执行安装与失败重试、创建“超文 Chaowen”服务、保存、试听、刷新后重新打开。页面显示模型已安装，试听显示“连接成功，试听音频已生成”。截图：`artifacts/chaowen-integration/console.png`。
+- 首次安装实测发现 Xet 中断留下损坏缓存。已改用标准 HTTP 下载；模型及 g2pW 包进行 SHA-256 校验，损坏缓存强制重新下载一次，验证通过后原子发布完整安装。实测重试恢复成功。
+- `pnpm check` 通过：53 个测试文件、485 项测试、类型检查与构建。镜像内 5 项适配测试通过，覆盖资源缺失、安装去重、失败重试、损坏缓存修复、新版音频接口与语速。集成测试新增可选 `REAL_TTS_MODEL` 后再次通过类型检查。
+- `REAL_TTS=1 pnpm test:agent:voice` 通过原有广播、私聊权限和撤销回归；`REAL_TTS=1 REAL_TTS_MODEL=rhasspy/piper-voices/zh_CN-chaowen-medium pnpm test:voice:services` 通过真实 Chaowen 试听、托管 Agent 发声、保存和恢复等检查。测试使用隔离世界与固定思考模型。
+- Docker 实测：容器重建后 Chaowen 仍为已安装；`--network none` 加只读模型卷通过真实 Speaches API 合成，0.8/1.2 倍语速分别生成约 4.01/2.88 秒音频，均为 16 kHz 单声道 PCM16。已有 Huayan 和 Lessac 实测合成通过。
+- 共享容器同时执行 Whisper ASR 与 Chaowen TTS 成功，记录：`artifacts/chaowen-integration/concurrent.json`。试听样本：`artifacts/chaowen-integration/chaowen.wav`。自然度取舍依据用户对前一轮试听的反馈，不将 ASR 回测或波形校验视为自然度评分。

@@ -5,6 +5,7 @@ node_modules
 .playwright-cli
 .pnpm-store
 output
+artifacts
 dist
 *.log
 .env

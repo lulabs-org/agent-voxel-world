@@ -1,5 +1,15 @@
 # Shared Whisper ASR + Piper TTS. Keep the base reproducible while applying
-# two minimal fixes: preserve CJK text and exclude incomplete model downloads.
+# CJK fixes and Piper 1.8 support for the official Chaowen voice.
 FROM ghcr.io/speaches-ai/speaches:latest-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+# g2pW is used for its dictionary data only; Piper 1.8 runs its ONNX frontend
+# without PyTorch. Keep the tested Chinese inference dependencies explicit.
+RUN uv pip install --python /home/ubuntu/speaches/.venv/bin/python \
+      piper-tts==1.8.0 transformers==4.57.6 sentence-stream==1.3.0 unicode-rbnf==2.4.1 \
+    && uv pip install --python /home/ubuntu/speaches/.venv/bin/python --no-deps g2pW==0.1.1
 COPY --chown=ubuntu:ubuntu docker/patch-speaches.py /tmp/patch-speaches.py
 RUN python /tmp/patch-speaches.py && rm /tmp/patch-speaches.py
+COPY --chown=ubuntu:ubuntu docker/piper-chaowen.py /home/ubuntu/speaches/src/speaches/piper_chaowen.py
+COPY --chown=ubuntu:ubuntu docker/patch-piper.py /tmp/patch-piper.py
+RUN python /tmp/patch-piper.py && rm /tmp/patch-piper.py
+COPY --chown=ubuntu:ubuntu docker/test-piper.py /tmp/test-piper.py
+RUN python /tmp/test-piper.py && rm /tmp/test-piper.py

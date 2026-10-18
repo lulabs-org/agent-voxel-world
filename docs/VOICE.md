@@ -9,18 +9,22 @@
 3. 保存后输入试听文字，点击 **测试连接并试听**。该按钮实际合成音频，同时验证连接、模型与音色；云端服务会收到试听文字并按供应商规则计费。
 4. 浏览器阻止自动播放时，可点击音频播放器播放。关闭控制台、切换服务或分类、修改配置、点击停止试听都会中止当前试听请求和播放。
 
-| 类型                             | 配置                                                  | 发声方式                                                    |
-| -------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------- |
-| Piper 本地语音                   | 中文 Huayan / 英文 Lessac 模型，0.5–2 倍语速          | 共享 Speaches 容器，安装模型后离线合成，无需 API Key        |
-| 浏览器系统语音（Web Speech API） | 当前设备音色、0.5–2 倍语速；自动音色按中英文选择      | 接收者浏览器通过 `speechSynthesis` 朗读，不要求后端安装 TTS |
-| 百炼语音合成                     | 北京或新加坡接口、该地域 API Key、Qwen-TTS 模型及音色 | 调用百炼语音合成接口，下载结果音频，不另行生成回答          |
-| 兼容语音接口                     | API Base URL、API Key、模型、音色、语速               | 请求 `POST /audio/speech`，要求支持 WAV 响应                |
+| 类型                             | 配置                                                        | 发声方式                                                    |
+| -------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| Piper 本地语音                   | 中文 Huayan / 超文 Chaowen / 英文 Lessac 模型，0.5–2 倍语速 | 共享 Speaches 容器，安装模型后离线合成，无需 API Key        |
+| 浏览器系统语音（Web Speech API） | 当前设备音色、0.5–2 倍语速；自动音色按中英文选择            | 接收者浏览器通过 `speechSynthesis` 朗读，不要求后端安装 TTS |
+| 百炼语音合成                     | 北京或新加坡接口、该地域 API Key、Qwen-TTS 模型及音色       | 调用百炼语音合成接口，下载结果音频，不另行生成回答          |
+| 兼容语音接口                     | API Base URL、API Key、模型、音色、语速                     | 请求 `POST /audio/speech`，要求支持 WAV 响应                |
 
 百炼默认模型为 `qwen3-tts-flash`，音色为 `Cherry`；可填写账号和模型支持的其他音色。参数依据 [Qwen-TTS 官方接口](https://help.aliyun.com/en/model-studio/qwen-tts-api)。兼容服务遵循 [Speech API](https://developers.openai.com/api/reference/resources/audio/subresources/speech/methods/create)，不代表所有第三方网关均支持该接口。
 
 百炼按模型区分两套协议：`qwen3-tts-*` 使用多模态合成接口；`qwen-audio-3.0-tts-*`、`qwen-audio-3.1-tts-*` 使用 `/services/audio/tts/SpeechSynthesizer`，显式请求 16 kHz WAV。例如 `qwen-audio-3.1-tts-flash` 可搭配 `longanhuan_v3.1`，无需修改已有服务配置。依据 [Qwen-Audio-TTS HTTP API](https://help.aliyun.com/zh/model-studio/qwen-audio-tts-http-api) 和[音色列表](https://help.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list)。试听与 Agent 发声共用此路由；错误按鉴权、模型、音色、限流分类提示，不回显服务商可能包含密钥或试听文字的原始错误体。
 
-Piper 使用共享 `speech` 服务，默认中文 `speaches-ai/piper-zh_CN-huayan-medium`，可选英文 `speaches-ai/piper-en_US-lessac-medium`。音色由模型决定。控制台点击安装，状态显示“已安装”后即可试听；关闭控制台不取消下载。模型保存于原 `voxel_whisper_cache` 卷，重启后无需重新下载。安装等待上限 10 分钟，失败可刷新重试。合成输出为 16 kHz 单声道 PCM WAV，复用空间播放及取消机制。
+Piper 使用共享 `speech` 服务，默认中文 `speaches-ai/piper-zh_CN-huayan-medium`，可选中文超文 `rhasspy/piper-voices/zh_CN-chaowen-medium` 和英文 `speaches-ai/piper-en_US-lessac-medium`。音色由模型决定。控制台点击安装，状态显示“已安装”后即可试听；关闭控制台不取消下载。模型保存于原 `voxel_whisper_cache` 卷，重启后无需重新下载。安装等待上限 10 分钟，失败可刷新重试。合成输出为 16 kHz 单声道 PCM WAV，复用空间播放及取消机制。
+
+超文使用官方 Piper 模型仓库中的 Chaowen medium。`Dockerfile.speech` 固定 Piper 1.8.0，并适配 Speaches 的合成接口。超文安装会一并下载 g2pW 中文发音资源和 BERT 分词词表，校验模型 SHA-256、试合成成功后才标记为已安装。全部资源保存在现有卷的 `.voxel-piper/chaowen-v1` 下；缓存不完整时显示未安装并支持重试，合成时不临时联网下载。已有 Huayan / Lessac 配置与默认模型不变，小雅不在安装目录中。
+
+官方来源：[Chaowen 模型卡](https://huggingface.co/rhasspy/piper-voices/blob/main/zh/zh_CN/chaowen/medium/MODEL_CARD)、[Piper 1.8](https://github.com/OHF-Voice/piper1-gpl/releases/tag/v1.8.0)。模型及依赖各自的许可证仍适用；新版 Piper 使用 GPL-3.0，分发镜像时应包含相应许可与源码义务。
 
 旧 macOS 服务原位迁移到 Piper，保留 ID、自定义名称、语速和 Agent 绑定，清空旧音色。迁移前原文件备份为 `voice-services.json.pre-piper.bak`（仅首次写入）。缺少模型不影响服务器启动，合成时提示安装；不会自动切换云端。回滚时先停止后端并备份当前配置，再将该备份恢复为 `voice-services.json`，配合旧版本代码启动。
 

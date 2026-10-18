@@ -217,6 +217,15 @@ try {
   );
   assert.equal((await api(`/voice-services/${a.id}`, 'DELETE')).status, 204);
   if (process.env.REAL_TTS === '1') {
+    if (process.env.REAL_TTS_MODEL) {
+      const saved = await api('/voice-services/local-default', 'PUT', {
+        name: 'Piper integration voice',
+        type: 'piper',
+        model: process.env.REAL_TTS_MODEL,
+        speed: 1,
+      });
+      assert.equal(saved.status, 200);
+    }
     const local = await api('/voice-services/local-default/preview', 'POST', {
       text: '你好，这是本地语音试听。',
     });

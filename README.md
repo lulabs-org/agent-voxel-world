@@ -44,7 +44,7 @@ docker compose up -d --build
 - **Swagger API 文档**：访问 `http://localhost:2567/api-docs`
 - **数据库**：PostgreSQL 数据自动持久化在 `voxel_postgres_data` 数据卷中，宿主机端口 `55432`
 - **语音服务 ASR / TTS**：内置共享 `voxel-speech`（Speaches，Compose 服务名 `speech`）容器，CPU 使用 int8 推理，模型缓存在 `voxel_whisper_cache` 卷中。Whisper 首次识别需要联网下载模型，下载后可离线识别；模型加载后常驻内存，避免空闲后重复冷启动。
-- **Piper TTS**：控制台选择中文 Huayan 或英文 Lessac，点击“安装模型”，安装后可离线合成。旧 macOS 服务自动迁移，保留 Agent 绑定；原配置备份为 `voice-services.json.pre-piper.bak`。
+- **Piper TTS**：控制台选择中文 Huayan / 超文 Chaowen 或英文 Lessac，点击“安装模型”，安装后可离线合成。旧 macOS 服务自动迁移，保留 Agent 绑定；原配置备份为 `voice-services.json.pre-piper.bak`。
 - **服务配置**：模型、ASR 与 TTS 配置保存在 `voxel_server_data` 卷中，重建容器会保留。旧部署升级前，请先备份旧容器的 `/app/.data` 并迁入该卷。
 
 录音需要允许浏览器和系统的麦克风权限。通过本机 `http://localhost` 或 HTTPS 访问；局域网 HTTP 地址无法使用麦克风。若内置浏览器一直等待授权，可在 Chrome / Edge 打开同一地址，或使用“用音频文件测试”。连续录音未识别到讲话时会继续监听；首次模型加载可能较慢，整句识别最多等待约 100 秒。

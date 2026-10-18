@@ -62,6 +62,23 @@ it('requests the model voice, speed and 16k PCM WAV and validates the returned d
   });
   expect(request.mock.calls[0][0]).toBe('http://speech/v1/audio/speech');
 });
+it.each(PIPER_MODELS)(
+  'synthesizes the selected $name without falling back to another voice',
+  async (model) => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(wav()));
+    await new PiperTts(
+      { model: model.id },
+      'http://speech/v1',
+      request,
+    ).synthesize('你好', new AbortController().signal);
+    expect(JSON.parse(request.mock.calls[0][1]?.body as string)).toMatchObject({
+      model: model.id,
+      voice: model.voice,
+    });
+  },
+);
 it('reports missing models and unreachable services, rejects invalid/oversized audio and honors cancellation', async () => {
   const request = vi.fn<typeof fetch>();
   const tts = new PiperTts({}, 'http://speech/v1', request);

@@ -33,6 +33,8 @@ services:
       # CPU image: reduce inference cost and avoid reloading after five idle minutes.
       WHISPER__COMPUTE_TYPE: int8
       WHISPER__TTL: -1
+      # Standard HTTP downloads are more reliable on Docker Desktop/proxy networks.
+      HF_HUB_DISABLE_XET: '1'
     networks:
       default:
         aliases: [whisper]

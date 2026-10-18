@@ -12,6 +12,12 @@ export const PIPER_MODELS = [
     language: 'en',
     voice: 'lessac',
   },
+  {
+    id: 'rhasspy/piper-voices/zh_CN-chaowen-medium',
+    name: '中文 · 超文 Chaowen',
+    language: 'zh',
+    voice: 'chaowen',
+  },
 ] as const;
 export const DEFAULT_PIPER_MODEL = PIPER_MODELS[0].id;
 export type PiperModelView = {
