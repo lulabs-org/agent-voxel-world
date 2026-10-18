@@ -7,7 +7,7 @@ import {
   type AgentRunState,
   type Observation,
 } from '@voxel/agent-runtime';
-import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
+import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { toolResponse } from './support/pi-response';
 const update = (status = 'running', intent = 'continue', extra = {}) => ({
   name: 'update_task',

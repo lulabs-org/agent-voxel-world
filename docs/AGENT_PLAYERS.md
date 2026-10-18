@@ -4,7 +4,7 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 ## 代码职责与依赖
 
-- `apps/agent`：CLI 与环境变量解析；`apps/server`：任务安排、存储、控制台路由、唤醒和取消。
+- `apps/agent-cli`：CLI 与环境变量解析；`apps/server`：任务安排、存储、控制台路由、唤醒和取消。
 - `packages/agent-runtime`：`Session` 世界连接、`actions` 动作执行与建造、`runtime` 中的 `AgentRunner`、预算、工具、上下文和任务规则；`planner/models` 只查询模型目录。
 - 公共入口不读取 `.env`、Pi 全局凭据或开发机器登录状态，也不自动启动 Agent。
 
@@ -144,10 +144,10 @@ AGENT_ALLOW_EDITS=false
 当前 memory 模式在普通重启时会丢失方块编辑；更新运行中的世界前须先备份/恢复，或使用数据库持久化配置。
 
 ```sh
-SERVER_URL=ws://127.0.0.1:2577 pnpm agent:deepseek
+SERVER_URL=ws://127.0.0.1:2577 pnpm agent:ai
 ```
 
-顶部“玩家”面板将显示 AI 代理身份，模型每轮可以选择移动、聊天或等待。`Ctrl+C` 取消模型请求、停止移动并退出世界；任务完成、等待条件、需要输入或达到保护上限时结束本次 CLI 执行并退出；需要在线待命和事件唤醒请使用控制台托管 Agent。模型配置/认证/余额错误直接结束，其他连续三次失败也停止，不会无限重试。已有 Scout 命令 `pnpm agent` 保持不变。
+顶部“玩家”面板将显示 AI 代理身份，模型每轮可以选择移动、聊天或等待。`Ctrl+C` 取消模型请求、停止移动并退出世界；任务完成、等待条件、需要输入或达到保护上限时结束本次 CLI 执行并退出；需要在线待命和事件唤醒请使用控制台托管 Agent。模型配置/认证/余额错误直接结束，其他连续三次失败也停止，不会无限重试。脚本测试机器人可运行 `pnpm agent:mock`。
 
 DeepSeek API 需要有效 API Key 和账户可用额度。运行时会把 Agent 目标、附近方块、玩家昵称和近期公共聊天事件发送给 DeepSeek；没有浏览器音频、文件或环境变量读取工具。
 

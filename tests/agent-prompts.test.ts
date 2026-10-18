@@ -4,7 +4,7 @@ import {
   piPrompt,
   piInput,
 } from '../packages/agent-runtime/src/runtime/pi-prompts';
-import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
+import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import type { AgentConfig } from '@voxel/agent-runtime';
 function buildMessages(
   o: Observation,

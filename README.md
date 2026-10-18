@@ -12,8 +12,8 @@ pnpm db:generate
 pnpm db:start
 pnpm db:migrate
 pnpm dev
-# 另一个终端：
-pnpm agent
+# 另一个终端（运行 AI 玩家或测试机器人）：
+pnpm agent:ai    # 或运行无 AI 的测试机器人：pnpm agent:mock
 ```
 
 打开 http://127.0.0.1:5173 ，用两个独立浏览器上下文输入不同昵称进入。服务只绑定 `127.0.0.1:2567`。`pnpm db:start` 只在本项目 `.data/postgres` 初始化数据库，在端口 55432 启动，创建被 Git 忽略的 `.env`，绝不覆盖已有 `.env`。端口被占用或数据目录没有项目标记时拒绝启动。开发用凭据仅适用于本地测试。
@@ -106,9 +106,9 @@ pnpm format:check
 - `apps/web`：React UI、Three.js 实例化体素、插值、重连。
 - `apps/server`：Colyseus 单一权威世界、事务存储、语音 provider 接口。
 - `apps/server/prisma`：PostgreSQL schema 和可重放迁移。
-- `apps/agent`：Scout 与 DeepSeek CLI 入口、命令行配置、集成检查。
+- `apps/agent-cli`：脚本测试机器人（Scout）与 AI Agent CLI 入口、命令行配置、集成检查。
 - `packages/agent-runtime`：CLI 与服务端共用的会话客户端、动作、模型规划和任务运行时，通过 `@voxel/agent-runtime` 引用。
-- DeepSeek AI 玩家：配置 `DEEPSEEK_API_KEY` 后运行 `pnpm agent:deepseek`，支持观察、移动、聊天和显式开启的方块编辑。使用 Pi 模型适配与工具循环，支持 DeepSeek 思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
+- AI 玩家：配置 `DEEPSEEK_API_KEY` 或 `AGENT_API_KEY` 后运行 `pnpm agent:ai`，支持观察、移动、聊天和显式开启的方块编辑。使用 Pi 模型适配与工具循环，支持思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
 - `packages/shared`：协议、确定性地形、物理与校验。
 
 服务端按职责组织，`src/index.ts` 负责启动、依赖装配和关闭清理：

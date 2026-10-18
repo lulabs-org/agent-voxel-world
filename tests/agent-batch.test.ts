@@ -16,7 +16,7 @@ import {
   type BuildResult,
   type AgentDecision,
 } from '@voxel/agent-runtime';
-import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
+import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 
 const task = {
   intent: 'continue',

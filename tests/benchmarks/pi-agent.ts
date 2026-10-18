@@ -9,7 +9,7 @@ import {
   type Observation,
   type AgentRunState,
 } from '../../packages/agent-runtime/src/index';
-import { agentConfig } from '../../apps/agent/src/cli/deepseek-config';
+import { agentConfig } from '../../apps/agent-cli/src/cli/agent-config';
 // Opt-in: this benchmark sends real requests using a locally configured provider.
 const providers = JSON.parse(
   await readFile(

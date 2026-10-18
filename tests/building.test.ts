@@ -1,5 +1,5 @@
 import { runAgent } from './support/decision-loop';
-import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
+import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { describe, it, expect, vi } from 'vitest';
 import {
   parseAction,

@@ -30,7 +30,7 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(tsx@4.23.15)
 
-  apps/agent:
+  apps/agent-cli:
     dependencies:
       '@voxel/agent-runtime':
         specifier: workspace:*

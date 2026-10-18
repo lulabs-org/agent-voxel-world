@@ -1,5 +1,5 @@
 import { runTaskStep } from './support/decision-step';
-import { agentConfig } from '../apps/agent/src/cli/deepseek-config';
+import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AgentAttention,

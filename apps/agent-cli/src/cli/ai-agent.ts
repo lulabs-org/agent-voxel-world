@@ -7,7 +7,7 @@ import {
   AgentRuntimeError,
   runAgent,
 } from '@voxel/agent-runtime';
-import { agentConfig } from './deepseek-config';
+import { agentConfig } from './agent-config';
 
 const envPath = fileURLToPath(new URL('../../../../.env', import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
@@ -23,10 +23,10 @@ process.once('SIGTERM', stop);
 try {
   const config = agentConfig();
   console.log(
-    `DeepSeek AI 玩家 · ${config.model} · 任务驱动 · 保护上限 ${config.maxTurns} 次调用 · 放置${agentPermissions(config).place ? '开启' : '关闭'} · 拆除${agentPermissions(config).remove ? '开启' : '关闭'}`,
+    `AI 玩家 · ${config.model} · 任务驱动 · 保护上限 ${config.maxTurns} 次调用 · 放置${agentPermissions(config).place ? '开启' : '关闭'} · 拆除${agentPermissions(config).remove ? '开启' : '关闭'}`,
   );
   console.log(
-    '附近方块、玩家昵称、聊天事件及 Agent 目标将发送至 DeepSeek API。Ctrl+C 退出。',
+    '附近方块、玩家昵称、聊天事件及 Agent 目标将发送至模型 API。Ctrl+C 退出。',
   );
   session = new Session();
   await session.join(config.name, 'ai-agent');

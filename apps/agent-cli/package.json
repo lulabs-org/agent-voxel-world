@@ -1,0 +1,15 @@
+{
+  "name": "@voxel/agent-cli",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/cli/ai-agent.ts",
+    "start:ai": "tsx src/cli/ai-agent.ts",
+    "start:mock": "tsx src/cli/scripted-agent.ts",
+    "test:integration": "tsx test/integration.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@voxel/agent-runtime": "workspace:*"
+  }
+}
