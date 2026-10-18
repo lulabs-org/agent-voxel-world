@@ -78,6 +78,8 @@ export async function prepareTaskTransition({
       throw new AgentRuntimeError(
         '没有可修改的任务，请使用 task 创建明确的新任务。',
       );
+    if (d.intent === 'task' || d.intent === 'update' || d.intent === 'cancel')
+      delete memory.follow;
     if (d.intent === 'update' && d.goal) task!.goal = d.goal;
     chargedTask = task;
     budget.attach(task!);
@@ -131,7 +133,9 @@ export function completeTaskTransition(
   task.waitFor = 'waitFor' in d ? d.waitFor : undefined;
   const acted = batch.results.filter((r) => r.status !== 'pending');
   const mutated = acted.some((r) =>
-    ['edit', 'build', 'house', 'move'].includes(r.action.type),
+    ['edit', 'build', 'house', 'move', 'goto', 'follow'].includes(
+      r.action.type,
+    ),
   );
   if (
     (mutated && task.status === 'completed') ||
@@ -150,7 +154,23 @@ export function completeTaskTransition(
     task.status = 'blocked';
     task.reason = '仍有未完成的建造方块，不能标记完成。';
   }
-  if (task.status === 'cancelled') memory.unfinishedBuild = undefined;
+  if (task.status === 'cancelled') {
+    memory.unfinishedBuild = undefined;
+    delete memory.follow;
+  }
+  if (memory.follow && task.status === 'completed') {
+    task.status = 'blocked';
+    task.reason = '持续跟随尚未取消或替换，不能标记完成。';
+  }
+  if (
+    memory.follow &&
+    batch.ok &&
+    ['running', 'waiting'].includes(task.status)
+  ) {
+    task.status = 'waiting';
+    task.waitFor = 'players';
+    task.summary = '持续跟随中，由本地导航控制器推进。';
+  }
   const progress = JSON.stringify([
     finalObservation.self.x,
     finalObservation.self.y,
@@ -206,6 +226,7 @@ export function validateToolDirective(
     (turnMutated ||
       memory.pendingEffects ||
       memory.unfinishedBuild ||
+      memory.follow ||
       (memory.previous && !(memory.previous as { ok?: boolean }).ok))
   )
     throw new AgentRuntimeError(

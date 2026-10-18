@@ -50,7 +50,7 @@ export const AGENT_SKILLS: ReadonlyArray<{
     description: '观察可见区域，移动检查并汇报发现。',
     requires: ['move', 'chat'],
     guidance:
-      'For assigned exploration, inspect visible surroundings, move in short verified steps, and report observed discoveries. You have no complete map or automatic pathfinding; distinguish unseen areas from confirmed observations.',
+      'For assigned exploration, inspect visible surroundings, move in short verified steps, and report observed discoveries. Use goto for locally planned navigation; you have no complete world map. Distinguish unseen areas from confirmed observations.',
   },
   {
     id: 'guide',

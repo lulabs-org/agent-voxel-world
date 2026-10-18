@@ -25,6 +25,12 @@ GET `/world/presence` 是独立的只读 SSE 订阅，连接后立即发送完�
 
 `sync` 请求完整 `snapshot`（blocks、revision、persistence）。`edit` 广播携带新版本；客户端发现版本跳跃时重新同步。全局版本用作乐观并发锁：同时提交相同版本仅一条成功，另一条收到 conflict 和最新快照。客户端不会自动重放破坏性编辑，用户基于新状态重试。
 
+## 导航观察
+
+`observation` 额外携带 `motion: {grounded,vy}` 与 `navigation: {complete:true,revision,min,max,blocks}`。`min/max` 是包含端点的整数方块中心边界：以角色四舍五入位置为中心，每轴向外 8 格，并裁剪到世界边界。此区域内所有实体方块完整返回，不应用 500 条截断；缺席的单元才可解释为空气。区域之外保持未知。`revision` 与同次观察一致。
+
+原有球形半径 8、最多 500 个方块的 `blocks` 保持为模型摘要。`navigation` 和运动细节不进入模型提示词。`goto/follow` 是共享 Agent runtime 的宏动作，不是新的服务端写入协议；实际位移仍通过 `move` 接受权威碰撞模拟。
+
 ## 存储和恢复
 
 程序生成基础地形。数据库 World 保存版本，BlockEdit 保存每个被修改单元的最终覆盖值（null 表示删除基础地形）。单次 Prisma 事务先对预期版本执行 CAS，再 upsert 覆盖值；提交成功后才修改运行内存和广播。失败返回 storage-unavailable，不改变世界。

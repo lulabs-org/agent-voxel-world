@@ -7,6 +7,7 @@ import type {
   Block,
   WorldEvent,
   Vec3,
+  LocalCollisionMap,
 } from '@voxel/shared';
 
 export type Observation = {
@@ -18,6 +19,9 @@ export type Observation = {
   events: WorldEvent[];
   radius: number;
   allowedActions: string[];
+  /** Machine-only collision data, never included in model context. */
+  navigation?: LocalCollisionMap;
+  motion?: { grounded: boolean; vy: number };
   attention?: WorldEvent;
 };
 
@@ -73,6 +77,8 @@ export type TaskDirective = {
 
 export type AgentAction =
   | BuildAction
+  | { type: 'goto'; x: number; y: number; z: number }
+  | { type: 'follow'; playerId: string; distance: number }
   | { type: 'wait' }
   | ({ type: 'chat'; text: string } & Partial<ChatRoute>)
   | { type: 'move'; x: number; z: number; jump: boolean; durationMs: number }
@@ -85,7 +91,27 @@ export type AgentAction =
     };
 
 export type AgentDecision = { actions: AgentAction[]; task: TaskDirective };
-export type ActionResult = Result | BuildResult | { ok: boolean; note: string };
+export type NavigationResult = {
+  ok: boolean;
+  status: 'arrived' | 'following' | 'progress' | 'failed';
+  code?:
+    | 'map_unavailable'
+    | 'target_blocked'
+    | 'no_path_in_known_area'
+    | 'target_not_visible'
+    | 'stalled'
+    | 'timeout'
+    | 'search_budget';
+  note: string;
+  position: Vec3;
+  target?: Vec3;
+  replans: number;
+};
+export type ActionResult =
+  | Result
+  | BuildResult
+  | NavigationResult
+  | { ok: boolean; note: string };
 export type ActionExecution = {
   action: AgentAction;
   status:

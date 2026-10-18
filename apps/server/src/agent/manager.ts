@@ -709,7 +709,10 @@ export class AgentManager {
     if (job.attention.pending) {
       job.timer = setTimeout(() => this.wake(job), 0);
     } else if (['running', 'waiting'].includes(job.memory.task?.status ?? '')) {
-      job.timer = setTimeout(() => this.wake(job), nextIntervalMs(job.view));
+      job.timer = setTimeout(
+        () => this.wake(job),
+        job.memory.follow ? 100 : nextIntervalMs(job.view),
+      );
     }
     job.timer?.unref();
   }
@@ -750,6 +753,7 @@ export class AgentManager {
       if (operation === 'cancel' && job.memory.task?.status !== 'completed') {
         job.memory.previous = undefined;
         job.memory.unfinishedBuild = undefined;
+        delete job.memory.follow;
       }
       if (job.session) job.view.status = 'idle';
       await this.save();

@@ -24,7 +24,7 @@
 5. `runtime/execute-step.ts` 串联任务归属检查、预算绑定、`actions/` 执行、结果检查点及任务状态更新。
 6. `pi/checkpoint.ts` 更新上下文存档；`AgentRunner` 调用宿主提供的持久化回调。保存失败后停止后续写操作。
 
-`PiTurnState` 是单次运行的可变上下文，只由本次循环和顺序工具共享，不跨 Agent 或跨任务共享。`AgentRunState` 是宿主持有的可恢复状态；此次目录重构不改变其字段或 Pi 检查点版本，无需迁移旧存档。
+`PiTurnState` 是单次运行的可变上下文，只由本次循环和顺序工具共享，不跨 Agent 或跨任务共享。`AgentRunState` 是宿主持有的可恢复状态；可选 `follow` 字段保存目标会话、距离、任务身份和迟滞状态；旧存档缺省为空。Pi 检查点版本不变。
 
 ## 依赖约束
 
@@ -44,3 +44,11 @@
 CLI 多客户端回归 `pnpm test:integration` 会连接 `SERVER_URL` 指向的现有世界并编辑固定坐标，且要求 PostgreSQL 持久化。必须先准备独立测试世界，再显式设置地址，例如 `SERVER_URL=ws://127.0.0.1:12567 pnpm test:integration`，不要直接对正在使用的世界运行。
 
 Docker 验证需单独构建服务端，在隔离实例或短暂停机备份后验证真实模型任务、重启恢复及旧存档兼容。不要用 `down -v` 清空现有数据卷。
+
+## 导航
+
+`actions/navigation/local-map.ts` 管理已知空间，`voxel-astar.ts` 搜索可站立节点，`controller.ts` 执行可取消的位置闭环。跳跃/下落边通过共享 `simulate()` 验证；普通平移检查体积与中间路径。搜索每约 2ms 让出事件循环，并限制扩展节点数量。局部无路不表示全局不可达。
+
+`runtime/follow-step.ts` 在宿主唤醒时推进已保存的跟随意图，不发起模型请求。新消息仍通过正常任务归属流程处理；暂停/取消中止动作，失败时停止，不重放历史方向输入。
+
+验证：`pnpm test:navigation` 启动临时端口的独立内存世界，覆盖真实 WebSocket 和服务端物理；`pnpm bench:navigation` 报告本机地图构建及搜索耗时。`tests/navigation.test.ts` 覆盖确定性物理、动态障碍、未知空间、取消以及 Pi 到跟随调度的链路。

@@ -25,6 +25,8 @@ export function presentAction(entry: RecordedAction) {
       {
         wait: '等待',
         move: '移动',
+        goto: '前往',
+        follow: '持续跟随',
         move_to: '前往',
         chat: '发送消息',
         edit: action.material === null ? '拆除方块' : '放置方块',
@@ -49,7 +51,12 @@ export function presentAction(entry: RecordedAction) {
     }
     if (action.jump === true) parts.push('跳跃');
     if (duration !== undefined) parts.push(`${duration / 1000} 秒`);
-  } else if (['edit', 'house', 'move_to'].includes(entry.kind)) {
+  } else if (entry.kind === 'follow') {
+    if (typeof action.playerId === 'string')
+      parts.push(`目标 ${action.playerId}`);
+    if (number(action.distance) !== undefined)
+      parts.push(`保持 ${action.distance} 格`);
+  } else if (['edit', 'house', 'move_to', 'goto'].includes(entry.kind)) {
     if ([action.x, action.y, action.z].every((v) => number(v) !== undefined))
       parts.push(`位置 (${action.x}, ${action.y}, ${action.z})`);
     if (typeof action.material === 'string')
@@ -61,18 +68,24 @@ export function presentAction(entry: RecordedAction) {
     .filter((v): v is string => typeof v === 'string' && !!v.trim())
     .join(' · ');
   const status =
-    entry.status === 'succeeded' && entry.kind === 'move'
-      ? '指令已发送'
-      : ((
-          {
-            pending: '未开始',
-            executing: '执行中',
-            succeeded: '执行成功',
-            failed: '失败',
-            interrupted: '已中断',
-            unknown: '结果待确认',
-          } as Record<string, string>
-        )[entry.status] ?? entry.status);
+    entry.status === 'succeeded' && entry.kind === 'follow'
+      ? '跟随已启动'
+      : entry.status === 'succeeded' &&
+          entry.kind === 'goto' &&
+          result.status === 'arrived'
+        ? '已到达'
+        : entry.status === 'succeeded' && entry.kind === 'move'
+          ? '指令已发送'
+          : ((
+              {
+                pending: '未开始',
+                executing: '执行中',
+                succeeded: '执行成功',
+                failed: '失败',
+                interrupted: '已中断',
+                unknown: '结果待确认',
+              } as Record<string, string>
+            )[entry.status] ?? entry.status);
   const tone =
     entry.status === 'succeeded'
       ? 'success'

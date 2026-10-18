@@ -1,5 +1,11 @@
 import { resolvePermissions, type AgentPermissions } from '@voxel/shared';
-import { inBounds, parseChatRoute, type Material } from '@voxel/shared';
+import {
+  inBounds,
+  parseChatRoute,
+  LIMIT,
+  MAX_Y,
+  type Material,
+} from '@voxel/shared';
 import type { AgentAction } from '../contracts';
 import { parseBuildAction } from './building';
 
@@ -15,6 +21,32 @@ export function parseAction(
     return fail();
   const a = value as Record<string, unknown>;
   switch (a.type) {
+    case 'goto':
+      if (!resolvePermissions(allowEdits).move) throw Error('移动权限未开启。');
+      if (
+        ![a.x, a.y, a.z].every(
+          (v) => typeof v === 'number' && Number.isFinite(v),
+        ) ||
+        Math.abs(Number(a.x)) > LIMIT - 0.3 ||
+        Math.abs(Number(a.z)) > LIMIT - 0.3 ||
+        Number(a.y) < 0.5 ||
+        Number(a.y) > MAX_Y + 0.6
+      )
+        return fail();
+      return { type: 'goto', x: Number(a.x), y: Number(a.y), z: Number(a.z) };
+    case 'follow':
+      if (!resolvePermissions(allowEdits).move) throw Error('移动权限未开启。');
+      if (
+        typeof a.playerId !== 'string' ||
+        !a.playerId.trim() ||
+        a.playerId.length > 128 ||
+        typeof a.distance !== 'number' ||
+        !Number.isFinite(a.distance) ||
+        a.distance < 0.8 ||
+        a.distance > 4
+      )
+        return fail();
+      return { type: 'follow', playerId: a.playerId, distance: a.distance };
     case 'build':
     case 'house':
       return parseBuildAction(a, allowEdits);

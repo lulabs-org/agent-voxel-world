@@ -10,6 +10,7 @@ export type {
   AgentAction,
   AgentDecision,
   ActionResult,
+  NavigationResult,
   ActionExecution,
   BatchResult,
   AgentConfig,

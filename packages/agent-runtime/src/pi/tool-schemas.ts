@@ -14,11 +14,14 @@ const block = Type.Object({
 export const toolSchemas = {
   observe: Type.Object({}),
   chat: Type.Object({ text: Type.String({ minLength: 1, maxLength: 240 }) }),
-  move: Type.Object({
-    x: Type.Number({ minimum: -1, maximum: 1 }),
-    z: Type.Number({ minimum: -1, maximum: 1 }),
-    jump: Type.Boolean(),
-    durationMs: Type.Integer({ minimum: 100, maximum: 1500 }),
+  goto: Type.Object({
+    x: Type.Number({ minimum: -11.7, maximum: 11.7 }),
+    y: Type.Number({ minimum: 0.5, maximum: 15.6 }),
+    z: Type.Number({ minimum: -11.7, maximum: 11.7 }),
+  }),
+  follow: Type.Object({
+    playerId: Type.String({ minLength: 1, maxLength: 128 }),
+    distance: Type.Number({ minimum: 0.8, maximum: 4 }),
   }),
   edit: block,
   build: Type.Object({

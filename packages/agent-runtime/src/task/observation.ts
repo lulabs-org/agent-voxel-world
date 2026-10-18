@@ -1,6 +1,7 @@
 import { key, type AgentTask, type ChatData } from '@voxel/shared';
 import type { AgentSession, Observation } from '../contracts';
 import type { AgentRunState } from './state';
+import { arrived } from '../actions/navigation/controller';
 import { observedEmpty } from '../actions/building';
 
 export function worldSignature(o: Observation, kind: AgentTask['waitFor']) {
@@ -69,6 +70,11 @@ export async function prepareDecision(
                   b.material ===
                     (r.action as import('../contracts').PlannedEdit).material,
               );
+        if (r.action.type === 'goto') return arrived(raw, r.action);
+        if (r.action.type === 'follow')
+          return (
+            !!memory.follow && memory.follow.taskStartedAt === task?.startedAt
+          );
         if (r.action.type === 'move')
           return (
             !!r.before &&
@@ -102,6 +108,7 @@ export async function prepareDecision(
     task: visibleTask ? task : undefined,
     previous: visibleTask ? memory.previous : undefined,
     pendingEffects: visibleTask ? memory.pendingEffects : undefined,
+    follow: visibleTask ? memory.follow : undefined,
     unfinishedBuild: visibleTask ? memory.unfinishedBuild : undefined,
     decisionError: visibleTask ? memory.decisionError : undefined,
     trigger: addressed
