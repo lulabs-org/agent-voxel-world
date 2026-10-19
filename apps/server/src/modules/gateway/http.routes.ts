@@ -621,7 +621,7 @@ export function installGatewayRoutes(
     (id) => manager.removeVoiceService(id),
   );
 
-  installGatewayHttp(app, manager);
+  installGatewayHttp(app, manager.gateway);
 
   app.use('/agents', (_req, res) => {
     res.status(404).json({ error: 'Agent 接口不存在，请确认前后端版本一致。' });

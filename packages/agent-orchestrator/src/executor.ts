@@ -37,8 +37,8 @@ export type ExecutionContext = {
   controlTask: (
     id: string,
     op: 'pause' | 'cancel',
-    identity: TaskIdentity,
-    commandId: string,
+    identity?: TaskIdentity,
+    commandId?: string,
   ) => Promise<unknown>;
   wake: (job: Job) => void;
   schedule: (job: Job) => void;

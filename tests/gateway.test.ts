@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { CommandRouter, AgentGateway } from '@voxel/agent-gateway';
+import { AgentOrchestrator } from '@voxel/agent-orchestrator';
 import {
   parseConnect,
   parseRequest,
@@ -259,7 +260,7 @@ it('does not acknowledge a failed creation, publish unsaved state or enter the w
   await providers.load({ DEEPSEEK_API_KEY: 'fixture-only' });
   const world = vi.fn();
   let fail = true;
-  const gateway = new AgentGateway(
+  const orchestrator = new AgentOrchestrator(
     providers,
     'ws://fixture',
     {
@@ -275,6 +276,7 @@ it('does not acknowledge a failed creation, publish unsaved state or enter the w
       },
     },
   );
+  const gateway = new AgentGateway(orchestrator);
   const events = vi.fn();
   gateway.events.on(events);
   try {
@@ -335,7 +337,7 @@ const hello = {
 };
 it('buffers changes during a subscription snapshot and disconnects slow clients', async () => {
   const { GatewayEvents } = await import(
-    '../packages/agent-gateway/src/events'
+    '../packages/agent-orchestrator/src/events'
   );
   const events = new GatewayEvents();
   let resolve!: (value: unknown) => void;

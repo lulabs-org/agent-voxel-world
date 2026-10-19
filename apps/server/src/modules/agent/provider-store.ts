@@ -7,7 +7,7 @@ import {
   validateProvider,
   type SavedProvider,
   ManagementError,
-} from '@voxel/agent-gateway';
+} from '@voxel/agent-orchestrator';
 
 export class ProviderStore {
   private values: SavedProvider[] = [];

@@ -75,7 +75,7 @@ export async function createServer(options: ServerOptions = {}) {
     options.asrBridge,
     config.webOrigin,
     (socket, req) =>
-      gatewaySocket(agents, gatewayAuth, gatewayEpoch, socket, req),
+      gatewaySocket(agents.gateway, gatewayAuth, gatewayEpoch, socket, req),
   );
   const server = new Server({
     transport,

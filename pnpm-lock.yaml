@@ -14,6 +14,9 @@ importers:
       '@voxel/agent-gateway':
         specifier: workspace:*
         version: link:packages/agent-gateway
+      '@voxel/agent-orchestrator':
+        specifier: workspace:*
+        version: link:packages/agent-orchestrator
       '@voxel/agent-runtime':
         specifier: workspace:*
         version: link:packages/agent-runtime
@@ -78,6 +81,9 @@ importers:
       '@voxel/agent-gateway':
         specifier: workspace:*
         version: link:../../packages/agent-gateway
+      '@voxel/agent-orchestrator':
+        specifier: workspace:*
+        version: link:../../packages/agent-orchestrator
       '@voxel/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
@@ -169,6 +175,12 @@ importers:
         version: 7.3.7(@types/node@22.20.5)(jiti@2.7.0)(tsx@4.23.15)
 
   packages/agent-gateway:
+    dependencies:
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:../gateway-protocol
+
+  packages/agent-orchestrator:
     dependencies:
       '@voxel/agent-runtime':
         specifier: workspace:*

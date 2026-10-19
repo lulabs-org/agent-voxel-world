@@ -4,7 +4,7 @@ import {
   type RestoredAgentRecord,
   type GatewayArchive,
   migrateArchive,
-} from '@voxel/agent-gateway';
+} from '@voxel/agent-orchestrator';
 export async function writeAgentArchive(
   archivePath: string,
   records: GatewayArchive,
