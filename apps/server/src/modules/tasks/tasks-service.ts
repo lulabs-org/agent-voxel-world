@@ -1,11 +1,46 @@
-import type { AgentManager } from '../agent/manager';
 import type { RpcParams } from '@voxel/gateway-protocol';
+
+export interface TasksManagerPort {
+  planPage(params: {
+    state?: RpcParams['state'];
+    offset?: number;
+    search?: string;
+    agentId?: string;
+  }): unknown;
+  publicPlans(agentId?: string): unknown;
+  publicPlan(planId: string): unknown;
+  createTaskPlan(agentId: string, value: unknown): Promise<unknown>;
+  updateTaskPlan(
+    agentId: string | undefined,
+    planId: string,
+    value: unknown,
+  ): Promise<unknown>;
+  controlTaskPlan(
+    agentId: string | undefined,
+    planId: string,
+    operation: string,
+    value: unknown,
+  ): Promise<unknown>;
+  reassignPlan(planId: string, targetAgentId: string): Promise<unknown>;
+  publicRuns(
+    agentId: string | undefined,
+    planId: string,
+    offset?: number,
+    metadata?: boolean,
+  ): unknown;
+  controlTaskRun(
+    agentId: string,
+    runId: string,
+    operation: string,
+    value: unknown,
+  ): Promise<unknown>;
+}
 
 /**
  * Tasks / Plans 领域的业务服务封装
  */
 export class TasksService {
-  constructor(private readonly manager: AgentManager) {}
+  constructor(private readonly manager: TasksManagerPort) {}
 
   listGlobalPlans(params: {
     state?: RpcParams['state'];

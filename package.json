@@ -47,7 +47,6 @@
     "typescript": "~5.9.3",
     "vitest": "^3.2.4",
     "@voxel/agent-runtime": "workspace:*",
-    "@voxel/agent-orchestrator": "workspace:*",
     "@voxel/gateway-protocol": "workspace:*",
     "@voxel/gateway-client": "workspace:*"
   }

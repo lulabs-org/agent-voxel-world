@@ -1,4 +1,5 @@
 import type { RestoredAgentRecord, GatewayArchive } from './ports';
+
 export type Change = {
   resource: 'agents' | 'providers' | 'plans' | 'runs';
   planIds?: string[];
@@ -6,6 +7,7 @@ export type Change = {
   agentIds: string[];
   version: number;
 };
+
 export class GatewayEvents {
   private listeners = new Set<(change: Change) => void>();
   private previous = new Map<string, string>();

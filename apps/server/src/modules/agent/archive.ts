@@ -1,8 +1,8 @@
-import { isRepeating } from '@voxel/shared';
-import type { GatewayArchive, RestoredAgentRecord } from '../ports';
-import { newPlan, newRun } from './model';
-import { DEFAULT_TASK_LIMITS } from '@voxel/shared';
-import { ManagementError } from '../errors';
+import { isRepeating, DEFAULT_TASK_LIMITS } from '@voxel/shared';
+import type { GatewayArchive, RestoredAgentRecord } from './ports';
+import { newPlan, newRun } from '../tasks/plans/model';
+import { AppError } from '../../common/errors';
+
 /** Pure, repeatable migration; disk backup and atomic replacement belong to the host. */
 export function migrateArchive(
   saved: RestoredAgentRecord[] | GatewayArchive,
@@ -16,7 +16,7 @@ export function migrateArchive(
       !saved.requests ||
       typeof saved.requests !== 'object'
     )
-      throw new ManagementError('网关存档格式无效。', 500);
+      throw new AppError('网关存档格式无效。', 500);
     const copy = structuredClone(saved);
     validateArchive(copy);
     return copy;
@@ -37,7 +37,7 @@ export function migrateArchive(
         !Array.isArray(book.plans) ||
         !Array.isArray(book.runs)
       )
-        throw new ManagementError('任务存档格式无效。', 500);
+        throw new AppError('任务存档格式无效。', 500);
       for (const p of book.plans) {
         const runs = book.runs.filter((r) => r.planId === p.id);
         const chatOnly =
@@ -106,6 +106,7 @@ export function migrateArchive(
   validateArchive(result);
   return result;
 }
+
 function validateArchive(s: GatewayArchive) {
   for (const list of [s.agents, s.plans, s.runs]) {
     const ids = list.map((x) => x.id);
@@ -113,18 +114,18 @@ function validateArchive(s: GatewayArchive) {
       ids.some((id) => typeof id !== 'string' || !id) ||
       new Set(ids).size !== ids.length
     )
-      throw new ManagementError('存档资源标识重复或无效。', 500);
+      throw new AppError('存档资源标识重复或无效。', 500);
   }
   for (const p of s.plans)
     if (p.agentId && !s.agents.some((a) => a.id === p.agentId))
-      throw new ManagementError('计划关联角色不存在。', 500);
+      throw new AppError('计划关联角色不存在。', 500);
   for (const r of s.runs)
     if (r.planId && !s.plans.some((p) => p.id === r.planId))
-      throw new ManagementError('执行关联计划不存在。', 500);
+      throw new AppError('执行关联计划不存在。', 500);
   for (const a of s.agents)
     if (
       a.currentRunId &&
       !s.runs.some((r) => r.id === a.currentRunId && r.agentId === a.id)
     )
-      throw new ManagementError('当前执行关联无效。', 500);
+      throw new AppError('当前执行关联无效。', 500);
 }

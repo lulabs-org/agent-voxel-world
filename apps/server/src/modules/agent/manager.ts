@@ -1,7 +1,7 @@
 import {
   AgentOrchestrator,
   type GatewayDependencies,
-} from '@voxel/agent-orchestrator';
+} from './orchestrator';
 import { AgentGateway } from '../gateway/gateway';
 import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
 import { ProviderStore } from '../providers/provider-store';

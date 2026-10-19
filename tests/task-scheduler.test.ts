@@ -6,7 +6,7 @@ import {
   wallClockInstant,
   duePlans,
   emptyTaskBook,
-} from '@voxel/agent-orchestrator';
+} from '../apps/server/src/modules/tasks';
 import {
   DEFAULT_TASK_LIMITS,
   type TaskTiming,

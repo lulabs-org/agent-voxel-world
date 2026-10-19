@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { appendAgentLog, restoreAgentLogs } from '@voxel/agent-orchestrator';
+import { appendAgentLog, restoreAgentLogs } from '../apps/server/src/modules/agent';
 
 it('retains the newest 500 messages with their original timestamps', () => {
   const view = restoreAgentLogs([], []);

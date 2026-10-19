@@ -4,15 +4,12 @@ import {
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
-import { endedRun, newRun, nextOccurrence, runView } from './plans/model';
+import { endedRun, newRun, nextOccurrence, runView } from '../tasks/plans/model';
 import { newTask, TaskService } from '@voxel/agent-runtime';
-import {
-  object,
-  taskLimits,
-  validateAgent,
-  type SavedProvider,
-} from './validation';
-import { ManagementError } from './errors';
+import { object } from '../../common/validation';
+import { taskLimits, validateAgent } from './agent-validation';
+import type { SavedProvider } from '../providers/provider-validation';
+import { AppError } from '../../common/errors';
 import { active, type Job } from './types';
 
 export function currentRun(job: Job) {
@@ -166,7 +163,7 @@ export async function commitExecution<T>(
   swapsExecution = false,
 ): Promise<T> {
   if (job.taskMutating || job.updating || job.controlling)
-    throw new ManagementError('任务状态正在更新，请稍候。', 409);
+    throw new AppError('任务状态正在更新，请稍候。', 409);
   captureTask(job);
   const before = {
     plans: structuredClone(
@@ -277,8 +274,8 @@ export async function executeTaskPlanControl(
   launch: (job: Job) => void,
 ) {
   const plan = job.ledger.plans.find((p) => p.id === planId);
-  if (!plan) throw new ManagementError('任务不存在。', 404);
-  if (plan.state === 'archived') throw new ManagementError('任务已归档。');
+  if (!plan) throw new AppError('任务不存在。', 404);
+  if (plan.state === 'archived') throw new AppError('任务已归档。');
   job.ledger.assertBinding(planId, job.view.id);
   if (operation === 'run') {
     const requestId = object(value).requestId;
@@ -286,20 +283,20 @@ export async function executeTaskPlanControl(
       typeof requestId !== 'string' ||
       !/^[a-zA-Z0-9-]{1,80}$/.test(requestId)
     )
-      throw new ManagementError('执行请求标识无效。');
+      throw new AppError('执行请求标识无效。');
     const prior = job.ledger.runs.find(
       (r) => r.planId === planId && r.requestId === requestId,
     );
     if (prior) return runView(prior);
     if (job.ledger.unfinished(planId))
-      throw new ManagementError('请先结束该计划的未完成执行。', 409);
+      throw new AppError('请先结束该计划的未完成执行。', 409);
     if (!job.session || taskBusy(job))
-      throw new ManagementError(
+      throw new AppError(
         '角色离线或忙碌，请先上线或暂停当前执行。',
         409,
       );
     if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
-      throw new ManagementError('请先追加计划累计额度。');
+      throw new AppError('请先追加计划累计额度。');
     let runId: string | undefined;
     await commitExecution(
       job,
@@ -338,8 +335,8 @@ export async function executeTaskRunControl(
   captureTask(job);
   const run = job.ledger.runs.find((r) => r.id === runId);
   if (!run || run.agentId !== job.view.id || !run.runtime?.task)
-    throw new ManagementError('执行记录不存在或不可继续。', 404);
-  if (endedRun(run)) throw new ManagementError('执行已结束，请重新执行任务。');
+    throw new AppError('执行记录不存在或不可继续。', 404);
+  if (endedRun(run)) throw new AppError('执行已结束，请重新执行任务。');
   if (operation === 'pause' || operation === 'cancel') {
     if (job.currentRunId === runId) return controlCurrentTask(operation);
     return commitExecution(
@@ -365,18 +362,18 @@ export async function executeTaskRunControl(
       schedule,
     );
   }
-  if (operation !== 'resume') throw new ManagementError('执行操作无效。');
+  if (operation !== 'resume') throw new AppError('执行操作无效。');
   if (!job.session || taskBusy(job))
-    throw new ManagementError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
+    throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
   if (run.runtime.audienceExpired)
-    throw new ManagementError('原私聊会话已失效，请重新通过聊天发起。', 409);
+    throw new AppError('原私聊会话已失效，请重新通过聊天发起。', 409);
   const plan = job.ledger.plans.find((p) => p.id === run.planId);
   if (
     plan &&
     hasPlanTokenLimit(run.snapshot) &&
     plan.spentTokens >= plan.totalTokenBudget
   )
-    throw new ManagementError('请先追加计划累计额度。');
+    throw new AppError('请先追加计划累计额度。');
   const enabled = run.snapshot.limits.enabled !== false;
   const settings = validateAgent(
     { ...job.view, ...run.snapshot.limits, ...taskLimits(object(value)) },
@@ -388,7 +385,7 @@ export async function executeTaskRunControl(
       settings.tokenBudget! <= run.task!.tokens ||
       settings.taskTimeoutMs! <= run.task!.elapsedMs)
   )
-    throw new ManagementError('继续执行的额度必须大于已使用额度。');
+    throw new AppError('继续执行的额度必须大于已使用额度。');
   await commitExecution(
     job,
     () => {

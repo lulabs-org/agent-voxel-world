@@ -1,4 +1,4 @@
-import { TaskPlanError } from '../errors';
+import { AppError } from '../../../common/errors';
 import { nextOccurrence } from '@voxel/shared';
 export { nextOccurrence, wallClockInstant } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
@@ -52,7 +52,7 @@ export function planDraft(plan: TaskPlanDraft): TaskPlanDraft {
 function integer(value: unknown, fallback: number, min: number, max: number) {
   const n = value ?? fallback;
   if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < min || n > max)
-    throw new TaskPlanError(`数值须在 ${min}–${max} 之间。`);
+    throw new AppError(`数值须在 ${min}–${max} 之间。`);
   return n;
 }
 export function validatePlan(
@@ -61,21 +61,21 @@ export function validatePlan(
   previous?: TaskPlan,
 ): TaskPlanDraft {
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new TaskPlanError('任务格式无效。');
+    throw new AppError('任务格式无效。');
   const v = { ...previous, ...value } as TaskPlanDraft;
   if (typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80)
-    throw new TaskPlanError('请填写 80 字以内的任务名称。');
+    throw new AppError('请填写 80 字以内的任务名称。');
   if (typeof v.goal !== 'string' || !v.goal.trim() || v.goal.length > 2000)
-    throw new TaskPlanError('请填写 2000 字以内的任务目标。');
+    throw new AppError('请填写 2000 字以内的任务目标。');
   if (typeof v.timeZone !== 'string' || v.timeZone.length > 100)
-    throw new TaskPlanError('请选择有效时区。');
+    throw new AppError('请选择有效时区。');
   try {
     new Intl.DateTimeFormat('en', { timeZone: v.timeZone }).format();
   } catch {
-    throw new TaskPlanError('请选择有效时区。');
+    throw new AppError('请选择有效时区。');
   }
   const t = v.timing;
-  if (!t || typeof t !== 'object') throw new TaskPlanError('执行方式无效。');
+  if (!t || typeof t !== 'object') throw new AppError('执行方式无效。');
   let timing: TaskTiming;
   switch (t.kind) {
     case 'immediate':
@@ -87,7 +87,7 @@ export function validatePlan(
         t.at <= now &&
         (previous?.timing.kind !== 'once' || previous.timing.at !== t.at)
       )
-        throw new TaskPlanError('执行时间必须在将来。');
+        throw new AppError('执行时间必须在将来。');
       timing = { kind: t.kind, at: t.at };
       break;
     case 'interval':
@@ -102,14 +102,14 @@ export function validatePlan(
         typeof t.time !== 'string' ||
         !/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time)
       )
-        throw new TaskPlanError('时间格式应为 HH:mm。');
+        throw new AppError('时间格式应为 HH:mm。');
       if (t.kind === 'weekly') {
         if (
           !Array.isArray(t.weekdays) ||
           !t.weekdays.length ||
           t.weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)
         )
-          throw new TaskPlanError('请选择星期。');
+          throw new AppError('请选择星期。');
         timing = {
           kind: t.kind,
           time: t.time,
@@ -118,10 +118,10 @@ export function validatePlan(
       } else timing = { kind: t.kind, time: t.time };
       break;
     default:
-      throw new TaskPlanError('执行方式无效。');
+      throw new AppError('执行方式无效。');
   }
   if (v.limits?.enabled !== undefined && typeof v.limits.enabled !== 'boolean')
-    throw new TaskPlanError('执行限制开关必须为布尔值。');
+    throw new AppError('执行限制开关必须为布尔值。');
   // Hidden fields do not prevent saving an unlimited task; retain valid values for later use.
   const quota = (value: unknown, fallback: number, min: number, max: number) =>
     v.limits?.enabled === false &&

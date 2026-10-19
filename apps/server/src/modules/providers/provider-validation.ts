@@ -1,0 +1,111 @@
+import { AppError } from '../../common/errors';
+import { object, text, integer, boolean } from '../../common/validation';
+import { randomUUID } from 'node:crypto';
+import {
+  type AgentSettings,
+  type ProviderInference,
+  type ProviderView,
+} from '@voxel/shared';
+
+export type SavedProvider = Omit<ProviderView, 'hasApiKey'> & {
+  apiKey: string;
+};
+
+export function validateProvider(
+  value: unknown,
+  previous?: SavedProvider,
+): SavedProvider {
+  const input = object(value);
+  const type = input.type;
+  if (type !== 'deepseek' && type !== 'ollama' && type !== 'compatible')
+    throw new AppError('不支持此服务类型。');
+  const name = text(input.name, '服务名称', 50);
+  if (!name) throw new AppError('请输入服务名称。');
+  const defaults = {
+    deepseek: 'https://api.deepseek.com',
+    ollama: 'http://127.0.0.1:11434/v1',
+    compatible: '',
+  };
+  let url: URL;
+  try {
+    url = new URL(text(input.baseUrl, '接口地址', 500, defaults[type]));
+  } catch {
+    throw new AppError('请输入有效的 API Base URL。');
+  }
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
+  )
+    throw new AppError(
+      '接口须为 HTTPS 或本机 HTTP 地址，不能包含密码、查询参数或锚点。',
+    );
+  if (type === 'deepseek' && url.origin !== 'https://api.deepseek.com')
+    throw new AppError(
+      'DeepSeek 使用官方地址；第三方网关请选择 OpenAI 兼容服务。',
+    );
+  if (type === 'ollama' && !loopback)
+    throw new AppError('本机 Ollama 仅支持本机地址。');
+  const baseUrl = url.href.replace(/\/$/, '');
+  const apiKey = text(input.apiKey, 'API Key', 4096);
+  if (
+    previous?.apiKey &&
+    !apiKey &&
+    (new URL(previous.baseUrl).origin !== url.origin || previous.type !== type)
+  )
+    throw new AppError('更换服务地址或类型时，请重新填写 API Key。');
+  const tokenField = input.tokenField ?? 'max_tokens';
+  if (tokenField !== 'max_tokens' && tokenField !== 'max_completion_tokens')
+    throw new AppError('输出长度参数无效。');
+  return {
+    id: previous?.id ?? randomUUID(),
+    name,
+    type,
+    baseUrl,
+    apiKey: apiKey || previous?.apiKey || '',
+    defaultModel: text(input.defaultModel, '默认模型', 128),
+    jsonMode: boolean(input.jsonMode, true),
+    tokenField: type === 'compatible' ? tokenField : 'max_tokens',
+    inference:
+      input.inference === undefined
+        ? previous?.inference && validateInference(previous.inference, type)
+        : validateInference(object(input.inference), type),
+  };
+}
+
+export function validateInference(
+  input: Record<string, unknown>,
+  type: ProviderView['type'],
+): ProviderInference {
+  const thinking = input.thinking ?? 'disabled';
+  const reasoningEffort = input.reasoningEffort ?? 'high';
+  if (thinking !== 'enabled' && thinking !== 'disabled')
+    throw new AppError('思考模式无效。');
+  if (
+    typeof reasoningEffort !== 'string' ||
+    !['none', 'low', 'high', 'max'].includes(reasoningEffort)
+  )
+    throw new AppError('推理强度无效。');
+  if (type !== 'deepseek' && thinking !== 'disabled')
+    throw new AppError('此模型服务暂不提供 DeepSeek 思考参数。');
+  return {
+    thinking,
+    reasoningEffort: reasoningEffort as AgentSettings['reasoningEffort'],
+    timeoutMs: integer(input.timeoutMs, '推理超时', 60000, 1000, 120000),
+    maxTokens: integer(
+      input.maxTokens,
+      '输出长度',
+      thinking === 'enabled' ? 4096 : 512,
+      128,
+      16384,
+    ),
+  };
+}
+
+export const providerView = ({
+  apiKey,
+  ...provider
+}: SavedProvider): ProviderView => ({ ...provider, hasApiKey: !!apiKey });

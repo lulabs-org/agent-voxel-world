@@ -1,21 +1,20 @@
-import type { AgentSettings, ManagedAgentView } from '@voxel/shared';
+import type { AgentSettings } from '@voxel/shared';
 import {
   AgentAttention,
   newTask,
   restoreBatchHistory,
   restorePiCheckpoint,
 } from '@voxel/agent-runtime';
-import { PlanService } from './plans/service';
+import { PlanService } from '../tasks/plans/service';
 import { isRepeating } from '@voxel/shared';
 import { restoreAgentLogs } from './agent-logs';
-import { duePlans, endedRun, newRun, nextOccurrence } from './plans/model';
-import { validateAgent } from './validation';
-import { ManagementError } from './errors';
-import type { ProviderPort } from './ports';
+import { duePlans, endedRun, newRun, nextOccurrence } from '../tasks/plans/model';
+import { validateAgent } from './agent-validation';
+import { AppError } from '../../common/errors';
+import type { ProviderPort, RestoredAgentRecord } from './ports';
 import type { Job } from './types';
 import { captureTask } from './task-operations';
 
-import type { RestoredAgentRecord } from './ports';
 export function restoreAgentJob(
   view: RestoredAgentRecord,
   providers: ProviderPort,
@@ -33,7 +32,7 @@ export function restoreAgentJob(
     voiceWarning = '原语音服务不可用，已保留文字回复；请重新选择语音服务。';
   }
   if (typeof view.id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(view.id))
-    throw new ManagementError('Agent 标识无效。', 500);
+    throw new AppError('Agent 标识无效。', 500);
 
   const job: Job = {
     view: {
