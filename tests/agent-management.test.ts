@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
-import { validateAgent, validateProvider } from '@voxel/agent-orchestrator';
+import { ProviderStore, validateProvider } from '../apps/server/src/modules/providers';
+import { validateAgent } from '../apps/server/src/modules/agent';
 import { listModels, type Observation } from '@voxel/agent-runtime';
 
 const folders: string[] = [];

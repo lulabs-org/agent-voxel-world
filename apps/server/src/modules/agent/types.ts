@@ -4,12 +4,16 @@ import type {
   AgentRunState,
   Session,
 } from '@voxel/agent-runtime';
-import type { PlanService } from './plans/service';
-import type { AgentHost } from './executor';
+import type { PlanService } from '../tasks/plans/service';
+import type { SavedProvider } from '../providers/provider-validation';
+
+export interface HostedAgent {
+  run(provider: SavedProvider, run?: boolean): Promise<void>;
+}
 
 export type Job = {
   view: ManagedAgentView;
-  host?: AgentHost;
+  host?: HostedAgent;
   abort: AbortController;
   session?: Session;
   done?: Promise<void>;

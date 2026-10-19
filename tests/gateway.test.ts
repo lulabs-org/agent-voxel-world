@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { CommandRouter, AgentGateway } from '../apps/server/src/modules/gateway';
-import { AgentOrchestrator } from '@voxel/agent-orchestrator';
+import { AgentOrchestrator } from '../apps/server/src/modules/agent';
 import {
   parseConnect,
   parseRequest,
@@ -329,7 +329,7 @@ const hello = {
 };
 it('buffers changes during a subscription snapshot and disconnects slow clients', async () => {
   const { GatewayEvents } = await import(
-    '../packages/agent-orchestrator/src/events'
+    '../apps/server/src/modules/agent/events'
   );
   const events = new GatewayEvents();
   let resolve!: (value: unknown) => void;

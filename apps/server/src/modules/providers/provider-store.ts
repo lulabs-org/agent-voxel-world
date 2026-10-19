@@ -6,8 +6,8 @@ import {
   providerView,
   validateProvider,
   type SavedProvider,
-  ManagementError,
-} from '@voxel/agent-orchestrator';
+} from './provider-validation';
+import { AppError } from '../../common/errors';
 
 export class ProviderStore {
   private values: SavedProvider[] = [];
@@ -26,7 +26,7 @@ export class ProviderStore {
       });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new ManagementError(
+        throw new AppError(
           '无法读取模型服务配置，请检查本地配置文件。',
           500,
         );
@@ -59,7 +59,7 @@ export class ProviderStore {
 
   get(id: string) {
     const provider = this.values.find((p) => p.id === id);
-    if (!provider) throw new ManagementError('模型服务不存在。', 404);
+    if (!provider) throw new AppError('模型服务不存在。', 404);
     return { ...provider };
   }
 
@@ -86,7 +86,7 @@ export class ProviderStore {
   save(value: unknown, id?: string) {
     return this.mutate(async () => {
       if (!id && this.values.length >= 20)
-        throw new ManagementError('最多保存 20 个模型服务。');
+        throw new AppError('最多保存 20 个模型服务。');
       const provider = validateProvider(value, id ? this.get(id) : undefined);
       const next = id
         ? this.values.map((p) => (p.id === id ? provider : p))

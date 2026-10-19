@@ -1,10 +1,7 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
-import {
-  ManagementError,
-  type RestoredAgentRecord,
-  type GatewayArchive,
-  migrateArchive,
-} from '@voxel/agent-orchestrator';
+import { AppError } from '../../common/errors';
+import type { RestoredAgentRecord, GatewayArchive } from './ports';
+import { migrateArchive } from './archive';
 export async function writeAgentArchive(
   archivePath: string,
   records: GatewayArchive,
@@ -25,7 +22,7 @@ export async function readAgentArchive(
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined;
     }
-    throw new ManagementError('无法读取 Agent 记录。', 500);
+    throw new AppError('无法读取 Agent 记录。', 500);
   }
   if (!Array.isArray(saved)) return migrateArchive(saved);
   await writeFile(
@@ -44,7 +41,7 @@ export async function readAgentArchive(
   });
 
   if (!Array.isArray(saved) || saved.length > 50)
-    throw new ManagementError('Agent 记录格式无效。', 500);
+    throw new AppError('Agent 记录格式无效。', 500);
 
   await writeFile(`${archivePath}.before-pi.bak`, await readFile(archivePath), {
     mode: 0o600,

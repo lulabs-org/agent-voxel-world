@@ -18,7 +18,7 @@ import type { TaskIdentity } from '@voxel/gateway-protocol';
 import { appendAgentLog } from './agent-logs';
 
 import type { VoiceServicePort as VoiceServiceStore } from './ports';
-import type { SavedProvider } from './validation';
+import type { SavedProvider } from '../providers/provider-validation';
 import type { Job } from './types';
 import { captureTask, currentRun } from './task-operations';
 

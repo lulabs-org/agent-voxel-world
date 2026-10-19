@@ -2,7 +2,8 @@ import { expect, it } from 'vitest';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateArchive, newPlan, newRun } from '@voxel/agent-orchestrator';
+import { migrateArchive } from '../apps/server/src/modules/agent/archive';
+import { newPlan, newRun } from '../apps/server/src/modules/tasks/plans/model';
 import { DEFAULT_TASK_LIMITS } from '../packages/shared/src/index';
 import {
   readAgentArchive,

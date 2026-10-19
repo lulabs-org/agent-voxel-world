@@ -1,15 +1,14 @@
 import type { Express } from 'express';
-import type { AgentManager } from '../agent/manager';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 import type { RpcParams } from '@voxel/gateway-protocol';
-import { TasksService } from './tasks-service';
+import { TasksService, type TasksManagerPort } from './tasks-service';
 
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
  */
 export function installTaskRoutes(
   app: Express,
-  managerOrService: AgentManager | TasksService,
+  managerOrService: TasksManagerPort | TasksService,
 ) {
   const service =
     managerOrService instanceof TasksService

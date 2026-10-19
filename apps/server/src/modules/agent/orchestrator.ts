@@ -1,8 +1,8 @@
-import { PlanService } from './plans/service';
-import { migrateArchive } from './plans/archive';
+import { PlanService } from '../tasks/plans/service';
+import { migrateArchive } from './archive';
 import { GatewayScheduler } from './wake-scheduler';
-import { PlanScheduler } from './plans/scheduler';
-import { endedRun } from './plans/model';
+import { PlanScheduler } from '../tasks/plans/scheduler';
+import { endedRun } from '../tasks/plans/model';
 import { appendAgentLog } from './agent-logs';
 import {
   validatePlan,
@@ -10,7 +10,7 @@ import {
   newRun,
   nextOccurrence,
   duePlans,
-} from './plans/model';
+} from '../tasks/plans/model';
 import {
   hasPlanTokenLimit,
   isRepeating,
@@ -39,15 +39,10 @@ import {
   type AgentConfig,
 } from '@voxel/agent-runtime';
 
-import {
-  object,
-  text,
-  boolean,
-  validateAgent,
-  taskLimits,
-  type SavedProvider,
-} from './validation';
-import { ManagementError } from './errors';
+import { object, text, boolean } from '../../common/validation';
+import { validateAgent, taskLimits } from './agent-validation';
+import type { SavedProvider } from '../providers/provider-validation';
+import { AppError } from '../../common/errors';
 
 import { active, resident, type Job } from './types';
 import {
@@ -64,7 +59,7 @@ import {
 import { restoreAgentJob } from './restore';
 import { AgentHost, type ExecutionContext } from './executor';
 
-export * from './validation';
+export * from './agent-validation';
 
 export class AgentOrchestrator {
   readonly jobs = new AgentRegistry();
@@ -84,9 +79,9 @@ export class AgentOrchestrator {
   private planStorageFailed = false;
 
   assertWritable(id?: string) {
-    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     if (id && this.jobs.get(id)?.storageFailed)
-      throw new ManagementError(
+      throw new AppError(
         '存档失败，已停止此 Agent 的后续动作。请修复存储后重启服务。',
         503,
       );
@@ -161,7 +156,7 @@ export class AgentOrchestrator {
   }
   publicPlan(id: string) {
     const p = this.publicPlans(undefined, true).find((p) => p.id === id);
-    if (!p) throw new ManagementError('计划不存在。', 404);
+    if (!p) throw new AppError('计划不存在。', 404);
     return p;
   }
   async reassignPlan(id: string, agentId: string) {
@@ -296,7 +291,7 @@ export class AgentOrchestrator {
   async flush(since = this.storageRevision) {
     await this.saving;
     if (since !== this.storageRevision)
-      throw new ManagementError('保存失败，操作结果待确认，请检查存储。', 503);
+      throw new AppError('保存失败，操作结果待确认，请检查存储。', 503);
   }
   currentRunId(id: string) {
     return this.jobs.get(id)?.currentRunId;
@@ -309,7 +304,7 @@ export class AgentOrchestrator {
   }
   private checkVoice(settings: AgentSettings) {
     if (settings.voiceReplies && !settings.voiceServiceId)
-      throw new ManagementError('请先选择语音服务。');
+      throw new AppError('请先选择语音服务。');
     if (settings.voiceServiceId)
       this.voiceServices?.get(settings.voiceServiceId);
   }
@@ -345,8 +340,8 @@ export class AgentOrchestrator {
 
   private taskJob(id: string) {
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
-    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    if (!job) throw new AppError('Agent 不存在。', 404);
+    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     return job;
   }
 
@@ -368,14 +363,14 @@ export class AgentOrchestrator {
   async createTaskPlan(id: string, value: unknown) {
     this.assertWritable(id);
     if (this.planStorageFailed)
-      throw new ManagementError('计划存档失败，请修复存储后重启。', 503);
+      throw new AppError('计划存档失败，请修复存储后重启。', 503);
     const job = this.taskJob(id);
     const requestId = object(value).requestId;
     if (
       requestId !== undefined &&
       (typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(requestId))
     )
-      throw new ManagementError('请求标识无效。');
+      throw new AppError('请求标识无效。');
     const priorId =
       typeof requestId === 'string' &&
       job.ledger.requests &&
@@ -386,7 +381,7 @@ export class AgentOrchestrator {
       return structuredClone(job.ledger.plans.find((p) => p.id === priorId)!);
     const draft = validatePlan(value);
     if (draft.timing.kind === 'immediate' && (!job.session || taskBusy(job)))
-      throw new ManagementError('请先让角色上线并结束或暂停当前执行。', 409);
+      throw new AppError('请先让角色上线并结束或暂停当前执行。', 409);
     let runId: string | undefined;
     const plan = await commitExecution(
       job,
@@ -416,13 +411,13 @@ export class AgentOrchestrator {
 
   private async commitPlan<T>(planId: string, change: () => T) {
     if (this.planStorageFailed)
-      throw new ManagementError('计划存档失败，请修复存储后重启。', 503);
+      throw new AppError('计划存档失败，请修复存储后重启。', 503);
     const bound = this.plans.get(planId).agentId;
     if (
       this.changingPlans.has(planId) ||
       (bound && this.jobs.get(bound)?.taskMutating)
     )
-      throw new ManagementError('计划正在提交，请稍后重试。', 409);
+      throw new AppError('计划正在提交，请稍后重试。', 409);
     this.changingPlans.add(planId);
     const before = structuredClone(this.plans.get(planId));
     try {
@@ -441,7 +436,7 @@ export class AgentOrchestrator {
     const plan = this.plans.get(planId);
     if (id) this.plans.assertBinding(planId, id);
     if (plan.state === 'archived')
-      throw new ManagementError('已归档任务不能修改。');
+      throw new AppError('已归档任务不能修改。');
     const draft = validatePlan(value, Date.now(), plan);
     return this.commitPlan(planId, () => {
       Object.assign(plan, draft);
@@ -463,7 +458,7 @@ export class AgentOrchestrator {
         this.plans.control(planId, operation, value),
       );
     const target = this.plans.get(planId).agentId;
-    if (!target) throw new ManagementError('请先指派执行角色。', 409);
+    if (!target) throw new AppError('请先指派执行角色。', 409);
     return executeTaskPlanControl(
       this.taskJob(target),
       planId,
@@ -550,15 +545,15 @@ export class AgentOrchestrator {
 
   async models(id: string) {
     if (this.probing.has(id))
-      throw new ManagementError('正在连接此模型服务，请稍候。', 429);
+      throw new AppError('正在连接此模型服务，请稍候。', 429);
     const provider = this.providers.get(id);
     if (provider.type !== 'ollama' && !provider.apiKey)
-      throw new ManagementError('请先配置 API Key。');
+      throw new AppError('请先配置 API Key。');
     this.probing.add(id);
     try {
       return await this.dependencies.models(provider);
     } catch {
-      throw new ManagementError(
+      throw new AppError(
         '无法获取模型列表，请检查地址、密钥和服务状态。支持的模型 ID 也可手动填写。',
         502,
       );
@@ -568,7 +563,7 @@ export class AgentOrchestrator {
   }
 
   create(value: unknown) {
-    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     const provider = this.providers.get(
       text(object(value).providerId, '模型服务', 80),
     );
@@ -576,9 +571,9 @@ export class AgentOrchestrator {
     const startTask = boolean(object(value).startTask, true);
     const joinWorld = boolean(object(value).joinWorld, true);
     if (startTask && !joinWorld)
-      throw new ManagementError('立即任务需要加入世界。');
+      throw new AppError('立即任务需要加入世界。');
     if (startTask && !settings.goal)
-      throw new ManagementError('请填写任务目标，或选择加入世界待命。');
+      throw new AppError('请填写任务目标，或选择加入世界待命。');
     const firstTask = startTask
       ? validatePlan({
           name: settings.goal.slice(0, 80),
@@ -594,12 +589,12 @@ export class AgentOrchestrator {
       : undefined;
     this.checkVoice(settings);
     if (joinWorld && [...this.jobs.values()].filter(resident).length >= 4)
-      throw new ManagementError(
+      throw new AppError(
         '最多同时在线 4 个受管理的 Agent（含待命），请先关闭一个。',
         409,
       );
     if (this.jobs.size >= 50)
-      throw new ManagementError(
+      throw new AppError(
         '最多保存 50 个 Agent；为保留任务历史，不能自动删除旧角色。',
         409,
       );
@@ -640,13 +635,13 @@ export class AgentOrchestrator {
   }
 
   join(id: string) {
-    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (resident(job) || job.updating || job.controlling || job.taskMutating)
-      throw new ManagementError('角色已在线或正在更新，请稍候。', 409);
+      throw new AppError('角色已在线或正在更新，请稍候。', 409);
     if ([...this.jobs.values()].filter(resident).length >= 4)
-      throw new ManagementError(
+      throw new AppError(
         '最多同时在线 4 个 Agent，请先让一个角色离开世界。',
         409,
       );
@@ -674,19 +669,19 @@ export class AgentOrchestrator {
   }
 
   resume(id: string, value: unknown = {}) {
-    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (
       active(job.view.status) ||
       job.updating ||
       job.controlling ||
       job.taskMutating
     )
-      throw new ManagementError('Agent 正在运行或关闭，请稍候。', 409);
+      throw new AppError('Agent 正在运行或关闭，请稍候。', 409);
     const input = object(value);
     if (job.memory.audienceExpired && input.goal === undefined)
-      throw new ManagementError(
+      throw new AppError(
         '原私聊会话已失效，请重新通过聊天发起，避免向错误的玩家发送进展。',
         409,
       );
@@ -699,10 +694,10 @@ export class AgentOrchestrator {
       },
       provider,
     );
-    if (!settings.goal) throw new ManagementError('请先布置任务。');
+    if (!settings.goal) throw new AppError('请先布置任务。');
     this.checkVoice(settings);
     if (!job.session && [...this.jobs.values()].filter(resident).length >= 4)
-      throw new ManagementError('最多同时在线 4 个 Agent，请先关闭一个。', 409);
+      throw new AppError('最多同时在线 4 个 Agent，请先关闭一个。', 409);
     this.taskScheduler.cancel(job.view.id);
     captureTask(job);
     if (
@@ -716,12 +711,12 @@ export class AgentOrchestrator {
       );
       if (input.goal === undefined && previousPlan) {
         if (previousPlan.state === 'archived')
-          throw new ManagementError('任务已归档，请创建新任务。');
+          throw new AppError('任务已归档，请创建新任务。');
         if (
           hasPlanTokenLimit(previousPlan) &&
           previousPlan.spentTokens >= previousPlan.totalTokenBudget
         )
-          throw new ManagementError('请先追加计划累计额度。');
+          throw new AppError('请先追加计划累计额度。');
         reserveRun(job, previousPlan, 'manual', Date.now());
       } else {
         const plan = {
@@ -749,7 +744,7 @@ export class AgentOrchestrator {
           task.tokens >= settings.tokenBudget! ||
           task.elapsedMs >= settings.taskTimeoutMs!)
       )
-        throw new ManagementError('请增加本次执行的总额度后再继续。');
+        throw new AppError('请增加本次执行的总额度后再继续。');
       new TaskService(job.memory).command(
         { type: 'resume' },
         { kind: 'operator' },
@@ -785,16 +780,16 @@ export class AgentOrchestrator {
   }
 
   async update(id: string, value: unknown) {
-    if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
+    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (
       active(job.view.status) ||
       job.updating ||
       job.controlling ||
       job.taskMutating
     )
-      throw new ManagementError('请等待 Agent 待命，或关闭后再修改参数。', 409);
+      throw new AppError('请等待 Agent 待命，或关闭后再修改参数。', 409);
     const input = object(value);
     const provider = this.providers.get(
       text(input.providerId, '模型服务', 80, job.view.providerId),
@@ -837,12 +832,12 @@ export class AgentOrchestrator {
           enabled: !!settings.voiceReplies && agentPermissions(settings).chat,
         });
         if (!result.ok || job.session !== session || active(job.view.status))
-          throw new ManagementError('语音开关未保存，请刷新后重试。', 409);
+          throw new AppError('语音开关未保存，请刷新后重试。', 409);
       }
       if (session && settings.name !== job.view.name) {
         const result = await session.request('rename', { name: settings.name });
         if (!result.ok || job.session !== session || active(job.view.status))
-          throw new ManagementError(
+          throw new AppError(
             '角色状态已变化，未保存参数，请刷新后重试。',
             409,
           );
@@ -941,7 +936,7 @@ export class AgentOrchestrator {
 
   async setVoice(id: string, value: unknown) {
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (
       this.closing ||
       job.updating ||
@@ -949,17 +944,17 @@ export class AgentOrchestrator {
       job.controlling ||
       ['joining', 'stopping'].includes(job.view.status)
     )
-      throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
+      throw new AppError('Agent 状态正在更新，请稍候。', 409);
     const enabled = boolean(object(value).enabled, false);
     if (enabled && !agentPermissions(job.view).chat)
-      throw new ManagementError('发送聊天权限已关闭，不能开启语音回复。');
+      throw new AppError('发送聊天权限已关闭，不能开启语音回复。');
     this.checkVoice({ ...job.view, voiceReplies: enabled });
     job.updating = true;
     try {
       if (job.session?.room) {
         const result = await job.session.request('agent.voice', { enabled });
         if (!result.ok)
-          throw new ManagementError('语音开关未生效，请重试。', 409);
+          throw new AppError('语音开关未生效，请重试。', 409);
       }
       job.view.voiceReplies = enabled;
       this.bindVoice(job);
@@ -1015,7 +1010,7 @@ export class AgentOrchestrator {
 
   async controlTask(id: string, operation: 'pause' | 'cancel') {
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (
       this.closing ||
       job.updating ||
@@ -1023,7 +1018,7 @@ export class AgentOrchestrator {
       job.controlling ||
       ['joining', 'stopping'].includes(job.view.status)
     )
-      throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
+      throw new AppError('Agent 状态正在更新，请稍候。', 409);
     const taskEnded = () =>
       !!job.memory.task &&
       ['completed', 'cancelled'].includes(job.memory.task.status);
@@ -1059,9 +1054,9 @@ export class AgentOrchestrator {
   async assignTask(id: string, value: unknown) {
     const input = object(value);
     const goal = text(input.goal, '任务目标', 2000);
-    if (!goal) throw new ManagementError('请填写任务目标。');
+    if (!goal) throw new AppError('请填写任务目标。');
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     const limits = taskLimits(input);
     validateAgent(
       { ...job.view, ...limits, goal },
@@ -1095,7 +1090,7 @@ export class AgentOrchestrator {
 
   stop(id: string) {
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (
       job.view.status !== 'stopping' &&
       (resident(job) || job.view.status !== 'stopped')
@@ -1134,9 +1129,9 @@ export class AgentOrchestrator {
   }
   async remove(id: string) {
     const job = this.jobs.get(id);
-    if (!job) throw new ManagementError('Agent 不存在。', 404);
+    if (!job) throw new AppError('Agent 不存在。', 404);
     if (this.closing || job.updating || job.taskMutating || job.controlling)
-      throw new ManagementError('Agent 状态正在更新，请稍候。', 409);
+      throw new AppError('Agent 状态正在更新，请稍候。', 409);
     // Block scheduling and mutations until all in-flight effects have settled.
     job.controlling = true;
     try {
@@ -1191,7 +1186,7 @@ export class AgentOrchestrator {
   }
   async removeProvider(id: string) {
     if ([...this.jobs.values()].some((j) => j.view.providerId === id))
-      throw new ManagementError(
+      throw new AppError(
         '已有可复用 Agent 关联此模型服务，请保留配置或更新其密钥。',
         409,
       );
@@ -1199,7 +1194,7 @@ export class AgentOrchestrator {
   }
 
   async removeVoiceService(id: string) {
-    if (!this.voiceServices) throw new ManagementError('语音服务未就绪。', 503);
+    if (!this.voiceServices) throw new AppError('语音服务未就绪。', 503);
     await this.voiceServices.remove(id, () =>
       [...this.jobs.values()].some(
         (j) => j.updating || j.view.voiceServiceId === id,
