@@ -7,7 +7,7 @@ import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
 import { readServerConfig, type ServerConfig } from './config';
 import { AgentManager } from './modules/agent/manager';
-import { ProviderStore } from './modules/agent/provider-store';
+import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { AsrSettingsStore } from './modules/audio/asr/asr-settings';
 import { LocalSpeech } from './modules/audio/asr/local-speech';

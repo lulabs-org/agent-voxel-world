@@ -1,13 +1,11 @@
 import type { Express } from 'express';
-import type { AgentGateway } from '../../gateway/gateway';
-import { createRpcBinder } from '../../gateway/bind';
+import type { AgentManager } from '../../agent/manager';
+import { asyncRoute as route } from '../../../common/middleware/async-route';
 
 /**
  * 安装 Provider（模型提供商）相关 HTTP REST 路由
  */
-export function installProviderRoutes(app: Express, g: AgentGateway) {
-  const bind = createRpcBinder(app, g);
-
+export function installProviderRoutes(app: Express, manager: AgentManager) {
   /**
    * @openapi
    * /agents/providers:
@@ -19,7 +17,12 @@ export function installProviderRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 提供商配置列表
    */
-  bind('get', '/agents/providers', 'providers.list');
+  app.get(
+    '/agents/providers',
+    route((_req, res) => {
+      res.json(manager.providers.list());
+    }),
+  );
 
   /**
    * @openapi
@@ -38,12 +41,13 @@ export function installProviderRoutes(app: Express, g: AgentGateway) {
    *       201:
    *         description: 创建成功
    */
-  bind(
-    'post',
+  app.post(
     '/agents/providers',
-    'providers.save',
-    (r) => ({ value: r.body }),
-    201,
+    route(async (req, res) => {
+      const result = await manager.providers.save(req.body);
+      manager.gateway.events.publish('providers');
+      res.status(201).json(result);
+    }),
   );
 
   /**
@@ -69,10 +73,17 @@ export function installProviderRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 更新成功
    */
-  bind('put', '/agents/providers/:id', 'providers.save', (r) => ({
-    providerId: String(r.params.id),
-    value: r.body,
-  }));
+  app.put(
+    '/agents/providers/:id',
+    route(async (req, res) => {
+      const result = await manager.providers.save(
+        req.body,
+        String(req.params.id),
+      );
+      manager.gateway.events.publish('providers');
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -91,12 +102,13 @@ export function installProviderRoutes(app: Express, g: AgentGateway) {
    *       204:
    *         description: 删除成功
    */
-  bind(
-    'delete',
+  app.delete(
     '/agents/providers/:id',
-    'providers.delete',
-    (r) => ({ providerId: String(r.params.id) }),
-    204,
+    route(async (req, res) => {
+      await manager.removeProvider(String(req.params.id));
+      manager.gateway.events.publish('providers');
+      res.sendStatus(204);
+    }),
   );
 
   /**
@@ -116,7 +128,11 @@ export function installProviderRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 可用模型列表
    */
-  bind('get', '/agents/providers/:id/models', 'providers.models', (r) => ({
-    providerId: String(r.params.id),
-  }));
+  app.get(
+    '/agents/providers/:id/models',
+    route(async (req, res) => {
+      const models = await manager.models(String(req.params.id));
+      res.json({ models });
+    }),
+  );
 }

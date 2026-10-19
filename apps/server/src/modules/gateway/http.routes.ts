@@ -10,14 +10,22 @@ import { createOriginGuard } from '../../common/middleware/cors';
 import { requireJsonBody } from '../../common/middleware/json-body';
 import { errorHandler } from '../../common/middleware/error-handler';
 import { webOrigin } from '../../config/env';
+import { identifier, publicError } from '@voxel/gateway-protocol';
 
 /**
  * 汇聚装配 Providers、Agents、Tasks 的 HTTP REST 路由
  */
-export function installGatewayHttp(app: Express, g: AgentGateway) {
-  installProviderRoutes(app, g);
-  installAgentRoutes(app, g);
-  installTaskRoutes(app, g);
+export function installGatewayHttp(
+  app: Express,
+  managerOrGateway: AgentManager | AgentGateway,
+) {
+  const manager =
+    'gateway' in managerOrGateway
+      ? managerOrGateway
+      : ((managerOrGateway as any).target as AgentManager);
+  installProviderRoutes(app, manager);
+  installAgentRoutes(app, manager);
+  installTaskRoutes(app, manager);
 }
 
 export function installGatewayRoutes(
@@ -40,6 +48,14 @@ export function installGatewayRoutes(
             methods: 'GET, POST, PUT, DELETE, OPTIONS',
           }),
         ]),
+    (req, res, next) => {
+      const key = req.header('Idempotency-Key');
+      if (key !== undefined && !identifier(key)) {
+        res.status(400).json({ error: 'Idempotency-Key 无效。' });
+        return;
+      }
+      next();
+    },
     requireJsonBody,
     express.json({ limit: '32kb' }),
   );
@@ -51,7 +67,7 @@ export function installGatewayRoutes(
     (id) => manager.removeVoiceService(id),
   );
 
-  installGatewayHttp(app, manager.gateway);
+  installGatewayHttp(app, manager);
 
   app.use('/agents', (_req, res) => {
     res.status(404).json({ error: 'Agent 接口不存在，请确认前后端版本一致。' });
@@ -59,21 +75,24 @@ export function installGatewayRoutes(
 
   app.use(
     '/agents',
-    errorHandler((error) => ({
-      status:
-        error instanceof SpeechError
-          ? error.status
-          : error.type === 'entity.too.large'
-            ? 413
-            : error instanceof SyntaxError
-              ? 400
-              : 500,
-      body: {
-        error:
-          error instanceof SpeechError
-            ? error.message
-            : '无法处理请求，请检查输入或本机配置文件权限。',
-      },
-    })),
+    errorHandler((error) => {
+      if (error instanceof SpeechError) {
+        return { status: error.status, body: { error: error.message } };
+      }
+      if (error?.type === 'entity.too.large') {
+        return {
+          status: 413,
+          body: { error: '无法处理请求，请检查输入或本机配置文件权限。' },
+        };
+      }
+      if (error instanceof SyntaxError) {
+        return {
+          status: 400,
+          body: { error: '无法处理请求，请检查输入或本机配置文件权限。' },
+        };
+      }
+      const e = publicError(error);
+      return { status: e.status, body: { error: e.message } };
+    }),
   );
 }

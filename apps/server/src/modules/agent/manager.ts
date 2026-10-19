@@ -4,7 +4,7 @@ import {
 } from '@voxel/agent-orchestrator';
 import { AgentGateway } from '../gateway/gateway';
 import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
-import { ProviderStore } from './provider-store';
+import { ProviderStore } from '../providers/provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
 import { readAgentArchive, writeAgentArchive } from './agent-storage';
 import type { RpcMethod, RpcParams } from '@voxel/gateway-protocol';

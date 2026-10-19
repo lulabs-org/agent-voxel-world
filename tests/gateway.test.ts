@@ -11,7 +11,7 @@ import {
   UnknownOutcome,
   type SocketLike,
 } from '@voxel/gateway-client';
-import { ProviderStore } from '../apps/server/src/modules/agent/provider-store';
+import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 import { gatewaySocket } from '../apps/server/src/modules/gateway/socket';
 import { EventEmitter } from 'node:events';
 import { GatewayAuth } from '../apps/server/src/modules/gateway/auth';

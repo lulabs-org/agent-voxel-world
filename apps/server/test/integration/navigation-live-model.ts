@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { AgentManager } from '../../src/modules/agent/manager';
-import { ProviderStore } from '../../src/modules/agent/provider-store';
+import { ProviderStore } from '../../src/modules/providers/provider-store';
 import {
   AgentRunner,
   Session,

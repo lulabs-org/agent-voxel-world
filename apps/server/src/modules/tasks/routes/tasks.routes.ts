@@ -1,18 +1,12 @@
-import type { Express, Request } from 'express';
-import type { AgentGateway } from '../../gateway/gateway';
-import { createRpcBinder } from '../../gateway/bind';
+import type { Express } from 'express';
+import type { AgentManager } from '../../agent/manager';
+import { asyncRoute as route } from '../../../common/middleware/async-route';
 import type { RpcParams } from '@voxel/gateway-protocol';
-
-const agent = (r: Request) => ({ agentId: String(r.params.id) });
-const value = (r: Request) => ({ ...agent(r), value: r.body ?? {} });
-const plan = (r: Request) => ({ ...value(r), planId: String(r.params.planId) });
 
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
  */
-export function installTaskRoutes(app: Express, g: AgentGateway) {
-  const bind = createRpcBinder(app, g);
-
+export function installTaskRoutes(app: Express, manager: AgentManager) {
   // ---------------------------------------------------------------------------
   // 全局任务计划与控制
   // ---------------------------------------------------------------------------
@@ -45,18 +39,20 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务计划分页列表
    */
-  bind(
-    'get',
+  app.get(
     '/agents/tasks',
-    'plans.list',
-    (r) => ({
-      state: (r.query.state ? String(r.query.state) : undefined) as RpcParams['state'],
-      offset: r.query.offset !== undefined ? Number(r.query.offset) : undefined,
-      search: r.query.search ? String(r.query.search) : undefined,
-      agentId: r.query.agentId ? String(r.query.agentId) : undefined,
+    route((req, res) => {
+      const page = manager.planPage({
+        state: (req.query.state
+          ? String(req.query.state)
+          : undefined) as RpcParams['state'],
+        offset:
+          req.query.offset !== undefined ? Number(req.query.offset) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        agentId: req.query.agentId ? String(req.query.agentId) : undefined,
+      });
+      res.json(page);
     }),
-    200,
-    false,
   );
 
   /**
@@ -76,7 +72,14 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       201:
    *         description: 任务计划创建成功
    */
-  bind('post', '/agents/tasks', 'plans.create', value, 201);
+  app.post(
+    '/agents/tasks',
+    route(async (req, res) => {
+      const agentId = String(req.body?.agentId ?? '');
+      const result = await manager.createTaskPlan(agentId, req.body ?? {});
+      res.status(201).json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -95,9 +98,12 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务计划详情
    */
-  bind('get', '/agents/tasks/:planId', 'plans.get', (r) => ({
-    planId: String(r.params.planId),
-  }));
+  app.get(
+    '/agents/tasks/:planId',
+    route((req, res) => {
+      res.json(manager.publicPlan(String(req.params.planId)));
+    }),
+  );
 
   /**
    * @openapi
@@ -122,7 +128,19 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务计划更新成功
    */
-  bind('put', '/agents/tasks/:planId', 'plans.update', plan);
+  app.put(
+    '/agents/tasks/:planId',
+    route(async (req, res) => {
+      const planId = String(req.params.planId);
+      const agentId = req.body?.agentId ? String(req.body.agentId) : undefined;
+      const result = await manager.updateTaskPlan(
+        agentId,
+        planId,
+        req.body ?? {},
+      );
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -141,12 +159,17 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       204:
    *         description: 删除成功
    */
-  bind(
-    'delete',
+  app.delete(
     '/agents/tasks/:planId',
-    'plans.control',
-    (r) => ({ planId: String(r.params.planId), operation: 'delete' }),
-    204,
+    route(async (req, res) => {
+      await manager.controlTaskPlan(
+        undefined,
+        String(req.params.planId),
+        'delete',
+        {},
+      );
+      res.sendStatus(204);
+    }),
   );
 
   /**
@@ -172,10 +195,16 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind('post', '/agents/tasks/:planId/reassign', 'plans.reassign', (r) => ({
-    planId: String(r.params.planId),
-    targetAgentId: String(r.body?.targetAgentId ?? ''),
-  }));
+  app.post(
+    '/agents/tasks/:planId/reassign',
+    route(async (req, res) => {
+      const result = await manager.reassignPlan(
+        String(req.params.planId),
+        String(req.body?.targetAgentId ?? ''),
+      );
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -190,24 +219,21 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *         required: true
    *         schema:
    *           type: string
-   *       - in: query
-   *         name: offset
-   *         schema:
-   *           type: integer
    *     responses:
    *       200:
    *         description: 任务运行历史记录
    */
-  bind(
-    'get',
+  app.get(
     '/agents/tasks/:planId/runs',
-    'runs.list',
-    (r) => ({
-      planId: String(r.params.planId),
-      offset: Number(r.query.offset ?? 0),
+    route((req, res) => {
+      const result = manager.publicRuns(
+        undefined,
+        String(req.params.planId),
+        Number(req.query.offset ?? 0),
+        true,
+      );
+      res.json(result);
     }),
-    200,
-    false,
   );
 
   /**
@@ -232,11 +258,18 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind('post', '/agents/tasks/:planId/:operation', 'plans.control', (r) => ({
-    planId: String(r.params.planId),
-    operation: String(r.params.operation),
-    value: r.body ?? {},
-  }));
+  app.post(
+    '/agents/tasks/:planId/:operation',
+    route(async (req, res) => {
+      const result = await manager.controlTaskPlan(
+        undefined,
+        String(req.params.planId),
+        String(req.params.operation),
+        req.body ?? {},
+      );
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -260,11 +293,19 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind('post', '/agents/task-runs/:runId/:operation', 'runs.control', (r) => ({
-    runId: String(r.params.runId),
-    operation: String(r.params.operation),
-    value: r.body ?? {},
-  }));
+  app.post(
+    '/agents/task-runs/:runId/:operation',
+    route(async (req, res) => {
+      const agentId = req.body?.agentId ? String(req.body.agentId) : '';
+      const result = await manager.controlTaskRun(
+        agentId,
+        String(req.params.runId),
+        String(req.params.operation),
+        req.body ?? {},
+      );
+      res.json(result);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Agent 下属特定任务计划与历史
@@ -287,7 +328,12 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务计划列表
    */
-  bind('get', '/agents/:id/tasks', 'plans.list', agent);
+  app.get(
+    '/agents/:id/tasks',
+    route((req, res) => {
+      res.json(manager.publicPlans(String(req.params.id)));
+    }),
+  );
 
   /**
    * @openapi
@@ -312,7 +358,16 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       201:
    *         description: 任务计划创建成功
    */
-  bind('post', '/agents/:id/tasks', 'plans.create', value, 201);
+  app.post(
+    '/agents/:id/tasks',
+    route(async (req, res) => {
+      const result = await manager.createTaskPlan(
+        String(req.params.id),
+        req.body ?? {},
+      );
+      res.status(201).json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -336,9 +391,12 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务计划详情
    */
-  bind('get', '/agents/:id/tasks/:planId', 'plans.get', (r) => ({
-    planId: String(r.params.planId),
-  }));
+  app.get(
+    '/agents/:id/tasks/:planId',
+    route((req, res) => {
+      res.json(manager.publicPlan(String(req.params.planId)));
+    }),
+  );
 
   /**
    * @openapi
@@ -368,7 +426,17 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务计划更新成功
    */
-  bind('put', '/agents/:id/tasks/:planId', 'plans.update', plan);
+  app.put(
+    '/agents/:id/tasks/:planId',
+    route(async (req, res) => {
+      const result = await manager.updateTaskPlan(
+        String(req.params.id),
+        String(req.params.planId),
+        req.body ?? {},
+      );
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -383,21 +451,21 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *         required: true
    *         schema:
    *           type: string
-   *       - in: path
-   *         name: planId
-   *         required: true
-   *         schema:
-   *           type: string
    *     responses:
    *       204:
    *         description: 删除成功
    */
-  bind(
-    'delete',
+  app.delete(
     '/agents/:id/tasks/:planId',
-    'plans.control',
-    (r) => ({ ...plan(r), operation: 'delete' }),
-    204,
+    route(async (req, res) => {
+      await manager.controlTaskPlan(
+        String(req.params.id),
+        String(req.params.planId),
+        'delete',
+        {},
+      );
+      res.sendStatus(204);
+    }),
   );
 
   /**
@@ -413,25 +481,23 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *         required: true
    *         schema:
    *           type: string
-   *       - in: path
-   *         name: planId
-   *         required: true
-   *         schema:
-   *           type: string
-   *       - in: query
-   *         name: offset
-   *         schema:
-   *           type: integer
-   *           default: 0
    *     responses:
    *       200:
    *         description: 任务运行历史记录
    */
-  bind('get', '/agents/:id/tasks/:planId/runs', 'runs.list', (r) => ({
-    ...agent(r),
-    planId: String(r.params.planId),
-    offset: Number(r.query.offset ?? 0),
-  }));
+  app.get(
+    '/agents/:id/tasks/:planId/runs',
+    route((req, res) => {
+      res.json(
+        manager.publicRuns(
+          String(req.params.id),
+          String(req.params.planId),
+          Number(req.query.offset ?? 0),
+          false,
+        ),
+      );
+    }),
+  );
 
   /**
    * @openapi
@@ -460,11 +526,17 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind(
-    'post',
+  app.post(
     '/agents/:id/tasks/:planId/:operation',
-    'plans.control',
-    (r) => ({ ...plan(r), operation: String(r.params.operation) }),
+    route(async (req, res) => {
+      const result = await manager.controlTaskPlan(
+        String(req.params.id),
+        String(req.params.planId),
+        String(req.params.operation),
+        req.body ?? {},
+      );
+      res.json(result);
+    }),
   );
 
   /**
@@ -494,14 +566,16 @@ export function installTaskRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind(
-    'post',
+  app.post(
     '/agents/:id/task-runs/:runId/:operation',
-    'runs.control',
-    (r) => ({
-      ...value(r),
-      runId: String(r.params.runId),
-      operation: String(r.params.operation),
+    route(async (req, res) => {
+      const result = await manager.controlTaskRun(
+        String(req.params.id),
+        String(req.params.runId),
+        String(req.params.operation),
+        req.body ?? {},
+      );
+      res.json(result);
     }),
   );
 }
