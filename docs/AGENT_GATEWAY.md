@@ -12,7 +12,7 @@ flowchart TD
   Router --> Registry[AgentRegistry]
   Scheduler[Agent 唤醒与跟随调度] --> Host[AgentHost]
   Router --> Plans[PlanService 全局计划与执行]
-  Timer[PlanScheduler 时间触发] --> Plans
+  Timer[TaskScheduler 时间触发] --> Plans
   Plans --> Host
   Plans --> Archive
   Registry --> Host

@@ -4,13 +4,13 @@ import {
   nextOccurrence,
   type TaskPlan,
 } from '@voxel/shared';
-import type { StoredRun } from './model';
-import { endedRun, runView } from './model';
-import { integer, object } from '../../../common/validation';
-import { AppError } from '../../../common/errors';
+import type { StoredRun } from './task-model';
+import { endedRun, runView } from './task-model';
+import { integer, object } from '../../common/validation';
+import { AppError } from '../../common/errors';
 
 /** The single owner of plans and execution history, independent of Agent lifetime. */
-export class PlanService {
+export class TaskPlanService {
   plans: TaskPlan[] = [];
   runs: StoredRun[] = [];
   requests: Record<string, string> = {};
@@ -146,3 +146,5 @@ export class PlanService {
     };
   }
 }
+
+export { TaskPlanService as PlanService };

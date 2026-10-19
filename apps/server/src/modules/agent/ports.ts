@@ -4,7 +4,7 @@ import type {
   VoiceServiceView,
   TaskPlan,
 } from '@voxel/shared';
-import type { TaskBook, StoredRun } from '../tasks/plans/model';
+import type { TaskBook, StoredRun } from '../tasks';
 import type { ProviderPort } from '../providers/provider-port';
 
 export type { ProviderPort };

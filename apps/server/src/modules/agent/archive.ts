@@ -1,6 +1,6 @@
 import { isRepeating, DEFAULT_TASK_LIMITS } from '@voxel/shared';
 import type { GatewayArchive, RestoredAgentRecord } from './ports';
-import { newPlan, newRun } from '../tasks/plans/model';
+import { newPlan, newRun } from '../tasks';
 import { AppError } from '../../common/errors';
 
 /** Pure, repeatable migration; disk backup and atomic replacement belong to the host. */
