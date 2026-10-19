@@ -13,14 +13,13 @@ export function useAgentsController(
   initialTab: 'agents' | undefined,
   providers: ProviderView[],
   resetModels: () => void,
-  resetTaskEditor: () => void,
   feedback: ConsoleFeedback,
 ) {
   const { setError, setNotice, perform, mutation, jobsRevision } = feedback;
   const [jobs, setJobs] = useState<ManagedAgentView[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
-  const [startTaskOnCreate, setStartTaskOnCreate] = useState(false);
+  const [joinOnCreate, setJoinOnCreate] = useState(true);
   const [agent, setAgent] = useState(initialAgent);
   const [editingAgent, setEditingAgent] = useState<string>();
   const [showAgentForm, setShowAgentForm] = useState(false);
@@ -65,7 +64,7 @@ export function useAgentsController(
     resetModels();
     setEditingAgent(job?.id);
     if (job) setSelectedAgentId(job.id);
-    setStartTaskOnCreate(false);
+    setJoinOnCreate(true);
     setAgent(
       job
         ? {
@@ -88,7 +87,6 @@ export function useAgentsController(
   const selectAgent = (id: string) => {
     setSelectedAgentId(id);
     setShowAgentForm(false);
-    resetTaskEditor();
     setError('');
     setNotice('');
   };
@@ -137,8 +135,9 @@ export function useAgentsController(
                 intervalMs: intervalMode === 'fixed' ? intervalMs : 3000,
                 intervalMinMs: intervalMode === 'random' ? intervalMinMs : 4000,
                 intervalMaxMs: intervalMode === 'random' ? intervalMaxMs : 8000,
-                goal: startTaskOnCreate ? goal : '',
-                startTask: startTaskOnCreate,
+                goal: '',
+                startTask: false,
+                joinWorld: joinOnCreate,
                 taskTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               }),
         },
@@ -151,8 +150,8 @@ export function useAgentsController(
       setNotice(
         editingAgent
           ? '角色设置已保存。'
-          : startTaskOnCreate
-            ? '角色正在加入世界，随后开始任务。'
+          : !joinOnCreate
+            ? '角色已创建，可在角色页加入世界。'
             : agentPermissions(agent).chat
               ? '角色正在加入世界待命，可通过私聊或 @ 交流。'
               : '角色正在加入世界待命。发送聊天已关闭，可在控制台安排任务和查看进展。',
@@ -176,7 +175,6 @@ export function useAgentsController(
       setSelectedAgentId(undefined);
       setEditingAgent(undefined);
       setShowAgentForm(false);
-      resetTaskEditor();
       setNotice(`已删除 ${job.name}。`);
     });
   const toggleVoiceReplies = (job: ManagedAgentView) =>
@@ -213,8 +211,8 @@ export function useAgentsController(
     loadingJobs,
     selectedAgentId,
     selectAgent,
-    startTaskOnCreate,
-    setStartTaskOnCreate,
+    joinOnCreate,
+    setJoinOnCreate,
     agent,
     setAgent,
     editingAgent,

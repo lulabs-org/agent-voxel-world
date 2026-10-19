@@ -8,7 +8,10 @@ import { serverSocketUrl, gatewaySocketUrl } from './endpoints';
 let client: GatewayClient | undefined;
 let state = 'closed';
 let failure = '';
-type Change = { resource?: 'agents' | 'providers'; agentIds?: string[] };
+type Change = {
+  resource?: 'agents' | 'providers' | 'plans' | 'runs';
+  agentIds?: string[];
+};
 const listeners = new Set<() => void>(),
   changes = new Set<(change: Change) => void>();
 const identities = new Map<string, TaskIdentity | null>();
@@ -111,8 +114,7 @@ export async function gatewayRequest<T>(
     params.expectedTask === undefined &&
     (method.startsWith('tasks.') ||
       method === 'runs.control' ||
-      (method === 'plans.control' &&
-        ['run', 'resume'].includes(params.operation ?? '')))
+      (method === 'plans.control' && params.operation === 'run'))
   ) {
     if (!identities.has(params.agentId!)) {
       const view = await client.request<any>(
@@ -151,7 +153,10 @@ export async function gatewayRequest<T>(
 /** Coalesce event-triggered reads without polling or losing a change during an active read. */
 export function refreshOnGatewayChange(
   read: () => Promise<void>,
-  filter: { resource: 'agents' | 'providers'; agentId?: string } = {
+  filter: {
+    resource: 'agents' | 'providers' | 'plans' | 'runs';
+    agentId?: string;
+  } = {
     resource: 'agents',
   },
 ) {
@@ -172,7 +177,15 @@ export function refreshOnGatewayChange(
     }
   };
   const off = onGatewayChange((change) => {
-    if (change.resource && change.resource !== filter.resource) return;
+    if (
+      change.resource &&
+      change.resource !== filter.resource &&
+      !(
+        filter.resource === 'plans' &&
+        ['runs', 'agents'].includes(change.resource)
+      )
+    )
+      return;
     if (
       filter.agentId &&
       change.agentIds &&

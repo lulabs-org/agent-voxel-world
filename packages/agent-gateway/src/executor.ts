@@ -16,7 +16,7 @@ import {
 } from '@voxel/agent-runtime';
 import type { TaskIdentity } from '@voxel/gateway-protocol';
 import { appendAgentLog } from './agent-logs';
-import { newPlan, newRun } from './scheduler';
+
 import type { VoiceServicePort as VoiceServiceStore } from './ports';
 import type { SavedProvider } from './validation';
 import type { Job } from './types';
@@ -72,7 +72,7 @@ export class AgentHost {
       if (job.abort.signal.aborted || ctx.closing()) return;
 
       const record = currentRun(job);
-      const plan = job.book.plans.find((p) => p.id === record?.planId);
+      const plan = job.ledger.plans.find((p) => p.id === record?.planId);
       const limits = record?.snapshot.limits;
       const config: AgentConfig = {
         ...job.view,
@@ -219,29 +219,19 @@ export class AgentHost {
                 throw new AgentRuntimeError(
                   '角色已有正在执行的任务，请先暂停或结束。',
                 );
-              const beforeBook = structuredClone(job.book),
-                beforeMemory = structuredClone(job.memory);
+              const beforeMemory = structuredClone(job.memory),
+                beforeRunId = job.currentRunId;
               try {
-                const plan = newPlan(
-                  {
-                    name: task.goal.slice(0, 80),
-                    goal: task.goal,
-                    timing: { kind: 'immediate' },
-                    timeZone: 'UTC',
-                    limits: { ...DEFAULT_TASK_LIMITS },
-                    totalTokenBudget: 500000,
-                  },
-                  task.startedAt,
-                );
-                const record = newRun(plan, task.startedAt, 'chat');
-                record.task = task;
-                job.book.plans.push(plan);
-                job.book.runs.push(record);
-                job.book.currentRunId = record.id;
-                Object.assign(config, plan.limits);
+                delete job.currentRunId;
+                captureTask(job);
+                Object.assign(config, DEFAULT_TASK_LIMITS);
                 await ctx.save();
               } catch (error) {
-                job.book = beforeBook;
+                const failed = job.currentRunId;
+                job.ledger.runs = job.ledger.runs.filter(
+                  (r) => r.id !== failed,
+                );
+                job.currentRunId = beforeRunId;
                 for (const key of Object.keys(job.memory))
                   delete (job.memory as Record<string, unknown>)[key];
                 Object.assign(job.memory, beforeMemory);

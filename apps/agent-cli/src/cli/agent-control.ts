@@ -27,7 +27,7 @@ try {
   const [command, id, third] = args;
   if (!command || command === 'help' || command === '--help') {
     console.log(
-      '用法：agent:ctl list | status/join/stop/plans/watch <agentId> | runs <agentId> <planId> | task assign/pause/resume/cancel <agentId> [--goal ...] | auth show；选项 --url --token-file --json',
+      '用法：agent:ctl list | status/join/stop <agentId> | plans [agentId] | watch [agentId] | runs <agentId> <planId> | task assign/pause/resume/cancel <agentId> [--goal ...] | auth show；选项 --url --token-file --json',
     );
   } else if (command === 'auth' && id === 'show') {
     console.log((await readFile(tokenFile, 'utf8')).trim());

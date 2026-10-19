@@ -4,6 +4,7 @@ import {
   wallClockInstant,
   type TaskPlan,
   type TaskPlanDraft,
+  type ManagedAgentView,
 } from '@voxel/shared';
 import { useState } from 'react';
 import { TaskLimitSettings } from './TaskLimitSettings';
@@ -27,13 +28,20 @@ export function TaskPlanEditor({
   blocked,
   onSave,
   onCancel,
+  agents,
 }: {
   plan?: TaskPlan;
   busy: boolean;
   blocked: string;
-  onSave: (draft: TaskPlanDraft, requestId: string) => Promise<void>;
+  agents: ManagedAgentView[];
+  onSave: (
+    draft: TaskPlanDraft,
+    requestId: string,
+    agentId: string,
+  ) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [agentId, setAgentId] = useState(plan?.agentId ?? '');
   const [requestId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<TaskPlanDraft>(
     () =>
@@ -59,6 +67,15 @@ export function TaskPlanEditor({
   );
   const [error, setError] = useState('');
   const repeating = isRepeating(draft.timing);
+  const target = agents.find((a) => a.id === agentId);
+  blocked = !target
+    ? '请选择执行角色'
+    : !target.sessionId
+      ? '角色尚未上线'
+      : ['joining', 'stopping', 'running'].includes(target.status) ||
+          ['running', 'waiting'].includes(target.task?.status ?? '')
+        ? '角色正在执行其他工作'
+        : '';
   return (
     <form
       className="agent-form task-plan-editor"
@@ -84,39 +101,71 @@ export function TaskPlanEditor({
           }
           timing = { kind: 'once', at: instant };
         }
-        await onSave({ ...draft, timing }, requestId);
+        await onSave({ ...draft, timing }, requestId, agentId);
       }}
     >
-      <div className="agents-task-heading">
-        <h4>{plan ? '编辑任务安排' : '新建任务'}</h4>
-        <button type="button" onClick={onCancel} disabled={busy}>
-          取消
-        </button>
+      <div className="console-panel-heading plans-editor-heading">
+        <div className="plans-editor-heading-row">
+          <div>
+            <h3>{plan ? '编辑任务计划' : '新建任务计划'}</h3>
+            <p>配置任务目标、执行角色、触发方式与资源限制。</p>
+          </div>
+          <button type="button" onClick={onCancel} disabled={busy}>
+            返回
+          </button>
+        </div>
       </div>
       <fieldset disabled={busy}>
-        <label>
-          任务名称
-          <input
-            required
-            maxLength={80}
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="例如：巡查营地"
-          />
-        </label>
-        <label>
-          目标与完成条件
-          <textarea
-            required
-            maxLength={2000}
-            rows={3}
-            value={draft.goal}
-            onChange={(e) => setDraft({ ...draft, goal: e.target.value })}
-            placeholder="例如：查看营地附近三处建筑，汇报位置和变化后结束本次执行。"
-          />
-        </label>
-        <label>
-          执行方式
+        <div className="agents-form-section" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+          <h4>基本目标</h4>
+          <div className="agent-grid">
+            <label>
+              执行角色
+              <select
+                required={!plan}
+                disabled={!!plan}
+                value={agentId}
+                onChange={(e) => setAgentId(e.target.value)}
+              >
+                <option value="">{plan ? '待指派' : '请选择执行角色'}</option>
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {!a.sessionId ? ' · 离线' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              计划名称
+              <input
+                required
+                maxLength={80}
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                placeholder="例如：巡查营地"
+              />
+            </label>
+          </div>
+          <p className="agent-hint">
+            未来计划允许选择离线角色；到期仍离线会跳过。改派请在计划详情操作。
+          </p>
+          <label>
+            目标与完成条件
+            <textarea
+              required
+              maxLength={2000}
+              rows={3}
+              value={draft.goal}
+              onChange={(e) => setDraft({ ...draft, goal: e.target.value })}
+              placeholder="例如：查看营地附近三处建筑，汇报位置和变化后结束本次执行。"
+            />
+          </label>
+        </div>
+        <div className="agents-form-section">
+          <h4>调度与触发</h4>
+          <label>
+            执行方式
           <select
             value={draft.timing.kind}
             onChange={(e) => {
@@ -223,7 +272,7 @@ export function TaskPlanEditor({
           </label>
         )}
         {draft.timing.kind === 'weekly' && (
-          <div className="task-weekdays" role="group" aria-label="执行星期">
+          <div className="plans-weekday-chips task-weekdays" role="group" aria-label="执行星期">
             {[1, 2, 3, 4, 5, 6, 0].map((day) => (
               <label key={day}>
                 <input
@@ -257,14 +306,17 @@ export function TaskPlanEditor({
             : ''}
           {repeating ? ' 每次独立执行，忙碌或离线时跳过，不补跑。' : ''}
         </p>
-        <TaskLimitSettings
-          value={draft.limits}
-          onChange={(limits) => setDraft({ ...draft, limits })}
-        >
-          {repeating && (
-            <label>
-              计划累计 token 额度
-              <input
+        </div>
+        <div className="agents-form-section">
+          <h4>执行限制与资源预算</h4>
+          <TaskLimitSettings
+            value={draft.limits}
+            onChange={(limits) => setDraft({ ...draft, limits })}
+          >
+            {repeating && (
+              <label style={{ marginTop: 14 }}>
+                计划累计 token 额度
+                <input
                 type="number"
                 required
                 min={Math.max(1000, plan?.spentTokens ?? 0)}
@@ -296,6 +348,7 @@ export function TaskPlanEditor({
             {error}
           </p>
         )}
+        </div>
         <div className="agents-form-footer">
           <button
             className="primary"
@@ -307,7 +360,7 @@ export function TaskPlanEditor({
                 ? '保存安排'
                 : draft.timing.kind === 'immediate'
                   ? '创建并执行'
-                  : '创建任务'}
+                  : '创建计划'}
           </button>
         </div>
       </fieldset>

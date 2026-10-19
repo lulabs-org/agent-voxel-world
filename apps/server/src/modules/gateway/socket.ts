@@ -98,6 +98,17 @@ export function gatewaySocket(
             const buffered: unknown[] = [];
             const p = r.params;
             const stop = gateway.events.on((change) => {
+              if (
+                p.scope === 'plans' &&
+                !['plans', 'runs', 'agents'].includes(change.resource)
+              )
+                return;
+              if (
+                p.scope === 'runs' &&
+                (change.resource !== 'runs' ||
+                  !change.planIds?.includes(p.planId!))
+              )
+                return;
               if (p.scope === 'providers' && change.resource !== 'providers')
                 return;
               if (

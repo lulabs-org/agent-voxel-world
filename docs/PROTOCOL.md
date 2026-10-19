@@ -71,10 +71,10 @@ Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照
 
 ## 托管 Agent 任务调度
 
-每次唤醒最多一次模型调用；普通消息与任务推进独立。`POST /agents/:id/task {goal}` 替换并启动任务；`/pause`、`/cancel` 中断当前推理/动作但保留角色；`/resume` 手动继续；`/stop` 关闭角色。保持既有 Origin + JSON 校验。
+同一角色只有一个模型与动作执行槽，单次唤醒可包含多轮工具调用。聊天经过 ConversationRunner，不创建任务计划；控制台工作创建独立计划，再以启动快照交给现有运行时。详细管理协议见 [Agent Gateway](AGENT_GATEWAY.md)。
 
-`ManagedAgentView.task` 返回 goal、status、summary、reason、calls、tokens、estimated、elapsedMs；状态为 running/waiting/needs_input/blocked/paused/completed/cancelled/budget。`usage` 为跨任务累计用量，`lastResponse` 为最近消息处理摘要。`maxTurns` 改作调用上限，`tokenBudget` 和 `taskTimeoutMs` 提供额外保护；`continuous` 为兼容字段，无无限循环语义。
+`ManagedAgentView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 agentId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
 
-模型可返回平铺动作加 `task`，或 `{action, task}` 包装，两种都经过同一权限与参数校验。`task` 决策：intent 为 reply/task/update/continue/pause/resume/cancel；status 为 running/waiting/needs_input/blocked/completed；summary 最多 500 字；新任务 goal 最多 2000 字；waiting 必须指明 waitFor=world/players。动作仍由原校验器检查。缺少决策的旧模型响应采用保守兼容：消息只回复一次，自动任务中的 chat/wait 结束本次任务，其他动作仍受预算保护。
+HTTP `/agents/:id/tasks` 等旧地址经 Gateway 适配，已改派计划从旧角色路径操作返回 409。旧 `/task`、创建角色附带任务入口仍兼容，统一创建独立的一次性计划。管理 HTTP 与 RPC 共用管理员令牌和 Origin 校验。
 
-私聊任务保存原接收会话，后续自动汇报强制私聊；其他消息不覆盖其任务上下文。服务重启不复用旧私聊身份，需重新布置。任务的私聊上下文仅在受 Origin 限制的本机控制台可查看。
+模型使用独立对话/任务工具集，不再返回 intent/update_task 协议。任务身份、权限、取消、预算及检查点由程序控制。私聊保留原接收会话，公开问题不获得私聊执行上下文；重启后失效私聊需重新通过聊天发起。

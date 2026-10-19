@@ -472,7 +472,7 @@ try {
     );
     const saved = JSON.parse(
       await readFile(join(dir, 'providers.json.agents.json'), 'utf8'),
-    ).find((j: any) => j.id === job.id);
+    ).agents.find((j: any) => j.id === job.id);
     assert.equal(saved.runtime.previous.results[0].status, 'interrupted');
     assert.equal(saved.runtime.previous.results[1].status, 'pending');
     const beforeBatchRestore = calls;

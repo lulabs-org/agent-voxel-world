@@ -22,6 +22,10 @@ export type TaskPlanDraft = {
   totalTokenBudget: number;
 };
 export type TaskPlan = TaskPlanDraft & {
+  agentId?: string;
+  agentName?: string;
+  revision?: number;
+  imported?: boolean;
   id: string;
   createdAt: number;
   updatedAt: number;
@@ -33,7 +37,10 @@ export type TaskPlan = TaskPlanDraft & {
 };
 export type TaskRun = {
   id: string;
-  planId: string;
+  planId?: string;
+  planRevision?: number;
+  agentId?: string;
+  agentName?: string;
   source: 'scheduled' | 'manual' | 'chat' | 'legacy';
   scheduledAt: number;
   startedAt?: number;

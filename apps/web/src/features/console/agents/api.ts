@@ -6,7 +6,7 @@ export const agentsApi = {
   saveAgent: (
     settings: Partial<AgentSettings> & {
       startTask?: boolean;
-      taskTimeZone?: string;
+      joinWorld?: boolean;
     },
     id?: string,
   ) =>

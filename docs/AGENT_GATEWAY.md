@@ -10,7 +10,11 @@ flowchart TD
   HTTP[兼容 HTTP /agents] --> Router[CommandRouter]
   RPC --> Router
   Router --> Registry[AgentRegistry]
-  Scheduler[GatewayScheduler] --> Host[AgentHost]
+  Scheduler[Agent 唤醒与跟随调度] --> Host[AgentHost]
+  Router --> Plans[PlanService 全局计划与执行]
+  Timer[PlanScheduler 时间触发] --> Plans
+  Plans --> Host
+  Plans --> Archive
   Registry --> Host
   Host --> Runner[AgentRunner / Coordinator]
   Player[可信世界消息] --> Host
@@ -25,7 +29,7 @@ flowchart TD
 
 ## 包边界
 
-- `packages/agent-gateway`：角色集合、AgentHost、定时计划、等待检查、本地跟随调度、命令去重和已提交快照；通过接口注入存档、模型服务、语音服务和世界连接。没有 Express 或 WebSocket 传输实现。
+- `packages/agent-gateway`：角色集合、AgentHost、独立 plans/ 领域模块、等待检查、本地跟随调度、命令去重和已提交快照；通过接口注入存档、模型服务、语音服务和世界连接。没有 Express 或 WebSocket 传输实现。
 - `packages/gateway-protocol`：浏览器安全的 RPC v1 类型、公开视图和参数校验，仅依赖共享业务类型。
 - `packages/gateway-client`：宿主注入 socket；处理握手、请求关联、超时、订阅序号、重连和未确认命令查询。不会自动重发写请求。
 - `apps/server/src/modules/gateway`：令牌、HTTP 兼容路由及其 OpenAPI 契约、socket 适配。
@@ -61,17 +65,17 @@ JSON 文本帧，首帧：
 
 写请求另带稳定 `commandId`。响应 `type=res` 关联 `id`，用 `ok/result` 或 `ok=false/error` 表达结果。错误包含 code、status、message。成功表示必要业务记录已经保存，模型和世界动作是否完成需读取任务/执行状态。
 
-| 方法                                                               | 参数概要                                                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| gateway.status / subscribe / unsubscribe                           | 订阅 scope，可选 agentId、planId；取消订阅传 subscriptionId                     |
-| commands.get                                                       | commandId                                                                       |
-| agents.list / get / create / update / join / stop / delete / voice | agentId、value；创建不要求 agentId                                              |
-| tasks.assign / pause / resume / cancel                             | agentId、expectedTask、value                                                    |
-| plans.list / create / update / control                             | agentId、planId、value；control 的 operation 为 run/pause/resume/archive/extend |
-| runs.list / control                                                | agentId、planId、offset；control 使用 runId 和 pause/resume/cancel              |
-| providers.list / save / delete / models                            | providerId、value                                                               |
+| 方法                                                               | 参数概要                                                                                                                                  |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| gateway.status / subscribe / unsubscribe                           | 订阅 scope，可选 agentId、planId；取消订阅传 subscriptionId                                                                               |
+| commands.get                                                       | commandId                                                                                                                                 |
+| agents.list / get / create / update / join / stop / delete / voice | agentId、value；创建不要求 agentId                                                                                                        |
+| tasks.assign / pause / resume / cancel                             | agentId、expectedTask、value                                                                                                              |
+| plans.list / get / create / update / control / reassign            | list 支持 offset/search/state/timing/agentId；写入使用 planId、expectedPlanRevision，create 必须指定 agentId，reassign 指定 targetAgentId |
+| runs.list / control                                                | list 使用 planId、offset；control 使用 runId、expectedTask 和 pause/resume/cancel，执行角色由记录定位                                     |
+| providers.list / save / delete / models                            | providerId、value                                                                                                                         |
 
-value 使用现有 HTTP 的业务对象。tasks.\*、runs.control，以及 plans.control 的 run/resume 要求 expectedTask（无当前任务时为 null），来自角色快照的 taskIdentity，字段为 id/revision/startedAt。旧任务修订返回 409。HTTP 适配绑定当前状态，不增加旧请求必填字段。
+value 使用现有 HTTP 的业务对象。tasks.\*、runs.control，以及 plans.control 的 run 要求 expectedTask（无当前任务时为 null），来自角色快照的 taskIdentity，字段为 id/revision/startedAt。旧任务修订返回 409。计划编辑、暂停、启用、追加额度和改派使用 expectedPlanRevision，独立于聊天任务修订。HTTP 适配绑定当前状态，不增加旧请求必填字段；旧角色路径访问已改派计划返回 409。
 
 RPC 公开快照带资源版本和任务身份，不公开模型密钥、原始 Pi 上下文和 runtime。订阅支持 all、agents、agent、plans、runs、providers。先注册变化监听再读取快照，快照期间的更新暂存；每个订阅从 seq=1 开始连续发送。变化只包含资源标识和版本，详情按需读取。发送积压超过 1 MiB 关闭连接并要求重新同步。
 
@@ -91,7 +95,7 @@ pnpm agent:ctl task assign <agentId> --goal '到指定位置等待'
 pnpm agent:ctl task pause <agentId>
 pnpm agent:ctl task resume <agentId>
 pnpm agent:ctl task cancel <agentId>
-pnpm agent:ctl plans <agentId>
+pnpm agent:ctl plans [agentId]
 pnpm agent:ctl runs <agentId> <planId>
 pnpm agent:ctl watch <agentId>
 ```
@@ -100,7 +104,11 @@ pnpm agent:ctl watch <agentId>
 
 ## 存档与部署
 
-继续使用现有 Agent JSON、TaskBook 和 runtime v2，没有第二份任务状态数据库。首次读取时以独占创建方式保存 `.before-agent-gateway-v1.bak`，已有备份不覆盖；备份失败阻止加载写入。进行中任务恢复为暂停，过期计划不补跑，旧私聊会话需要重新指派，未知动作不重放。消息队列、订阅和内存命令记录不跨重启保存。
+同一路径的存档升级为 Gateway v1 聚合对象：`{version:1, agents, plans, runs, requests}`。角色仅保存当前执行关联，计划与历史独立保存；runtime 仍为 v2。整个对象通过临时文件加原子替换一次提交，不存在第二份计划库。
+
+首次加载旧角色数组前独占创建 `.before-task-plan-module-v1.bak`，已有备份不覆盖；备份、迁移或校验失败阻止升级写入。原计划/执行 ID、累计用量、检查点和按原角色作用域记录的 requestId 保留。纯聊天自动生成的计划转为无 planId 执行；混合或来源不明的历史保留，聊天执行不出现在计划历史。完成迁移和保存后才启动恢复与调度。
+
+重启时未结束执行暂停，错过时间不补跑，未知动作不重放；私聊会话失效需重新通过聊天发起。消息队列和订阅不持久化。升级后的存档不能交给旧版写入；回滚必须先停服务，再恢复专用备份。现用服务备份、升级及重启是单独部署步骤。
 
 存档失败会中断受影响 Agent 并停止其后续世界动作，命令不会返回提交成功；修复存储后重启。查询使用已提交快照。正常关闭停止接收写命令和调度，取消执行、等待退出、保存暂停状态、关闭连接；保留原上线意愿以便下次上线待命。
 

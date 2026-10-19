@@ -4,16 +4,9 @@ import {
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
-import {
-  endedRun,
-  newPlan,
-  newRun,
-  nextOccurrence,
-  runView,
-} from './scheduler';
+import { endedRun, newRun, nextOccurrence, runView } from './plans/model';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import {
-  integer,
   object,
   taskLimits,
   validateAgent,
@@ -23,7 +16,7 @@ import { ManagementError } from './errors';
 import { active, type Job } from './types';
 
 export function currentRun(job: Job) {
-  return job.book.runs.find((r) => r.id === job.book.currentRunId);
+  return job.ledger.runs.find((r) => r.id === job.currentRunId);
 }
 
 export function taskBusy(job: Job) {
@@ -44,32 +37,43 @@ export function captureTask(job: Job) {
   new TaskService(job.memory).lease();
   let run = currentRun(job);
   if (!run || (run.task && run.task.startedAt !== job.memory.task.startedAt)) {
-    const p = newPlan(
+    const snapshot = {
+      name: job.memory.task.goal.slice(0, 80) || '聊天执行',
+      goal: job.memory.task.goal,
+      timing: { kind: 'immediate' as const },
+      timeZone: 'UTC',
+      limits: {
+        maxTurns: job.view.maxTurns,
+        tokenBudget: job.view.tokenBudget ?? 50000,
+        taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
+      },
+      totalTokenBudget: 500000,
+    };
+    run = newRun(
       {
-        name: job.memory.task.goal.slice(0, 80) || '任务',
-        goal: job.memory.task.goal,
-        timing: { kind: 'immediate' },
-        timeZone: 'UTC',
-        limits: {
-          maxTurns: job.view.maxTurns,
-          tokenBudget: job.view.tokenBudget ?? 50000,
-          taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
-        },
-        totalTokenBudget: 500000,
+        ...snapshot,
+        id: '',
+        createdAt: job.memory.task.startedAt,
+        updatedAt: job.memory.task.startedAt,
+        state: 'enabled',
+        reason: '',
+        spentTokens: 0,
       },
       job.memory.task.startedAt,
+      'chat',
     );
-    job.book.plans.push(p);
-    run = newRun(p, p.createdAt, 'legacy');
+    delete run.planId;
+    run.agentId = job.view.id;
+    run.agentName = job.view.name;
     run.logs = [...job.view.logs];
-    job.book.runs.push(run);
-    job.book.currentRunId = run.id;
+    job.ledger.runs.push(run);
+    job.currentRunId = run.id;
   }
-  const plan = job.book.plans.find((p) => p.id === run!.planId)!;
+  const plan = job.ledger.plans.find((p) => p.id === run!.planId);
   const task = job.memory.task;
   const delta = Math.max(0, task.tokens - run.accountedTokens);
   run.totalTokens += delta;
-  plan.spentTokens += delta;
+  if (plan) plan.spentTokens += delta;
   run.accountedTokens = task.tokens;
   const batch = job.memory.previous as
     | {
@@ -123,6 +127,14 @@ export function captureTask(job: Job) {
       ? job.view.logs.at(-1) || '执行中断，请检查后继续。'
       : task.reason;
   if (endedRun(run)) run.finishedAt ??= Date.now();
+  // Historical results still contribute usage, but cannot overwrite newer plan controls.
+  if (
+    !plan ||
+    plan.agentId !== run.agentId ||
+    plan.revision !== run.planRevision
+  )
+    return;
+  const beforePlan = JSON.stringify(plan);
   if (['failed', 'budget', 'needs_input', 'blocked'].includes(run.status)) {
     plan.state = 'paused';
     plan.reason = run.reason || '本次执行需要处理。';
@@ -143,9 +155,10 @@ export function captureTask(job: Job) {
     plan.reason = '计划累计 token 额度已用尽，请追加额度后恢复。';
     delete plan.nextRunAt;
   }
+  if (beforePlan !== JSON.stringify(plan)) job.ledger.touch(plan);
 }
 
-export async function commitTaskBook<T>(
+export async function commitExecution<T>(
   job: Job,
   change: () => T,
   save: () => Promise<void>,
@@ -156,7 +169,18 @@ export async function commitTaskBook<T>(
     throw new ManagementError('任务状态正在更新，请稍候。', 409);
   captureTask(job);
   const before = {
-    book: structuredClone(job.book),
+    plans: structuredClone(
+      job.ledger.plans.filter((p) => p.agentId === job.view.id),
+    ),
+    runs: structuredClone(
+      job.ledger.runs.filter((r) => r.agentId === job.view.id),
+    ),
+    currentRunId: job.currentRunId,
+    requests: Object.fromEntries(
+      Object.entries(job.ledger.requests).filter(([k]) =>
+        k.startsWith(job.view.id + ':'),
+      ),
+    ),
     memory: structuredClone(job.memory),
     view: structuredClone(job.view),
   };
@@ -166,7 +190,23 @@ export async function commitTaskBook<T>(
     await save();
     return result;
   } catch (error) {
-    job.book = before.book;
+    job.ledger.plans = [
+      ...job.ledger.plans.filter((p) => p.agentId !== job.view.id),
+      ...before.plans,
+    ];
+    job.ledger.runs = [
+      ...job.ledger.runs.filter((r) => r.agentId !== job.view.id),
+      ...before.runs,
+    ];
+    job.ledger.requests = {
+      ...Object.fromEntries(
+        Object.entries(job.ledger.requests).filter(
+          ([k]) => !k.startsWith(job.view.id + ':'),
+        ),
+      ),
+      ...before.requests,
+    };
+    job.currentRunId = before.currentRunId;
     if (swapsExecution) {
       job.memory = before.memory;
       job.view = before.view;
@@ -180,33 +220,12 @@ export async function commitTaskBook<T>(
 
 export function getTaskPlans(job: Job) {
   captureTask(job);
-  return job.book.plans.map((p) => ({
-    ...structuredClone(p),
-    latestRun: (() => {
-      const run = job.book.runs.filter((r) => r.planId === p.id).at(-1);
-      return run
-        ? { ...runView(run), actions: undefined, logs: [] }
-        : undefined;
-    })(),
-  }));
+  return job.ledger.views(job.view.id);
 }
-
 export function getTaskRuns(job: Job, planId: string, offset = 0) {
   captureTask(job);
-  if (!Number.isSafeInteger(offset) || offset < 0)
-    throw new ManagementError('分页参数无效。');
-  if (!job.book.plans.some((p) => p.id === planId))
-    throw new ManagementError('任务不存在。', 404);
-  const all = job.book.runs
-    .filter((r) => r.planId === planId)
-    .slice()
-    .reverse();
-  return {
-    items: all.slice(offset, offset + 20).map(runView),
-    active: all.filter((r) => !endedRun(r)).map(runView),
-    total: all.length,
-    nextOffset: offset + 20 < all.length ? offset + 20 : undefined,
-  };
+  job.ledger.assertBinding(planId, job.view.id);
+  return job.ledger.history(planId, offset);
 }
 
 export function reserveRun(
@@ -218,15 +237,18 @@ export function reserveRun(
 ) {
   if (
     source === 'scheduled' &&
-    job.book.runs.some(
+    job.ledger.runs.some(
       (r) =>
-        r.planId === plan.id && r.source === source && r.scheduledAt === at,
+        r.planId === plan.id &&
+        r.planRevision === (plan.revision ?? 1) &&
+        r.source === source &&
+        r.scheduledAt === at,
     )
   )
     return undefined;
   captureTask(job);
-  const run = newRun(plan, at, source);
-  job.book.runs.push(run);
+  const run = newRun({ ...plan, agentName: job.view.name }, at, source);
+  job.ledger.runs.push(run);
   if (skip) {
     run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
     run.reason = skip;
@@ -238,7 +260,7 @@ export function reserveRun(
   run.task = task;
   run.runtime = { task };
   run.startedAt = task.startedAt;
-  job.book.currentRunId = run.id;
+  job.currentRunId = run.id;
   job.memory = { task, usage: job.memory.usage };
   job.view.status = 'idle';
   Object.assign(job.view, plan.limits, { goal: plan.goal });
@@ -254,9 +276,10 @@ export async function executeTaskPlanControl(
   schedule: (job: Job) => void,
   launch: (job: Job) => void,
 ) {
-  const plan = job.book.plans.find((p) => p.id === planId);
+  const plan = job.ledger.plans.find((p) => p.id === planId);
   if (!plan) throw new ManagementError('任务不存在。', 404);
   if (plan.state === 'archived') throw new ManagementError('任务已归档。');
+  job.ledger.assertBinding(planId, job.view.id);
   if (operation === 'run') {
     const requestId = object(value).requestId;
     if (
@@ -264,10 +287,12 @@ export async function executeTaskPlanControl(
       !/^[a-zA-Z0-9-]{1,80}$/.test(requestId)
     )
       throw new ManagementError('执行请求标识无效。');
-    const prior = job.book.runs.find(
+    const prior = job.ledger.runs.find(
       (r) => r.planId === planId && r.requestId === requestId,
     );
     if (prior) return runView(prior);
+    if (job.ledger.unfinished(planId))
+      throw new ManagementError('请先结束该计划的未完成执行。', 409);
     if (!job.session || taskBusy(job))
       throw new ManagementError(
         '角色离线或忙碌，请先上线或暂停当前执行。',
@@ -276,7 +301,7 @@ export async function executeTaskPlanControl(
     if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
       throw new ManagementError('请先追加计划累计额度。');
     let runId: string | undefined;
-    await commitTaskBook(
+    await commitExecution(
       job,
       () => {
         runId = reserveRun(job, plan, 'manual', Date.now());
@@ -289,55 +314,10 @@ export async function executeTaskPlanControl(
     if (runId) launch(job);
     return runView(currentRun(job)!);
   }
-  return commitTaskBook(
+  return commitExecution(
     job,
     () => {
-      if (operation === 'pause') {
-        plan.state = 'paused';
-        plan.reason = '计划已暂停，本次执行不受影响。';
-        delete plan.nextRunAt;
-      } else if (operation === 'resume') {
-        if (!isRepeating(plan.timing) && plan.timing.kind !== 'once')
-          throw new ManagementError('一次性任务请使用立即执行。');
-        if (
-          job.book.runs.some(
-            (r) =>
-              r.planId === planId &&
-              ['failed', 'blocked', 'needs_input', 'budget'].includes(r.status),
-          )
-        )
-          throw new ManagementError('请先处理或结束异常执行。');
-        if (
-          hasPlanTokenLimit(plan) &&
-          plan.spentTokens >= plan.totalTokenBudget
-        )
-          throw new ManagementError('请先追加计划累计额度。');
-        plan.nextRunAt = nextOccurrence(plan, Date.now());
-        if (!plan.nextRunAt)
-          throw new ManagementError(
-            '指定时间已错过，请编辑未来时间或手动执行。',
-          );
-        plan.state = 'enabled';
-        plan.reason = '';
-      } else if (operation === 'archive') {
-        if (job.book.runs.some((r) => r.planId === planId && !endedRun(r)))
-          throw new ManagementError('请先结束所有未完成的执行。', 409);
-        plan.state = 'archived';
-        delete plan.nextRunAt;
-      } else if (operation === 'extend') {
-        const amount = integer(
-          object(value).tokens,
-          '追加 token 额度',
-          0,
-          1000,
-          1000000000,
-        );
-        if (plan.totalTokenBudget + amount > 1000000000)
-          throw new ManagementError('累计额度过大。');
-        plan.totalTokenBudget += amount;
-      } else throw new ManagementError('计划操作无效。');
-      plan.updatedAt = Date.now();
-      return structuredClone(plan);
+      return job.ledger.control(planId, operation, value);
     },
     save,
     schedule,
@@ -356,13 +336,13 @@ export async function executeTaskRunControl(
   controlCurrentTask: (op: 'pause' | 'cancel') => Promise<unknown>,
 ) {
   captureTask(job);
-  const run = job.book.runs.find((r) => r.id === runId);
-  if (!run || !run.runtime?.task)
+  const run = job.ledger.runs.find((r) => r.id === runId);
+  if (!run || run.agentId !== job.view.id || !run.runtime?.task)
     throw new ManagementError('执行记录不存在或不可继续。', 404);
   if (endedRun(run)) throw new ManagementError('执行已结束，请重新执行任务。');
   if (operation === 'pause' || operation === 'cancel') {
-    if (job.book.currentRunId === runId) return controlCurrentTask(operation);
-    return commitTaskBook(
+    if (job.currentRunId === runId) return controlCurrentTask(operation);
+    return commitExecution(
       job,
       () => {
         new TaskService(run.runtime!).command(
@@ -389,9 +369,10 @@ export async function executeTaskRunControl(
   if (!job.session || taskBusy(job))
     throw new ManagementError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
   if (run.runtime.audienceExpired)
-    throw new ManagementError('原私聊会话已失效，请新建任务。', 409);
-  const plan = job.book.plans.find((p) => p.id === run.planId)!;
+    throw new ManagementError('原私聊会话已失效，请重新通过聊天发起。', 409);
+  const plan = job.ledger.plans.find((p) => p.id === run.planId);
   if (
+    plan &&
     hasPlanTokenLimit(run.snapshot) &&
     plan.spentTokens >= plan.totalTokenBudget
   )
@@ -408,7 +389,7 @@ export async function executeTaskRunControl(
       settings.taskTimeoutMs! <= run.task!.elapsedMs)
   )
     throw new ManagementError('继续执行的额度必须大于已使用额度。');
-  await commitTaskBook(
+  await commitExecution(
     job,
     () => {
       captureTask(job);
@@ -437,7 +418,7 @@ export async function executeTaskRunControl(
           apiKey: '',
         },
       );
-      job.book.currentRunId = run.id;
+      job.currentRunId = run.id;
       Object.assign(job.view, run.snapshot.limits, {
         goal: run.snapshot.goal,
       });

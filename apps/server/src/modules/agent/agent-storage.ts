@@ -2,10 +2,12 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import {
   ManagementError,
   type RestoredAgentRecord,
+  type GatewayArchive,
+  migrateArchive,
 } from '@voxel/agent-gateway';
 export async function writeAgentArchive(
   archivePath: string,
-  records: RestoredAgentRecord[],
+  records: GatewayArchive,
 ): Promise<void> {
   const data = JSON.stringify(records, null, 2);
   const temp = `${archivePath}.tmp`;
@@ -15,8 +17,8 @@ export async function writeAgentArchive(
 
 export async function readAgentArchive(
   archivePath: string,
-): Promise<RestoredAgentRecord[] | undefined> {
-  let saved: RestoredAgentRecord[];
+): Promise<GatewayArchive | undefined> {
+  let saved: RestoredAgentRecord[] | GatewayArchive;
   try {
     saved = JSON.parse(await readFile(archivePath, 'utf8'));
   } catch (error) {
@@ -25,6 +27,14 @@ export async function readAgentArchive(
     }
     throw new ManagementError('无法读取 Agent 记录。', 500);
   }
+  if (!Array.isArray(saved)) return migrateArchive(saved);
+  await writeFile(
+    `${archivePath}.before-task-plan-module-v1.bak`,
+    await readFile(archivePath),
+    { mode: 0o600, flag: 'wx' },
+  ).catch((error) => {
+    if (error.code !== 'EEXIST') throw error;
+  });
   await writeFile(
     `${archivePath}.before-agent-gateway-v1.bak`,
     await readFile(archivePath),
@@ -74,5 +84,5 @@ export async function readAgentArchive(
     });
   }
 
-  return saved;
+  return migrateArchive(saved);
 }

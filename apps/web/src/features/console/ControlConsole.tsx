@@ -8,6 +8,7 @@ import {
   getGatewayToken,
   gatewayError,
 } from '../../network/gateway';
+import { TaskPlans } from './tasks/TaskPlans';
 import { GatewayAccess } from './GatewayAccess';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
@@ -71,7 +72,17 @@ export function ControlConsole({
         <div className="agent-heading">
           <div>
             <div className="eyebrow">WORLD CONSOLE</div>
-            <h2 id="agent-title">控制台</h2>
+            <div className="console-title-row">
+              <h2 id="agent-title">控制台</h2>
+              {!locked && (
+                <span
+                  role="status"
+                  className={`console-status-pill ${status === 'ready' ? 'console-connected' : 'console-reconnecting'}`}
+                >
+                  {status === 'ready' ? '已连接' : '连接中断，正在重新同步…'}
+                </span>
+              )}
+            </div>
             <p>
               {locked
                 ? '验证管理员身份后，管理 AI 伙伴与模型、语音服务。'
@@ -79,6 +90,11 @@ export function ControlConsole({
             </p>
           </div>
           <div className="console-heading-actions">
+            {!locked && (
+              <Button className="console-exit-btn" onClick={clearGatewayToken}>
+                退出管理
+              </Button>
+            )}
             {!locked && <ConsoleHelp />}
             <Button aria-label="关闭控制台" onClick={onClose}>
               关闭 ×
@@ -87,15 +103,6 @@ export function ControlConsole({
         </div>
         {!locked && (
           <>
-            <div className="console-connection">
-              <span
-                role="status"
-                className={status === 'ready' ? 'console-connected' : ''}
-              >
-                {status === 'ready' ? '已连接' : '连接中断，正在重新同步…'}
-              </span>
-              <Button onClick={clearGatewayToken}>退出管理</Button>
-            </div>
             {gatewayFailure && (
               <p className="agent-error" role="alert">
                 {gatewayFailure}
@@ -111,6 +118,12 @@ export function ControlConsole({
                 }}
               >
                 Agent 玩家
+              </button>
+              <button
+                aria-pressed={tab === 'plans'}
+                onClick={() => setTab('plans')}
+              >
+                任务计划
               </button>
               <button
                 aria-pressed={tab === 'providers'}
@@ -149,6 +162,13 @@ export function ControlConsole({
             disabled={status !== 'ready'}
             style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
           >
+            <div hidden={tab !== 'plans'}>
+              <TaskPlans
+                agents={controller.jobs}
+                active={open && status === 'ready' && tab === 'plans'}
+                disabled={status !== 'ready'}
+              />
+            </div>
             <div className="console-voice" hidden={tab !== 'voice'}>
               {error && (
                 <p role="alert" className="agent-error">
@@ -167,7 +187,7 @@ export function ControlConsole({
                 active={open && status === 'ready' && tab === 'asr'}
               />
             </div>
-            <div hidden={tab === 'voice' || tab === 'asr'}>
+            <div hidden={tab === 'voice' || tab === 'asr' || tab === 'plans'}>
               {error && (
                 <p role="alert" className="agent-error">
                   {error}

@@ -117,7 +117,7 @@ export class TaskService {
     }
     if (command.type === 'resume' || command.type === 'revise') {
       if (memory.audienceExpired)
-        throw new AgentRuntimeError('原私聊会话已失效，请重新布置任务。');
+        throw new AgentRuntimeError('原私聊会话已失效，请重新通过聊天发起。');
       const reason = cap(task, config);
       if (reason) throw new AgentRuntimeError(reason);
     }

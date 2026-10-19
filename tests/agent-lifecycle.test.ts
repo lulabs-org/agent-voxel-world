@@ -729,10 +729,10 @@ it('retains capability settings and construction progress across edits, reload a
       note: '等待确认',
     },
   };
-  archive[0].runtime.unfinishedBuild = unfinishedBuild;
+  archive.agents[0].runtime.unfinishedBuild = unfinishedBuild;
   // Simulate a pre-capability archive without losing its task history.
-  delete archive[0].permissions;
-  delete archive[0].skills;
+  delete archive.agents[0].permissions;
+  delete archive.agents[0].skills;
   await writeFile(path, JSON.stringify(archive));
   const restored = setup(fakeSession(), decide);
   await restored.load();
@@ -757,9 +757,9 @@ it('retains capability settings and construction progress across edits, reload a
   });
   expect(updated.usage).toEqual(before.usage);
   expect(decide).toHaveBeenCalledTimes(1);
-  const saved = JSON.parse(await readFile(path, 'utf8'))[0];
+  const saved = JSON.parse(await readFile(path, 'utf8')).agents[0];
   expect(saved.runtime.unfinishedBuild).toEqual(unfinishedBuild);
-  expect(saved.runtime.previous).toEqual(archive[0].runtime.previous);
+  expect(saved.runtime.previous).toEqual(archive.agents[0].runtime.previous);
   await restored.close();
   const finalSession = fakeSession();
   const finalManager = setup(finalSession, decide);
@@ -946,16 +946,20 @@ it('persists and reloads 500 timestamped activity records without truncating to 
   await m.close();
   const path = `${store.path}.agents.json`;
   const archive = JSON.parse(await readFile(path, 'utf8'));
-  archive[0].status = 'stopped';
-  archive[0].logs = Array.from({ length: 510 }, (_, i) => `entry-${i}`);
-  archive[0].logTimes = Array.from({ length: 510 }, (_, i) => 1000 + i);
+  archive.agents[0].status = 'stopped';
+  archive.agents[0].logs = Array.from({ length: 510 }, (_, i) => `entry-${i}`);
+  archive.agents[0].logTimes = Array.from({ length: 510 }, (_, i) => 1000 + i);
   await writeFile(path, JSON.stringify(archive));
   const restored = setup(fakeSession());
   await restored.load();
-  expect(restored.list()[0].logs).toEqual(archive[0].logs.slice(-500));
-  expect(restored.list()[0].logTimes).toEqual(archive[0].logTimes.slice(-500));
+  expect(restored.list()[0].logs).toEqual(archive.agents[0].logs.slice(-500));
+  expect(restored.list()[0].logTimes).toEqual(
+    archive.agents[0].logTimes.slice(-500),
+  );
   const persisted = JSON.parse(await readFile(path, 'utf8'));
-  expect(persisted[0].logTimes).toEqual(archive[0].logTimes.slice(-500));
+  expect(persisted.agents[0].logTimes).toEqual(
+    archive.agents[0].logTimes.slice(-500),
+  );
 });
 
 it('deletes a resident character and its tasks durably, preserving shared services', async () => {

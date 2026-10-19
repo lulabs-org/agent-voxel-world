@@ -20,6 +20,8 @@ export const methods = [
   'tasks.resume',
   'tasks.cancel',
   'plans.list',
+  'plans.get',
+  'plans.reassign',
   'plans.create',
   'plans.update',
   'plans.control',
@@ -50,6 +52,11 @@ export type RpcParams = {
   runId?: string;
   providerId?: string;
   offset?: number;
+  search?: string;
+  state?: 'enabled' | 'paused' | 'completed' | 'archived' | 'unassigned';
+  timing?: import('@voxel/shared').TaskTiming['kind'];
+  expectedPlanRevision?: number;
+  targetAgentId?: string;
   operation?: string;
   value?: Record<string, unknown>;
   expectedTask?: TaskIdentity | null;
@@ -107,6 +114,7 @@ export function isWrite(method: RpcMethod) {
     'agents.list',
     'agents.get',
     'plans.list',
+    'plans.get',
     'runs.list',
     'providers.list',
     'providers.models',
@@ -147,6 +155,11 @@ export function parseRequest(value: unknown): RpcRequest {
     'runId',
     'providerId',
     'offset',
+    'search',
+    'state',
+    'timing',
+    'expectedPlanRevision',
+    'targetAgentId',
     'operation',
     'value',
     'expectedTask',
@@ -161,6 +174,7 @@ export function parseRequest(value: unknown): RpcRequest {
     'planId',
     'runId',
     'providerId',
+    'targetAgentId',
     'commandId',
     'subscriptionId',
   ] as const)
@@ -186,11 +200,18 @@ export function parseRequest(value: unknown): RpcRequest {
   )
     throw new GatewayError('任务修订无效。');
   const requiredAgent =
-    /^(tasks|plans|runs)\./.test(r.method) ||
+    /^tasks\./.test(r.method) ||
+    r.method === 'plans.create' ||
     /^agents\.(get|update|join|stop|delete|voice)$/.test(r.method);
   if (requiredAgent && !p.agentId) throw new GatewayError('缺少 Agent 标识。');
   if (
-    ['plans.update', 'plans.control', 'runs.list'].includes(r.method) &&
+    [
+      'plans.get',
+      'plans.update',
+      'plans.control',
+      'plans.reassign',
+      'runs.list',
+    ].includes(r.method) &&
     !p.planId
   )
     throw new GatewayError('缺少计划标识。');
@@ -216,7 +237,7 @@ export function parseRequest(value: unknown): RpcRequest {
     (!['all', 'agents', 'agent', 'plans', 'runs', 'providers'].includes(
       p.scope ?? 'all',
     ) ||
-      (['agent', 'plans', 'runs'].includes(p.scope ?? '') && !p.agentId))
+      (p.scope === 'agent' && !p.agentId))
   )
     throw new GatewayError('订阅范围无效。');
   if (r.method === 'gateway.subscribe' && p.scope === 'runs' && !p.planId)
@@ -225,6 +246,31 @@ export function parseRequest(value: unknown): RpcRequest {
     throw new GatewayError('缺少命令标识。');
   if (r.method === 'gateway.unsubscribe' && !p.subscriptionId)
     throw new GatewayError('缺少订阅标识。');
+  if (
+    p.search !== undefined &&
+    (typeof p.search !== 'string' || p.search.length > 80)
+  )
+    throw new GatewayError('搜索条件无效。');
+  if (
+    p.state !== undefined &&
+    !['enabled', 'paused', 'completed', 'archived', 'unassigned'].includes(
+      p.state,
+    )
+  )
+    throw new GatewayError('计划状态无效。');
+  if (
+    p.timing !== undefined &&
+    !['immediate', 'once', 'interval', 'daily', 'weekly'].includes(p.timing)
+  )
+    throw new GatewayError('执行方式无效。');
+  if (
+    ['plans.update', 'plans.control', 'plans.reassign'].includes(r.method) &&
+    (!Number.isSafeInteger(p.expectedPlanRevision) ||
+      p.expectedPlanRevision! < 1)
+  )
+    throw new GatewayError('缺少计划修订。');
+  if (r.method === 'plans.reassign' && !p.targetAgentId)
+    throw new GatewayError('缺少新的执行角色。');
   return r;
 }
 export function publicError(error: unknown): RpcErrorData {

@@ -32,21 +32,49 @@ export function TaskRunDetails({
   const limited = run.snapshot.limits.enabled !== false;
   const active = ['running', 'waiting'].includes(run.status);
   return (
-    <section className="task-run-detail" aria-label="执行详情">
+    <section className="plans-run-card task-run-detail" aria-label="执行详情">
       {!hideHeading && (
-        <div className="agents-task-heading task-run-heading">
-          <strong>{runStatus[run.status]}</strong>
-          <small>
+        <div className="plans-run-header task-run-heading">
+          <span
+            className="plans-run-status-badge"
+            data-active={['running', 'waiting'].includes(run.status)}
+            data-warn={['paused', 'budget', 'needs_input', 'blocked'].includes(
+              run.status,
+            )}
+            data-error={['failed', 'missed'].includes(run.status)}
+          >
+            <span
+              className="plans-presence-dot"
+              data-state={
+                ['running', 'waiting'].includes(run.status)
+                  ? 'enabled'
+                  : ['paused', 'budget', 'needs_input'].includes(run.status)
+                    ? 'paused'
+                    : 'completed'
+              }
+            />
+            {runStatus[run.status] || run.status}
+          </span>
+          <span className="plans-run-time">
             {planTime(run.startedAt ?? run.scheduledAt, run.snapshot.timeZone)}{' '}
             · {run.snapshot.timeZone}
-          </small>
+          </span>
         </div>
       )}
+      <p className="plans-run-meta-line agent-hint">
+        执行角色：{run.agentName ?? '历史角色'} · 计划修订{' '}
+        {run.planRevision ?? 1} ·{' '}
+        {run.source === 'scheduled'
+          ? '时间触发'
+          : run.source === 'legacy'
+            ? '历史导入'
+            : '手动执行'}
+      </p>
       {run.snapshot.goal.trim() !== planGoal.trim() && (
-        <p className="task-run-goal">
-          <span className="agents-section-label">本次目标 · </span>
+        <div className="plans-run-goal-box task-run-goal">
+          <strong>本次目标：</strong>
           {run.snapshot.goal}
-        </p>
+        </div>
       )}
       {run.reason && run.reason !== run.task?.summary && (
         <p className="task-run-reason" role="status">
@@ -54,28 +82,28 @@ export function TaskRunDetails({
         </p>
       )}
       {run.requiresReassignment && (
-        <p className="agent-error">
+        <p className="agent-error" role="alert">
           原私聊会话已失效，不能继续此执行。请结束本次执行后重新安排。
         </p>
       )}
-      <div className="task-report">
+      <div className="plans-run-report-box task-report">
         <span
-          className="agents-section-label"
+          className="plans-run-report-label agents-section-label"
           title="汇报可能含计划；已执行动作请查看实际动作记录。"
         >
           Agent 汇报
         </span>
         <p>{run.task?.summary || '尚无汇报'}</p>
       </div>
-      <dl className="task-run-usage">
-        <div>
-          <dt>模型调用</dt>
+      <dl className="plans-run-stats task-run-usage">
+        <div className="plans-run-stat">
+          <dt>模型调用轮次</dt>
           <dd>
             {run.task?.calls ?? 0} /{' '}
             {limited ? run.snapshot.limits.maxTurns : '不限'}
           </dd>
         </div>
-        <div>
+        <div className="plans-run-stat">
           <dt>tokens{run.task?.estimated ? '（估算）' : ''}</dt>
           <dd>
             {run.totalTokens.toLocaleString()} /{' '}
@@ -84,7 +112,7 @@ export function TaskRunDetails({
               : '不限'}
           </dd>
         </div>
-        <div>
+        <div className="plans-run-stat">
           <dt>有效执行时间</dt>
           <dd>
             {Math.round((run.task?.elapsedMs ?? 0) / 1000)} 秒 /{' '}

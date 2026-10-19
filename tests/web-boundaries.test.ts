@@ -116,3 +116,16 @@ it('loads HUD overrides after shared surfaces in the original cascade order', ()
     './features/hud/hud.css',
   ]);
 });
+
+it('keeps roles free of plan controls and the plan workspace independent of the console controller', () => {
+  for (const [file, dependencies] of graph) {
+    const name = relative(root, file);
+    if (name.startsWith('features/console/agents/'))
+      for (const dependency of dependencies)
+        expect(relative(root, dependency), name).not.toContain('/tasks/');
+    if (name.startsWith('features/console/tasks/'))
+      expect(readFileSync(file, 'utf8'), name).not.toMatch(
+        /ConsoleController|useConsoleController/,
+      );
+  }
+});

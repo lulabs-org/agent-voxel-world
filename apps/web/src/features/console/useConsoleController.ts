@@ -1,26 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAgentsController } from './agents/useAgentsController';
 import { useProvidersController } from './providers/useProvidersController';
-import { useTaskController, useTaskEditor } from './tasks/useTaskController';
 import { useConsoleFeedback } from './useConsoleFeedback';
 import { useVoiceServices } from './voice/useVoiceServices';
 export function useConsoleController(open: boolean, initialTab?: 'agents') {
-  const [tab, setTab] = useState<'agents' | 'providers' | 'voice' | 'asr'>(
-    'agents',
-  );
+  const [tab, setTab] = useState<
+    'agents' | 'plans' | 'providers' | 'voice' | 'asr'
+  >('agents');
   const body = useRef<HTMLDivElement>(null);
   const feedback = useConsoleFeedback();
   const providers = useProvidersController(open, tab, feedback);
-  const taskEditor = useTaskEditor();
   const agents = useAgentsController(
     open,
     initialTab,
     providers.providers,
     providers.resetModels,
-    taskEditor.resetTaskEditor,
     feedback,
   );
-  const tasks = useTaskController(taskEditor, agents.setJobs, feedback);
   const voices = useVoiceServices(open, feedback.setError);
   useEffect(() => {
     if (open && initialTab) setTab(initialTab);
@@ -32,7 +28,6 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
     ...feedback,
     ...providers,
     ...agents,
-    ...tasks,
     ...voices,
     tab,
     setTab,

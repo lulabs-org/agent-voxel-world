@@ -1,7 +1,6 @@
 import type { ManagedAgentView } from '@voxel/shared';
 import { agentPermissions } from '@voxel/shared';
-import { useState } from 'react';
-import { AgentTaskPanel } from '../tasks/AgentTaskPanel';
+import { useEffect, useState } from 'react';
 import type { ConsoleController } from '../useConsoleController';
 import { AgentForm } from './AgentForm';
 import { AgentLogViewer } from './AgentLogViewer';
@@ -30,7 +29,11 @@ export function AgentDetail(
     setNotice,
     setError,
   } = props;
-  const [view, setView] = useState<'task' | 'activity'>('task');
+  const [view, setView] = useState<'settings' | 'activity'>('settings');
+  useEffect(() => {
+    openAgentEditor(job);
+    setView('settings');
+  }, [job.id]);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const state = agentPresentation(job);
@@ -112,18 +115,6 @@ export function AgentDetail(
           角色设置
         </button>
         <button
-          aria-pressed={!editing && view === 'task'}
-          onClick={() => {
-            setConfirmDelete(false);
-            setShowAgentForm(false);
-            setView('task');
-            setError('');
-            setNotice('');
-          }}
-        >
-          定时任务
-        </button>
-        <button
           aria-pressed={!editing && view === 'activity'}
           onClick={() => {
             setConfirmDelete(false);
@@ -143,7 +134,9 @@ export function AgentDetail(
             <div className="agents-delete-heading">
               <div>
                 <h4>删除角色</h4>
-                <p>永久删除角色设置、任务计划和运行记录。</p>
+                <p>
+                  删除角色并取消未结束执行；计划和执行历史保留，相关计划等待重新指派。
+                </p>
               </div>
               <button
                 className="agents-delete-button"
@@ -169,10 +162,8 @@ export function AgentDetail(
             )}
           </section>
         </>
-      ) : view === 'activity' ? (
-        <AgentLogViewer job={job} />
       ) : (
-        <AgentTaskPanel {...props} />
+        <AgentLogViewer job={job} />
       )}
     </article>
   );

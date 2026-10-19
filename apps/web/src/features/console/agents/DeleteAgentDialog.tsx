@@ -41,7 +41,7 @@ export function DeleteAgentDialog({
       <h3 id={titleId}>删除“{name}”？</h3>
       <div id={descriptionId}>
         <p>
-          将停止运行，并永久删除角色设置、任务计划和运行记录。此操作无法撤销。
+          将删除角色并取消未结束执行。计划与执行历史保留，未完成计划暂停并等待重新指派。角色删除无法撤销。
         </p>
         <p>已建造的方块、模型服务和语音服务会保留。</p>
       </div>

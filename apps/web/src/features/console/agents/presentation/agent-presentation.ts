@@ -1,5 +1,5 @@
 import type { ManagedAgentView } from '@voxel/shared';
-import { taskStatusNames } from '../../tasks/model';
+import { taskStatusNames } from '../../execution-status';
 
 /** Presence and task execution are separate: an idle process can have a running task. */
 export function agentPresentation(job: ManagedAgentView) {
@@ -33,18 +33,5 @@ export function agentPresentation(job: ManagedAgentView) {
             : '未在世界中',
     taskLabel: job.task ? taskStatusNames[job.task.status] : '等待安排任务',
     canEdit: !transitioning && !executing && job.status !== 'running',
-    canResume:
-      !!job.task &&
-      !executing &&
-      !transitioning &&
-      !job.taskRequiresReassignment,
-    canPause: executing && !transitioning,
-    canCancel: !!job.task && !ended && !transitioning,
-    resumeLabel:
-      job.task?.status === 'budget'
-        ? '调整额度并继续'
-        : ended
-          ? '重新执行任务'
-          : '继续任务',
   };
 }

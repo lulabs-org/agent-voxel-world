@@ -110,11 +110,23 @@ it('backs up and migrates current and historical runtimes while preserving uncer
       runtime,
       taskBook: {
         version: 1,
-        plans: [],
+        plans: [
+          {
+            id: 'old-plan',
+            name: 'old build',
+            goal: 'old build',
+            timing: { kind: 'immediate' },
+            state: 'completed',
+            revision: 1,
+            spentTokens: 600,
+            limits: {},
+            totalTokenBudget: 500000,
+          },
+        ],
         runs: [
           {
             id: 'old-run',
-            planId: 'missing-plan',
+            planId: 'old-plan',
             status: 'completed',
             runtime: structuredClone(runtime),
             snapshot: { limits: {}, timing: { kind: 'immediate' } },
@@ -135,17 +147,16 @@ it('backs up and migrates current and historical runtimes while preserving uncer
       await readFile(`${path}.before-conversation-tasks-v2.bak`, 'utf8'),
     ).toBe(original);
     // The archive reader is deliberately lossless; migration belongs to restoration.
-    const migrated = saved![0];
+    const migrated = saved!.agents[0];
     restorePiCheckpoint(migrated.runtime!);
-    for (const run of migrated.taskBook!.runs)
-      restorePiCheckpoint(run.runtime!);
+    for (const run of saved!.runs) restorePiCheckpoint(run.runtime!);
     expect(migrated.runtime).toMatchObject({
       version: 2,
       task: { calls: 3, tokens: 600 },
       unknownEffect: { name: 'chat', state: 'unknown' },
     });
     expect(migrated.runtime!.pi).toBeUndefined();
-    expect(migrated.taskBook!.runs[0].runtime).toMatchObject({
+    expect(saved!.runs[0].runtime).toMatchObject({
       version: 2,
       unknownEffect: { name: 'chat' },
     });

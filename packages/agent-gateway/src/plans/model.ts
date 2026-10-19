@@ -1,4 +1,4 @@
-import { TaskPlanError } from './errors';
+import { TaskPlanError } from '../errors';
 import { nextOccurrence } from '@voxel/shared';
 export { nextOccurrence, wallClockInstant } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
@@ -164,6 +164,7 @@ export function newPlan(draft: TaskPlanDraft, now: number): TaskPlan {
     state: 'enabled',
     reason: '',
     spentTokens: 0,
+    revision: 1,
   };
   plan.nextRunAt = nextOccurrence(plan, now);
   return plan;
@@ -176,6 +177,9 @@ export function newRun(
   return {
     id: randomUUID(),
     planId: plan.id,
+    planRevision: plan.revision ?? 1,
+    agentId: plan.agentId,
+    agentName: plan.agentName,
     source,
     scheduledAt: at,
     snapshot: planDraft(plan),
@@ -186,7 +190,7 @@ export function newRun(
     logs: [],
   };
 }
-export function duePlans(book: TaskBook, now: number) {
+export function duePlans(book: Pick<TaskBook, 'plans'>, now: number) {
   return book.plans
     .filter(
       (p) =>
@@ -196,44 +200,3 @@ export function duePlans(book: TaskBook, now: number) {
     )
     .sort((a, b) => a.nextRunAt! - b.nextRunAt! || a.createdAt - b.createdAt);
 }
-/** Timer only selects due work. AgentManager reserves and persists before dispatch. */
-export class GatewayScheduler {
-  private agents = new Map<string, ReturnType<typeof setTimeout>>();
-  cancel(id: string) {
-    clearTimeout(this.agents.get(id));
-    this.agents.delete(id);
-  }
-  wake(id: string, ms: number, action: () => void) {
-    this.cancel(id);
-    if (this.stopped) return;
-    const timer = setTimeout(() => {
-      this.agents.delete(id);
-      action();
-    }, ms);
-    timer.unref();
-    this.agents.set(id, timer);
-  }
-  private timer?: ReturnType<typeof setTimeout>;
-  private stopped = false;
-  constructor(private readonly tick: () => Promise<void>) {}
-  start() {
-    if (this.timer || this.stopped) return;
-    this.timer = setTimeout(async () => {
-      this.timer = undefined;
-      try {
-        await this.tick();
-      } catch {
-        /* Failed persistence is retried without dispatch. */
-      }
-      this.start();
-    }, 1000);
-    this.timer.unref();
-  }
-  close() {
-    this.stopped = true;
-    for (const id of this.agents.keys()) this.cancel(id);
-    clearTimeout(this.timer);
-  }
-}
-
-export { GatewayScheduler as TaskScheduler };

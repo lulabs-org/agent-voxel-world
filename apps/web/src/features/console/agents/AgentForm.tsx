@@ -22,10 +22,9 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
     chooseProvider,
     saveAgent,
     disabled,
-    startTaskOnCreate,
-    setStartTaskOnCreate,
+    joinOnCreate,
+    setJoinOnCreate,
     jobs,
-    pauseAgent,
     toggleVoiceReplies,
   } = props;
   const permissions = agentPermissions(agent);
@@ -47,7 +46,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
           {!editingAgent && <h4>创建一位新伙伴</h4>}
           <p>
             {editingAgent
-              ? '设定伙伴的身份、职责与能力；具体任务在“定时任务”页单独安排。'
+              ? '设定伙伴的身份、职责与能力；具体任务在“任务计划”页单独安排。'
               : '先取个名字、选择已保存的模型服务，再决定它如何加入世界。'}
           </p>
         </div>
@@ -62,16 +61,8 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
           <p>
             {agentPresentation(current).transitioning
               ? '角色正在加入或离开世界，请等待状态更新。'
-              : '任务正在执行，请暂停后修改角色设置。'}
+              : '角色正在执行，暂时不能修改设置。计划执行请在“任务计划”中处理；聊天执行可通过聊天暂停。'}
           </p>
-          <button
-            disabled={
-              busy || !!props.pollError || !agentPresentation(current).canPause
-            }
-            onClick={() => void pauseAgent(current)}
-          >
-            暂停任务后编辑
-          </button>
           {current.voiceServiceId &&
             agentPermissions(current).chat &&
             !agentPresentation(current).transitioning && (
@@ -320,57 +311,18 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
             )}
           </div>
           {!editingAgent && (
-            <div className="agents-form-section">
-              <h4>加入后做什么</h4>
-              <div className="agents-start-options">
-                <label className="agent-check">
-                  <input
-                    type="radio"
-                    name="agent-start"
-                    checked={!startTaskOnCreate}
-                    onChange={() => setStartTaskOnCreate(false)}
-                  />
-                  <span>
-                    先在世界中待命
-                    <small>
-                      {permissions.chat
-                        ? '不主动执行任务，收到私聊或 @ 后回复。'
-                        : '不主动执行任务。聊天权限已关闭，进展可在控制台查看。'}
-                    </small>
-                  </span>
-                </label>
-                <label className="agent-check">
-                  <input
-                    type="radio"
-                    name="agent-start"
-                    checked={startTaskOnCreate}
-                    onChange={() => setStartTaskOnCreate(true)}
-                  />
-                  <span>
-                    立即执行任务<small>加入后开始使用所选模型完成目标。</small>
-                  </span>
-                </label>
-              </div>
-              {startTaskOnCreate && (
-                <label>
-                  第一个任务
-                  <textarea
-                    required
-                    rows={3}
-                    maxLength={2000}
-                    value={agent.goal}
-                    placeholder="例如：观察附近环境，并用中文介绍你的发现。"
-                    onChange={(event) =>
-                      setAgent({ ...agent, goal: event.target.value })
-                    }
-                  />
-                </label>
-              )}
-            </div>
+            <label className="agent-check">
+              <input
+                type="checkbox"
+                checked={joinOnCreate}
+                onChange={(e) => setJoinOnCreate(e.target.checked)}
+              />
+              创建后加入世界待命
+            </label>
           )}
           <p className="agent-hint">
             {editingAgent
-              ? '保存设置不会启动任务。更换模型会重置当前任务进度。修改技能或动作权限会暂停未结束任务，保留进度，需确认后继续。'
+              ? '保存设置不会启动任务。更换模型会暂停未结束执行，保留进度和用量，需确认后继续。修改技能或动作权限会暂停未结束任务，保留进度，需确认后继续。'
               : '待命时不主动调用模型；执行任务和回复消息会产生模型用量。'}{' '}
             云端模型与语音按服务商规则计费。
           </p>
@@ -383,16 +335,19 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
               disabled={
                 !validProvider ||
                 !agent.name.trim() ||
-                (!editingAgent && startTaskOnCreate && !agent.goal.trim())
+                (!editingAgent &&
+                  joinOnCreate &&
+                  props.jobs.filter((j) => agentPresentation(j).occupiesSlot)
+                    .length >= 4)
               }
             >
               {busy
                 ? '正在保存…'
                 : editingAgent
                   ? '保存角色设置'
-                  : startTaskOnCreate
-                    ? '创建并开始任务'
-                    : '创建并加入世界'}
+                  : joinOnCreate
+                    ? '创建并加入世界'
+                    : '创建角色'}
             </button>
           </div>
         </fieldset>

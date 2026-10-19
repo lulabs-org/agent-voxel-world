@@ -13,7 +13,7 @@ export function TaskLimitSettings({
 }) {
   const enabled = value.enabled !== false;
   return (
-    <section className="task-limits" aria-label="执行限制">
+    <section className="plans-limit-box task-limits" aria-label="执行限制">
       <label className="task-limits-toggle">
         <input
           type="checkbox"

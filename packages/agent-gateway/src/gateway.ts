@@ -1,13 +1,16 @@
+import { PlanService } from './plans/service';
+import { migrateArchive } from './plans/archive';
+import { GatewayScheduler } from './wake-scheduler';
+import { PlanScheduler } from './plans/scheduler';
+import { endedRun } from './plans/model';
 import { appendAgentLog } from './agent-logs';
 import {
-  TaskScheduler,
-  emptyTaskBook,
   validatePlan,
   newPlan,
   newRun,
   nextOccurrence,
   duePlans,
-} from './scheduler';
+} from './plans/model';
 import {
   hasPlanTokenLimit,
   isRepeating,
@@ -20,6 +23,7 @@ import type {
   ProviderPort,
   ArchivePort,
   RestoredAgentRecord,
+  GatewayArchive,
 } from './ports';
 import { AgentRegistry } from './registry';
 import { GatewayEvents } from './events';
@@ -50,7 +54,7 @@ import { ManagementError } from './errors';
 import { active, resident, type Job } from './types';
 import {
   captureTask,
-  commitTaskBook,
+  commitExecution,
   currentRun,
   getTaskPlans,
   getTaskRuns,
@@ -72,11 +76,15 @@ export class AgentGateway {
   private closePromise?: Promise<void>;
   private shutdownPresence = new Map<string, Job['view']['status']>();
   private probing = new Set<string>();
-  private taskScheduler = new TaskScheduler(() => this.dispatchDue());
+  private taskScheduler = new GatewayScheduler();
+  private planScheduler = new PlanScheduler(() => this.dispatchDue());
+  readonly plans = new PlanService();
+  private committedPlans = new PlanService();
   private saving: Promise<void> = Promise.resolve();
   private committed = new Map<string, RestoredAgentRecord>();
   private committedViews: ReturnType<AgentGateway['list']> = [];
   storageRevision = 0;
+  private planStorageFailed = false;
 
   assertWritable(id?: string) {
     if (this.closing) throw new ManagementError('世界服务正在关闭。', 503);
@@ -92,44 +100,76 @@ export class AgentGateway {
   publicIdentity(id: string) {
     return structuredClone(this.committed.get(id)?.runtime?.identity);
   }
-  private committedJob(id: string): Job {
-    const r = this.committed.get(id);
-    if (!r) throw new ManagementError('Agent 不存在。', 404);
-    return {
-      view: structuredClone(r),
-      memory: structuredClone(r.runtime ?? {}),
-      book: structuredClone(r.taskBook ?? emptyTaskBook()),
-      attention: new AgentAttention(),
-      abort: new AbortController(),
-    };
-  }
-  publicPlans(id: string, metadata = false) {
-    const plans = getTaskPlans(this.committedJob(id));
+  publicPlans(id?: string, metadata = false) {
+    const plans = this.committedPlans.views(id).map((p) => ({
+      ...p,
+      agentName: p.agentId
+        ? (this.committed.get(p.agentId)?.name ?? p.agentName)
+        : p.agentName,
+    }));
     return metadata
       ? plans.map((plan) => ({
           ...plan,
           resourceVersion: this.events.version,
-          taskIdentity: this.publicIdentity(id) ?? null,
+          taskIdentity: plan.agentId
+            ? (this.publicIdentity(plan.agentId) ?? null)
+            : null,
         }))
       : plans;
   }
-  publicRuns(id: string, plan: string, offset?: number, metadata = false) {
-    const job = this.committedJob(id),
-      page = getTaskRuns(job, plan, offset);
+  publicRuns(
+    id: string | undefined,
+    plan: string,
+    offset?: number,
+    metadata = false,
+  ) {
+    if (id) this.committedPlans.assertBinding(plan, id);
+    const page = this.committedPlans.history(plan, offset);
     if (!metadata) return page;
     const annotate = (run: (typeof page.items)[number]) => ({
       ...run,
       resourceVersion: this.events.version,
-      taskIdentity:
-        job.book.runs.find((r) => r.id === run.id)?.runtime?.identity ?? null,
+      taskIdentity: run.agentId
+        ? (this.publicIdentity(run.agentId) ?? null)
+        : null,
     });
     return {
       ...page,
       resourceVersion: this.events.version,
-      taskIdentity: this.publicIdentity(id) ?? null,
       items: page.items.map(annotate),
       active: page.active.map(annotate),
     };
+  }
+  planPage(p: RpcParams) {
+    let all = this.publicPlans(p.agentId, true).filter(
+      (plan) =>
+        (!p.search ||
+          plan.name
+            .toLocaleLowerCase()
+            .includes(p.search.toLocaleLowerCase())) &&
+        (!p.state ||
+          (p.state === 'unassigned'
+            ? !plan.agentId && plan.state === 'paused'
+            : plan.state === p.state)) &&
+        (!p.timing || plan.timing.kind === p.timing),
+    );
+    if (!p.state) all = all.filter((plan) => plan.state !== 'archived');
+    all.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
+    const offset = p.offset ?? 0;
+    return {
+      items: all.slice(offset, offset + 20),
+      total: all.length,
+      nextOffset: offset + 20 < all.length ? offset + 20 : undefined,
+    };
+  }
+  publicPlan(id: string) {
+    const p = this.publicPlans(undefined, true).find((p) => p.id === id);
+    if (!p) throw new ManagementError('计划不存在。', 404);
+    return p;
+  }
+  async reassignPlan(id: string, agentId: string) {
+    const agent = this.taskJob(agentId);
+    return this.commitPlan(id, () => this.plans.reassign(id, agent.view));
   }
   async settled(id: string) {
     await this.jobs.get(id)?.done;
@@ -143,19 +183,46 @@ export class AgentGateway {
       status: this.shutdownPresence.get(view.id) ?? view.status,
       sessionId: undefined,
       runtime: structuredClone(this.jobs.get(view.id)?.memory),
-      taskBook: structuredClone(this.jobs.get(view.id)?.book),
+      currentRunId: this.jobs.get(view.id)?.currentRunId,
     }));
+    const snapshot: GatewayArchive = {
+      version: 1,
+      agents: records,
+      plans: structuredClone(this.plans.plans),
+      runs: structuredClone(this.plans.runs),
+      requests: { ...this.plans.requests },
+    };
     this.saving = this.saving
       .catch(() => {})
       .then(async () => {
         try {
-          await this.archive.save(records);
+          await this.archive.save(snapshot);
         } catch (error) {
           this.storageRevision++;
+          const changedPlans = snapshot.plans.filter(
+            (p) =>
+              JSON.stringify(p) !==
+              JSON.stringify(
+                this.committedPlans.plans.find((old) => old.id === p.id),
+              ),
+          );
+          const changedRuns = snapshot.runs.filter(
+            (r) =>
+              JSON.stringify(r) !==
+              JSON.stringify(
+                this.committedPlans.runs.find((old) => old.id === r.id),
+              ),
+          );
+          if (changedPlans.length || changedRuns.length)
+            this.planStorageFailed = true;
+          const affected = new Set(
+            [...changedPlans, ...changedRuns].map((x) => x.agentId),
+          );
           for (const record of records) {
             if (
+              !affected.has(record.id) &&
               JSON.stringify(this.committed.get(record.id)) ===
-              JSON.stringify(record)
+                JSON.stringify(record)
             )
               continue;
             const job = this.jobs.get(record.id);
@@ -169,7 +236,12 @@ export class AgentGateway {
         }
         this.committed = new Map(records.map((record) => [record.id, record]));
         this.committedViews = views;
-        this.events.commit(records);
+        Object.assign(this.committedPlans, {
+          plans: snapshot.plans,
+          runs: snapshot.runs,
+          requests: snapshot.requests,
+        });
+        this.events.commit(records, snapshot);
       });
     void this.saving.catch(() => console.error('无法保存 Agent 记录。'));
   }
@@ -180,34 +252,40 @@ export class AgentGateway {
   }
 
   async load() {
-    const saved = await this.archive.load();
+    const raw = await this.archive.load();
+    const saved = raw ? migrateArchive(raw) : undefined;
     if (!saved) {
-      this.taskScheduler.start();
+      this.planScheduler.start();
       return;
     }
-    for (const view of saved) {
+    Object.assign(this.plans, {
+      plans: saved.plans,
+      runs: saved.runs,
+      requests: saved.requests,
+    });
+    const autoJoin: Job[] = [];
+    for (const view of saved.agents) {
       const { job, voiceWarning, shouldAutoJoin } = restoreAgentJob(
         view,
         this.providers,
         (settings) => this.checkVoice(settings),
+        this.plans,
       );
       this.jobs.set(view.id, job);
       if (voiceWarning) appendAgentLog(job.view, voiceWarning);
-      if (
-        shouldAutoJoin &&
-        [...this.jobs.values()].filter(resident).length < 4
-      ) {
-        job.view.status = 'joining';
-        job.done = this.execute(
-          job,
-          this.providers.get(job.view.providerId),
-          false,
-        );
-        await job.done;
-      }
+      if (shouldAutoJoin) autoJoin.push(job);
     }
     await this.save();
-    this.taskScheduler.start();
+    for (const job of autoJoin.slice(0, 4)) {
+      job.view.status = 'joining';
+      job.done = this.execute(
+        job,
+        this.providers.get(job.view.providerId),
+        false,
+      );
+      await job.done;
+    }
+    this.planScheduler.start();
   }
 
   constructor(
@@ -232,7 +310,7 @@ export class AgentGateway {
       throw new ManagementError('保存失败，操作结果待确认，请检查存储。', 503);
   }
   currentRunId(id: string) {
-    return this.jobs.get(id)?.book.currentRunId;
+    return this.jobs.get(id)?.currentRunId;
   }
   taskIdentity(id: string) {
     return this.jobs.get(id)?.memory.identity;
@@ -299,6 +377,9 @@ export class AgentGateway {
   }
 
   async createTaskPlan(id: string, value: unknown) {
+    this.assertWritable(id);
+    if (this.planStorageFailed)
+      throw new ManagementError('计划存档失败，请修复存储后重启。', 503);
     const job = this.taskJob(id);
     const requestId = object(value).requestId;
     if (
@@ -308,25 +389,29 @@ export class AgentGateway {
       throw new ManagementError('请求标识无效。');
     const priorId =
       typeof requestId === 'string' &&
-      job.book.requests &&
-      Object.hasOwn(job.book.requests, requestId)
-        ? job.book.requests[requestId]
+      job.ledger.requests &&
+      Object.hasOwn(job.ledger.requests, `${id}:${requestId}`)
+        ? job.ledger.requests[`${id}:${requestId}`]
         : undefined;
     if (priorId)
-      return structuredClone(job.book.plans.find((p) => p.id === priorId)!);
+      return structuredClone(job.ledger.plans.find((p) => p.id === priorId)!);
     const draft = validatePlan(value);
     if (draft.timing.kind === 'immediate' && (!job.session || taskBusy(job)))
       throw new ManagementError('请先让角色上线并结束或暂停当前执行。', 409);
     let runId: string | undefined;
-    const plan = await commitTaskBook(
+    const plan = await commitExecution(
       job,
       () => {
-        const p = newPlan(draft, Date.now());
-        job.book.plans.push(p);
+        const p = {
+          ...newPlan(draft, Date.now()),
+          agentId: id,
+          agentName: job.view.name,
+        };
+        job.ledger.plans.push(p);
         if (p.timing.kind === 'immediate')
           runId = reserveRun(job, p, 'manual', Date.now());
         if (typeof requestId === 'string')
-          (job.book.requests ??= {})[requestId] = p.id;
+          job.ledger.requests[`${id}:${requestId}`] = p.id;
         return p;
       },
       () => this.save(),
@@ -334,41 +419,64 @@ export class AgentGateway {
       draft.timing.kind === 'immediate',
     );
     if (runId) this.launchReserved(job);
-    this.taskScheduler.start();
+    this.planScheduler.start();
     return structuredClone(plan);
   }
 
-  async updateTaskPlan(id: string, planId: string, value: unknown) {
-    const job = this.taskJob(id),
-      plan = job.book.plans.find((p) => p.id === planId);
-    if (!plan) throw new ManagementError('任务不存在。', 404);
+  private changingPlans = new Set<string>();
+
+  private async commitPlan<T>(planId: string, change: () => T) {
+    if (this.planStorageFailed)
+      throw new ManagementError('计划存档失败，请修复存储后重启。', 503);
+    const bound = this.plans.get(planId).agentId;
+    if (
+      this.changingPlans.has(planId) ||
+      (bound && this.jobs.get(bound)?.taskMutating)
+    )
+      throw new ManagementError('计划正在提交，请稍后重试。', 409);
+    this.changingPlans.add(planId);
+    const before = structuredClone(this.plans.get(planId));
+    try {
+      const value = change();
+      await this.save();
+      return value;
+    } catch (e) {
+      this.plans.plans[this.plans.plans.findIndex((p) => p.id === planId)] =
+        before;
+      throw e;
+    } finally {
+      this.changingPlans.delete(planId);
+    }
+  }
+  async updateTaskPlan(id: string | undefined, planId: string, value: unknown) {
+    const plan = this.plans.get(planId);
+    if (id) this.plans.assertBinding(planId, id);
     if (plan.state === 'archived')
       throw new ManagementError('已归档任务不能修改。');
     const draft = validatePlan(value, Date.now(), plan);
-    return commitTaskBook(
-      job,
-      () => {
-        Object.assign(plan, draft, { updatedAt: Date.now() });
-        plan.nextRunAt =
-          plan.state === 'enabled'
-            ? nextOccurrence(plan, Date.now())
-            : undefined;
-        return structuredClone(plan);
-      },
-      () => this.save(),
-      (j) => this.schedule(j),
-    );
+    return this.commitPlan(planId, () => {
+      Object.assign(plan, draft);
+      this.plans.touch(plan);
+      plan.nextRunAt =
+        plan.state === 'enabled' ? nextOccurrence(plan, Date.now()) : undefined;
+      return structuredClone(plan);
+    });
   }
-
   async controlTaskPlan(
-    id: string,
+    id: string | undefined,
     planId: string,
     operation: string,
     value: unknown = {},
   ) {
-    const job = this.taskJob(id);
+    if (id) this.plans.assertBinding(planId, id);
+    if (operation !== 'run')
+      return this.commitPlan(planId, () =>
+        this.plans.control(planId, operation, value),
+      );
+    const target = this.plans.get(planId).agentId;
+    if (!target) throw new ManagementError('请先指派执行角色。', 409);
     return executeTaskPlanControl(
-      job,
+      this.taskJob(target),
       planId,
       operation,
       value,
@@ -399,7 +507,7 @@ export class AgentGateway {
   }
 
   async dispatchDue(now = Date.now()) {
-    if (this.closing) return;
+    if (this.closing || this.planStorageFailed) return;
     for (const job of this.jobs.values()) {
       if (
         job.storageFailed ||
@@ -408,18 +516,21 @@ export class AgentGateway {
         job.controlling
       )
         continue;
-      const due = duePlans(job.book, now);
+      const due = duePlans(job.ledger, now).filter(
+        (p) => p.agentId === job.view.id,
+      );
       let selected = false;
       for (const plan of due) {
+        if (this.changingPlans.has(plan.id)) continue;
         const at = plan.nextRunAt!;
         const skip =
-          selected || taskBusy(job)
+          selected || taskBusy(job) || this.plans.unfinished(plan.id)
             ? '角色忙碌，本次触发已跳过。'
             : !job.session
               ? '角色离线，本次触发已错过。'
               : undefined;
         let runId: string | undefined;
-        await commitTaskBook(
+        await commitExecution(
           job,
           () => {
             if (
@@ -474,6 +585,9 @@ export class AgentGateway {
     );
     const settings = validateAgent(value, provider);
     const startTask = boolean(object(value).startTask, true);
+    const joinWorld = boolean(object(value).joinWorld, true);
+    if (startTask && !joinWorld)
+      throw new ManagementError('立即任务需要加入世界。');
     if (startTask && !settings.goal)
       throw new ManagementError('请填写任务目标，或选择加入世界待命。');
     const firstTask = startTask
@@ -490,7 +604,7 @@ export class AgentGateway {
         })
       : undefined;
     this.checkVoice(settings);
-    if ([...this.jobs.values()].filter(resident).length >= 4)
+    if (joinWorld && [...this.jobs.values()].filter(resident).length >= 4)
       throw new ManagementError(
         '最多同时在线 4 个受管理的 Agent（含待命），请先关闭一个。',
         409,
@@ -505,29 +619,33 @@ export class AgentGateway {
         ...settings,
         id: randomUUID(),
         providerName: provider.name,
-        status: 'joining',
+        status: joinWorld ? 'joining' : 'stopped',
         createdAt: Date.now(),
         logs: [],
       },
       abort: new AbortController(),
       memory: startTask ? { task: newTask(settings.goal) } : {},
-      book: emptyTaskBook(),
+      ledger: this.plans,
       attention: new AgentAttention(),
     };
     if (firstTask) {
-      const plan = newPlan(firstTask, job.view.createdAt);
+      const plan = {
+        ...newPlan(firstTask, job.view.createdAt),
+        agentId: job.view.id,
+        agentName: job.view.name,
+      };
       const run = newRun(plan, job.view.createdAt, 'manual');
       run.task = job.memory.task;
-      job.book.plans.push(plan);
-      job.book.runs.push(run);
-      job.book.currentRunId = run.id;
+      job.ledger.plans.push(plan);
+      job.ledger.runs.push(run);
+      job.currentRunId = run.id;
     }
     this.jobs.set(job.view.id, job);
     captureTask(job);
     const createdRun = currentRun(job);
     if (createdRun) createdRun.source = 'manual';
-    this.taskScheduler.start();
-    job.done = this.execute(job, provider, startTask);
+    this.planScheduler.start();
+    if (joinWorld) job.done = this.execute(job, provider, startTask);
     this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
   }
@@ -580,7 +698,7 @@ export class AgentGateway {
     const input = object(value);
     if (job.memory.audienceExpired && input.goal === undefined)
       throw new ManagementError(
-        '原私聊会话已失效，请重新布置任务，避免向错误的玩家发送进展。',
+        '原私聊会话已失效，请重新通过聊天发起，避免向错误的玩家发送进展。',
         409,
       );
     const provider = this.providers.get(job.view.providerId);
@@ -604,7 +722,7 @@ export class AgentGateway {
       ['completed', 'cancelled'].includes(job.memory.task.status)
     ) {
       const previousRun = currentRun(job);
-      const previousPlan = job.book.plans.find(
+      const previousPlan = job.ledger.plans.find(
         (p) => p.id === previousRun?.planId,
       );
       if (input.goal === undefined && previousPlan) {
@@ -617,8 +735,22 @@ export class AgentGateway {
           throw new ManagementError('请先追加计划累计额度。');
         reserveRun(job, previousPlan, 'manual', Date.now());
       } else {
-        delete job.book.currentRunId;
-        job.memory = { usage: job.memory.usage, task: newTask(settings.goal) };
+        const plan = {
+          ...newPlan(
+            validatePlan({
+              name: settings.goal.slice(0, 80),
+              goal: settings.goal,
+              timing: { kind: 'immediate' },
+              timeZone: 'UTC',
+              limits: settings,
+            }),
+            Date.now(),
+          ),
+          agentId: id,
+          agentName: job.view.name,
+        };
+        this.plans.plans.push(plan);
+        reserveRun(job, plan, 'manual', Date.now());
       }
     } else {
       const task = job.memory.task;
@@ -694,6 +826,16 @@ export class AgentGateway {
       provider,
     );
     this.checkVoice(settings);
+    const replacementDraft =
+      settings.goal !== currentGoal && settings.goal
+        ? validatePlan({
+            name: settings.goal.slice(0, 80),
+            goal: settings.goal,
+            timing: { kind: 'immediate' },
+            timeZone: 'UTC',
+            limits: settings,
+          })
+        : undefined;
     job.updating = true;
     try {
       const session = job.session;
@@ -716,24 +858,63 @@ export class AgentGateway {
             409,
           );
       }
-      if (
-        settings.goal !== currentGoal ||
+      if (settings.goal !== currentGoal) {
+        this.taskScheduler.cancel(job.view.id);
+        if (
+          job.memory.task &&
+          !['completed', 'cancelled'].includes(job.memory.task.status)
+        )
+          new TaskService(job.memory).command(
+            { type: 'pause' },
+            { kind: 'operator' },
+            { ...job.view, apiKey: '' },
+          );
+        captureTask(job);
+        delete job.currentRunId;
+        job.memory = { usage: job.memory.usage };
+        // Legacy profile goal edits are explicit administrative assignments.
+        // Keep them in the plan domain instead of inventing a chat execution.
+        if (replacementDraft) {
+          const plan = {
+            ...newPlan(replacementDraft, Date.now()),
+            agentId: id,
+            agentName: settings.name,
+          };
+          plan.state = 'paused';
+          delete plan.nextRunAt;
+          this.plans.plans.push(plan);
+          reserveRun(job, plan, 'manual', Date.now());
+          currentRun(job)!.agentName = settings.name;
+          new TaskService(job.memory).command(
+            { type: 'pause' },
+            { kind: 'operator' },
+            { ...settings, apiKey: '' },
+          );
+          job.memory.task!.reason = '目标已修改，等待继续。';
+        }
+        job.attention.clear();
+      } else if (
         settings.providerId !== job.view.providerId ||
         settings.model !== job.view.model
       ) {
         this.taskScheduler.cancel(job.view.id);
-        captureTask(job);
-        delete job.book.currentRunId;
-        job.memory = {
-          usage: job.memory.usage,
-          task: settings.goal
-            ? {
-                ...newTask(settings.goal),
-                status: 'paused',
-                reason: '参数已修改，等待继续。',
-              }
-            : undefined,
-        };
+        if (
+          job.memory.task &&
+          !['completed', 'cancelled'].includes(job.memory.task.status)
+        ) {
+          new TaskService(job.memory).command(
+            { type: 'pause' },
+            { kind: 'operator' },
+            { ...settings, apiKey: '' },
+          );
+          job.memory.task.reason = '模型已修改，进度已保留，请确认后继续。';
+        }
+        if (job.memory.pi?.inFlight)
+          job.memory.unknownEffect = {
+            ...job.memory.pi.inFlight,
+            state: 'unknown',
+          };
+        delete job.memory.pi;
         job.attention.clear();
       } else if (
         JSON.stringify(agentPermissions(settings)) !==
@@ -977,12 +1158,44 @@ export class AgentGateway {
     try {
       this.stop(id);
       await job.done;
+      captureTask(job);
+      const priorPlans = structuredClone(
+        this.plans.plans.filter((p) => p.agentId === id),
+      );
+      const priorRuns = structuredClone(
+        this.plans.runs.filter((r) => r.agentId === id),
+      );
+      for (const run of this.plans.runs.filter(
+        (r) => r.agentId === id && !endedRun(r),
+      )) {
+        if (run.runtime?.task) {
+          new TaskService(run.runtime).command(
+            { type: 'cancel' },
+            { kind: 'operator' },
+            { ...job.view, apiKey: '' },
+          );
+          delete run.runtime.follow;
+          run.task = structuredClone(run.runtime.task);
+        }
+        run.status = 'cancelled';
+        run.reason = '执行角色已删除。';
+        run.finishedAt = Date.now();
+      }
+      this.plans.detach(id, job.view.name);
       this.jobs.delete(id);
       this.persist();
       try {
         await this.saving;
       } catch (error) {
         // A failed archive write must leave a stopped, recoverable character.
+        for (const p of priorPlans) {
+          const idx = this.plans.plans.findIndex((x) => x.id === p.id);
+          this.plans.plans[idx] = p;
+        }
+        this.plans.runs = [
+          ...this.plans.runs.filter((r) => r.agentId !== id),
+          ...priorRuns,
+        ];
         this.jobs.set(id, job);
         this.persist();
         await this.saving.catch(() => {});
@@ -1016,12 +1229,13 @@ export class AgentGateway {
 
   private async shutdown() {
     this.taskScheduler.close();
+    this.planScheduler.close();
     this.closing = true;
     for (const job of this.jobs.values()) {
       this.shutdownPresence.set(job.view.id, job.view.status);
       if (['running', 'waiting'].includes(job.memory.task?.status ?? '')) {
         const run = currentRun(job),
-          plan = job.book.plans.find((p) => p.id === run?.planId);
+          plan = job.ledger.plans.find((p) => p.id === run?.planId);
         if (plan) {
           plan.state = 'paused';
           plan.reason = '服务关闭，进度保留，请手动继续。';

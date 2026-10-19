@@ -1,17 +1,12 @@
 import { serverHttpUrl } from '../../network/endpoints';
 import { adminHeaders, gatewayRequest } from '../../network/gateway';
-import type {
-  RpcMethod,
-  RpcParams,
-  TaskIdentity,
-} from '@voxel/gateway-protocol';
+import type { RpcMethod, RpcParams } from '@voxel/gateway-protocol';
 import { readAgentResponse } from './agent-response';
 export async function request<T>(
   path: string,
   method = 'GET',
   body?: unknown,
   signal?: AbortSignal,
-  expectedTask?: TaskIdentity | null,
 ): Promise<T> {
   if (path.startsWith('/voice-services')) {
     const response = await fetch(`${serverHttpUrl()}/agents${path}`, {
@@ -46,36 +41,7 @@ export async function request<T>(
     if (method !== 'GET') p.value = value;
   } else {
     p.agentId = parts[0];
-    if (parts[1] === 'tasks') {
-      if (parts[2]) p.planId = parts[2];
-      if (parts[3] === 'runs') {
-        rpc = 'runs.list';
-        p.offset = Number(url.searchParams.get('offset') ?? 0);
-      } else if (parts[3]) {
-        rpc = 'plans.control';
-        p.operation = parts[3];
-        p.value = value;
-      } else {
-        rpc =
-          method === 'GET'
-            ? 'plans.list'
-            : method === 'PUT'
-              ? 'plans.update'
-              : 'plans.create';
-        if (method !== 'GET') p.value = value;
-      }
-    } else if (parts[1] === 'task-runs') {
-      rpc = 'runs.control';
-      p.runId = parts[2];
-      p.operation = parts[3];
-      p.value = value;
-    } else if (parts[1] === 'task') {
-      rpc = 'tasks.assign';
-      p.value = value;
-    } else if (['pause', 'resume', 'cancel'].includes(parts[1])) {
-      rpc = `tasks.${parts[1]}` as RpcMethod;
-      if (parts[1] === 'resume') p.value = value;
-    } else if (['join', 'stop', 'voice'].includes(parts[1])) {
+    if (['join', 'stop', 'voice'].includes(parts[1])) {
       rpc = `agents.${parts[1]}` as RpcMethod;
       if (parts[1] === 'voice') p.value = value;
     } else {
@@ -83,7 +49,6 @@ export async function request<T>(
       if (method !== 'DELETE') p.value = value;
     }
   }
-  if (expectedTask !== undefined) p.expectedTask = expectedTask;
   return gatewayRequest<T>(
     rpc,
     p,

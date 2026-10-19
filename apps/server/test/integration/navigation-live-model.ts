@@ -215,10 +215,18 @@ try {
       const archive = JSON.parse(
         await readFile(`${providerPath}.agents.json`, 'utf8'),
       );
-      const saved = archive.find((a: { id: string }) => a.id === managed.id);
+      const saved = archive.agents.find(
+        (a: { id: string }) => a.id === managed.id,
+      );
       assert.equal(saved.runtime.task.status, 'completed');
+      assert(!archive.plans.some((p: any) => p.agentId === managed.id));
       assert(
-        saved.taskBook.runs.some(
+        archive.runs
+          .filter((r: any) => r.source === 'chat')
+          .every((r: any) => !r.planId),
+      );
+      assert(
+        archive.runs.some(
           (r: { source: string; task?: { startedAt: number } }) =>
             r.source === 'chat' && r.task?.startedAt === final.task?.startedAt,
         ),

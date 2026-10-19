@@ -51,7 +51,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           </div>
           <button
             className="primary console-sidebar-add"
-            disabled={disabled || onlineCount >= 4}
+            disabled={disabled}
             onClick={() => openAgentEditor()}
           >
             ＋ 创建 Agent
@@ -128,7 +128,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           </div>
           <p className="console-sidebar-note">
             {onlineCount >= 4
-              ? '在线名额已满，让一个角色离开世界后可创建或上线。'
+              ? '在线名额已满，仍可创建离线角色；上线前请先释放名额。'
               : '角色离开世界后仍保留设置，下次可以再次加入。'}
           </p>
         </aside>
@@ -137,7 +137,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           aria-busy={busy || loadingJobs}
         >
           {creating ? (
-            <AgentForm {...props} disabled={disabled || onlineCount >= 4} />
+            <AgentForm {...props} disabled={disabled} />
           ) : current ? (
             <AgentDetail
               key={current.id}

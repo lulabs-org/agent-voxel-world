@@ -59,45 +59,34 @@ it('keeps creation and update distinct and does not invent standby goals', async
     ['agents.update', { agentId: 'a', value }],
   ]);
 });
-it('keeps task history pagination and stable request IDs at the API boundary', async () => {
-  const signal = new AbortController().signal;
-  await tasksApi.listTaskRuns('a', 'p', 20, signal);
-  await tasksApi.taskPlanAction('a', 'p', 'run', { requestId: 'stable' });
-  await tasksApi.taskRunAction('a', 'r', 'resume', {
-    maxTurns: 150,
-    tokenBudget: 100000,
-  });
-  expect(rpc.mock.calls[0]).toEqual([
-    'runs.list',
-    { agentId: 'a', planId: 'p', offset: 20 },
-    signal,
-    undefined,
-  ]);
-  expect(rpc.mock.calls[1]).toEqual([
-    'plans.control',
-    {
-      agentId: 'a',
-      planId: 'p',
-      operation: 'run',
-      value: { requestId: 'stable' },
-    },
-    undefined,
-    'stable',
-  ]);
+it('uses global plan identities and explicit revisions without nested HTTP paths', async () => {
+  const identity = { id: 'task', revision: 2, startedAt: 42 };
+  await tasksApi.list({ state: 'unassigned', offset: 20 });
+  await tasksApi.runs('p', 20);
+  await tasksApi.control(
+    { id: 'p', revision: 3 } as any,
+    'run',
+    { requestId: 'stable' },
+    identity,
+  );
+  await tasksApi.reassign({ id: 'p', revision: 3 } as any, 'b');
+  expect(rpc.mock.calls[0][1]).toEqual({ state: 'unassigned', offset: 20 });
+  expect(rpc.mock.calls[1][1]).toEqual({ planId: 'p', offset: 20 });
   expect(rpc.mock.calls[2][1]).toMatchObject({
-    agentId: 'a',
-    runId: 'r',
-    operation: 'resume',
-    value: { maxTurns: 150 },
+    planId: 'p',
+    expectedPlanRevision: 3,
+    expectedTask: identity,
   });
+  expect(rpc.mock.calls[3][1]).toEqual({
+    planId: 'p',
+    expectedPlanRevision: 3,
+    targetAgentId: 'b',
+  });
+  expect(http).not.toHaveBeenCalled();
 });
 it.each([
   ['agents.join', () => agentsApi.joinAgent('a')],
   ['agents.stop', () => agentsApi.stopAgent('a')],
-  ['tasks.pause', () => tasksApi.pauseAgent('a')],
-  ['tasks.cancel', () => tasksApi.cancelTask('a')],
-  ['tasks.resume', () => tasksApi.resumeAgent('a')],
-  ['tasks.assign', () => tasksApi.assignTask('a', '木屋')],
   ['agents.voice', () => agentsApi.setVoiceReplies('a', false)],
 ] as const)('routes %s without HTTP fallback', async (method, action) => {
   await action();
@@ -133,9 +122,8 @@ it('retains authenticated HTTP voice management and actionable HTTP errors', asy
 
 it('binds controls to the task identity displayed to the user', async () => {
   const identity = { id: 'original-task', revision: 3, startedAt: 42 };
-  await tasksApi.pauseAgent('a', identity);
-  await tasksApi.taskRunAction('a', 'r', 'resume', undefined, identity);
-  await tasksApi.taskPlanAction('a', 'p', 'run', {}, identity);
+  await tasksApi.controlRun('r', 'resume', {}, identity);
+  await tasksApi.control({ id: 'p', revision: 3 } as any, 'run', {}, identity);
   for (const call of rpc.mock.calls)
     expect(call[1].expectedTask).toEqual(identity);
 });

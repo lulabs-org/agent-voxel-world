@@ -4,18 +4,11 @@ import {
   newTask,
   restoreBatchHistory,
   restorePiCheckpoint,
-  type AgentRunState,
 } from '@voxel/agent-runtime';
+import { PlanService } from './plans/service';
 import { isRepeating } from '@voxel/shared';
 import { restoreAgentLogs } from './agent-logs';
-import {
-  duePlans,
-  emptyTaskBook,
-  endedRun,
-  newRun,
-  nextOccurrence,
-  type TaskBook,
-} from './scheduler';
+import { duePlans, endedRun, newRun, nextOccurrence } from './plans/model';
 import { validateAgent } from './validation';
 import { ManagementError } from './errors';
 import type { ProviderPort } from './ports';
@@ -27,6 +20,7 @@ export function restoreAgentJob(
   view: RestoredAgentRecord,
   providers: ProviderPort,
   checkVoice: (settings: AgentSettings) => void,
+  ledger: PlanService,
 ): { job: Job; voiceWarning?: string; shouldAutoJoin: boolean } {
   const provider = providers.get(view.providerId);
   const settings = validateAgent(view, provider);
@@ -59,7 +53,8 @@ export function restoreAgentJob(
       },
     },
     attention: new AgentAttention(),
-    book: view.taskBook ?? emptyTaskBook(),
+    ledger,
+    currentRunId: view.currentRunId,
   };
 
   job.memory.previous = restoreBatchHistory(job.memory.previous);
@@ -79,18 +74,11 @@ export function restoreAgentJob(
   ) {
     job.memory.audienceExpired = true;
     job.memory.task.status = 'needs_input';
-    job.memory.task.reason =
-      '服务重启后原私聊会话已失效，请在控制台重新布置任务。';
+    job.memory.task.reason = '服务重启后原私聊会话已失效，请重新通过聊天发起。';
   }
-  if (
-    job.book.version !== 1 ||
-    !Array.isArray(job.book.plans) ||
-    !Array.isArray(job.book.runs)
-  )
-    throw new ManagementError('任务存档格式无效。', 500);
-
   const interruptedRuns = new Set(
-    job.book.runs
+    job.ledger.runs
+      .filter((r) => r.agentId === view.id)
       .filter((r) =>
         [
           'running',
@@ -103,10 +91,10 @@ export function restoreAgentJob(
       )
       .map((r) => r.id),
   );
-  const migrating = !view.taskBook;
+  const migrating = !view.currentRunId && !!view.runtime?.task;
   captureTask(job);
 
-  for (const run of job.book.runs) {
+  for (const run of job.ledger.runs.filter((r) => r.agentId === view.id)) {
     if (run.runtime) restorePiCheckpoint(run.runtime);
     for (const action of run.actions ?? [])
       if (action.status === 'executing') action.status = 'unknown';
@@ -115,7 +103,7 @@ export function restoreAgentJob(
     if (run.runtime?.task?.privateTo && !endedRun(run)) {
       run.runtime.audienceExpired = true;
       run.runtime.task.status = 'needs_input';
-      run.runtime.task.reason = '原私聊会话已失效，请新建任务。';
+      run.runtime.task.reason = '原私聊会话已失效，请重新通过聊天发起。';
       run.status = 'needs_input';
       run.task = structuredClone(run.runtime.task);
     }
@@ -132,7 +120,7 @@ export function restoreAgentJob(
       !endedRun(run) &&
       (migrating || interruptedRuns.has(run.id) || run.runtime?.audienceExpired)
     ) {
-      const p = job.book.plans.find((p) => p.id === run.planId);
+      const p = job.ledger.plans.find((p) => p.id === run.planId);
       if (p) {
         p.state = 'paused';
         p.reason = '执行尚未结束，请确认后恢复计划。';
@@ -141,12 +129,18 @@ export function restoreAgentJob(
     }
   }
 
-  for (const plan of duePlans(job.book, Date.now())) {
-    const run = newRun(plan, plan.nextRunAt!, 'scheduled');
+  for (const plan of duePlans(job.ledger, Date.now()).filter(
+    (p) => p.agentId === view.id,
+  )) {
+    const run = newRun(
+      { ...plan, agentName: view.name },
+      plan.nextRunAt!,
+      'scheduled',
+    );
     run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
     run.reason = '服务未运行，错过的触发不补跑。';
     run.finishedAt = Date.now();
-    job.book.runs.push(run);
+    job.ledger.runs.push(run);
     plan.nextRunAt = nextOccurrence(plan, Date.now());
     if (!isRepeating(plan.timing)) plan.state = 'completed';
   }

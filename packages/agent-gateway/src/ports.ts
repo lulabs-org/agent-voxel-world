@@ -5,14 +5,22 @@ import type {
   VoiceServiceView,
 } from '@voxel/shared';
 import type { SavedProvider } from './validation';
-import type { TaskBook } from './scheduler';
+import type { TaskBook } from './plans/model';
 export type RestoredAgentRecord = ManagedAgentView & {
   runtime?: AgentRunState;
-  taskBook?: TaskBook;
+  taskBook?: TaskBook; // Legacy read only.
+  currentRunId?: string;
+};
+export type GatewayArchive = {
+  version: 1;
+  agents: RestoredAgentRecord[];
+  plans: import('@voxel/shared').TaskPlan[];
+  runs: import('./plans/model').StoredRun[];
+  requests: Record<string, string>;
 };
 export interface ArchivePort {
-  load(): Promise<RestoredAgentRecord[] | undefined>;
-  save(records: RestoredAgentRecord[]): Promise<void>;
+  load(): Promise<RestoredAgentRecord[] | GatewayArchive | undefined>;
+  save(records: GatewayArchive): Promise<void>;
 }
 export interface ProviderPort {
   list(): ProviderView[];

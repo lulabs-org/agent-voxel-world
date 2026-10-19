@@ -239,6 +239,13 @@ it('keeps protocol/client browser safe and hosted core independent of applicatio
     for (const file of files(`packages/${pkg}/src`)) {
       const s = readFileSync(file, 'utf8');
       expect(s, file).not.toMatch(/from ['"].*(?:apps\/|express|['"]ws['"])/);
+      if (
+        file.endsWith('/plans/service.ts') ||
+        file.endsWith('/plans/scheduler.ts')
+      )
+        expect(s, file).not.toMatch(
+          /from ['"](?:@earendil|@voxel\/agent-runtime|.*executor|.*gateway)/,
+        );
       if (pkg !== 'agent-gateway')
         expect(s, file).not.toMatch(
           /from ['"](?:node:|@earendil|@voxel\/agent-runtime)/,

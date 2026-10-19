@@ -4,7 +4,7 @@ import type {
   AgentRunState,
   Session,
 } from '@voxel/agent-runtime';
-import type { TaskBook } from './scheduler';
+import type { PlanService } from './plans/service';
 import type { AgentHost } from './executor';
 
 export type Job = {
@@ -14,7 +14,8 @@ export type Job = {
   session?: Session;
   done?: Promise<void>;
   memory: AgentRunState;
-  book: TaskBook;
+  ledger: PlanService;
+  currentRunId?: string;
   taskMutating?: boolean;
   attention: AgentAttention;
   updating?: boolean;

@@ -264,8 +264,88 @@ try {
     { commandId: 'cancel' },
   );
   assert.equal(server.agents.list()[0].task?.status, 'cancelled');
+  const second = await other.request<any>(
+    'agents.create',
+    { value: { ...value, name: 'Second', joinWorld: false } },
+    { commandId: 'second' },
+  );
+  const draft = {
+    name: 'Global plan',
+    goal: '观察世界',
+    timing: { kind: 'interval', everyMs: 3600000 },
+    timeZone: 'UTC',
+    limits: { maxSteps: 20, maxTokens: 20000, maxRuntimeMs: 600000 },
+    totalTokenBudget: 100000,
+  };
+  const planned = await other.request<any>(
+    'plans.create',
+    { agentId: first.id, value: draft },
+    { commandId: 'global-plan' },
+  );
+  const duplicatePlan = await http(
+    `/${first.id}/tasks`,
+    'POST',
+    draft,
+    'global-plan',
+  );
+  assert.equal(duplicatePlan.status, 201);
+  assert.equal((await duplicatePlan.json()).id, planned.id);
+  assert.equal(
+    (await other.request<any>('plans.list', { search: 'Global plan' })).total,
+    1,
+  );
+  const unsubscribePlans = await other.subscribe({ scope: 'plans' });
+  const assigned = await other.request<any>(
+    'plans.reassign',
+    {
+      planId: planned.id,
+      targetAgentId: second.id,
+      expectedPlanRevision: planned.revision,
+    },
+    { commandId: 'reassign-plan' },
+  );
+  assert.equal(assigned.agentId, second.id);
+  assert.equal(assigned.state, 'paused');
+  await assert.rejects(
+    other.request(
+      'plans.control',
+      {
+        planId: planned.id,
+        operation: 'resume',
+        expectedPlanRevision: planned.revision,
+      },
+      { commandId: 'stale-plan' },
+    ),
+  );
+  assert.equal(
+    (await http(`/${first.id}/tasks/${planned.id}/pause`, 'POST', {})).status,
+    409,
+  );
+  await other.request(
+    'agents.delete',
+    { agentId: second.id },
+    { commandId: 'delete-second' },
+  );
+  const retained = await other.request<any>('plans.get', {
+    planId: planned.id,
+  });
+  assert.equal(retained.agentId, undefined);
+  assert.equal(retained.state, 'paused');
+  assert.equal(retained.agentName, 'Second');
+  assert.equal(
+    (await other.request<any>('plans.list', { state: 'unassigned' })).total,
+    1,
+  );
+  assert.equal(
+    (await other.request<any>('runs.list', { planId: planned.id })).total,
+    0,
+  );
+  await until(() =>
+    events.some((e) => e.event === 'changed' && e.data?.resource === 'plans'),
+  );
+  unsubscribePlans();
   console.log(
-    'PASS Gateway: authenticated RPC/HTTP parity, cross-transport deduplication, revision conflicts, subscriptions, task controls, disconnect survival, CLI state and exit.',
+    'PASS Gateway: authenticated RPC/HTTP parity, cross-transport deduplication, revision conflicts, global plans/reassignment/deletion, subscriptions, task controls, disconnect survival, CLI state and exit.',
   );
 } finally {
   for (const c of clients) c.close();

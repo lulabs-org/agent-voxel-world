@@ -1,0 +1,719 @@
+/* ==========================================================================
+   Tasks & Schedules Workspace
+   Coordinated with Agents & Model Providers Design System
+   ========================================================================== */
+
+.plans-workspace {
+  --agents-border: #dce3d8;
+  --agents-muted: #66796e;
+  --agents-paper: #fffef9;
+  --plans-accent: #2e5143;
+  --plans-accent-surface: #edf3e8;
+  --plans-accent-subtle: #e6ede0;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar Controls & Filters
+   -------------------------------------------------------------------------- */
+
+.plans-sidebar-filter {
+  margin-bottom: 12px;
+}
+
+/* Segmented state pill control, matching .agents-filters */
+.plans-state-pills {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #eaf0e4;
+  border-radius: 7px;
+  margin-bottom: 12px;
+}
+
+.agent-dialog .plans-state-pills button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  white-space: nowrap;
+  color: var(--agents-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.agent-dialog .plans-state-pills button:hover {
+  color: var(--color-text);
+}
+
+.agent-dialog .plans-state-pills button[aria-pressed='true'] {
+  background: var(--agents-paper);
+  color: #244133;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(36, 67, 44, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar Items (Task Plan Cards in Sidebar)
+   -------------------------------------------------------------------------- */
+
+.agent-dialog .console-sidebar-item .plans-mini-badge {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #e3ebd9;
+  color: #385945;
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.plans-presence-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a2aca1;
+  flex-shrink: 0;
+}
+
+.plans-presence-dot[data-state='enabled'] {
+  background: #568065;
+}
+
+.plans-presence-dot[data-state='paused'] {
+  background: #b38740;
+}
+
+.plans-presence-dot[data-state='unassigned'] {
+  background: #c07a38;
+}
+
+.plans-presence-dot[data-state='completed'] {
+  background: #627767;
+}
+
+.plans-presence-dot[data-state='archived'] {
+  background: #b1b9af;
+}
+
+/* Sidebar Pagination Footer */
+.plans-sidebar-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0 0;
+  margin-top: 10px;
+  border-top: 1px solid var(--agents-border);
+}
+
+.agent-dialog .plans-sidebar-pagination button {
+  padding: 5px 10px;
+  font-size: 11px;
+  background: #f0f4eb;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  color: var(--color-action);
+  cursor: pointer;
+}
+
+.agent-dialog .plans-sidebar-pagination button:hover:not(:disabled) {
+  background: #e3ebd9;
+}
+
+.plans-sidebar-pagination-info {
+  font-size: 11px;
+  color: var(--agents-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Detail Panel (.plans-detail inside .console-panel)
+   -------------------------------------------------------------------------- */
+
+.plans-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Heading section matching .agents-detail-heading */
+.plans-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.plans-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.plans-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 42px;
+  background: #e6eee0;
+  color: #3e6151;
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.plans-identity-content {
+  min-width: 0;
+}
+
+.plans-identity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-dialog .plans-identity h3 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 26px;
+  overflow-wrap: anywhere;
+}
+
+.plans-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e9f0e3;
+  color: #3e6151;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.plans-identity p {
+  font-size: 11px;
+  color: var(--agents-muted);
+  margin: 4px 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.plans-identity p strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* Status presence pill matching .agents-presence */
+.plans-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  background: #f0f1eb;
+  color: #6c786b;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.plans-presence[data-state='enabled'] {
+  color: #30583f;
+  background: #e6f0e0;
+}
+
+.plans-presence[data-state='paused'] {
+  color: #8c6020;
+  background: #faeed7;
+}
+
+.plans-presence[data-state='unassigned'] {
+  color: #9c5c24;
+  background: #fbeef0;
+}
+
+.plans-presence[data-state='completed'] {
+  color: #55675c;
+  background: #ebf0e8;
+}
+
+.plans-presence[data-state='archived'] {
+  color: #727c73;
+  background: #ebeee8;
+}
+
+/* Info presence bar matching .agents-presence-bar */
+.plans-presence-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f4f7ef;
+  border: 1px solid #e1e7dc;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.plans-presence-bar p {
+  margin: 0;
+  font-size: 12px;
+  color: #4a6152;
+  line-height: 1.6;
+}
+
+.agent-dialog .plans-presence-bar button {
+  padding: 5px 12px;
+  font-size: 11px;
+  white-space: nowrap;
+  background: #fff;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  flex-shrink: 0;
+}
+
+.agent-dialog .plans-presence-bar button:hover:not(:disabled) {
+  background: #eaf0e3;
+}
+
+/* Goal block */
+.plans-goal-card {
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--agents-border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.plans-card-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--agents-muted);
+  margin-bottom: 6px;
+}
+
+.plans-goal-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text);
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Usage Metrics Card matching .agents-usage */
+.plans-usage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.plans-usage-card {
+  background: #f3f6ec;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8db;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.plans-usage-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plans-usage-label {
+  font-size: 11px;
+  color: var(--agents-muted);
+}
+
+.agent-dialog .plans-usage-action {
+  padding: 3px 8px;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+}
+
+.plans-usage-card strong {
+  display: block;
+  font-size: 20px;
+  margin: 6px 0 2px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.plans-usage-card strong small {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--agents-muted);
+  margin-left: 4px;
+}
+
+.plans-usage-meta {
+  font-size: 11px;
+  color: var(--agents-muted);
+}
+
+.plans-progress-bar {
+  height: 5px;
+  background: #dce4d6;
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.plans-progress-fill {
+  height: 100%;
+  background: #4a7a58;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.plans-progress-fill[data-warning='true'] {
+  background: #b58032;
+}
+
+/* Main action toolbar */
+.plans-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--agents-border);
+}
+
+.agent-dialog .plans-toolbar button {
+  min-height: 32px;
+  padding: 6px 14px;
+  font-size: 12px;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--color-text);
+}
+
+.agent-dialog .plans-toolbar button:hover:not(:disabled) {
+  background: #edf3e6;
+  color: var(--color-action);
+}
+
+.agent-dialog .plans-toolbar button.primary {
+  background: var(--color-hud-ink);
+  border-color: var(--color-hud-ink);
+  color: #fff;
+}
+
+.agent-dialog .plans-toolbar button.primary:hover:not(:disabled) {
+  background: #1b3026;
+}
+
+/* Expandable Drawer Forms (Reassign / Extend) */
+.plans-drawer-card {
+  padding: 16px;
+  background: #f7faf3;
+  border: 1px solid #d4dfd0;
+  border-radius: 8px;
+  margin-bottom: 18px;
+}
+
+.plans-drawer-card h4 {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.plans-drawer-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Section Divider Heading */
+.plans-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 22px 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--agents-border);
+}
+
+.plans-section-heading h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.plans-section-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #e8eee2;
+  color: #4b6653;
+}
+
+/* --------------------------------------------------------------------------
+   Execution Item & Details (.plans-run-card)
+   -------------------------------------------------------------------------- */
+
+.plans-run-card {
+  border: 1px solid #d8e2d4;
+  border-radius: 9px;
+  background: #fff;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(32, 58, 40, 0.03);
+}
+
+.plans-run-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.plans-run-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #edf2e8;
+  color: #385b46;
+}
+
+.plans-run-status-badge[data-active='true'] {
+  background: #e2f0de;
+  color: #2b5e39;
+}
+
+.plans-run-status-badge[data-warn='true'] {
+  background: #fcf1de;
+  color: #8c5d1e;
+}
+
+.plans-run-status-badge[data-error='true'] {
+  background: #faeae7;
+  color: #943b30;
+}
+
+.plans-run-time {
+  font-size: 11px;
+  color: var(--agents-muted);
+}
+
+.plans-run-meta-line {
+  font-size: 11px;
+  color: var(--agents-muted);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.plans-run-goal-box {
+  background: #f7faf3;
+  border-left: 3px solid #8ba48d;
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  color: #3b5443;
+  margin-bottom: 10px;
+}
+
+.plans-run-goal-box strong {
+  font-weight: 600;
+}
+
+.plans-run-report-box {
+  background: #fcfdfa;
+  border: 1px solid #e1e8dc;
+  border-radius: 7px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+
+.plans-run-report-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #496352;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.plans-run-report-box p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 3-column stats in run details */
+.plans-run-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: #f4f7ee;
+  border-radius: 7px;
+  border: 1px solid #e5ebe0;
+}
+
+.plans-run-stat dt {
+  font-size: 10px;
+  color: var(--agents-muted);
+}
+
+.plans-run-stat dd {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* History collapsible item */
+.plans-history-card {
+  border: 1px solid #dbe3d6;
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.agent-dialog .plans-history-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--color-text);
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+
+.agent-dialog .plans-history-summary:hover {
+  background: #f8faf5;
+}
+
+.plans-history-body {
+  padding: 14px;
+  border-top: 1px solid #e4eae0;
+  background: #fbfdf9;
+}
+
+/* --------------------------------------------------------------------------
+   Editor Form (.task-plan-editor)
+   -------------------------------------------------------------------------- */
+
+.plans-editor-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plans-editor-heading-row button {
+  flex-shrink: 0;
+}
+
+/* Weekday selection chips */
+.plans-weekday-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.agent-form .plans-weekday-chips label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 11px;
+  border: 1px solid var(--agents-border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.agent-form .plans-weekday-chips label:hover {
+  background: #f3f7ee;
+}
+
+.agent-form .plans-weekday-chips label:has(input:checked) {
+  background: #eaf1e3;
+  border-color: #8da78a;
+  color: #2b4f3a;
+  font-weight: 600;
+}
+
+.agent-form .plans-weekday-chips input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #315548;
+}
+
+/* Limit card */
+.plans-limit-box {
+  padding: 14px 16px;
+  border: 1px solid var(--agents-border);
+  border-radius: 8px;
+  background: #fff;
+  margin-top: 14px;
+}
+
+.plans-limit-box .agent-hint {
+  margin: 6px 0 12px;
+}
+
+/* Responsive Rules */
+@media (max-width: 700px) {
+  .plans-usage-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plans-run-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .plans-detail-heading {
+    flex-wrap: wrap;
+  }
+  .plans-presence-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

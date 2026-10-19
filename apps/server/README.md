@@ -62,3 +62,9 @@ pnpm --filter @voxel/server exec tsx test/integration/realtime.ts
 `tests/server-boundaries.test.ts` 检查依赖方向、循环依赖、配置入口和集成装配。生命周期测试检查 HTTP 契约、SSE/ASR/世界连接关闭、失败启动后的再次启动。Vitest 使用线程池，避免 Colyseus 的 PM2 遥测占用 fork 的测试 IPC，不模拟服务器本身。
 
 UI 沙箱统一放在 `test/sandbox`。新增 `asr-services-fixture.ts` 提供确定性识别结果与临时配置；仓库没有可迁移的受控 `output/asr-services-fixture.ts`。三个沙箱均通过 `createTestServer` 启动，并处理退出清理。
+
+## 独立任务计划存档
+
+任务计划、执行历史和调度规则由 `packages/agent-gateway/src/plans` 管理；`wake-scheduler.ts` 只推进 Agent 消息唤醒、等待检查和本地跟随。服务端保留文件和 HTTP/WebSocket 适配，不拥有第二套计划集合或调度器。
+
+同一 Agent JSON 路径保存 Gateway v1 的 agents/plans/runs/requests 聚合对象，runtime 仍为 v2。升级前独占创建 `.before-task-plan-module-v1.bak`，迁移与保存成功后才能启动恢复。删除角色保留计划与执行历史；聊天执行没有 planId。部署与回滚流程见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。
