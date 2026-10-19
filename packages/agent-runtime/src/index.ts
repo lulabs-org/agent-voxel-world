@@ -6,9 +6,7 @@ export type {
   PlannedEdit,
   BuildAction,
   BuildResult,
-  TaskDirective,
   AgentAction,
-  AgentDecision,
   ActionResult,
   NavigationResult,
   ActionExecution,
@@ -35,8 +33,6 @@ export {
   executeBuild,
 } from './actions/building';
 
-export { parseDecision } from './task/decision';
-
 export { listModels } from './models/catalog';
 
 export { AgentAttention } from './runtime/attention';
@@ -54,4 +50,4 @@ export { RequestBudget } from './task/budget';
 export { AgentRunner, type RunOptions } from './runtime/agent-runner';
 export { restorePiCheckpoint } from './pi/checkpoint';
 
-export { parseTaskDirective } from './task/directive';
+export { TaskService, type TaskCommand, type TaskLease } from './task/service';

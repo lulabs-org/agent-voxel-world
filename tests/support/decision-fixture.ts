@@ -1,14 +1,14 @@
+import type { AgentDecision } from './decision-contracts';
 /** Legacy JSON response fixtures drive the current task policy without a real model/network. */
 import { agentPermissions } from '../../packages/shared/src/index';
 import type {
   AgentConfig,
-  AgentDecision,
   ModelEndpoint,
   Observation,
   RequestAccounting,
 } from '../../packages/agent-runtime/src/contracts';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
-import { parseDecision } from '../../packages/agent-runtime/src/task/decision';
+import { parseDecision } from './decision-decision';
 import { buildMessages } from './decision-prompts';
 import { runTaskStep } from './decision-step';
 import type { RunOptions } from '../../packages/agent-runtime/src/runtime/agent-runner';

@@ -73,10 +73,8 @@ try {
             arguments: { text: 'Hello from my selected voice.' },
           },
           {
-            name: 'update_task',
+            name: 'complete_task',
             arguments: {
-              intent: 'continue',
-              status: 'completed',
               summary: 'Done',
             },
           },

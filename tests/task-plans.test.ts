@@ -585,10 +585,8 @@ it('retains multiple Pi tool batches within the same model call in actual action
         toolResponse([
           { name: 'chat', arguments: { text: '完成' } },
           {
-            name: 'update_task',
+            name: 'complete_task',
             arguments: {
-              intent: 'continue',
-              status: 'completed',
               summary: '完成',
             },
           },
@@ -602,6 +600,6 @@ it('retains multiple Pi tool batches within the same model call in actual action
   });
   await idle();
   const history = manager.taskRuns(id, plan.id).items;
-  expect(history[0].actions?.map((a) => a.kind)).toEqual(['chat', 'wait']);
-  expect(new Set(history[0].actions?.map((a) => a.batchId)).size).toBe(2);
+  expect(history[0].actions?.map((a) => a.kind)).toEqual(['chat']);
+  expect(new Set(history[0].actions?.map((a) => a.batchId)).size).toBe(1);
 });

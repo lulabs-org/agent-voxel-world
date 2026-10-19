@@ -1,0 +1,200 @@
+/** Test DSL adapter: exercise task policy and world execution without a provider. */
+import { agentPermissions } from '../../packages/shared/src/index';
+import type { AgentTask } from '../../packages/shared/src/index';
+import type {
+  AgentSession,
+  AgentConfig,
+  AgentAction,
+} from '../../packages/agent-runtime/src/contracts';
+import type { AgentRunState } from '../../packages/agent-runtime/src/task/state';
+import type { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
+import { cap } from '../../packages/agent-runtime/src/task/budget';
+import type { DecisionContext } from '../../packages/agent-runtime/src/task/observation';
+import { worldSignature } from '../../packages/agent-runtime/src/task/observation';
+import {
+  TaskService,
+  type TaskCommand,
+} from '../../packages/agent-runtime/src/task/service';
+import { executeTaskActions } from '../../packages/agent-runtime/src/runtime/action-executor';
+import { executeBatch } from '../../packages/agent-runtime/src/actions/batch';
+import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/attention';
+import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
+import { parseDecision } from './decision-decision';
+import type { AgentDecision } from './decision-contracts';
+
+export async function applyTaskDecision(
+  session: AgentSession,
+  input: AgentDecision,
+  prepared: DecisionContext,
+  config: AgentConfig,
+  signal: AbortSignal,
+  memory: AgentRunState,
+  budget: RequestBudget,
+  attention?: AgentAttention,
+  log: (message: string) => void = () => {},
+  checkpoint: () => void | Promise<void> = () => {},
+  hooks?: {
+    beforeNewTask?: (task: AgentTask, previous: AgentRunState) => Promise<void>;
+  },
+) {
+  let parsed;
+  try {
+    parsed = parseDecision(input, agentPermissions(config));
+  } catch (error) {
+    throw new AgentRuntimeError((error as Error).message);
+  }
+  let { actions, task: d } = parsed;
+  const { addressed } = prepared;
+  const service = new TaskService(memory);
+  const save = async () => {
+    await checkpoint();
+  };
+  const notify = async (text: string) => {
+    if (addressed && agentPermissions(config).chat)
+      await session.request('chat', {
+        text: text.slice(0, 240),
+        scope: 'private',
+        recipients: [addressed.actor],
+      });
+  };
+  if (
+    !addressed &&
+    ['task', 'update'].includes(d.intent) &&
+    (!d.goal || d.goal === memory.task?.goal)
+  )
+    d.intent = 'continue';
+  if (
+    (!addressed && d.intent !== 'continue') ||
+    (addressed && d.intent === 'continue')
+  )
+    throw new AgentRuntimeError(
+      '新消息必须区分意图，自动推进必须使用 intent=continue。',
+    );
+  if (d.intent === 'reply') {
+    const { batch } = await executeBatch(
+      session,
+      actions,
+      prepared.observation,
+      agentPermissions(config),
+      signal,
+      {
+        checkpoint: async (b) => {
+          memory.lastReply = b;
+          await save();
+        },
+      },
+    );
+    memory.lastReply = batch;
+    if (
+      !batch.results.some(
+        (r) => r.action.type === 'chat' && r.status === 'succeeded',
+      )
+    )
+      await notify(d.summary);
+    memory.lastResponse = d.summary;
+    return;
+  }
+  if (addressed) {
+    const type =
+      d.intent === 'task'
+        ? 'start'
+        : d.intent === 'update'
+          ? 'revise'
+          : d.intent;
+    try {
+      await service.commit(
+        { type, goal: d.goal } as TaskCommand,
+        { kind: 'player', message: addressed },
+        config,
+        save,
+        budget,
+        hooks?.beforeNewTask,
+      );
+    } catch (error) {
+      if (memory.task && cap(memory.task, config)) {
+        memory.task.status = 'budget';
+        memory.task.reason = cap(memory.task, config)!;
+        await notify(memory.task.reason);
+        return;
+      }
+      throw error;
+    }
+    if (type === 'pause' || type === 'cancel') {
+      await notify(memory.task!.reason);
+      return;
+    }
+  }
+  if (
+    d.status === 'completed' &&
+    memory.unfinishedBuild &&
+    actions.every((a) => ['chat', 'wait'].includes(a.type))
+  ) {
+    d.status = 'blocked';
+    d.summary = '仍有未确认完成的建造方块。';
+    actions = [{ type: 'chat', text: d.summary }];
+  }
+  const lease = service.lease();
+  const outcome = await executeTaskActions(
+    session,
+    actions,
+    prepared.observation,
+    config,
+    signal,
+    memory,
+    budget,
+    lease,
+    save,
+    attention,
+    log,
+  );
+  const mutated = outcome.batch.results.some(
+    (r) =>
+      r.status !== 'pending' &&
+      ['edit', 'build', 'house', 'move', 'goto', 'follow'].includes(
+        r.action.type,
+      ),
+  );
+  const task = memory.task!;
+  task.summary = d.summary;
+  if (actions.some((a) => a.type === 'move') && d.status === 'waiting')
+    d.status = 'running';
+  if (outcome.batch.ok && !(mutated && d.status === 'completed')) {
+    if (d.status !== 'running') {
+      try {
+        service.finish(
+          lease,
+          d.status === 'waiting'
+            ? {
+                status: 'waiting',
+                reason: d.summary,
+                waitFor: d.waitFor!,
+                signature: worldSignature(outcome.observation, d.waitFor),
+              }
+            : { status: d.status, reason: d.summary },
+        );
+      } catch {
+        task.status = 'blocked';
+        task.reason = '仍有未完成或未确认的建造方块。';
+      }
+    }
+  } else task.status = 'running';
+  const position = JSON.stringify([
+    outcome.observation.self.x,
+    outcome.observation.self.y,
+    outcome.observation.self.z,
+    worldSignature(outcome.observation, 'world'),
+  ]);
+  if (outcome.batch.stopReason !== 'message') {
+    memory.noProgress =
+      !outcome.batch.ok || position === memory.lastProgress
+        ? (memory.noProgress ?? 0) + 1
+        : 0;
+    memory.lastProgress = position;
+    if (memory.noProgress >= 3 && task.status === 'running') {
+      task.status = 'blocked';
+      task.reason = '连续三次失败或没有实际进展，已停止自动重试。';
+    }
+  }
+  if (addressed && !actions.some((a: AgentAction) => a.type === 'chat'))
+    await notify(`收到。${task.summary}`);
+}

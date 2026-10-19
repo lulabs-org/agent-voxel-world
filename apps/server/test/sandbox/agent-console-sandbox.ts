@@ -1,10 +1,10 @@
 import { createTestServer } from '../helpers/test-server';
-import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
+import { toolResponse } from './../../../../tests/support/pi-response';
 /** Isolated UI acceptance world: no dotenv, no production config and no paid model calls. */
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Session, until, type AgentRunState } from '@voxel/agent-runtime';
+import { Session, until, AgentRunner } from '@voxel/agent-runtime';
 import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 process.env.DATABASE_URL = '';
@@ -28,25 +28,39 @@ try {
     agentDependencies: {
       session: (url) => new Session(url),
       models: async () => ['fixture-model'],
-      runner: fixtureRunnerFactory(() => ({
-        decide: async (_observation, memory) => {
+      runner: () =>
+        new AgentRunner(undefined, async (_url, init) => {
           calls++;
-          const goal = (memory as AgentRunState | undefined)?.task?.goal ?? '';
-          return {
-            actions: [{ type: 'wait' }],
-            task: {
-              intent: 'continue',
-              status: goal.includes('等待')
-                ? 'waiting'
-                : goal.includes('循环')
-                  ? 'running'
-                  : 'completed',
-              waitFor: goal.includes('等待') ? 'world' : undefined,
-              summary: '已观察附近环境，等待下一步安排。',
-            },
-          };
-        },
-      })),
+          const body = JSON.parse(String(init?.body));
+          const input = body.messages
+            .filter((m: { role: string }) => m.role === 'user')
+            .at(-1)?.content;
+          const text = typeof input === 'string' ? input : input?.[0]?.text;
+          const context = JSON.parse(text || '{}');
+          if (body.tools.some((t: any) => t.function.name === 'reply'))
+            return toolResponse([
+              { name: 'reply', arguments: { text: '你好，我在这里。' } },
+            ]);
+          const goal = context.previous?.task?.goal ?? '';
+          return toolResponse(
+            goal.includes('等待') || goal.includes('循环')
+              ? [
+                  {
+                    name: 'wait_for',
+                    arguments: {
+                      condition: 'world',
+                      reason: '已观察附近环境，等待下一步安排。',
+                    },
+                  },
+                ]
+              : [
+                  {
+                    name: 'complete_task',
+                    arguments: { summary: '已观察附近环境。' },
+                  },
+                ],
+          );
+        }),
     },
   });
   manager = server.agents;

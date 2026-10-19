@@ -108,7 +108,20 @@ export async function prepareDecision(
           return !memory.unfinishedBuild;
         return false;
       });
-    if (resolved) delete memory.pendingEffects;
+    if (resolved) {
+      const unknown = memory.unknownEffect;
+      if (
+        unknown &&
+        unknown.name !== 'chat' &&
+        memory.pendingEffects.results.some(
+          (r) => r.action.type === unknown.name,
+        )
+      ) {
+        delete memory.unknownEffect;
+        if (memory.pi?.inFlight?.id === unknown.id) delete memory.pi.inFlight;
+      }
+      delete memory.pendingEffects;
+    }
   }
   const message = addressed?.data as ChatData | undefined;
   const privateTo =

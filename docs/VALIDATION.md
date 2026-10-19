@@ -378,3 +378,36 @@
 另用独立 2590 内存世界连接生产 Web：通过浏览器实际选择 AI 为私聊对象，在输入框发送“到我这里来”。仅在发送前设置起点和目标位置，发送后由真实模型与物理引擎执行。AI 从 `(0, 2.55, 0)` 移动到 `(4, 2.5, 0)`，与发送者最终水平距离 0，累计移动 4 格；任务进入 running 并 completed。通过正式 `/agents/:id/tasks/:planId/runs` API 验证持久化 `source: chat`、发送者 owner、`goto: succeeded`、`result.status: arrived`。这次 UI 验收为 3 次调用、23,676 tokens。
 
 本地证据保存在忽略目录 `output/playwright/web-architecture/`：自动检查日志、CSS 对照、浏览器断言 JSON、桌面/窄屏/任务截图、`production-worklet.json`、`navigation-live-model.json`、`navigation-browser.json` 与到达截图。凭据不写入报告；临时模型配置随测试世界清理。此次验证未覆盖 Docker 镜像部署与真实数据库迁移。
+
+## 2026-10-19：Agent 对话与任务执行分离
+
+### 本地检查与隔离集成
+
+- `pnpm check` 通过：60 个测试文件、579 项测试、TypeScript 检查及全部工作区构建；`pnpm format:check` 和 `git diff --check` 通过。
+- 最后将存档消息类型从任务层移至 Pi 解析边界后，再次通过 TypeScript 检查及 101 项相关回归，覆盖 Pi 循环、任务服务、存档恢复、任务计划、角色生命周期和依赖约束。
+- `pnpm test:agents`、`pnpm test:agent:tasks`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:voice:services`、`pnpm test:agent:deepseek`、`pnpm test:navigation` 全部通过。模型工具与语音集成使用受控响应；世界连接、调度、导航物理与持久化使用隔离实例。
+- 新增/更新用例覆盖工具集隔离、单消息单命令、普通聊天不改变任务历史与计费、任务命令计费一次、无预算保护配置下的对话上限、保存失败停止写入、修订后拒绝迟到结果、完成前效果核对以及 v1 当前/历史快照迁移与专用备份。任务层的依赖检查包括禁止 Pi SDK 类型导入。
+- 导航的确定性地形矩阵为 100/100 到达。
+
+### 真实模型
+
+使用已配置的 DeepSeek `deepseek-flash`，运行 `NAVIGATION_PROVIDERS=… NAVIGATION_OUTPUT=… pnpm test:navigation:live`。测试启动临时 Colyseus 世界，使用正式 AgentManager、聊天唤醒、世界物理和任务存储，没有响应替身或意图注入。
+
+| 场景                           | 真实请求次数 | 结果                                                                               |
+| ------------------------------ | -----------: | ---------------------------------------------------------------------------------- |
+| 到我这里来：平地               |            3 | 实际到达并完成，水平误差 0                                                         |
+| 到我这里来：取消旧任务后绕墙   |            3 | 绕行最大 z=3，实际到达并完成                                                       |
+| 到我这里来：取消旧任务后上台阶 |            4 | 实际到达并完成，水平误差 0                                                         |
+| 持续跟随、插入问答、修改目标   |            6 | 本地跟随不追加请求；问答不计入任务；修改后保留任务身份和累计用量，抵达新目标并完成 |
+
+共 16 次真实请求。最后一个场景中任务用量为 5 次，额外的普通问答仅计入 Agent 总用量。原始结果保存在本地忽略文件 `artifacts/conversation-task-live-model.json`，报告不含模型凭据。
+
+### 浏览器
+
+真实 Chromium 连接独立前端 5189、内存世界 2589，控制台模型为确定性 fixture，验证：
+
+- 创建“重构验收伙伴”并加入世界；创建任务后显示等待条件和用量。
+- 暂停后保留进度；确认恢复后用量从 1 次/100 tokens 累计为 2 次/200 tokens。
+- 确认结束后任务进入历史执行，当前执行清空；运行记录可正常显示。
+
+截图：`output/playwright/agent-conversation-task-refactor.png`；交互快照在 `.playwright-cli/`，均为本地忽略产物。验收未修改现用世界数据、未重启现用服务、未运行数据库迁移。存档升级由首次加载时备份并迁移，兼容性在临时存档中验证；本次未部署 Docker，也未重新验收真实麦克风或外部 ASR/TTS。

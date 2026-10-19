@@ -11,7 +11,7 @@ import {
   nextOccurrence,
   runView,
 } from './scheduler';
-import { newTask } from '@voxel/agent-runtime';
+import { newTask, TaskService } from '@voxel/agent-runtime';
 import {
   integer,
   object,
@@ -364,8 +364,11 @@ export async function executeTaskRunControl(
     return commitTaskBook(
       job,
       () => {
-        run.runtime!.task!.status =
-          operation === 'cancel' ? 'cancelled' : 'paused';
+        new TaskService(run.runtime!).command(
+          { type: operation },
+          { kind: 'operator' },
+          { ...job.view, apiKey: '' },
+        );
         run.runtime!.task!.reason =
           '已由玩家' + (operation === 'cancel' ? '结束。' : '暂停。');
         run.task = structuredClone(run.runtime!.task);
@@ -418,10 +421,21 @@ export async function executeTaskRunControl(
         ...structuredClone(run.runtime!),
         usage: job.memory.usage,
       };
-      job.memory.task!.status = 'running';
-      job.memory.task!.reason = '';
-      job.memory.failures = 0;
-      job.memory.noProgress = 0;
+      new TaskService(job.memory).command(
+        { type: 'resume' },
+        { kind: 'operator' },
+        {
+          ...settings,
+          ...(!enabled
+            ? {
+                maxTurns: Infinity,
+                tokenBudget: Infinity,
+                taskTimeoutMs: Infinity,
+              }
+            : {}),
+          apiKey: '',
+        },
+      );
       job.book.currentRunId = run.id;
       Object.assign(job.view, run.snapshot.limits, {
         goal: run.snapshot.goal,

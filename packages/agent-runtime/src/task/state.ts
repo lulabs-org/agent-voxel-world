@@ -1,8 +1,12 @@
-import type { Message } from '@earendil-works/pi-ai';
 import type { AgentTask, AgentUsage } from '@voxel/shared';
 import type { BuildAction, BuildResult, BatchResult } from '../contracts';
 
 export type AgentRunState = {
+  version?: 2;
+  lastChatAt?: number;
+  conversation?: { key: string; state: 'accepted' | 'reply_unknown' | 'done' };
+  identity?: { id: string; revision: number; startedAt: number };
+  unknownEffect?: { id: string; name: string; state: 'unknown' };
   follow?: {
     action: { type: 'follow'; playerId: string; distance: number };
     taskStartedAt: number;
@@ -68,9 +72,12 @@ export function restoreBatchHistory(value: unknown): BatchResult | undefined {
 }
 
 export type PiCheckpoint = {
-  version: 1;
+  version: 1 | 2;
+  taskId?: string;
+  revision?: number;
   taskStartedAt: number;
   audience: string;
-  messages: Message[];
+  /** Opaque adapter data; only the Pi boundary interprets model messages. */
+  messages: unknown[];
   inFlight?: { id: string; name: string; state: 'executing' | 'unknown' };
 };

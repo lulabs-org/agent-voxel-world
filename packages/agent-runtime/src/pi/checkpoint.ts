@@ -1,62 +1,76 @@
 import type { Message } from '@earendil-works/pi-ai';
-import type { AgentRunState } from '../task/state';
+import { restoreBatchHistory, type AgentRunState } from '../task/state';
+import { TaskService } from '../task/service';
 import { recentTurns } from './context';
 
-export function restorePiCheckpoint(memory: AgentRunState) {
-  const saved = memory.pi;
-  if (
-    !saved ||
-    saved.version !== 1 ||
-    !Array.isArray(saved.messages) ||
-    saved.taskStartedAt !== memory.task?.startedAt ||
-    saved.audience !== (memory.task?.privateTo ?? 'public')
-  ) {
-    delete memory.pi;
-    return;
-  }
-  try {
-    saved.messages = recentTurns(saved.messages);
-  } catch {
-    delete memory.pi;
-    return;
-  }
-  if (saved.inFlight) saved.inFlight.state = 'unknown';
+/** Model-specific deserialization stays outside task policy and persisted state types. */
+export function checkpointMessages(memory: AgentRunState): Message[] {
+  return recentTurns((memory.pi?.messages ?? []) as Message[]);
 }
 
-/** Update the existing checkpoint format without writing to host storage. */
+/** Migrate both current and archived run states without replaying old tool calls. */
+export function restorePiCheckpoint(memory: AgentRunState) {
+  memory.previous = restoreBatchHistory(memory.previous);
+  if (memory.pendingEffects)
+    memory.pendingEffects = restoreBatchHistory(memory.pendingEffects);
+  const previous = memory.previous as
+    | import('../contracts').BatchResult
+    | undefined;
+  if (
+    !memory.pendingEffects &&
+    previous?.results?.some((r) => r.status === 'unknown')
+  )
+    memory.pendingEffects = structuredClone(previous);
+  const saved = memory.pi;
+  if (saved?.inFlight)
+    memory.unknownEffect = { ...saved.inFlight, state: 'unknown' };
+  if (!memory.task) {
+    delete memory.pi;
+    memory.version = 2;
+    return;
+  }
+  const identity = new TaskService(memory).lease();
+  if (
+    !saved ||
+    saved.version !== 2 ||
+    saved.taskId !== identity.id ||
+    saved.revision !== identity.revision ||
+    saved.taskStartedAt !== memory.task.startedAt ||
+    saved.audience !== (memory.task.privateTo ?? 'public')
+  ) {
+    delete memory.pi;
+  } else {
+    try {
+      saved.messages = checkpointMessages(memory);
+    } catch {
+      delete memory.pi;
+    }
+    if (saved.inFlight) saved.inFlight.state = 'unknown';
+  }
+  memory.version = 2;
+}
+
 export function updatePiCheckpoint(
   memory: AgentRunState,
-  {
-    mode,
-    messages,
-    savedTaskHistory,
-    apiKey,
-  }: {
-    mode: 'reply' | 'task' | undefined;
-    messages: Message[];
-    savedTaskHistory: Message[];
-    apiKey?: string;
-  },
+  messages: Message[],
+  apiKey?: string,
 ) {
-  if (
-    mode === 'task' &&
-    memory.task &&
-    !['completed', 'cancelled'].includes(memory.task.status)
-  ) {
-    memory.pi = {
-      version: 1,
-      taskStartedAt: memory.task.startedAt,
-      audience: memory.task.privateTo ?? 'public',
-      messages: recentTurns([...savedTaskHistory, ...messages] as Message[]),
-      inFlight: memory.pi?.inFlight,
-    };
-    if (apiKey)
-      memory.pi = JSON.parse(
-        JSON.stringify(memory.pi).split(apiKey).join('[已隐藏]'),
-      );
-  } else if (
-    memory.task &&
-    ['completed', 'cancelled'].includes(memory.task.status)
-  )
+  if (!memory.task || ['completed', 'cancelled'].includes(memory.task.status)) {
     delete memory.pi;
+    return;
+  }
+  const identity = new TaskService(memory).lease();
+  memory.pi = {
+    version: 2,
+    taskId: identity.id,
+    revision: identity.revision,
+    taskStartedAt: memory.task.startedAt,
+    audience: memory.task.privateTo ?? 'public',
+    messages: recentTurns(messages),
+    inFlight: memory.pi?.inFlight,
+  };
+  if (apiKey)
+    memory.pi = JSON.parse(
+      JSON.stringify(memory.pi).split(apiKey).join('[已隐藏]'),
+    );
 }

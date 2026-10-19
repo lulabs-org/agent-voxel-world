@@ -1,3 +1,4 @@
+import { TaskService } from '../task/service';
 import { agentPermissions } from '@voxel/shared';
 import { navigate, observeNavigation } from '../actions/navigation/controller';
 import { parseAction } from '../actions/parse';
@@ -22,6 +23,8 @@ export async function runFollowStep(options: FollowOptions) {
     delete memory.follow;
     return;
   }
+  const service = new TaskService(memory);
+  const lease = service.lease();
   const started = Date.now();
   const remaining = (config.taskTimeoutMs ?? 900000) - task.elapsedMs;
   const controller = new AbortController();
@@ -40,6 +43,7 @@ export async function runFollowStep(options: FollowOptions) {
       follow,
       shouldYield: () => !!attention?.pending,
     });
+    service.assertCurrent(lease);
     follow.lastResult = result;
     const moved = Math.hypot(
       result.position.x - observation.self.x,
@@ -66,7 +70,7 @@ export async function runFollowStep(options: FollowOptions) {
     }
     memory.noProgress = 0;
   } catch (error) {
-    if (!signal.aborted) {
+    if (!signal.aborted && service.current(lease)) {
       task.status = controller.signal.aborted ? 'budget' : 'blocked';
       task.reason = controller.signal.aborted
         ? '跟随任务执行时间预算已耗尽。'
@@ -77,6 +81,7 @@ export async function runFollowStep(options: FollowOptions) {
   } finally {
     clearTimeout(timer);
     session.move(0, 0, false);
+    if (!service.current(lease)) return;
     task.elapsedMs += Date.now() - started;
     if (task.elapsedMs >= (config.taskTimeoutMs ?? 900000) && !signal.aborted) {
       task.status = 'budget';

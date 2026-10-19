@@ -1,10 +1,10 @@
+import { parseDecision } from './support/decision-decision';
 import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
 import { runAgent } from './support/decision-loop';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { describe, it, expect, vi } from 'vitest';
 import {
   parseAction,
-  parseDecision,
   AgentRuntimeError,
   executeAction,
   nextIntervalMs,

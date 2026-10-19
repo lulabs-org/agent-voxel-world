@@ -1,4 +1,4 @@
-import type { TaskDirective } from '../contracts';
+import type { TaskDirective } from './decision-contracts';
 
 export function parseTaskDirective(value: unknown): TaskDirective {
   if (!value || typeof value !== 'object' || Array.isArray(value))

@@ -37,25 +37,28 @@ export const toolSchemas = {
       ['north', 'south', 'east', 'west'].map((v) => Type.Literal(v)),
     ),
   }),
-  wait: Type.Object({
-    waitFor: Type.Union([Type.Literal('world'), Type.Literal('players')]),
+  complete_task: Type.Object({
     summary: Type.String({ minLength: 1, maxLength: 500 }),
   }),
-  update_task: Type.Object({
-    intent: Type.Union(
-      ['reply', 'task', 'update', 'continue', 'pause', 'resume', 'cancel'].map(
-        (v) => Type.Literal(v),
-      ),
-    ),
-    status: Type.Union(
-      ['running', 'waiting', 'needs_input', 'blocked', 'completed'].map((v) =>
-        Type.Literal(v),
-      ),
-    ),
-    summary: Type.String({ minLength: 1, maxLength: 500 }),
-    goal: Type.Optional(Type.String({ minLength: 1, maxLength: 2000 })),
-    waitFor: Type.Optional(
-      Type.Union([Type.Literal('world'), Type.Literal('players')]),
-    ),
+  report_blocked: Type.Object({
+    reason: Type.String({ minLength: 1, maxLength: 500 }),
   }),
+  request_input: Type.Object({
+    question: Type.String({ minLength: 1, maxLength: 240 }),
+  }),
+  wait_for: Type.Object({
+    condition: Type.Union([Type.Literal('world'), Type.Literal('players')]),
+    reason: Type.String({ minLength: 1, maxLength: 500 }),
+  }),
+};
+const reply = Type.String({ minLength: 1, maxLength: 240 });
+const goal = Type.String({ minLength: 1, maxLength: 2000 });
+const command = { reply: Type.Optional(reply) };
+export const conversationToolSchemas = {
+  reply: Type.Object({ text: reply }),
+  start_task: Type.Object({ goal, ...command }),
+  revise_task: Type.Object({ goal, ...command }),
+  pause_task: Type.Object(command),
+  resume_task: Type.Object(command),
+  cancel_task: Type.Object(command),
 };

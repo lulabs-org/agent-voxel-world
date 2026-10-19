@@ -359,31 +359,15 @@ it('runs come-here through native tools and only completes after observed arriva
   const request = vi.fn<typeof fetch>(async () =>
     toolResponse(
       ++calls === 1
-        ? [
-            {
-              name: 'update_task',
-              arguments: {
-                intent: 'task',
-                status: 'running',
-                goal: '到玩家位置',
-                summary: '前往',
+        ? [{ name: 'start_task', arguments: { goal: '到玩家 human 位置' } }]
+        : calls === 2
+          ? [
+              {
+                name: 'goto',
+                arguments: { x: player.x, y: player.y, z: player.z },
               },
-            },
-            {
-              name: 'goto',
-              arguments: { x: player.x, y: player.y, z: player.z },
-            },
-          ]
-        : [
-            {
-              name: 'update_task',
-              arguments: {
-                intent: 'continue',
-                status: 'completed',
-                summary: '已到达',
-              },
-            },
-          ],
+            ]
+          : [{ name: 'complete_task', arguments: { summary: '已到达' } }],
     ),
   );
   const config = {
@@ -401,7 +385,7 @@ it('runs come-here through native tools and only completes after observed arriva
   );
   expect(memory.task!.status).toBe('completed');
   expect(Math.abs(w.body.x - player.x)).toBeLessThan(0.18);
-  expect(request).toHaveBeenCalledTimes(2);
+  expect(request).toHaveBeenCalledTimes(3);
 });
 
 it('keeps stall rate below 5% across 100 reproducible reachable terrain cases', async () => {
@@ -517,8 +501,8 @@ it('cancels stored follow through authorized task control and rejects premature 
   const request = vi.fn<typeof fetch>(async () =>
     toolResponse([
       {
-        name: 'update_task',
-        arguments: { intent: 'cancel', status: 'running', summary: '取消跟随' },
+        name: 'cancel_task',
+        arguments: {},
       },
     ]),
   );
@@ -534,7 +518,7 @@ it('cancels stored follow through authorized task control and rejects premature 
   expect(w.moves.some((m) => m.x || m.z)).toBe(false);
 });
 
-import { validateToolDirective } from '../packages/agent-runtime/src/task/transitions';
+import { TaskService } from '../packages/agent-runtime/src/task/service';
 import { executeBatch } from '../packages/agent-runtime/src/actions/batch';
 it('refuses to complete an active follow and treats an interrupted goto as unfinished', async () => {
   const task = newTask('跟随');
@@ -547,11 +531,10 @@ it('refuses to complete an active follow and treats an interrupted goto as unfin
     },
   };
   expect(() =>
-    validateToolDirective(
-      { intent: 'continue', status: 'completed', summary: '完成' },
-      memory,
-      { addressed: false, taskMode: true, turnMutated: false },
-    ),
+    new TaskService(memory).finish(new TaskService(memory).lease(), {
+      status: 'completed',
+      reason: '完成',
+    }),
   ).toThrow('未确认');
   const w = navigationWorld();
   let pending = false;

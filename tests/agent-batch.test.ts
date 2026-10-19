@@ -1,9 +1,10 @@
+import { parseDecision } from './support/decision-decision';
+import type { AgentDecision } from './support/decision-contracts';
 import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
 import { type Planner } from './support/decision-fixture';
 import { runTaskStep } from './support/decision-step';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  parseDecision,
   executeBatch,
   newTask,
   AgentAttention,
@@ -14,7 +15,6 @@ import {
   type AgentRunState,
   type BatchResult,
   type BuildResult,
-  type AgentDecision,
 } from '@voxel/agent-runtime';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 

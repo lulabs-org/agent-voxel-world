@@ -226,6 +226,104 @@ try {
       clearInterval(timer);
     }
   }
+  // Exercise the new conversation -> task handoff and interruption on a persistent local follow.
+  calls = 0;
+  actions.clear();
+  taskStates.clear();
+  for (const [k, block] of room.blocks) if (block.y >= 3) room.blocks.delete(k);
+  const follower = room.state.players.get(view().sessionId!)!;
+  const leader = room.state.players.get(human.room.sessionId)!;
+  Object.assign(follower, { x: 0, y: 2.55, z: 0 });
+  Object.assign(leader, { x: 4, y: 2.55, z: 0 });
+  room.state.revision++;
+  await delay(400);
+  const speak = async (text: string) => {
+    assert(
+      (
+        await human!.request('chat', {
+          text,
+          scope: 'private',
+          recipients: [view().sessionId],
+        })
+      ).ok,
+    );
+  };
+  await speak('请持续跟着我，保持大约 1.5 格距离。');
+  await until(
+    () =>
+      view().task?.status === 'waiting' &&
+      view().task?.summary.includes('跟随') === true,
+    125000,
+  );
+  const followingTask = view().task!;
+  const initialCalls = calls;
+  await delay(2000);
+  assert.equal(
+    calls,
+    initialCalls,
+    'local following must not request another model turn',
+  );
+  Object.assign(leader, { x: 6, y: 2.55, z: 0 });
+  await until(
+    () => Math.hypot(follower.x - leader.x, follower.z - leader.z) < 2.2,
+    15000,
+  );
+  const oldResponse = view().lastResponse;
+  await speak('你叫什么名字？只回答名字，不要改变当前跟随任务。');
+  await until(
+    () => calls > initialCalls && view().lastResponse !== oldResponse,
+    125000,
+  );
+  assert.equal(
+    view().task?.startedAt,
+    followingTask.startedAt,
+    'ordinary chat must preserve task identity',
+  );
+  assert.equal(
+    view().task?.goal,
+    followingTask.goal,
+    'ordinary chat must preserve the goal',
+  );
+  assert.equal(
+    view().task?.calls,
+    followingTask.calls,
+    'ordinary chat must not consume task model budget',
+  );
+  const afterReplyCalls = calls;
+  await delay(1500);
+  assert.equal(
+    calls,
+    afterReplyCalls,
+    'following must remain local after the reply',
+  );
+  await speak(
+    '不要再跟随了，修改当前任务：走到 x=-3、y=2.5、z=0，到了就完成任务。',
+  );
+  await until(() => view().task?.status === 'completed', 125000);
+  assert.equal(
+    view().task?.startedAt,
+    followingTask.startedAt,
+    'revision must not create a new task',
+  );
+  assert(
+    view().task!.calls > followingTask.calls,
+    'revision retains and adds to the original budget',
+  );
+  assert(
+    Math.abs(follower.x + 3) < 0.3 && Math.abs(follower.z) < 0.3,
+    'must reach the revised destination',
+  );
+  const followResult = {
+    case: 'follow-chat-revise',
+    calls,
+    initialCalls,
+    afterReplyCalls,
+    task: view().task,
+    end: { x: follower.x, y: follower.y, z: follower.z },
+  };
+  results.push(followResult);
+  await record();
+  console.log(JSON.stringify(followResult));
 } finally {
   await manager?.close();
   await human?.close();

@@ -31,7 +31,7 @@
 
 各业务错误留在所属领域，仅继承通用 `AppError`。复用 Origin 判断和异常处理机制不意味着统一所有端点的策略：保留语音接口允许无 Origin、管理接口的 Origin 校验、原有预检方法、JSON/原始音频限制以及错误状态和文案。Swagger 递归扫描 `routes` 和 `modules` 下的 `*.routes.ts`。
 
-Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端。服务端调度执行 `runTaskStep`，CLI 的 `runAgent` 保留自身循环。
+Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端。服务端与 CLI 都通过 `AgentRunner.run()` 进入统一协调器；对话、任务服务和任务执行使用独立职责，CLI 的 `runAgent` 保留自身调度循环。
 
 ## 状态与测试
 

@@ -9,10 +9,20 @@ import {
 } from '@voxel/agent-runtime';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { toolResponse } from './support/pi-response';
-const update = (status = 'running', intent = 'continue', extra = {}) => ({
-  name: 'update_task',
-  arguments: { intent, status, summary: '进展', ...extra },
+const complete = () => ({
+  name: 'complete_task',
+  arguments: { summary: '进展' },
 });
+const blocked = () => ({
+  name: 'report_blocked',
+  arguments: { reason: '进展' },
+});
+const reply = (text = '你好') => ({ name: 'reply', arguments: { text } });
+const start = (goal: string, text?: string) => ({
+  name: 'start_task',
+  arguments: { goal, reply: text },
+});
+const revise = (goal: string) => ({ name: 'revise_task', arguments: { goal } });
 const chat = (text = '你好') => ({ name: 'chat', arguments: { text } });
 const move = {
   name: 'goto',
@@ -90,7 +100,7 @@ function fixture(replies: { name: string; arguments: unknown }[][]) {
   };
   let index = 0;
   const request = vi.fn<typeof fetch>(async () =>
-    toolResponse(replies[index++] ?? [update('blocked')]),
+    toolResponse(replies[index++] ?? [blocked()]),
   );
   const abort = new AbortController();
   const checkpoint = vi.fn(async () => {});
@@ -137,13 +147,7 @@ function fixture(replies: { name: string; arguments: unknown }[][]) {
 }
 describe('Pi world tool runtime', () => {
   it('runs more than three actual model requests within one wake and confirms completion', async () => {
-    const f = fixture([
-      [move],
-      [move],
-      [move],
-      [move],
-      [chat(), update('completed')],
-    ]);
+    const f = fixture([[move], [move], [move], [move], [chat(), complete()]]);
     await f.run();
     expect(f.request).toHaveBeenCalledTimes(5);
     expect(f.memory.task?.status).toBe('completed');
@@ -155,7 +159,7 @@ describe('Pi world tool runtime', () => {
     const f = fixture([
       [{ name: 'goto', arguments: { x: 99 } }, chat('must not send')],
       [move],
-      [update('completed')],
+      [complete()],
     ]);
     await f.run();
     expect(f.request).toHaveBeenCalledTimes(3);
@@ -177,7 +181,10 @@ describe('Pi world tool runtime', () => {
   it('waiting is terminal within the batch and unchanged polling costs no requests', async () => {
     const f = fixture([
       [
-        { name: 'wait', arguments: { waitFor: 'players', summary: '等玩家' } },
+        {
+          name: 'wait_for',
+          arguments: { condition: 'players', reason: '等玩家' },
+        },
         move,
       ],
     ]);
@@ -191,13 +198,7 @@ describe('Pi world tool runtime', () => {
     expect(f.request).toHaveBeenCalledTimes(2);
   });
   it('isolates a public question from private task history and keeps the private task intact', async () => {
-    const f = fixture([
-      [
-        update('running', 'reply'),
-        chat('公开回复'),
-        update('completed', 'reply'),
-      ],
-    ]);
+    const f = fixture([[reply('公开回复')]]);
     f.memory.task = {
       ...newTask('PRIVATE SECRET', 'alice', 'alice'),
       status: 'waiting',
@@ -209,6 +210,7 @@ describe('Pi world tool runtime', () => {
       audience: 'alice',
       messages: [],
     };
+    f.memory.waitSignature = '[]';
     f.message('public', 'bob');
     await f.run();
     const body = String(f.request.mock.calls[0][1]!.body);
@@ -218,19 +220,16 @@ describe('Pi world tool runtime', () => {
     expect(f.memory.task.calls).toBe(0);
   });
   it('forces private routing and transfers initial message requests into a new task', async () => {
-    const f = fixture([
-      [update('running', 'task', { goal: '走一步' }), move],
-      [chat(), update('completed')],
-    ]);
-    delete f.memory.task;
+    const f = fixture([[start('走一步')], [move], [chat(), complete()]]);
+    Reflect.deleteProperty(f.memory, 'task');
     f.message();
     await f.run();
     expect(f.memory.task).toMatchObject({
       goal: '走一步',
       owner: 'human',
       privateTo: 'human',
-      calls: 2,
-      tokens: 200,
+      calls: 3,
+      tokens: 300,
       status: 'completed',
     });
     expect(f.session.request).toHaveBeenCalledWith(
@@ -239,10 +238,7 @@ describe('Pi world tool runtime', () => {
     );
   });
   it('rejects another player taking over the task', async () => {
-    const f = fixture([
-      [update('running', 'update', { goal: 'stolen' }), move],
-      [update('completed', 'reply')],
-    ]);
+    const f = fixture([[revise('stolen'), move], [reply()]]);
     f.memory.task = { ...newTask('owned', 'alice', 'alice'), status: 'paused' };
     f.message('private', 'bob');
     await f.run();
@@ -257,7 +253,7 @@ describe('Pi world tool runtime', () => {
     expect(f.session.move).not.toHaveBeenCalled();
   });
   it('stops before a world write when checkpoint persistence fails', async () => {
-    const f = fixture([[move], [update('completed')]]);
+    const f = fixture([[move], [complete()]]);
     let writes = 0;
     f.checkpoint.mockImplementation(async () => {
       if (f.memory.pi?.inFlight && ++writes === 1) throw Error('disk full');
@@ -267,7 +263,7 @@ describe('Pi world tool runtime', () => {
     expect(f.request).toHaveBeenCalledTimes(1);
   });
   it('prevents concurrent runs for the same Agent state', async () => {
-    const f = fixture([[move], [update('completed')]]);
+    const f = fixture([[move], [complete()]]);
     const first = f.run();
     await expect(f.run()).rejects.toThrow('已在运行');
     await first;
@@ -286,7 +282,7 @@ describe('Pi world tool runtime', () => {
     expect(f.world.self.x).toBeCloseTo(0.1);
   });
   it('cannot finish in the same model turn as a world mutation', async () => {
-    const f = fixture([[move, update('completed')], [update('completed')]]);
+    const f = fixture([[move, complete()], [complete()]]);
     await f.run();
     expect(f.request).toHaveBeenCalledTimes(2);
     expect(f.memory.task?.status).toBe('completed');
@@ -322,8 +318,9 @@ describe('Pi world tool runtime', () => {
       inFlight: { id: 'x', name: 'chat', state: 'executing' },
     };
     restorePiCheckpoint(f.memory);
-    expect(f.memory.pi?.inFlight?.state).toBe('unknown');
-    expect(f.memory.pi?.messages).toEqual([]);
+    expect(f.memory.unknownEffect?.state).toBe('unknown');
+    expect(f.memory.pi).toBeUndefined();
+    expect(f.memory.version).toBe(2);
   });
 });
 
@@ -333,7 +330,7 @@ describe('Pi provider and recovery boundaries', () => {
     async (type) => {
       const f = fixture([]);
       const request = vi.fn<typeof fetch>(async () =>
-        toolResponse([update('completed')]),
+        toolResponse([complete()]),
       );
       await new AgentRunner(
         {
@@ -388,9 +385,7 @@ describe('Pi provider and recovery boundaries', () => {
     expect(JSON.stringify(f.memory)).not.toContain('upstream body');
   });
   it('does not reset an exhausted task budget via an incoming update', async () => {
-    const f = fixture([
-      [update('running', 'update', { goal: 'same task' }), move],
-    ]);
+    const f = fixture([[revise('same task'), move]]);
     f.memory.task!.owner = 'human';
     f.memory.task!.privateTo = 'human';
     f.memory.task!.calls = f.config.maxTurns;
@@ -401,11 +396,7 @@ describe('Pi provider and recovery boundaries', () => {
     expect(f.memory.task!.calls).toBeGreaterThanOrEqual(f.config.maxTurns);
   });
   it('new goal control resets stale no-progress counters without resetting budgets', async () => {
-    const f = fixture([
-      [update('running', 'update', { goal: 'new destination' })],
-      [move],
-      [update('completed')],
-    ]);
+    const f = fixture([[revise('new destination')], [move], [complete()]]);
     f.memory.task!.owner = 'human';
     f.memory.task!.privateTo = 'human';
     f.memory.task!.status = 'waiting';
@@ -419,12 +410,19 @@ describe('Pi provider and recovery boundaries', () => {
   it('retains only eight complete turns and preserves task identity on restart', async () => {
     const f = fixture([
       ...Array.from({ length: 10 }, () => [move]),
-      [{ name: 'wait', arguments: { waitFor: 'players', summary: '等待' } }],
+      [
+        {
+          name: 'wait_for',
+          arguments: { condition: 'players', reason: '等待' },
+        },
+      ],
     ]);
     await f.run();
     expect(f.request).toHaveBeenCalledTimes(11);
     expect(
-      f.memory.pi?.messages.filter((m) => m.role === 'assistant'),
+      f.memory.pi?.messages.filter(
+        (m) => (m as { role: string }).role === 'assistant',
+      ),
     ).toHaveLength(8);
     const restored = JSON.parse(JSON.stringify(f.memory));
     restorePiCheckpoint(restored);
@@ -432,8 +430,8 @@ describe('Pi provider and recovery boundaries', () => {
     expect(restored.task.startedAt).toBe(f.memory.task?.startedAt);
   });
   it('different Agents can execute concurrently without shared histories or tools', async () => {
-    const a = fixture([[move], [update('completed')]]),
-      b = fixture([[chat('独立回复'), update('completed')]]);
+    const a = fixture([[move], [complete()]]),
+      b = fixture([[chat('独立回复'), complete()]]);
     await Promise.all([a.run(), b.run()]);
     expect(a.session.request).not.toHaveBeenCalledWith(
       'chat',
@@ -446,8 +444,8 @@ describe('Pi provider and recovery boundaries', () => {
 });
 
 it('an explicitly classified greeting completes in one request without changing a task', async () => {
-  const f = fixture([[update('running', 'reply'), chat()]]);
-  delete f.memory.task;
+  const f = fixture([[reply()]]);
+  Reflect.deleteProperty(f.memory, 'task');
   f.message();
   await f.run();
   expect(f.request).toHaveBeenCalledTimes(1);
@@ -458,7 +456,7 @@ it('an explicitly classified greeting completes in one request without changing 
   );
 });
 it('explicit unlimited task settings do not create an invalid deadline', async () => {
-  const f = fixture([[move], [update('completed')]]);
+  const f = fixture([[move], [complete()]]);
   Object.assign(f.config, {
     maxTurns: Infinity,
     tokenBudget: Infinity,
@@ -471,8 +469,8 @@ it('explicit unlimited task settings do not create an invalid deadline', async (
 it('later chat cannot erase an unresolved world failure and allow completion', async () => {
   const f = fixture([
     [{ name: 'edit', arguments: { x: 1, y: 3, z: 0, material: 'wood' } }],
-    [chat('仍在处理'), update('completed')],
-    [update('blocked')],
+    [chat('仍在处理'), complete()],
+    [blocked()],
   ]);
   f.session.request.mockResolvedValue({
     ok: false,
@@ -486,11 +484,8 @@ it('later chat cannot erase an unresolved world failure and allow completion', a
 });
 
 it('does not discard an addressed reply when another player message is already queued', async () => {
-  const f = fixture([
-    [update('running', 'reply'), chat('reply one')],
-    [update('running', 'reply'), chat('reply two')],
-  ]);
-  delete f.memory.task;
+  const f = fixture([[reply('reply one')], [reply('reply two')]]);
+  Reflect.deleteProperty(f.memory, 'task');
   f.message('private', 'alice');
   f.message('private', 'bob');
   await f.run();
@@ -507,11 +502,11 @@ it('does not discard an addressed reply when another player message is already q
 });
 
 it('persists request admission before sending to the provider', async () => {
-  const f = fixture([[update('completed')]]);
+  const f = fixture([[complete()]]);
   f.request.mockImplementationOnce(async () => {
     expect(f.checkpoint.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(f.memory.task?.calls).toBe(1);
-    return toolResponse([update('completed')]);
+    return toolResponse([complete()]);
   });
   await f.run();
 });
@@ -547,7 +542,10 @@ it('stops on provider timeout with no hidden retries or effects', async () => {
   expect(f.session.move).not.toHaveBeenCalled();
 });
 it('never automatically resends unknown chat after recovery', async () => {
-  const f = fixture([[chat('duplicate')], [update('needs_input')]]);
+  const f = fixture([
+    [chat('duplicate')],
+    [{ name: 'request_input', arguments: { question: '请确认' } }],
+  ]);
   f.memory.pi = {
     version: 1,
     taskStartedAt: f.memory.task!.startedAt,
@@ -577,32 +575,35 @@ it('stops repeated world failures even when unrelated world revisions keep chang
   expect(f.memory.failures).toBe(3);
 });
 
-it('restores only the authorized current task history after an incoming task update', async () => {
+it('rebuilds task context after a goal update without carrying old tool calls', async () => {
   const f = fixture([
     [chat('task-context-marker')],
-    [{ name: 'wait', arguments: { waitFor: 'players', summary: '等待' } }],
-    [update('running', 'update', { goal: '走一步' }), move],
-    [update('completed')],
+    [{ name: 'wait_for', arguments: { condition: 'players', reason: '等待' } }],
+    [revise('走一步')],
+    [move],
+    [complete()],
   ]);
   await f.run();
   f.message();
   await f.run();
-  expect(f.request).toHaveBeenCalledTimes(4);
+  expect(f.request).toHaveBeenCalledTimes(5);
   expect(String(f.request.mock.calls[2][1]!.body)).not.toContain(
     'task-context-marker',
   );
-  expect(String(f.request.mock.calls[3][1]!.body)).toContain(
-    'task-context-marker',
-  );
+  const taskMessages = JSON.parse(
+    String(f.request.mock.calls[3][1]!.body),
+  ).messages;
+  expect(
+    taskMessages.filter(
+      (m: any) => m.role === 'assistant' || m.role === 'tool',
+    ),
+  ).toEqual([]);
   expect(f.memory.task?.status).toBe('completed');
 });
 
 it('stops the loop if the host cannot durably create a task', async () => {
-  const f = fixture([
-    [update('running', 'task', { goal: '走一步' }), move],
-    [move],
-  ]);
-  delete f.memory.task;
+  const f = fixture([[start('走一步')], [move], [move]]);
+  Reflect.deleteProperty(f.memory, 'task');
   f.message();
   await expect(
     new AgentRunner(undefined, f.request).run({
@@ -628,17 +629,16 @@ it.each(['none', 'cancelled'] as const)(
   async (prior) => {
     const f = fixture([
       [chat('好的，我这就过去！'), move],
-      [update('running', 'task', { goal: '到玩家这里来' }), move],
-      [chat('已经到达'), update('completed')],
+      [start('到玩家这里来')],
+      [move],
+      [chat('已经到达'), complete()],
     ]);
-    if (prior === 'none') delete f.memory.task;
+    if (prior === 'none') Reflect.deleteProperty(f.memory, 'task');
     else f.memory.task!.status = 'cancelled';
     f.message('private', 'human', '到我这里来');
     await f.run();
-    expect(f.request).toHaveBeenCalledTimes(3);
-    expect(String(f.request.mock.calls[1][1]!.body)).toContain(
-      '不能只口头答应执行',
-    );
+    expect(f.request).toHaveBeenCalledTimes(4);
+    expect(String(f.request.mock.calls[1][1]!.body)).toContain('chat');
     expect(f.session.request).not.toHaveBeenCalledWith(
       'chat',
       expect.objectContaining({ text: '好的，我这就过去！' }),
@@ -660,14 +660,148 @@ it.each(['none', 'cancelled'] as const)(
 
 it('a task acknowledgement cannot end the wake before its world action', async () => {
   const f = fixture([
-    [update('running', 'task', { goal: '到我这里来' }), chat('我这就过去')],
+    [start('到我这里来', '我这就过去')],
     [move],
-    [update('completed')],
+    [complete()],
   ]);
-  delete f.memory.task;
+  Reflect.deleteProperty(f.memory, 'task');
   f.message('private', 'human', '到我这里来');
   await f.run();
   expect(f.request).toHaveBeenCalledTimes(3);
   expect(f.world.self.x).toBeCloseTo(0.1);
   expect(f.memory.task).toMatchObject({ status: 'completed' });
+});
+
+it('exposes disjoint conversation/task tools and hands off only after a durable command', async () => {
+  const f = fixture([[start('去 human 身边')], [move], [complete()]]);
+  Reflect.deleteProperty(f.memory, 'task');
+  f.message('private', 'human', '到我这里来');
+  const saved: AgentRunState[] = [];
+  f.checkpoint.mockImplementation(async () => {
+    saved.push(structuredClone(f.memory));
+  });
+  await f.run();
+  const bodies = f.request.mock.calls.map(([, init]) =>
+    JSON.parse(String(init!.body)),
+  );
+  const names = (body: any) => body.tools.map((t: any) => t.function.name);
+  expect(names(bodies[0])).toEqual([
+    'reply',
+    'start_task',
+    'revise_task',
+    'pause_task',
+    'resume_task',
+    'cancel_task',
+  ]);
+  expect(names(bodies[1])).toContain('goto');
+  expect(names(bodies[1])).not.toContain('start_task');
+  expect(bodies.every((b) => !names(b).includes('update_task'))).toBe(true);
+  expect(
+    saved.some(
+      (s) =>
+        s.task?.goal === '去 human 身边' && s.task.calls === 1 && !s.previous,
+    ),
+  ).toBe(true);
+  expect(f.memory.task?.calls).toBe(3);
+  expect(f.memory.usage?.calls).toBe(3);
+});
+
+it('accepts at most one command in a message batch', async () => {
+  const f = fixture([[start('first'), revise('second')], [complete()]]);
+  Reflect.deleteProperty(f.memory, 'task');
+  f.message();
+  await f.run();
+  expect(f.memory.task?.goal).toBe('first');
+  expect(f.memory.task?.calls).toBe(2);
+});
+
+it('leaves paused task state and checkpoint byte-for-byte intact during ordinary chat', async () => {
+  const f = fixture([[reply('我正在休息')]]);
+  f.memory.task!.status = 'paused';
+  f.memory.pi = {
+    version: 1,
+    taskStartedAt: f.memory.task!.startedAt,
+    audience: 'public',
+    messages: [],
+  };
+  const before = JSON.stringify([
+    f.memory.task,
+    f.memory.pi,
+    f.memory.previous,
+  ]);
+  f.message();
+  await f.run();
+  expect(JSON.stringify([f.memory.task, f.memory.pi, f.memory.previous])).toBe(
+    before,
+  );
+  expect(f.request).toHaveBeenCalledTimes(1);
+});
+
+it('resumes a running task after a reply without adding the conversation to task history', async () => {
+  const f = fixture([
+    [reply('conversation-only-marker')],
+    [move],
+    [complete()],
+  ]);
+  f.message();
+  await f.run();
+  expect(f.memory.task?.status).toBe('completed');
+  expect(f.memory.task?.calls).toBe(2);
+  expect(f.memory.usage?.calls).toBe(3);
+  expect(String(f.request.mock.calls[1][1]!.body)).not.toContain(
+    'conversation-only-marker',
+  );
+});
+
+it('bounds dialogue requests even when task limits are disabled', async () => {
+  const f = fixture(Array.from({ length: 20 }, () => [move]));
+  Reflect.deleteProperty(f.memory, 'task');
+  Object.assign(f.config, {
+    maxTurns: Infinity,
+    tokenBudget: Infinity,
+    taskTimeoutMs: Infinity,
+  });
+  f.message();
+  await f.run();
+  expect(f.request).toHaveBeenCalledTimes(12);
+  expect(f.session.move).not.toHaveBeenCalled();
+});
+
+it('permits cancellation at exhausted task budget and charges the command exactly once', async () => {
+  const f = fixture([[{ name: 'cancel_task', arguments: {} }]]);
+  f.memory.task!.calls = f.config.maxTurns;
+  f.memory.task!.tokens = 50000;
+  f.memory.task!.status = 'budget';
+  f.message();
+  await f.run();
+  expect(f.memory.task).toMatchObject({
+    status: 'cancelled',
+    calls: 13,
+    tokens: 50100,
+  });
+  expect(f.memory.usage?.calls).toBe(1);
+  expect(f.session.move).not.toHaveBeenCalled();
+});
+
+it('records replies with chat permission disabled and still executes an accepted task', async () => {
+  const f = fixture([[start('走一步', '收到')], [move], [complete()]]);
+  Reflect.deleteProperty(f.memory, 'task');
+  f.config.permissions.chat = false;
+  f.message();
+  await f.run();
+  expect(f.memory.task?.status).toBe('completed');
+  expect(f.memory.lastResponse).toBe('收到');
+  expect(f.session.request).not.toHaveBeenCalledWith('chat', expect.anything());
+});
+
+it('rejects stale model effects after a task revision changes', async () => {
+  const f = fixture([[move]]);
+  f.request.mockImplementationOnce(async () => {
+    f.memory.identity!.revision++;
+    f.memory.task!.status = 'cancelled';
+    return toolResponse([move]);
+  });
+  await f.run();
+  expect(f.session.move).not.toHaveBeenCalled();
+  expect(f.memory.task?.status).toBe('cancelled');
 });

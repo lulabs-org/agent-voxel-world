@@ -15,7 +15,7 @@ import {
   type AgentRunState,
 } from '../../packages/agent-runtime/src/task/state';
 import { executeBatch } from '../../packages/agent-runtime/src/actions/batch';
-import { parseDecision } from '../../packages/agent-runtime/src/task/decision';
+import { parseDecision } from './decision-decision';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
 import {
   houseBlocks,
@@ -29,7 +29,7 @@ import {
   prepareDecision,
 } from '../../packages/agent-runtime/src/task/observation';
 import { cap } from '../../packages/agent-runtime/src/task/budget';
-import { applyTaskDecision } from '../../packages/agent-runtime/src/runtime/execute-step';
+import { applyTaskDecision } from './decision-apply';
 export { worldSignature } from '../../packages/agent-runtime/src/task/observation';
 /** Empty polls and unchanged waits cost no tokens; planners count actual requests. */
 export async function runTaskStep(
@@ -41,7 +41,9 @@ export async function runTaskStep(
   attention?: AgentAttention,
   log: (message: string) => void = () => {},
   checkpoint: () => any = () => {},
-  hooks?: { beforeNewTask?: (task: AgentTask) => Promise<void> },
+  hooks?: {
+    beforeNewTask?: (task: AgentTask, previous: AgentRunState) => Promise<void>;
+  },
 ) {
   const addressed = attention?.take();
   let task = memory.task;

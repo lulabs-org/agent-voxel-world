@@ -60,21 +60,6 @@ export type BuildResult = {
   uncertain?: PlannedEdit[];
 };
 
-export type TaskDirective = {
-  intent:
-    | 'reply'
-    | 'task'
-    | 'update'
-    | 'continue'
-    | 'pause'
-    | 'resume'
-    | 'cancel';
-  status: 'running' | 'waiting' | 'needs_input' | 'blocked' | 'completed';
-  summary: string;
-  goal?: string;
-  waitFor?: 'world' | 'players';
-};
-
 export type AgentAction =
   | BuildAction
   | { type: 'goto'; x: number; y: number; z: number }
@@ -90,7 +75,6 @@ export type AgentAction =
       material: Material | null;
     };
 
-export type AgentDecision = { actions: AgentAction[]; task: TaskDirective };
 export type NavigationResult = {
   ok: boolean;
   status: 'arrived' | 'following' | 'progress' | 'failed';

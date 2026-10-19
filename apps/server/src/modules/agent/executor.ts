@@ -8,6 +8,7 @@ import {
 } from '@voxel/shared';
 import {
   AgentAttention,
+  TaskService,
   AgentRuntimeError,
   type AgentConfig,
   type AgentRunner,
@@ -106,12 +107,17 @@ export async function executeAgentJob(
 
         if (
           task &&
-          (!task.owner || task.owner === event.actor) &&
-          (!task.privateTo ||
-            (task.privateTo === event.actor &&
-              (event.data as ChatData).scope !== 'public')) &&
           /^(暂停|暂停任务|停止|停止任务|别建了|取消|取消任务)$/u.test(command)
         ) {
+          try {
+            new TaskService(job.memory).authorize({
+              kind: 'player',
+              message: event,
+            });
+          } catch {
+            if (['idle', 'failed'].includes(job.view.status)) ctx.wake(job);
+            return;
+          }
           void ctx
             .controlTask(
               job.view.id,
@@ -181,8 +187,15 @@ export async function executeAgentJob(
           await ctx.save();
         },
         hooks: {
-          beforeNewTask: async (task) => {
-            captureTask(job);
+          beforeNewTask: async (task, previousMemory) => {
+            // Capture the prior run before publishing the already validated new state.
+            const nextMemory = job.memory;
+            try {
+              job.memory = previousMemory;
+              captureTask(job);
+            } finally {
+              job.memory = nextMemory;
+            }
             const previous = currentRun(job);
             if (previous && ['running', 'waiting'].includes(previous.status))
               throw new AgentRuntimeError(
@@ -207,10 +220,6 @@ export async function executeAgentJob(
               job.book.plans.push(plan);
               job.book.runs.push(record);
               job.book.currentRunId = record.id;
-              for (const key of Object.keys(job.memory))
-                if (key !== 'usage')
-                  delete (job.memory as Record<string, unknown>)[key];
-              job.memory.task = task;
               Object.assign(config, plan.limits);
               await ctx.save();
             } catch (error) {

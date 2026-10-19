@@ -1,11 +1,11 @@
+import { parseTaskDirective } from './support/decision-directive';
+import type { AgentDecision } from './support/decision-contracts';
 import { runTaskStep } from './support/decision-step';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AgentAttention,
-  type AgentDecision,
   newTask,
-  parseTaskDirective,
   type AgentRunState,
   type Session,
   type Observation,

@@ -60,6 +60,27 @@ export async function readAgentArchive(
     if (error.code !== 'EEXIST') throw error;
   });
 
+  if (
+    saved.some(
+      (view) =>
+        view.runtime?.version !== 2 ||
+        view.taskBook?.runs.some(
+          (run) => run.runtime && run.runtime.version !== 2,
+        ),
+    )
+  ) {
+    await writeFile(
+      `${archivePath}.before-conversation-tasks-v2.bak`,
+      await readFile(archivePath),
+      {
+        mode: 0o600,
+        flag: 'wx',
+      },
+    ).catch((error) => {
+      if (error.code !== 'EEXIST') throw error;
+    });
+  }
+
   if (saved.some((view) => !view.taskBook)) {
     await writeFile(
       `${archivePath}.before-task-plans.bak`,
@@ -157,6 +178,7 @@ export function restoreAgentJob(
   captureTask(job);
 
   for (const run of job.book.runs) {
+    if (run.runtime) restorePiCheckpoint(run.runtime);
     for (const action of run.actions ?? [])
       if (action.status === 'executing') action.status = 'unknown';
     if (run.runtime?.previous)

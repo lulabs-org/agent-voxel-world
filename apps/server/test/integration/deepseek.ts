@@ -46,10 +46,8 @@ try {
         ? actions.map(({ type, ...args }) => ({ name: type, arguments: args }))
         : [
             {
-              name: 'update_task',
+              name: 'complete_task',
               arguments: {
-                intent: 'continue',
-                status: 'completed',
                 summary: '观察确认房屋完成',
               },
             },

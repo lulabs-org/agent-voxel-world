@@ -34,6 +34,27 @@ const graph = new Map(
 );
 
 describe('agent runtime dependency boundaries', () => {
+  it('keeps conversation effects and task control in separate adapters', () => {
+    const conversation = readFileSync(
+      resolve(runtime, 'pi/conversation-tools.ts'),
+      'utf8',
+    );
+    expect(conversation).not.toContain('AgentSession');
+    expect(conversation).not.toContain('executeTaskActions');
+    const runner = readFileSync(
+      resolve(runtime, 'runtime/conversation-runner.ts'),
+      'utf8',
+    );
+    expect(runner).not.toMatch(
+      /from ['"].*(?:actions\/|action-executor|task-runner)/,
+    );
+    const taskTools = readFileSync(resolve(runtime, 'pi/tools.ts'), 'utf8');
+    expect(taskTools).not.toContain('.command(');
+    expect(taskTools).not.toContain('.commit(');
+    for (const path of graph.keys())
+      expect(readFileSync(path, 'utf8')).not.toContain('update_task');
+  });
+
   it('has no circular module dependencies, including types and re-exports', () => {
     const visited = new Set<string>();
     function visit(path: string, chain: string[]) {
@@ -68,6 +89,7 @@ describe('agent runtime dependency boundaries', () => {
         'actions',
         'contracts.ts',
         'errors.ts',
+        'client',
       ],
     };
     for (const [path, dependencies] of graph) {
@@ -90,6 +112,11 @@ describe('agent runtime dependency boundaries', () => {
           false,
         );
       const external = imports(path).filter((name) => !name.startsWith('.'));
+      if (module.startsWith('task/'))
+        expect(
+          external.some((name) => name.startsWith('@earendil-works/')),
+          module,
+        ).toBe(false);
       expect(external, module).not.toContain('openai');
       expect(
         external.some((name) => name.includes('/api/')),

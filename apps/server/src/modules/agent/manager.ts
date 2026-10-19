@@ -21,6 +21,7 @@ import {
   newTask,
   AgentAttention,
   AgentRunner,
+  TaskService,
   listModels,
   nextIntervalMs,
   type AgentConfig,
@@ -520,10 +521,21 @@ export class AgentManager {
           task.elapsedMs >= settings.taskTimeoutMs!)
       )
         throw new ManagementError('请增加本次执行的总额度后再继续。');
-      task.status = 'running';
-      task.reason = '';
-      job.memory.failures = 0;
-      job.memory.noProgress = 0;
+      new TaskService(job.memory).command(
+        { type: 'resume' },
+        { kind: 'operator' },
+        {
+          ...settings,
+          ...(currentRun(job)?.snapshot.limits.enabled === false
+            ? {
+                maxTurns: Infinity,
+                tokenBudget: Infinity,
+                taskTimeoutMs: Infinity,
+              }
+            : {}),
+          apiKey: '',
+        },
+      );
     }
     const resumedRecord = currentRun(job);
     if (resumedRecord)
@@ -626,7 +638,11 @@ export class AgentManager {
           job.memory.task &&
           !['completed', 'cancelled'].includes(job.memory.task.status)
         ) {
-          job.memory.task.status = 'paused';
+          new TaskService(job.memory).command(
+            { type: 'pause' },
+            { kind: 'operator' },
+            { ...settings, apiKey: '' },
+          );
           job.memory.task.reason =
             '角色技能或动作权限已修改，进度已保留，请确认后继续。';
         }
@@ -746,14 +762,11 @@ export class AgentManager {
       // Completion can win while the in-flight runner settles after abort.
       // Recheck here rather than relying on the status at request admission.
       if (job.memory.task && !taskEnded()) {
-        job.memory.task.status = operation === 'pause' ? 'paused' : 'cancelled';
-        job.memory.task.reason =
-          operation === 'pause' ? '已由玩家暂停，进度保留。' : '已由玩家取消。';
-      }
-      if (operation === 'cancel' && job.memory.task?.status !== 'completed') {
-        job.memory.previous = undefined;
-        job.memory.unfinishedBuild = undefined;
-        delete job.memory.follow;
+        new TaskService(job.memory).command(
+          { type: operation },
+          { kind: 'operator' },
+          { ...job.view, apiKey: '' },
+        );
       }
       if (job.session) job.view.status = 'idle';
       await this.save();
@@ -822,7 +835,11 @@ export class AgentManager {
           job.memory.task &&
           ['running', 'waiting'].includes(job.memory.task.status)
         ) {
-          job.memory.task.status = 'paused';
+          new TaskService(job.memory).command(
+            { type: 'pause' },
+            { kind: 'operator' },
+            { ...job.view, apiKey: '' },
+          );
           job.memory.task.reason = '角色已离开世界，任务进度已保留。';
         }
         this.persist();
