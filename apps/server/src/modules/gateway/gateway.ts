@@ -146,7 +146,7 @@ export class AgentGateway {
   }
 
   async controlTaskRun(
-    agentId: string,
+    agentId: string | undefined,
     runId: string,
     operation: string,
     value: any,

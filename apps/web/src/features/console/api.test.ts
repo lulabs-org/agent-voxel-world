@@ -171,11 +171,12 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
     identity,
   );
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/agent-1/tasks/p/run',
+    'https://world.example/agents/tasks/p/run',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({
         requestId: 'stable',
+        agentId: 'agent-1',
         expectedPlanRevision: 3,
         expectedTask: identity,
       }),
@@ -187,7 +188,7 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
     'agent-2',
   );
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/agent-1/tasks/p/reassign',
+    'https://world.example/agents/tasks/p/reassign',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ targetAgentId: 'agent-2' }),
@@ -197,7 +198,7 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
   http.mockResolvedValueOnce(new Response(null, { status: 204 }));
   await tasksApi.delete('p', 'agent-1');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/agent-1/tasks/p',
+    'https://world.example/agents/tasks/p',
     expect.objectContaining({ method: 'DELETE' }),
   );
 

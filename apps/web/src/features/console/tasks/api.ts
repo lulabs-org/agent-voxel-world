@@ -31,9 +31,7 @@ export const tasksApi = {
     if (filters.offset !== undefined) params.set('offset', String(filters.offset));
     if (filters.agentId) params.set('agentId', String(filters.agentId));
     const qs = params.toString();
-    const path = filters.agentId
-      ? `/${encodeURIComponent(String(filters.agentId))}/tasks${qs ? `?${qs}` : ''}`
-      : `/tasks${qs ? `?${qs}` : ''}`;
+    const path = `/tasks${qs ? `?${qs}` : ''}`;
     return consoleFetch<PlanPage>(path, { signal });
   },
 
@@ -49,20 +47,14 @@ export const tasksApi = {
     requestId?: string,
   ) => {
     const targetAgentId = previous?.agentId ?? agentId;
-    const body = { ...draft, requestId };
+    const body = { ...draft, requestId, agentId: targetAgentId };
     if (previous?.id) {
-      const path = targetAgentId
-        ? `/${encodeURIComponent(targetAgentId)}/tasks/${encodeURIComponent(previous.id)}`
-        : `/tasks/${encodeURIComponent(previous.id)}`;
-      return consoleFetch<TaskPlan>(path, {
+      return consoleFetch<TaskPlan>(`/tasks/${encodeURIComponent(previous.id)}`, {
         method: 'PUT',
         body,
       });
     }
-    const path = targetAgentId
-      ? `/${encodeURIComponent(targetAgentId)}/tasks`
-      : '/tasks';
-    return consoleFetch<TaskPlan>(path, {
+    return consoleFetch<TaskPlan>('/tasks', {
       method: 'POST',
       body,
     });
@@ -70,9 +62,7 @@ export const tasksApi = {
 
   delete: (planId: string, agentId?: string) =>
     consoleFetch<void>(
-      agentId
-        ? `/${encodeURIComponent(agentId)}/tasks/${encodeURIComponent(planId)}`
-        : `/tasks/${encodeURIComponent(planId)}`,
+      `/tasks/${encodeURIComponent(planId)}`,
       { method: 'DELETE' },
     ),
 
@@ -82,28 +72,23 @@ export const tasksApi = {
     value: Record<string, unknown> = {},
     expectedTask?: TaskIdentity | null,
   ) => {
-    const path = plan.agentId
-      ? `/${encodeURIComponent(plan.agentId)}/tasks/${encodeURIComponent(plan.id)}/${encodeURIComponent(operation)}`
-      : `/tasks/${encodeURIComponent(plan.id)}/${encodeURIComponent(operation)}`;
+    const path = `/tasks/${encodeURIComponent(plan.id)}/${encodeURIComponent(operation)}`;
     return consoleFetch(path, {
       method: 'POST',
       body: {
         ...value,
+        agentId: plan.agentId,
         expectedPlanRevision: plan.revision,
         expectedTask,
       },
     });
   },
 
-  reassign: (plan: TaskPlan, targetAgentId: string) => {
-    const path = plan.agentId
-      ? `/${encodeURIComponent(plan.agentId)}/tasks/${encodeURIComponent(plan.id)}/reassign`
-      : `/tasks/${encodeURIComponent(plan.id)}/reassign`;
-    return consoleFetch(path, {
+  reassign: (plan: TaskPlan, targetAgentId: string) =>
+    consoleFetch(`/tasks/${encodeURIComponent(plan.id)}/reassign`, {
       method: 'POST',
       body: { targetAgentId },
-    });
-  },
+    }),
 
   runs: (planId: string, offset = 0, signal?: AbortSignal) => {
     const qs = offset ? `?offset=${offset}` : '';

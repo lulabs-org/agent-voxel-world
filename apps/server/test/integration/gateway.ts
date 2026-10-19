@@ -283,9 +283,9 @@ try {
     { commandId: 'global-plan' },
   );
   const duplicatePlan = await http(
-    `/${first.id}/tasks`,
+    `/tasks`,
     'POST',
-    draft,
+    { ...draft, agentId: first.id },
     'global-plan',
   );
   assert.equal(duplicatePlan.status, 201);
@@ -318,7 +318,11 @@ try {
     ),
   );
   assert.equal(
-    (await http(`/${first.id}/tasks/${planned.id}/pause`, 'POST', {})).status,
+    (
+      await http(`/tasks/${planned.id}/pause`, 'POST', {
+        agentId: first.id,
+      })
+    ).status,
     409,
   );
   await other.request(

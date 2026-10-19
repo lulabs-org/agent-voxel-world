@@ -28,7 +28,7 @@ export interface TaskPort {
     metadata?: boolean,
   ): unknown;
   controlTaskRun(
-    agentId: string,
+    agentId: string | undefined,
     runId: string,
     operation: string,
     value: unknown,
@@ -90,7 +90,7 @@ export class TasksService {
   }
 
   controlRun(
-    agentId: string,
+    agentId: string | undefined,
     runId: string,
     operation: string,
     value: unknown,
