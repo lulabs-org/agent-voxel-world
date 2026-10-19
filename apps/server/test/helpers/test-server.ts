@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, type ServerOptions } from '../../src/server';
 import { readServerConfig } from '../../src/config';
-import { ProviderStore } from '../../src/modules/agent/provider-store';
+import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 import { AsrSettingsStore } from '../../src/modules/audio/asr/asr-settings';
 

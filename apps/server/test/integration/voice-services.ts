@@ -14,7 +14,7 @@ import type {
   VoiceServiceView,
 } from '@voxel/shared';
 import { AgentManager } from '../../src/modules/agent/manager';
-import { ProviderStore } from '../../src/modules/agent/provider-store';
+import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 import { validatePcmWav } from '../../src/modules/audio/asr/local-speech';
 

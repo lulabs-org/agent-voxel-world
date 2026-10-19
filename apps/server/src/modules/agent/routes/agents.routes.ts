@@ -1,16 +1,11 @@
-import type { Express, Request } from 'express';
-import type { AgentGateway } from '../../gateway/gateway';
-import { createRpcBinder } from '../../gateway/bind';
-
-const agent = (r: Request) => ({ agentId: String(r.params.id) });
-const value = (r: Request) => ({ ...agent(r), value: r.body ?? {} });
+import type { Express } from 'express';
+import type { AgentManager } from '../manager';
+import { asyncRoute as route } from '../../../common/middleware/async-route';
 
 /**
  * 安装 Agent 基础配置与生命周期控制相关 HTTP REST 路由
  */
-export function installAgentRoutes(app: Express, g: AgentGateway) {
-  const bind = createRpcBinder(app, g);
-
+export function installAgentRoutes(app: Express, manager: AgentManager) {
   // ---------------------------------------------------------------------------
   // Agent 基础与生命周期
   // ---------------------------------------------------------------------------
@@ -26,7 +21,12 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: Agent 列表
    */
-  bind('get', '/agents', 'agents.list');
+  app.get(
+    '/agents',
+    route((_req, res) => {
+      res.json(manager.publicList());
+    }),
+  );
 
   /**
    * @openapi
@@ -45,7 +45,14 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       201:
    *         description: Agent 创建成功
    */
-  bind('post', '/agents', 'agents.create', (r) => ({ value: r.body }), 201);
+  app.post(
+    '/agents',
+    route(async (req, res) => {
+      const result = await manager.create(req.body);
+      manager.gateway.events.publish('agents');
+      res.status(201).json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -70,7 +77,14 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 更新成功
    */
-  bind('put', '/agents/:id', 'agents.update', value);
+  app.put(
+    '/agents/:id',
+    route(async (req, res) => {
+      const result = await manager.update(String(req.params.id), req.body);
+      manager.gateway.events.publish('agents');
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -92,7 +106,14 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       409:
    *         description: Agent 正在更新
    */
-  bind('delete', '/agents/:id', 'agents.delete', agent, 204);
+  app.delete(
+    '/agents/:id',
+    route(async (req, res) => {
+      await manager.remove(String(req.params.id));
+      manager.gateway.events.publish('agents');
+      res.sendStatus(204);
+    }),
+  );
 
   /**
    * @openapi
@@ -111,7 +132,15 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 加入成功
    */
-  bind('post', '/agents/:id/join', 'agents.join', agent);
+  app.post(
+    '/agents/:id/join',
+    route(async (req, res) => {
+      const id = String(req.params.id);
+      const result = manager.join(id);
+      await manager.settled(id);
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -130,7 +159,15 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 停止成功
    */
-  bind('post', '/agents/:id/stop', 'agents.stop', agent);
+  app.post(
+    '/agents/:id/stop',
+    route(async (req, res) => {
+      const id = String(req.params.id);
+      const result = manager.stop(id);
+      await manager.settled(id);
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -155,7 +192,14 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 音色设置成功
    */
-  bind('post', '/agents/:id/voice', 'agents.voice', value);
+  app.post(
+    '/agents/:id/voice',
+    route(async (req, res) => {
+      const result = await manager.setVoice(String(req.params.id), req.body);
+      manager.gateway.events.publish('agents');
+      res.json(result);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // Agent 任务控制与即时任务
@@ -178,7 +222,12 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind('post', '/agents/:id/pause', 'tasks.pause', agent);
+  app.post(
+    '/agents/:id/pause',
+    route(async (req, res) => {
+      res.json(await manager.controlTask(String(req.params.id), 'pause'));
+    }),
+  );
 
   /**
    * @openapi
@@ -202,7 +251,12 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 恢复成功
    */
-  bind('post', '/agents/:id/resume', 'tasks.resume', value);
+  app.post(
+    '/agents/:id/resume',
+    route((req, res) => {
+      res.json(manager.resume(String(req.params.id), req.body ?? {}));
+    }),
+  );
 
   /**
    * @openapi
@@ -221,7 +275,12 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 操作成功
    */
-  bind('post', '/agents/:id/cancel', 'tasks.cancel', agent);
+  app.post(
+    '/agents/:id/cancel',
+    route(async (req, res) => {
+      res.json(await manager.controlTask(String(req.params.id), 'cancel'));
+    }),
+  );
 
   /**
    * @openapi
@@ -246,5 +305,10 @@ export function installAgentRoutes(app: Express, g: AgentGateway) {
    *       200:
    *         description: 任务分配成功
    */
-  bind('post', '/agents/:id/task', 'tasks.assign', value);
+  app.post(
+    '/agents/:id/task',
+    route(async (req, res) => {
+      res.json(await manager.assignTask(String(req.params.id), req.body ?? {}));
+    }),
+  );
 }

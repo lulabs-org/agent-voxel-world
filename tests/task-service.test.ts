@@ -11,7 +11,7 @@ import {
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { RequestBudget } from '../packages/agent-runtime/src/task/budget';
 import { readAgentArchive } from '../apps/server/src/modules/agent/agent-storage';
-import { ProviderStore } from '../apps/server/src/modules/agent/provider-store';
+import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 const config = agentConfig({ DEEPSEEK_API_KEY: 'fixture' });
 const operator = { kind: 'operator' as const };
 

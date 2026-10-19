@@ -11,7 +11,7 @@ import {
   repositoryRoot,
   readSpeechConfig,
 } from '../src/config/env';
-import { ProviderStore } from '../src/modules/agent/provider-store';
+import { ProviderStore } from '../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../src/modules/audio/tts/voice-services';
 import { AsrSettingsStore } from '../src/modules/audio/asr/asr-settings';
 import { whisperModelsDirectory } from '../src/modules/audio/asr/whisper-settings';

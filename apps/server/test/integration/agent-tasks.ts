@@ -6,7 +6,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AgentManager } from '../../src/modules/agent/manager';
-import { ProviderStore } from '../../src/modules/agent/provider-store';
+import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { Session, until, delay } from '@voxel/agent-runtime';
 
 import type { ManagedAgentView } from '@voxel/shared';
