@@ -1,4 +1,4 @@
-import { webOrigin } from '../../config/env';
+import { env } from '../../config/env';
 import { createOriginGuard } from '../../common/middleware/cors';
 import { errorHandler } from '../../common/middleware/error-handler';
 import express, { type Express } from 'express';
@@ -13,7 +13,7 @@ export function installChatRoutes(
   getChat: () => WorldChat | undefined,
   speech = new LocalSpeech(),
   getAgentSpeech: () => AgentSpeech | undefined = () => undefined,
-  origin = webOrigin(),
+  origin = env.webOrigin(),
 ) {
   app.use(
     '/chat',

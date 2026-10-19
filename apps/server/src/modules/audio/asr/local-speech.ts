@@ -1,5 +1,4 @@
-import { readSpeechConfig } from '../../../config/env';
-import { dataPath } from '../../../config/env';
+import { env } from '../../../config/env';
 import { SpeechError } from '../errors';
 import { speechEndpoint } from '../speech-endpoint';
 import type { WhisperAsrSettings } from '@voxel/shared';
@@ -51,7 +50,8 @@ const run: CommandRunner = async (file, args, signal, timeout) => {
 export async function executable(name: string) {
   const candidates = name.includes('/')
     ? [name]
-    : readSpeechConfig()
+    : env
+        .readSpeech()
         .path.split(delimiter)
         .map((dir) => join(dir, name));
   for (const path of candidates) {
@@ -111,15 +111,15 @@ export function validatePcmWav(wav: Buffer, maxSeconds = 20.5) {
 export class LocalSpeech {
   private busy = false;
   constructor(
-    private model = readSpeechConfig().whisperModel ??
-      dataPath('voice/ggml-base.bin'),
-    private whisper = readSpeechConfig().whisperBin ?? 'whisper-cli',
-    private ffmpeg = readSpeechConfig().ffmpegBin,
+    private model = env.readSpeech().whisperModel ??
+      env.dataPath('voice/ggml-base.bin'),
+    private whisper = env.readSpeech().whisperBin ?? 'whisper-cli',
+    private ffmpeg = env.readSpeech().ffmpegBin,
     private runner: CommandRunner = run,
-    private apiUrl = !readSpeechConfig().whisperApiUrl?.trim() &&
-    !readSpeechConfig().speechApiUrl?.trim() &&
-    (readSpeechConfig().whisperBin?.trim() ||
-      readSpeechConfig().whisperModel?.trim())
+    private apiUrl = !env.readSpeech().whisperApiUrl?.trim() &&
+    !env.readSpeech().speechApiUrl?.trim() &&
+    (env.readSpeech().whisperBin?.trim() ||
+      env.readSpeech().whisperModel?.trim())
       ? ''
       : speechEndpoint('whisper'),
     private fetcher: typeof fetch = fetch,

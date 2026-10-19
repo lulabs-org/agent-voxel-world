@@ -1,4 +1,4 @@
-import { databaseUrl } from '../../config/env';
+import { env } from '../../config/env';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
@@ -11,7 +11,7 @@ import {
 export class WorldStore {
   readonly mode: 'postgresql' | 'memory';
   private db?: PrismaClient;
-  constructor(connectionString = databaseUrl()) {
+  constructor(connectionString = env.databaseUrl()) {
     this.mode = connectionString ? 'postgresql' : 'memory';
     if (this.mode === 'postgresql') {
       const adapter = new PrismaPg({

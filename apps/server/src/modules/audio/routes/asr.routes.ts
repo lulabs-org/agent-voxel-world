@@ -1,4 +1,4 @@
-import { webOrigin } from '../../../config/env';
+import { env } from '../../../config/env';
 import { createOriginGuard } from '../../../common/middleware/cors';
 import { asyncRoute } from '../../../common/middleware/async-route';
 import { assertJsonBody } from '../../../common/middleware/json-body';
@@ -10,7 +10,7 @@ import { SpeechError } from '../errors';
 export function installAsrRoutes(
   app: Express,
   store: AsrSettingsStore,
-  origin = webOrigin(),
+  origin = env.webOrigin(),
   authenticatedManagement = false,
 ) {
   const guard = createOriginGuard({

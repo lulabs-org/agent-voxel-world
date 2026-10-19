@@ -5,12 +5,7 @@ import { Session, until } from '@voxel/agent-runtime';
 import { DEFAULT_BAILIAN_ASR } from '@voxel/shared';
 import { createTestServer } from './helpers/test-server';
 import { createServer } from '../src/server';
-import {
-  readServerConfig,
-  dataPath,
-  repositoryRoot,
-  readSpeechConfig,
-} from '../src/config/env';
+import { env } from '../src/config/env';
 import { ProviderStore } from '../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../src/modules/audio/tts/voice-services';
 import { AsrSettingsStore } from '../src/modules/audio/asr/asr-settings';
@@ -21,21 +16,23 @@ import { WorldStore } from '../src/modules/world/store';
 describe('server assembly and lifecycle', () => {
   it('keeps original data locations and validates deployment configuration without dotenv side effects', () => {
     expect(new ProviderStore().path).toBe(
-      join(repositoryRoot, '.data/agent-providers.json'),
+      join(env.root, '.data/agent-providers.json'),
     );
-    expect(new VoiceServiceStore().path).toBe(dataPath('voice-services.json'));
-    expect(new AsrSettingsStore().path).toBe(dataPath('asr-settings.json'));
-    expect(whisperModelsDirectory).toBe(dataPath('voice'));
-    expect(readServerConfig({})).toMatchObject({
+    expect(new VoiceServiceStore().path).toBe(
+      env.dataPath('voice-services.json'),
+    );
+    expect(new AsrSettingsStore().path).toBe(env.dataPath('asr-settings.json'));
+    expect(whisperModelsDirectory).toBe(env.dataPath('voice'));
+    expect(env.readServer({})).toMatchObject({
       port: 2567,
       host: '127.0.0.1',
       webOrigin: 'http://127.0.0.1:5173',
       databaseUrl: '',
     });
     expect(
-      readServerConfig({ PORT: '0', HOST: '0.0.0.0', WEB_ORIGIN: '*' }).port,
+      env.readServer({ PORT: '0', HOST: '0.0.0.0', WEB_ORIGIN: '*' }).port,
     ).toBe(0);
-    for (const env of [
+    for (const testEnv of [
       { PORT: 'no' },
       { PORT: '65536' },
       { PORT: '-1' },
@@ -43,9 +40,9 @@ describe('server assembly and lifecycle', () => {
       { WEB_ORIGIN: 'https://example.test/path' },
       { VOICE_PROVIDER: 'unknown' },
     ])
-      expect(() => readServerConfig(env)).toThrow();
+      expect(() => env.readServer(testEnv)).toThrow();
     expect(
-      readSpeechConfig({ WHISPER_API_URL: 'http://whisper:8000/v1' })
+      env.readSpeech({ WHISPER_API_URL: 'http://whisper:8000/v1' })
         .whisperApiUrl,
     ).toBe('http://whisper:8000/v1');
   });
@@ -185,7 +182,7 @@ describe('server assembly and lifecycle', () => {
   it('stops before listening or loading stores when database diagnostics fail', async () => {
     await expect(
       createServer({
-        config: readServerConfig({}),
+        config: env.readServer({}),
         databaseCheck: async () => {
           throw Error('database unavailable');
         },

@@ -1,4 +1,4 @@
-import { readVoiceConfig } from '../../../config/env';
+import { env } from '../../../config/env';
 export type VoiceState =
   | 'idle'
   | 'listening'
@@ -248,8 +248,8 @@ export class OllamaVoiceProvider implements VoiceProvider {
 }
 
 export function createVoiceProvider(
-  id = readVoiceConfig().provider,
-  config = readVoiceConfig(),
+  id = env.readVoice().provider,
+  config = env.readVoice(),
 ): VoiceProvider {
   switch (id) {
     case 'mock':

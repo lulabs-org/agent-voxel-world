@@ -1,4 +1,4 @@
-import { readRealtimeConfig } from '../../config/env';
+import { env } from '../../config/env';
 import {
   BailianSession,
   type BailianConfig,
@@ -12,7 +12,7 @@ export class RealtimeHub {
   constructor(
     private scene: (owner: string) => SceneAccess,
     private emit: (owner: string, event: RealtimeEvent) => void,
-    private config: () => BailianConfig = () => readRealtimeConfig(),
+    private config: () => BailianConfig = () => env.readRealtime(),
   ) {}
   handle(owner: string, type: string, payload: any) {
     if (type === 'realtime.start') {

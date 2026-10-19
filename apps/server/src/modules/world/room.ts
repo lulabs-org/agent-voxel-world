@@ -1,5 +1,5 @@
 import type { BailianConfig } from '../realtime/bailian-session';
-import { readRealtimeConfig } from '../../config/env';
+import { env } from '../../config/env';
 import { RealtimeHub } from '../realtime/hub';
 import { WorldChat } from '../chat/chat';
 import { AgentSpeech } from '../agent/speech';
@@ -67,7 +67,7 @@ export class WorldRoom extends Room<WorldState> {
   private seq = 0;
   private ownsActive = false;
   private voiceProvider!: VoiceProvider;
-  private realtimeConfig: () => BailianConfig = () => readRealtimeConfig();
+  private realtimeConfig: () => BailianConfig = () => env.readRealtime();
   private voices = new Map<string, VoiceSession>();
   private realtime = new RealtimeHub(
     (owner) => ({

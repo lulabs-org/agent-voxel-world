@@ -1,8 +1,8 @@
-import { loadEnvironment } from './config';
+import { env } from './config';
 import { createServer } from './server';
 
 try {
-  const config = loadEnvironment();
+  const config = env.load();
   const server = await createServer({ config });
   const url = (await server.listen()).replace(/^ws:/, 'http:');
   console.log(

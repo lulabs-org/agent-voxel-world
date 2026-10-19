@@ -1,4 +1,4 @@
-import { readProviderDefaults, dataPath } from '../../config/env';
+import { env } from '../../config/env';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -13,9 +13,9 @@ export class ProviderStore {
   private values: SavedProvider[] = [];
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(readonly path = dataPath('agent-providers.json')) {}
+  constructor(readonly path = env.dataPath('agent-providers.json')) {}
 
-  async load(env?: NodeJS.ProcessEnv) {
+  async load(envVars?: NodeJS.ProcessEnv) {
     try {
       const saved = JSON.parse(await readFile(this.path, 'utf8'));
       if (!Array.isArray(saved) || saved.length > 20) throw Error('invalid');
@@ -26,17 +26,15 @@ export class ProviderStore {
       });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new AppError(
-          '无法读取模型服务配置，请检查本地配置文件。',
-          500,
-        );
+        throw new AppError('无法读取模型服务配置，请检查本地配置文件。', 500);
+      const defaults = env.readProviders(envVars);
       this.values = [
         {
           ...validateProvider({
             name: 'DeepSeek',
             type: 'deepseek',
-            apiKey: readProviderDefaults(env).deepseekApiKey,
-            defaultModel: readProviderDefaults(env).deepseekModel,
+            apiKey: defaults.deepseekApiKey,
+            defaultModel: defaults.deepseekModel,
           }),
           id: 'deepseek',
         },
@@ -44,7 +42,7 @@ export class ProviderStore {
           ...validateProvider({
             name: '本机 Ollama',
             type: 'ollama',
-            defaultModel: readProviderDefaults(env).ollamaModel,
+            defaultModel: defaults.ollamaModel,
           }),
           id: 'ollama',
         },
