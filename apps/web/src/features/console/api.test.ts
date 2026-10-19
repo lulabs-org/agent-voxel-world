@@ -5,47 +5,88 @@ import { tasksApi } from './tasks/api';
 import { voiceApi } from './voice/api';
 import { initialAgent } from './agents/model';
 import { freshProvider } from './providers/model';
-const rpc = vi.hoisted(() => vi.fn());
+
 vi.mock('../../network/gateway', () => ({
-  gatewayRequest: rpc,
+  gatewayRequest: vi.fn(),
   adminHeaders: () => ({ Authorization: 'Bearer fixture-token' }),
 }));
+
 const http = vi.fn<typeof fetch>();
+
 beforeEach(() => {
-  vi.stubEnv('VITE_SERVER_URL', 'wss://world.example');
+  vi.stubEnv('VITE_SERVER_URL', 'https://world.example');
   vi.stubGlobal('fetch', http);
-  rpc.mockResolvedValue({});
+  http.mockImplementation(() => Promise.resolve(new Response('[]')));
 });
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
-  rpc.mockReset();
   http.mockReset();
 });
-it('routes queries through RPC preserving cancellation and identifiers', async () => {
+
+it('routes provider queries and mutations through HTTP REST endpoints', async () => {
   const signal = new AbortController().signal;
+  http.mockImplementation(() => Promise.resolve(new Response(JSON.stringify([]))));
+
   await providersApi.listProviders(signal);
-  await agentsApi.listAgents(signal);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/providers',
+    expect.objectContaining({
+      method: 'GET',
+      signal,
+      headers: expect.objectContaining({
+        Authorization: 'Bearer fixture-token',
+      }),
+    }),
+  );
+
   await providersApi.listModels('custom/provider', signal);
-  expect(rpc.mock.calls).toEqual([
-    ['providers.list', {}, signal, undefined],
-    ['agents.list', {}, signal, undefined],
-    ['providers.models', { providerId: 'custom/provider' }, signal, undefined],
-  ]);
-  expect(http).not.toHaveBeenCalled();
-});
-it('preserves provider settings and empty-key preservation across RPC', async () => {
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/providers/custom%2Fprovider/models',
+    expect.objectContaining({ method: 'GET', signal }),
+  );
+
   const value = freshProvider('compatible');
   await providersApi.saveProvider(value);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/providers',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(value),
+      headers: expect.objectContaining({
+        'Content-Type': 'application/json',
+      }),
+    }),
+  );
+
   await providersApi.saveProvider(value, 'custom');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/providers/custom',
+    expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify(value),
+    }),
+  );
+
+  http.mockResolvedValueOnce(new Response(null, { status: 204 }));
   await providersApi.deleteProvider('custom');
-  expect(rpc.mock.calls.map((c) => c.slice(0, 2))).toEqual([
-    ['providers.save', { value }],
-    ['providers.save', { providerId: 'custom', value }],
-    ['providers.delete', { providerId: 'custom' }],
-  ]);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/providers/custom',
+    expect.objectContaining({ method: 'DELETE' }),
+  );
 });
-it('keeps creation and update distinct and does not invent standby goals', async () => {
+
+it('routes agent operations through HTTP REST endpoints', async () => {
+  const signal = new AbortController().signal;
+  http.mockImplementation(() => Promise.resolve(new Response(JSON.stringify([]))));
+
+  await agentsApi.listAgents(signal);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents',
+    expect.objectContaining({ method: 'GET', signal }),
+  );
+
   const value = {
     ...initialAgent,
     name: 'Partner',
@@ -53,54 +94,123 @@ it('keeps creation and update distinct and does not invent standby goals', async
     startTask: false,
   };
   await agentsApi.saveAgent(value);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify(value),
+    }),
+  );
+
   await agentsApi.saveAgent(value, 'a');
-  expect(rpc.mock.calls.map((c) => c.slice(0, 2))).toEqual([
-    ['agents.create', { value }],
-    ['agents.update', { agentId: 'a', value }],
-  ]);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/a',
+    expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify(value),
+    }),
+  );
+
+  await agentsApi.joinAgent('a');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/a/join',
+    expect.objectContaining({ method: 'POST', body: '{}' }),
+  );
+
+  await agentsApi.stopAgent('a');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/a/stop',
+    expect.objectContaining({ method: 'POST', body: '{}' }),
+  );
+
+  http.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  await agentsApi.deleteAgent('a');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/a',
+    expect.objectContaining({ method: 'DELETE' }),
+  );
+
+  await agentsApi.setVoiceReplies('a', false);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/a/voice',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ enabled: false }),
+    }),
+  );
 });
-it('uses global plan identities and explicit revisions without nested HTTP paths', async () => {
+
+it('routes task plan queries and controls through HTTP REST endpoints', async () => {
   const identity = { id: 'task', revision: 2, startedAt: 42 };
+  http.mockImplementation(() =>
+    Promise.resolve(new Response(JSON.stringify({ items: [], total: 0 }))),
+  );
+
   await tasksApi.list({ state: 'unassigned', offset: 20 });
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/tasks?state=unassigned&offset=20',
+    expect.objectContaining({ method: 'GET' }),
+  );
+
+  await tasksApi.get('plan-123');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/tasks/plan-123',
+    expect.objectContaining({ method: 'GET' }),
+  );
+
   await tasksApi.runs('p', 20);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/tasks/p/runs?offset=20',
+    expect.objectContaining({ method: 'GET' }),
+  );
+
   await tasksApi.control(
-    { id: 'p', revision: 3 } as any,
+    { id: 'p', agentId: 'agent-1', revision: 3 } as any,
     'run',
     { requestId: 'stable' },
     identity,
   );
-  await tasksApi.reassign({ id: 'p', revision: 3 } as any, 'b');
-  expect(rpc.mock.calls[0][1]).toEqual({ state: 'unassigned', offset: 20 });
-  expect(rpc.mock.calls[1][1]).toEqual({ planId: 'p', offset: 20 });
-  expect(rpc.mock.calls[2][1]).toMatchObject({
-    planId: 'p',
-    expectedPlanRevision: 3,
-    expectedTask: identity,
-  });
-  expect(rpc.mock.calls[3][1]).toEqual({
-    planId: 'p',
-    expectedPlanRevision: 3,
-    targetAgentId: 'b',
-  });
-  expect(http).not.toHaveBeenCalled();
-});
-it.each([
-  ['agents.join', () => agentsApi.joinAgent('a')],
-  ['agents.stop', () => agentsApi.stopAgent('a')],
-  ['agents.voice', () => agentsApi.setVoiceReplies('a', false)],
-] as const)('routes %s without HTTP fallback', async (method, action) => {
-  await action();
-  expect(rpc.mock.calls[0][0]).toBe(method);
-  expect(rpc.mock.calls[0][1].agentId).toBe('a');
-  expect(http).not.toHaveBeenCalled();
-});
-it('surfaces RPC rejection without issuing a second write through HTTP', async () => {
-  rpc.mockRejectedValueOnce(Error('请先暂停任务'));
-  await expect(agentsApi.saveAgent(initialAgent, 'busy')).rejects.toThrow(
-    '请先暂停任务',
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/agent-1/tasks/p/run',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        requestId: 'stable',
+        expectedPlanRevision: 3,
+        expectedTask: identity,
+      }),
+    }),
   );
-  expect(http).not.toHaveBeenCalled();
+
+  await tasksApi.reassign(
+    { id: 'p', agentId: 'agent-1', revision: 3 } as any,
+    'agent-2',
+  );
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/agent-1/tasks/p/reassign',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ targetAgentId: 'agent-2' }),
+    }),
+  );
+
+  http.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  await tasksApi.delete('p', 'agent-1');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/agent-1/tasks/p',
+    expect.objectContaining({ method: 'DELETE' }),
+  );
+
+  await tasksApi.controlRun('run-99', 'resume', {}, identity);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/agents/task-runs/run-99/resume',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ expectedTask: identity }),
+    }),
+  );
 });
+
 it('retains authenticated HTTP voice management and actionable HTTP errors', async () => {
   const signal = new AbortController().signal;
   http.mockResolvedValueOnce(new Response('[]'));
@@ -114,16 +224,9 @@ it('retains authenticated HTTP voice management and actionable HTTP errors', asy
       }),
     }),
   );
+
   http.mockResolvedValueOnce(
     new Response(JSON.stringify({ error: '音色不可用' }), { status: 503 }),
   );
   await expect(voiceApi.listPiperModels(signal)).rejects.toThrow('音色不可用');
-});
-
-it('binds controls to the task identity displayed to the user', async () => {
-  const identity = { id: 'original-task', revision: 3, startedAt: 42 };
-  await tasksApi.controlRun('r', 'resume', {}, identity);
-  await tasksApi.control({ id: 'p', revision: 3 } as any, 'run', {}, identity);
-  for (const call of rpc.mock.calls)
-    expect(call[1].expectedTask).toEqual(identity);
 });

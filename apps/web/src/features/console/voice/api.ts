@@ -6,32 +6,34 @@ import type {
 } from '@voxel/shared';
 import { serverHttpUrl } from '../../../network/endpoints';
 import { readAgentResponse } from '../agent-response';
-import { request } from '../request';
+import { consoleFetch } from '../request';
+
 export const voiceApi = {
   listPiperModels: (signal?: AbortSignal) =>
-    request<PiperModelView[]>(
-      '/voice-services/piper/models',
-      'GET',
-      undefined,
-      signal,
-    ),
+    consoleFetch<PiperModelView[]>('/voice-services/piper/models', { signal }),
   installPiperModel: (model: string, signal?: AbortSignal) =>
-    request<{ model: string; state: 'installing' }>(
+    consoleFetch<{ model: string; state: 'installing' }>(
       '/voice-services/piper/install',
-      'POST',
-      { model },
-      signal,
+      {
+        method: 'POST',
+        body: { model },
+        signal,
+      },
     ),
   listVoiceServices: (signal?: AbortSignal) =>
-    request<VoiceServiceView[]>('/voice-services', 'GET', undefined, signal),
+    consoleFetch<VoiceServiceView[]>('/voice-services', { signal }),
   saveVoiceService: (draft: VoiceServiceDraft, id?: string) =>
-    request<VoiceServiceView>(
+    consoleFetch<VoiceServiceView>(
       id ? `/voice-services/${encodeURIComponent(id)}` : '/voice-services',
-      id ? 'PUT' : 'POST',
-      draft,
+      {
+        method: id ? 'PUT' : 'POST',
+        body: draft,
+      },
     ),
   deleteVoiceService: (id: string) =>
-    request<void>(`/voice-services/${encodeURIComponent(id)}`, 'DELETE'),
+    consoleFetch<void>(`/voice-services/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
   previewVoice: async (id: string, text: string, signal: AbortSignal) => {
     const response = await fetch(
       `${serverHttpUrl()}/agents/voice-services/${encodeURIComponent(id)}/preview`,

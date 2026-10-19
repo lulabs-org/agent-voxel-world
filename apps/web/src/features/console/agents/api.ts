@@ -1,8 +1,9 @@
 import type { AgentSettings, ManagedAgentView } from '@voxel/shared';
-import { agentPath, request } from '../request';
+import { consoleFetch } from '../request';
+
 export const agentsApi = {
   listAgents: (signal?: AbortSignal) =>
-    request<ManagedAgentView[]>('', 'GET', undefined, signal),
+    consoleFetch<ManagedAgentView[]>('', { signal }),
   saveAgent: (
     settings: Partial<AgentSettings> & {
       startTask?: boolean;
@@ -10,14 +11,27 @@ export const agentsApi = {
     },
     id?: string,
   ) =>
-    request<ManagedAgentView>(
-      id ? agentPath(id) : '',
-      id ? 'PUT' : 'POST',
-      settings,
-    ),
-  joinAgent: (id: string) => request<void>(`${agentPath(id)}/join`, 'POST', {}),
-  stopAgent: (id: string) => request<void>(`${agentPath(id)}/stop`, 'POST', {}),
-  deleteAgent: (id: string) => request<void>(agentPath(id), 'DELETE'),
+    consoleFetch<ManagedAgentView>(id ? `/${encodeURIComponent(id)}` : '', {
+      method: id ? 'PUT' : 'POST',
+      body: settings,
+    }),
+  joinAgent: (id: string) =>
+    consoleFetch<void>(`/${encodeURIComponent(id)}/join`, {
+      method: 'POST',
+      body: {},
+    }),
+  stopAgent: (id: string) =>
+    consoleFetch<void>(`/${encodeURIComponent(id)}/stop`, {
+      method: 'POST',
+      body: {},
+    }),
+  deleteAgent: (id: string) =>
+    consoleFetch<void>(`/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
   setVoiceReplies: (id: string, enabled: boolean) =>
-    request<ManagedAgentView>(`${agentPath(id)}/voice`, 'POST', { enabled }),
+    consoleFetch<ManagedAgentView>(`/${encodeURIComponent(id)}/voice`, {
+      method: 'POST',
+      body: { enabled },
+    }),
 };
