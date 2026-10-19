@@ -1,12 +1,11 @@
 import type { RpcParams } from '@voxel/gateway-protocol';
+import type { PlanQueryFilter } from './task-types';
 
-export interface TasksManagerPort {
-  planPage(params: {
-    state?: RpcParams['state'];
-    offset?: number;
-    search?: string;
-    agentId?: string;
-  }): unknown;
+/**
+ * Tasks / Plans 领域的管理接口契约（由 AgentManager / TaskStore 实现）
+ */
+export interface TaskPort {
+  planPage(params: PlanQueryFilter): unknown;
   publicPlans(agentId?: string): unknown;
   publicPlan(planId: string): unknown;
   createTaskPlan(agentId: string, value: unknown): Promise<unknown>;
@@ -35,20 +34,16 @@ export interface TasksManagerPort {
     value: unknown,
   ): Promise<unknown>;
 }
-export type TaskPort = TasksManagerPort;
+
+export type TasksManagerPort = TaskPort;
 
 /**
- * Tasks / Plans 领域的业务服务封装
+ * Tasks 业务服务封装（兼容适配器）
  */
 export class TasksService {
-  constructor(private readonly manager: TasksManagerPort) {}
+  constructor(private readonly manager: TaskPort) {}
 
-  listGlobalPlans(params: {
-    state?: RpcParams['state'];
-    offset?: number;
-    search?: string;
-    agentId?: string;
-  }) {
+  listGlobalPlans(params: PlanQueryFilter) {
     return this.manager.planPage(params);
   }
 

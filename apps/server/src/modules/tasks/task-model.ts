@@ -1,36 +1,34 @@
-import { AppError } from '../../common/errors';
-import { nextOccurrence } from '@voxel/shared';
-export { nextOccurrence, wallClockInstant } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
 import {
-  DEFAULT_TASK_LIMITS,
+  nextOccurrence,
   type TaskPlanDraft,
   type TaskPlan,
   type TaskRun,
-  type TaskTiming,
 } from '@voxel/shared';
-import type { AgentRunState } from '@voxel/agent-runtime';
+import type { StoredRun, TaskBook } from './task-types';
 
-export type StoredRun = TaskRun & {
-  runtime?: AgentRunState;
-  accountedTokens: number;
-  requestId?: string;
-  lastBatch?: string;
-};
-export type TaskBook = {
-  version: 1;
-  plans: TaskPlan[];
-  runs: StoredRun[];
-  currentRunId?: string;
-  requests?: Record<string, string>;
-};
+export { nextOccurrence, wallClockInstant } from '@voxel/shared';
+export { validatePlan } from './task-validation';
+export type { StoredRun, TaskBook } from './task-types';
+
+/**
+ * 创建空的持久化任务簿
+ */
 export const emptyTaskBook = (): TaskBook => ({
   version: 1,
   plans: [],
   runs: [],
 });
-export const endedRun = (r: Pick<TaskRun, 'status'>) =>
+
+/**
+ * 判断指定运行是否已经结束（不再处于活跃/待命状态）
+ */
+export const endedRun = (r: Pick<TaskRun, 'status'>): boolean =>
   ['completed', 'cancelled', 'missed', 'skipped'].includes(r.status);
+
+/**
+ * 转换并提取向客户端展示的公共 TaskRun 视图（剔除敏感及运行时内部字段）
+ */
 export function runView(run: StoredRun): TaskRun {
   const { runtime, accountedTokens, requestId, lastBatch, ...view } = run;
   return structuredClone({
@@ -38,6 +36,10 @@ export function runView(run: StoredRun): TaskRun {
     requiresReassignment: runtime?.audienceExpired,
   });
 }
+
+/**
+ * 提取纯净的任务草稿配置（用于快照保存或版本对比）
+ */
 export function planDraft(plan: TaskPlanDraft): TaskPlanDraft {
   const { name, goal, timing, timeZone, limits, totalTokenBudget } = plan;
   return structuredClone({
@@ -49,112 +51,10 @@ export function planDraft(plan: TaskPlanDraft): TaskPlanDraft {
     totalTokenBudget,
   });
 }
-function integer(value: unknown, fallback: number, min: number, max: number) {
-  const n = value ?? fallback;
-  if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < min || n > max)
-    throw new AppError(`数值须在 ${min}–${max} 之间。`);
-  return n;
-}
-export function validatePlan(
-  value: unknown,
-  now = Date.now(),
-  previous?: TaskPlan,
-): TaskPlanDraft {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new AppError('任务格式无效。');
-  const v = { ...previous, ...value } as TaskPlanDraft;
-  if (typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80)
-    throw new AppError('请填写 80 字以内的任务名称。');
-  if (typeof v.goal !== 'string' || !v.goal.trim() || v.goal.length > 2000)
-    throw new AppError('请填写 2000 字以内的任务目标。');
-  if (typeof v.timeZone !== 'string' || v.timeZone.length > 100)
-    throw new AppError('请选择有效时区。');
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: v.timeZone }).format();
-  } catch {
-    throw new AppError('请选择有效时区。');
-  }
-  const t = v.timing;
-  if (!t || typeof t !== 'object') throw new AppError('执行方式无效。');
-  let timing: TaskTiming;
-  switch (t.kind) {
-    case 'immediate':
-      timing = { kind: t.kind };
-      break;
-    case 'once':
-      integer(t.at, 0, 1, 8640000000000000);
-      if (
-        t.at <= now &&
-        (previous?.timing.kind !== 'once' || previous.timing.at !== t.at)
-      )
-        throw new AppError('执行时间必须在将来。');
-      timing = { kind: t.kind, at: t.at };
-      break;
-    case 'interval':
-      timing = {
-        kind: t.kind,
-        everyMs: integer(t.everyMs, 60000, 60000, 31 * 86400000),
-      };
-      break;
-    case 'daily':
-    case 'weekly':
-      if (
-        typeof t.time !== 'string' ||
-        !/^([01]\d|2[0-3]):[0-5]\d$/.test(t.time)
-      )
-        throw new AppError('时间格式应为 HH:mm。');
-      if (t.kind === 'weekly') {
-        if (
-          !Array.isArray(t.weekdays) ||
-          !t.weekdays.length ||
-          t.weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)
-        )
-          throw new AppError('请选择星期。');
-        timing = {
-          kind: t.kind,
-          time: t.time,
-          weekdays: [...new Set(t.weekdays)].sort(),
-        };
-      } else timing = { kind: t.kind, time: t.time };
-      break;
-    default:
-      throw new AppError('执行方式无效。');
-  }
-  if (v.limits?.enabled !== undefined && typeof v.limits.enabled !== 'boolean')
-    throw new AppError('执行限制开关必须为布尔值。');
-  // Hidden fields do not prevent saving an unlimited task; retain valid values for later use.
-  const quota = (value: unknown, fallback: number, min: number, max: number) =>
-    v.limits?.enabled === false &&
-    (typeof value !== 'number' ||
-      !Number.isInteger(value) ||
-      value < min ||
-      value > max)
-      ? fallback
-      : integer(value, fallback, min, max);
-  return {
-    name: v.name.trim(),
-    goal: v.goal.trim(),
-    timing,
-    timeZone: v.timeZone,
-    limits: {
-      enabled: v.limits?.enabled !== false,
-      maxTurns: quota(v.limits?.maxTurns, DEFAULT_TASK_LIMITS.maxTurns, 1, 200),
-      tokenBudget: quota(
-        v.limits?.tokenBudget,
-        DEFAULT_TASK_LIMITS.tokenBudget,
-        1000,
-        1000000,
-      ),
-      taskTimeoutMs: quota(
-        v.limits?.taskTimeoutMs,
-        DEFAULT_TASK_LIMITS.taskTimeoutMs,
-        60000,
-        7200000,
-      ),
-    },
-    totalTokenBudget: quota(v.totalTokenBudget, 500000, 1000, 1000000000),
-  };
-}
+
+/**
+ * 基于草稿创建全新任务计划实体
+ */
 export function newPlan(draft: TaskPlanDraft, now: number): TaskPlan {
   const plan: TaskPlan = {
     ...planDraft(draft),
@@ -169,6 +69,10 @@ export function newPlan(draft: TaskPlanDraft, now: number): TaskPlan {
   plan.nextRunAt = nextOccurrence(plan, now);
   return plan;
 }
+
+/**
+ * 基于任务计划创建新的执行记录实体
+ */
 export function newRun(
   plan: TaskPlan,
   at: number,
@@ -190,7 +94,11 @@ export function newRun(
     logs: [],
   };
 }
-export function duePlans(book: Pick<TaskBook, 'plans'>, now: number) {
+
+/**
+ * 查询任务簿中到期且待触发的任务计划，按下次执行时间与创建时间升序排列
+ */
+export function duePlans(book: Pick<TaskBook, 'plans'>, now: number): TaskPlan[] {
   return book.plans
     .filter(
       (p) =>
