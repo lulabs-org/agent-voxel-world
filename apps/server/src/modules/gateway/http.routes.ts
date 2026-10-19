@@ -1,5 +1,5 @@
 import express, { type Express, type Request, type Response } from 'express';
-import type { AgentGateway } from '@voxel/agent-gateway';
+import type { AgentGateway } from './gateway';
 import type { AgentManager } from '../agent/manager';
 import { SpeechError } from '../audio/errors';
 import { installVoiceServiceRoutes } from '../audio/routes/voice-services.routes';

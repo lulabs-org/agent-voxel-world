@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CommandRouter, AgentGateway } from '@voxel/agent-gateway';
+import { CommandRouter, AgentGateway } from '../apps/server/src/modules/gateway';
 import { AgentOrchestrator } from '@voxel/agent-orchestrator';
 import {
   parseConnect,
@@ -236,21 +236,13 @@ it('keeps protocol/client browser safe and hosted core independent of applicatio
           : [],
     );
   }
-  for (const pkg of ['agent-gateway', 'gateway-protocol', 'gateway-client'])
+  for (const pkg of ['gateway-protocol', 'gateway-client'])
     for (const file of files(`packages/${pkg}/src`)) {
       const s = readFileSync(file, 'utf8');
       expect(s, file).not.toMatch(/from ['"].*(?:apps\/|express|['"]ws['"])/);
-      if (
-        file.endsWith('/plans/service.ts') ||
-        file.endsWith('/plans/scheduler.ts')
-      )
-        expect(s, file).not.toMatch(
-          /from ['"](?:@earendil|@voxel\/agent-runtime|.*executor|.*gateway)/,
-        );
-      if (pkg !== 'agent-gateway')
-        expect(s, file).not.toMatch(
-          /from ['"](?:node:|@earendil|@voxel\/agent-runtime)/,
-        );
+      expect(s, file).not.toMatch(
+        /from ['"](?:node:|@earendil|@voxel\/agent-runtime)/,
+      );
     }
 });
 

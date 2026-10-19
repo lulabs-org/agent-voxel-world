@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type WebSocket from 'ws';
 import type { IncomingMessage } from 'node:http';
-import type { AgentGateway } from '@voxel/agent-gateway';
+import type { AgentGateway } from './gateway';
 import {
   parseConnect,
   parseRequest,

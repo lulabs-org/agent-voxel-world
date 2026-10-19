@@ -5,10 +5,16 @@ import {
   type RpcMethod,
   type RpcParams,
 } from '@voxel/gateway-protocol';
-import type { AgentGateway } from './gateway';
+import type { GatewayTarget } from './target';
+import type { CommandRouter } from './command-router';
+
+export type DispatchGateway = GatewayTarget & {
+  commands: CommandRouter;
+};
+
 /** Both legacy HTTP and RPC use this command boundary. Internal player authority stays separate. */
 export async function invokeGateway(
-  g: AgentGateway,
+  g: DispatchGateway,
   method: RpcMethod,
   p: RpcParams,
   id?: string,

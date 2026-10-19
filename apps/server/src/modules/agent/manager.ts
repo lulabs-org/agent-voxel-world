@@ -2,7 +2,7 @@ import {
   AgentOrchestrator,
   type GatewayDependencies,
 } from '@voxel/agent-orchestrator';
-import { AgentGateway } from '@voxel/agent-gateway';
+import { AgentGateway } from '../gateway/gateway';
 import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
 import { ProviderStore } from './provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';

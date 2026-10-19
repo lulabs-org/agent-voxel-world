@@ -48,7 +48,6 @@
     "vitest": "^3.2.4",
     "@voxel/agent-runtime": "workspace:*",
     "@voxel/agent-orchestrator": "workspace:*",
-    "@voxel/agent-gateway": "workspace:*",
     "@voxel/gateway-protocol": "workspace:*",
     "@voxel/gateway-client": "workspace:*"
   }
