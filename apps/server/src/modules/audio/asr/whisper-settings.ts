@@ -1,10 +1,10 @@
-import { dataPath } from '../../../config/env';
+import { env } from '../../../config/env';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { WhisperAsrSettings } from '@voxel/shared';
 import { SpeechError } from '../errors';
 
-export const whisperModelsDirectory = dataPath('voice/');
+export const whisperModelsDirectory = env.dataPath('voice/');
 const modelName = /^ggml-[a-zA-Z0-9][a-zA-Z0-9._-]{0,90}\.bin$/;
 export function whisperModelPath(model: string, fallback: string) {
   if (model === 'default') return fallback;

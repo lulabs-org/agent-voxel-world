@@ -1,4 +1,4 @@
-import { dataPath } from '../../../config/env';
+import { env } from '../../../config/env';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -101,7 +101,7 @@ export class AsrSettingsStore {
   private queue: Promise<unknown> = Promise.resolve();
   private active = new Map<string, number>();
   private deleting = new Set<string>();
-  constructor(readonly path = dataPath('asr-settings.json')) {}
+  constructor(readonly path = env.dataPath('asr-settings.json')) {}
   async load() {
     try {
       const saved = JSON.parse(await readFile(this.path, 'utf8'));

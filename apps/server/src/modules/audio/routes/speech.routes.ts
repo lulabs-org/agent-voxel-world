@@ -1,4 +1,4 @@
-import { webOrigin } from '../../../config/env';
+import { env } from '../../../config/env';
 import { createOriginGuard } from '../../../common/middleware/cors';
 import { errorHandler } from '../../../common/middleware/error-handler';
 import { AsrSettingsStore } from '../asr/asr-settings';
@@ -13,7 +13,7 @@ export function installSpeechRoutes(
   app: Express,
   speech = new LocalSpeech(),
   asrSettings = new AsrSettingsStore(),
-  origin = webOrigin(),
+  origin = env.webOrigin(),
 ) {
   app.use(
     '/voice',

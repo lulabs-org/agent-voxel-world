@@ -1,4 +1,4 @@
-import { dataPath } from '../../../config/env';
+import { env } from '../../../config/env';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -122,7 +122,7 @@ export class VoiceServiceStore {
   private listeners = new Set<(actor: string) => void>();
   private running = 0;
   constructor(
-    readonly path = dataPath('voice-services.json'),
+    readonly path = env.dataPath('voice-services.json'),
     private factory: (value: SavedVoice) => SpeechSynthesizer = (value) =>
       value.type === 'piper' ? new PiperTts(value) : new RemoteTts(value),
   ) {}

@@ -1,6 +1,6 @@
 import type WebSocket from 'ws';
 import type { IncomingMessage } from 'node:http';
-import { webOrigin } from '../config/env';
+import { env } from '../config/env';
 import { originAllowed } from '../common/middleware/cors';
 import type { Server } from 'node:http';
 import { WebSocketTransport } from '@colyseus/ws-transport';
@@ -16,7 +16,7 @@ export class AsrWebSocketTransport extends WebSocketTransport {
     server: Server,
     store: AsrSettingsStore,
     bridge = bridgeBailianAsr,
-    origin = webOrigin(),
+    origin = env.webOrigin(),
     gateway?: (socket: WebSocket, req: IncomingMessage) => void,
   ) {
     super({ server, maxPayload: 32768 });

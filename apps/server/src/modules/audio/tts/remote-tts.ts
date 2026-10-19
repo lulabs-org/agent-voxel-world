@@ -1,4 +1,4 @@
-import { readSpeechConfig } from '../../../config/env';
+import { env } from '../../../config/env';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -82,7 +82,7 @@ export async function normalizeSpeech(bytes: Buffer, signal: AbortSignal) {
       output = join(dir, 'output.wav');
     await writeFile(input, bytes, { mode: 0o600 });
     await exec(
-      readSpeechConfig().ffmpegBin,
+      env.readSpeech().ffmpegBin,
       [
         '-nostdin',
         '-v',

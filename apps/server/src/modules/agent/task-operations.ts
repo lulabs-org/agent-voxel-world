@@ -4,7 +4,7 @@ import {
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
-import { endedRun, newRun, nextOccurrence, runView } from '../tasks';
+import { endedRun, newRun, runView } from '../tasks';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import { object } from '../../common/validation';
 import { taskLimits, validateAgent } from './agent-validation';
@@ -74,13 +74,13 @@ export function captureTask(job: Job) {
   run.accountedTokens = task.tokens;
   const batch = job.memory.previous as
     | {
-        batchId?: string;
-        results?: {
-          action?: { type?: string };
-          status?: string;
-          result?: unknown;
-        }[];
-      }
+      batchId?: string;
+      results?: {
+        action?: { type?: string };
+        status?: string;
+        result?: unknown;
+      }[];
+    }
     | undefined;
   if (
     Array.isArray(batch?.results) &&
@@ -116,7 +116,7 @@ export function captureTask(job: Job) {
   run.startedAt ??= task.startedAt;
   run.status =
     job.view.status === 'failed' &&
-    !['completed', 'cancelled', 'budget'].includes(task.status)
+      !['completed', 'cancelled', 'budget'].includes(task.status)
       ? 'failed'
       : task.status;
   run.reason =
@@ -407,10 +407,10 @@ export async function executeTaskRunControl(
           ...settings,
           ...(!enabled
             ? {
-                maxTurns: Infinity,
-                tokenBudget: Infinity,
-                taskTimeoutMs: Infinity,
-              }
+              maxTurns: Infinity,
+              tokenBudget: Infinity,
+              taskTimeoutMs: Infinity,
+            }
             : {}),
           apiKey: '',
         },

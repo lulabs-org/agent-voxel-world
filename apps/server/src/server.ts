@@ -5,7 +5,7 @@ import { createServer as createHttpServer } from 'node:http';
 import type { AddressInfo, Socket } from 'node:net';
 import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
-import { readServerConfig, type ServerConfig } from './config';
+import { env, type ServerConfig } from './config';
 import { AgentManager } from './modules/agent/manager';
 import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
@@ -31,7 +31,7 @@ export type ServerOptions = {
 
 /** Owns one world's resources. Both production and tests use this lifecycle. */
 export async function createServer(options: ServerOptions = {}) {
-  const config = options.config ?? readServerConfig();
+  const config = options.config ?? env.readServer();
   await (options.databaseCheck ?? checkStartupDatabase)(config.databaseUrl);
   const gatewayAuth = await GatewayAuth.load(config.gateway);
   const gatewayEpoch = randomUUID();

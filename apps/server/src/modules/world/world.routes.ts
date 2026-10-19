@@ -1,4 +1,4 @@
-import { webOrigin } from '../../config/env';
+import { env } from '../../config/env';
 import { originAllowed } from '../../common/middleware/cors';
 import type { Express } from 'express';
 import type { WorldPresence } from '@voxel/shared';
@@ -31,7 +31,7 @@ export function installWorldRoutes(app: Express, getRoomId: () => string) {
 export function installPresenceRoutes(
   app: Express,
   read: () => WorldPresence | undefined,
-  allowed = webOrigin(),
+  allowed = env.webOrigin(),
 ) {
   /**
    * @openapi

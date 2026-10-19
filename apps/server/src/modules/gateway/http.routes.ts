@@ -9,7 +9,7 @@ import { installTaskRoutes } from '../tasks/tasks.routes';
 import { createOriginGuard } from '../../common/middleware/cors';
 import { requireJsonBody } from '../../common/middleware/json-body';
 import { errorHandler } from '../../common/middleware/error-handler';
-import { webOrigin } from '../../config/env';
+import { env } from '../../config/env';
 import { identifier, publicError } from '@voxel/gateway-protocol';
 
 /**
@@ -31,7 +31,7 @@ export function installGatewayHttp(
 export function installGatewayRoutes(
   app: Express,
   manager: AgentManager,
-  origin = webOrigin(),
+  origin = env.webOrigin(),
   authenticated = false,
 ) {
   app.use(
@@ -39,15 +39,15 @@ export function installGatewayRoutes(
     ...(authenticated
       ? []
       : [
-        createOriginGuard({
-          origin,
-          message: '仅允许配置的本机游戏页面管理 Agent。',
-          vary: true,
-          alwaysHeader: true,
-          cacheControl: 'no-store',
-          methods: 'GET, POST, PUT, DELETE, OPTIONS',
-        }),
-      ]),
+          createOriginGuard({
+            origin,
+            message: '仅允许配置的本机游戏页面管理 Agent。',
+            vary: true,
+            alwaysHeader: true,
+            cacheControl: 'no-store',
+            methods: 'GET, POST, PUT, DELETE, OPTIONS',
+          }),
+        ]),
     (req, res, next) => {
       const key = req.header('Idempotency-Key');
       if (key !== undefined && !identifier(key)) {

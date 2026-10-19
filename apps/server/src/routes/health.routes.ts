@@ -1,4 +1,4 @@
-import { readServerConfig, type ServerConfig } from '../config/env';
+import { env, type ServerConfig } from '../config/env';
 import type { Express } from 'express';
 
 /**
@@ -36,7 +36,7 @@ import type { Express } from 'express';
  */
 export function installHealthRoutes(
   app: Express,
-  config: ServerConfig = readServerConfig(),
+  config: ServerConfig = env.readServer(),
 ) {
   app.get('/health', (_req, res) =>
     res.json({

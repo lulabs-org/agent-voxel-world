@@ -2,82 +2,129 @@ import { config as dotenv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
-export const repositoryRoot = fileURLToPath(
-  new URL('../../../../', import.meta.url),
-);
-export const dataPath = (name: string) =>
+// ---------------------------------------------------------------------------
+// 1. Types & Internal Constants
+// ---------------------------------------------------------------------------
+
+export type EnvLookup = Record<string, string | undefined>;
+
+const DEFAULT_PORT = 2567;
+const DEFAULT_HOST = '127.0.0.1';
+const DEFAULT_WEB_ORIGIN = 'http://127.0.0.1:5173';
+const DEFAULT_GATEWAY_ORIGINS = [
+  'http://localhost',
+  'http://127.0.0.1',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+] as const;
+
+const VALID_VOICE_PROVIDERS = ['mock', 'browser', 'ollama'] as const;
+type VoiceProvider = (typeof VALID_VOICE_PROVIDERS)[number];
+
+const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url));
+
+const dataPath = (name: string): string =>
   resolve(repositoryRoot, '.data', name);
-/** Only the executable entrypoint loads dotenv. Importing app/server has no environment side effects. */
-export function loadEnvironment() {
-  dotenv({ path: resolve(repositoryRoot, '.env') });
-  return readServerConfig();
-}
-export function webOrigin(env = process.env) {
-  return env.WEB_ORIGIN ?? 'http://127.0.0.1:5173';
-}
-export function readServerConfig(env = process.env) {
-  const port = Number(env.PORT ?? 2567);
-  if (!Number.isInteger(port) || port < 0 || port > 65535)
-    throw Error('PORT 必须是 0..65535 的整数。');
-  const host = env.HOST ?? '127.0.0.1';
-  if (!host.trim() || /\s|[/?#]/.test(host))
-    throw Error('HOST 必须是有效的监听主机名或地址。');
-  const origin = webOrigin(env);
-  if (origin !== '*') {
-    try {
-      const url = new URL(origin);
-      if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin)
-        throw Error();
-    } catch {
-      throw Error('WEB_ORIGIN 必须是 HTTP(S) Origin 或 *。');
-    }
+
+// ---------------------------------------------------------------------------
+// 2. Parsers & Validation Helpers (Internal)
+// ---------------------------------------------------------------------------
+
+function isValidHttpOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.origin === origin
+    );
+  } catch {
+    return false;
   }
-  const gatewayOrigins = (
-    env.AGENT_GATEWAY_ALLOWED_ORIGINS ??
-    (origin !== '*'
-      ? origin
-      : 'http://localhost,http://127.0.0.1,http://localhost:5173,http://127.0.0.1:5173')
-  )
-    .split(',')
-    .map((value) => value.trim());
-  for (const value of gatewayOrigins) {
-    try {
-      const url = new URL(value);
-      if (!['http:', 'https:'].includes(url.protocol) || url.origin !== value)
-        throw Error();
-    } catch {
-      throw Error(
+}
+
+function parsePort(
+  raw: string | undefined,
+  defaultPort = DEFAULT_PORT,
+): number {
+  const port = Number(raw ?? defaultPort);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error('PORT 必须是 0..65535 的整数。');
+  }
+  return port;
+}
+
+function parseHost(raw: string | undefined = DEFAULT_HOST): string {
+  const host = raw.trim();
+  if (!host || /\s|[/?#]/.test(host)) {
+    throw new Error('HOST 必须是有效的监听主机名或地址。');
+  }
+  return host;
+}
+
+function validateWebOrigin(origin: string): string {
+  if (origin !== '*' && !isValidHttpOrigin(origin)) {
+    throw new Error('WEB_ORIGIN 必须是 HTTP(S) Origin 或 *。');
+  }
+  return origin;
+}
+
+function parseGatewayOrigins(
+  raw: string | undefined,
+  currentWebOrigin: string,
+): string[] {
+  const source =
+    raw ??
+    (currentWebOrigin !== '*'
+      ? currentWebOrigin
+      : DEFAULT_GATEWAY_ORIGINS.join(','));
+
+  const origins = source.split(',').map((value) => value.trim());
+  for (const value of origins) {
+    if (!isValidHttpOrigin(value)) {
+      throw new Error(
         'AGENT_GATEWAY_ALLOWED_ORIGINS 必须是明确的 HTTP(S) Origin 列表，不能使用 *。',
       );
     }
   }
-  const voice = readVoiceConfig(env);
-  if (!['mock', 'browser', 'ollama'].includes(voice.provider))
-    throw Error('VOICE_PROVIDER 仅支持 mock、browser 或 ollama。');
-  return {
-    port,
-    host,
-    webOrigin: origin,
-    databaseUrl: env.DATABASE_URL ?? '',
-    voice,
-    gateway: {
-      token: env.AGENT_GATEWAY_TOKEN,
-      tokenFile:
-        env.AGENT_GATEWAY_TOKEN_FILE || dataPath('agent-gateway-token'),
-      origins: gatewayOrigins,
-    },
-    realtime: readRealtimeConfig(env),
-  };
+
+  return origins;
 }
-export type ServerConfig = ReturnType<typeof readServerConfig>;
-export function readVoiceConfig(env = process.env) {
+
+function assertValidVoiceProvider(
+  provider: string,
+): asserts provider is VoiceProvider {
+  if (!VALID_VOICE_PROVIDERS.includes(provider as VoiceProvider)) {
+    throw new Error('VOICE_PROVIDER 仅支持 mock、browser 或 ollama。');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3. Config Readers
+// ---------------------------------------------------------------------------
+
+/** Only the executable entrypoint loads dotenv. Importing app/server has no environment side effects. */
+function loadEnvironment() {
+  dotenv({ path: resolve(repositoryRoot, '.env') });
+  return readServerConfig();
+}
+
+function webOrigin(env: EnvLookup = process.env): string {
+  return env.WEB_ORIGIN ?? DEFAULT_WEB_ORIGIN;
+}
+
+function databaseUrl(env: EnvLookup = process.env): string {
+  return env.DATABASE_URL ?? '';
+}
+
+function readVoiceConfig(env: EnvLookup = process.env) {
   return {
-    provider: env.VOICE_PROVIDER ?? 'mock',
+    provider: (env.VOICE_PROVIDER ?? 'mock') as string,
     ollamaModel: env.OLLAMA_MODEL ?? '',
     ollamaBaseUrl: env.OLLAMA_BASE_URL,
   };
 }
-export function readSpeechConfig(env = process.env) {
+
+function readSpeechConfig(env: EnvLookup = process.env) {
   return {
     path: env.PATH ?? '',
     whisperModel: env.WHISPER_MODEL,
@@ -88,14 +135,16 @@ export function readSpeechConfig(env = process.env) {
     piperApiUrl: env.PIPER_API_URL,
   };
 }
-export function readProviderDefaults(env = process.env) {
+
+function readProviderDefaults(env: EnvLookup = process.env) {
   return {
     deepseekApiKey: env.DEEPSEEK_API_KEY ?? '',
     deepseekModel: env.DEEPSEEK_MODEL || 'deepseek-flash',
     ollamaModel: env.OLLAMA_MODEL ?? '',
   };
 }
-export function readRealtimeConfig(env = process.env) {
+
+function readRealtimeConfig(env: EnvLookup = process.env) {
   return {
     enabled: env.BAILIAN_REALTIME_ENABLED === 'true',
     workspace: env.BAILIAN_WORKSPACE_ID ?? '',
@@ -104,6 +153,58 @@ export function readRealtimeConfig(env = process.env) {
     credential: () => env.DASHSCOPE_API_KEY ?? '',
   };
 }
-export function databaseUrl(env = process.env) {
-  return env.DATABASE_URL ?? '';
+
+function readServerConfig(env: EnvLookup = process.env) {
+  const port = parsePort(env.PORT);
+  const host = parseHost(env.HOST);
+  const origin = validateWebOrigin(webOrigin(env));
+  const gatewayOrigins = parseGatewayOrigins(
+    env.AGENT_GATEWAY_ALLOWED_ORIGINS,
+    origin,
+  );
+  const voice = readVoiceConfig(env);
+  assertValidVoiceProvider(voice.provider);
+
+  return {
+    port,
+    host,
+    webOrigin: origin,
+    databaseUrl: databaseUrl(env),
+    voice: {
+      ...voice,
+      provider: voice.provider as VoiceProvider,
+    },
+    gateway: {
+      token: env.AGENT_GATEWAY_TOKEN,
+      tokenFile:
+        env.AGENT_GATEWAY_TOKEN_FILE || dataPath('agent-gateway-token'),
+      origins: gatewayOrigins,
+    },
+    realtime: readRealtimeConfig(env),
+  };
 }
+
+export type ServerConfig = ReturnType<typeof readServerConfig>;
+
+// ---------------------------------------------------------------------------
+// 4. Unified Export
+// ---------------------------------------------------------------------------
+
+/**
+ * 统一环境与配置入口
+ */
+export const env = {
+  root: repositoryRoot,
+  dataPath,
+  load: loadEnvironment,
+  webOrigin,
+  databaseUrl,
+  readServer: readServerConfig,
+  readVoice: readVoiceConfig,
+  readSpeech: readSpeechConfig,
+  readProviders: readProviderDefaults,
+  readRealtime: readRealtimeConfig,
+} as const;
+
+export type AppEnv = typeof env;
+export default env;
