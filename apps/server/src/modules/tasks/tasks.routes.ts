@@ -101,21 +101,6 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/{id}/tasks:
-   *   get:
-   *     summary: 获取 Agent 的任务计划列表
-   *     tags:
-   *       - Agents Task
-   */
-  app.get(
-    '/agents/:id/tasks',
-    route((req, res) => {
-      res.json(service.listAgentPlans(String(req.params.id)));
-    }),
-  );
-
-  /**
-   * @openapi
    * /agents/tasks/{planId}:
    *   get:
    *     summary: 获取指定任务计划详情
@@ -123,7 +108,6 @@ export function installTaskRoutes(
    *       - Agents Task
    */
   app.get('/agents/tasks/:planId', route(handleGetPlan));
-  app.get('/agents/:id/tasks/:planId', route(handleGetPlan));
 
   // ---------------------------------------------------------------------------
   // 2. 创建与更新任务计划
@@ -138,7 +122,6 @@ export function installTaskRoutes(
    *       - Agents Task
    */
   app.post('/agents/tasks', route(handleCreatePlan));
-  app.post('/agents/:id/tasks', route(handleCreatePlan));
 
   /**
    * @openapi
@@ -149,7 +132,6 @@ export function installTaskRoutes(
    *       - Agents Task
    */
   app.put('/agents/tasks/:planId', route(handleUpdatePlan));
-  app.put('/agents/:id/tasks/:planId', route(handleUpdatePlan));
 
   // ---------------------------------------------------------------------------
   // 3. 删除与重新指派
@@ -164,7 +146,6 @@ export function installTaskRoutes(
    *       - Agents Task
    */
   app.delete('/agents/tasks/:planId', route(handleDeletePlan));
-  app.delete('/agents/:id/tasks/:planId', route(handleDeletePlan));
 
   /**
    * @openapi
@@ -210,28 +191,6 @@ export function installTaskRoutes(
     }),
   );
 
-  /**
-   * @openapi
-   * /agents/{id}/tasks/{planId}/runs:
-   *   get:
-   *     summary: 获取 Agent 任务计划的执行运行历史
-   *     tags:
-   *       - Agents Task
-   */
-  app.get(
-    '/agents/:id/tasks/:planId/runs',
-    route((req, res) => {
-      res.json(
-        service.listRuns(
-          String(req.params.id),
-          String(req.params.planId),
-          Number(req.query.offset ?? 0),
-          false,
-        ),
-      );
-    }),
-  );
-
   // ---------------------------------------------------------------------------
   // 5. 控制状态操作（Plan / Run）
   // ---------------------------------------------------------------------------
@@ -245,7 +204,6 @@ export function installTaskRoutes(
    *       - Agents Task
    */
   app.post('/agents/tasks/:planId/:operation', route(handleControlPlan));
-  app.post('/agents/:id/tasks/:planId/:operation', route(handleControlPlan));
 
   /**
    * @openapi
@@ -256,5 +214,4 @@ export function installTaskRoutes(
    *       - Agents Task
    */
   app.post('/agents/task-runs/:runId/:operation', route(handleControlRun));
-  app.post('/agents/:id/task-runs/:runId/:operation', route(handleControlRun));
 }

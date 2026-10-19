@@ -58,7 +58,7 @@ export interface GatewayTarget {
     value: any,
   ): Promise<any>;
   controlTaskRun(
-    agentId: string,
+    agentId: string | undefined,
     runId: string,
     operation: string,
     value: any,

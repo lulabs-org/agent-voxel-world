@@ -435,7 +435,8 @@ try {
   );
   // Task schedules use the same permission-checked runtime and origin boundary.
   await api(`/${capabilityJob.id}/pause`, 'POST', {});
-  const schedule = await api(`/${capabilityJob.id}/tasks`, 'POST', {
+  const schedule = await api(`/tasks`, 'POST', {
+    agentId: capabilityJob.id,
     name: 'Scheduled capability check',
     goal: 'Validate permissions',
     timing: { kind: 'interval', everyMs: 60000 },
@@ -445,7 +446,8 @@ try {
   assert.equal(schedule.status, 201);
   const plan = await schedule.json();
   const plannedAt = plan.nextRunAt;
-  const repeatCreate = await api(`/${capabilityJob.id}/tasks`, 'POST', {
+  const repeatCreate = await api(`/tasks`, 'POST', {
+    agentId: capabilityJob.id,
     name: 'Scheduled capability check',
     goal: 'Validate permissions',
     timing: { kind: 'interval', everyMs: 60000 },
@@ -456,7 +458,7 @@ try {
   const beforeScheduled = calls;
   assert.equal(
     (
-      await api(`/${capabilityJob.id}/tasks/${plan.id}/run`, 'POST', {
+      await api(`/tasks/${plan.id}/run`, 'POST', {
         requestId: 'manual-schedule',
       })
     ).status,
@@ -468,7 +470,7 @@ try {
       manager!.list().find((j) => j.id === capabilityJob.id)?.status === 'idle',
   );
   const history = await (
-    await api(`/${capabilityJob.id}/tasks/${plan.id}/runs`)
+    await api(`/tasks/${plan.id}/runs`)
   ).json();
   assert.equal(history.items.length, 1);
   assert.equal(history.items[0].task.calls, 1);
@@ -484,7 +486,7 @@ try {
   );
   assert.equal(
     (
-      await api(`/${capabilityJob.id}/tasks/${plan.id}/run`, 'POST', {
+      await api(`/tasks/${plan.id}/run`, 'POST', {
         requestId: 'manual-schedule',
       })
     ).status,
@@ -495,9 +497,9 @@ try {
     beforeScheduled + 1,
     'Retried manual request never calls model twice',
   );
-  const summary = (await (await api(`/${capabilityJob.id}/tasks`)).json()).find(
-    (p: { id: string }) => p.id === plan.id,
-  );
+  const summary = (
+    await (await api(`/tasks?agentId=${capabilityJob.id}`)).json()
+  ).items.find((p: { id: string }) => p.id === plan.id);
   assert.equal(
     summary.nextRunAt,
     plannedAt,
@@ -507,7 +509,7 @@ try {
   assert.equal(
     (
       await api(
-        `/${capabilityJob.id}/task-runs/${history.items[0].id}/cancel`,
+        `/task-runs/${history.items[0].id}/cancel`,
         'POST',
         {},
       )
@@ -515,8 +517,7 @@ try {
     200,
   );
   assert.equal(
-    (await api(`/${capabilityJob.id}/tasks/${plan.id}/archive`, 'POST', {}))
-      .status,
+    (await api(`/tasks/${plan.id}/archive`, 'POST', {})).status,
     200,
   );
   assert.equal(

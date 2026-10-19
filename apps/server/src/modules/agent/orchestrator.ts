@@ -471,12 +471,14 @@ export class AgentOrchestrator {
   }
 
   async controlTaskRun(
-    id: string,
+    id: string | undefined,
     runId: string,
     operation: string,
     value: unknown = {},
   ) {
-    const job = this.taskJob(id);
+    const targetId = id || this.plans.run(runId).agentId;
+    if (!targetId) throw new AppError('任务未关联执行角色。', 404);
+    const job = this.taskJob(targetId);
     return executeTaskRunControl(
       job,
       runId,
@@ -486,7 +488,7 @@ export class AgentOrchestrator {
       () => this.save(),
       (j) => this.schedule(j),
       (j) => this.launchReserved(j),
-      (op) => this.controlTask(id, op),
+      (op) => this.controlTask(targetId, op),
     );
   }
 
