@@ -3,7 +3,7 @@ import type { AgentGateway } from './gateway';
 import type { AgentManager } from '../agent/manager';
 import { SpeechError } from '../audio/errors';
 import { installVoiceServiceRoutes } from '../audio/routes/voice-services.routes';
-import { installProviderRoutes } from '../providers/routes/providers.routes';
+import { installProviderRoutes } from '../providers/providers.routes';
 import { installAgentRoutes } from '../agent/agents.routes';
 import { installTaskRoutes } from '../tasks/tasks.routes';
 import { createOriginGuard } from '../../common/middleware/cors';
