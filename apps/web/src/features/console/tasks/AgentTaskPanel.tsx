@@ -1,3 +1,4 @@
+import { refreshOnGatewayChange } from '../../../network/gateway';
 import {
   isRepeating,
   type ManagedAgentView,
@@ -7,7 +8,7 @@ import {
 } from '@voxel/shared';
 import { useEffect, useRef, useState } from 'react';
 import type { ConsoleController } from '../useConsoleController';
-import { tasksApi } from './api';
+import { tasksApi, displayedTaskIdentity } from './api';
 import {
   planStatus,
   planTime,
@@ -53,7 +54,6 @@ export function AgentTaskPanel({
   useEffect(() => {
     if (!active) return;
     const abort = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
         const values = await tasksApi.listTaskPlans(job.id, abort.signal);
@@ -87,14 +87,15 @@ export function AgentTaskPanel({
           setError(e instanceof Error ? e.message : '无法读取任务');
           setLoading(false);
         }
-      } finally {
-        if (!abort.signal.aborted) timer = setTimeout(() => void poll(), 2000);
       }
     };
-    void poll();
+    const stop = refreshOnGatewayChange(poll, {
+      resource: 'agents',
+      agentId: job.id,
+    });
     return () => {
       abort.abort();
-      clearTimeout(timer);
+      stop();
     };
   }, [job.id, active, selected, revision]);
   const plan = plans.find((p) => p.id === selected),
@@ -139,6 +140,7 @@ export function AgentTaskPanel({
           op === 'run'
             ? { requestId: (runRequests.current[p.id] ??= crypto.randomUUID()) }
             : body,
+          displayedTaskIdentity(job),
         ),
       );
       if (op === 'run') delete runRequests.current[p.id];
@@ -153,7 +155,15 @@ export function AgentTaskPanel({
     limits?: TaskLimits,
   ) => {
     try {
-      await mutate(() => tasksApi.taskRunAction(job.id, r.id, op, limits));
+      await mutate(() =>
+        tasksApi.taskRunAction(
+          job.id,
+          r.id,
+          op,
+          limits,
+          displayedTaskIdentity(job),
+        ),
+      );
     } catch {
       /* error is shown locally */
     }

@@ -197,7 +197,22 @@ export function duePlans(book: TaskBook, now: number) {
     .sort((a, b) => a.nextRunAt! - b.nextRunAt! || a.createdAt - b.createdAt);
 }
 /** Timer only selects due work. AgentManager reserves and persists before dispatch. */
-export class TaskScheduler {
+export class GatewayScheduler {
+  private agents = new Map<string, ReturnType<typeof setTimeout>>();
+  cancel(id: string) {
+    clearTimeout(this.agents.get(id));
+    this.agents.delete(id);
+  }
+  wake(id: string, ms: number, action: () => void) {
+    this.cancel(id);
+    if (this.stopped) return;
+    const timer = setTimeout(() => {
+      this.agents.delete(id);
+      action();
+    }, ms);
+    timer.unref();
+    this.agents.set(id, timer);
+  }
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   constructor(private readonly tick: () => Promise<void>) {}
@@ -216,6 +231,9 @@ export class TaskScheduler {
   }
   close() {
     this.stopped = true;
+    for (const id of this.agents.keys()) this.cancel(id);
     clearTimeout(this.timer);
   }
 }
+
+export { GatewayScheduler as TaskScheduler };

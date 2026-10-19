@@ -37,7 +37,8 @@ it('wakes a long interval promptly, deduplicates, and only accepts addressed hum
 it('bounds queued mentions and keeps private audiences separate when prioritizing a message', () => {
   const inbox = new AgentAttention();
   for (let seq = 1; seq <= 10; seq++) inbox.push(message(seq), 'ai');
-  expect(inbox.take()?.seq).toBe(3);
+  expect(inbox.rejected).toBe(true);
+  expect(inbox.take()?.seq).toBe(1);
   inbox.clear();
   expect(inbox.pending).toBe(false);
   const secret = message(1, 'private'),

@@ -432,3 +432,109 @@
     justify-content: end;
   }
 }
+
+.agent-dialog.console-locked {
+  width: min(520px, calc(100vw - 32px));
+  height: fit-content;
+}
+.console-locked .agent-chrome {
+  border-bottom: 0;
+}
+.console-access {
+  padding: 8px 28px 28px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.console-access-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #e4ebdc;
+  color: var(--color-action);
+  margin-bottom: 20px;
+}
+.console-access h3 {
+  margin: 0 0 10px;
+  font-size: 21px;
+  font-weight: 550;
+}
+.console-access-description,
+.console-access-help p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #627767;
+  margin: 0 0 24px;
+}
+.console-access form {
+  display: grid;
+  gap: 12px;
+}
+.console-access label {
+  font-size: 13px;
+}
+.console-access input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #bacbbb;
+  border-radius: 6px;
+  background: #fffef9;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+}
+.console-access input:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+.console-access button:disabled {
+  opacity: 0.5;
+}
+.console-access-note {
+  margin: 0;
+  font-size: 12px;
+  color: #627767;
+}
+.console-access-help {
+  border-top: 1px solid #dce2d6;
+  margin-top: 24px;
+  padding-top: 18px;
+  font-size: 12px;
+  color: var(--color-action);
+}
+.console-access-help summary {
+  cursor: pointer;
+}
+.console-access-help p {
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+}
+.console-access-pending,
+.console-connection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #627767;
+}
+.console-connection {
+  margin: -6px 0 12px;
+}
+.console-connected::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #527b54;
+}
+@media (max-width: 700px) {
+  .console-access {
+    padding: 8px 18px 24px;
+  }
+}

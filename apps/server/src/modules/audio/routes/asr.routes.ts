@@ -11,15 +11,21 @@ export function installAsrRoutes(
   app: Express,
   store: AsrSettingsStore,
   origin = webOrigin(),
+  authenticatedManagement = false,
 ) {
-  app.use(
-    '/voice/asr',
-    createOriginGuard({
-      origin,
-      message: '仅允许配置的游戏页面管理语音识别。',
-      cacheControl: 'no-store',
-    }),
-  );
+  const guard = createOriginGuard({
+    origin,
+    message: '仅允许配置的游戏页面管理语音识别。',
+    cacheControl: 'no-store',
+  });
+  app.use('/voice/asr', (req, res, next) => {
+    if (
+      authenticatedManagement &&
+      (req.path === '/services' || req.path.startsWith('/services/'))
+    )
+      next();
+    else guard(req, res, next);
+  });
   app.use('/voice/asr', express.json({ limit: '8kb' }));
   const route = (fn: (req: Request, res: Response) => unknown) =>
     asyncRoute((req, res) => {

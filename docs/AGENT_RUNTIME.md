@@ -1,5 +1,7 @@
 # Agent Runtime 架构与执行流程设计文档
 
+托管角色的入口与调度由 [Agent Gateway](AGENT_GATEWAY.md) 负责；本包继续负责对话、任务、动作和结果验证，独立 CLI 仍可直接使用。
+
 `@voxel/agent-runtime` 为服务端托管 Agent 与命令行 CLI 提供统一的 Pi 智能体执行内核。其核心设计遵循**双循环隔离**、**乐观并发与租约控制（Lease）**、**零成本物理跟随**以及**严格分级预算与持久化熔断**机制。
 
 ---
@@ -78,14 +80,14 @@ graph TD
 
 ### 分层职责矩阵
 
-| 模块目录 | 核心职责 | 明确不负责事项 |
-| :--- | :--- | :--- |
-| [`packages/agent-runtime/src/runtime/`](../packages/agent-runtime/src/runtime) | 串联协调调度、并发互斥、消息唤醒、分发执行 | 服务端 HTTP 接口、数据库直接操作 |
-| [`packages/agent-runtime/src/task/`](../packages/agent-runtime/src/task) | 任务状态机、Lease 租约、权限归属校验、预算统计 | 模型请求发起、世界直接写入 |
-| [`packages/agent-runtime/src/pi/`](../packages/agent-runtime/src/pi) | 提示词构造、Tool 映射规范、会话上下文管理、检查点 | 调度时钟、物理位移控制 |
-| [`packages/agent-runtime/src/actions/`](../packages/agent-runtime/src/actions) | 物理移动、方块批量放置/破坏、A* 寻路计算与闭环跟随 | 任务状态转换、模型调用 |
-| [`packages/agent-runtime/src/models/`](../packages/agent-runtime/src/models) | 模型接口适配、流式生成处理、请求级计费与取消 | 业务逻辑、工具执行 |
-| [`packages/agent-runtime/src/client/`](../packages/agent-runtime/src/client) | Colyseus 网络连接、状态观察订阅、世界写请求 | 任务逻辑、决策生成 |
+| 模块目录                                                                       | 核心职责                                            | 明确不负责事项                   |
+| :----------------------------------------------------------------------------- | :-------------------------------------------------- | :------------------------------- |
+| [`packages/agent-runtime/src/runtime/`](../packages/agent-runtime/src/runtime) | 串联协调调度、并发互斥、消息唤醒、分发执行          | 服务端 HTTP 接口、数据库直接操作 |
+| [`packages/agent-runtime/src/task/`](../packages/agent-runtime/src/task)       | 任务状态机、Lease 租约、权限归属校验、预算统计      | 模型请求发起、世界直接写入       |
+| [`packages/agent-runtime/src/pi/`](../packages/agent-runtime/src/pi)           | 提示词构造、Tool 映射规范、会话上下文管理、检查点   | 调度时钟、物理位移控制           |
+| [`packages/agent-runtime/src/actions/`](../packages/agent-runtime/src/actions) | 物理移动、方块批量放置/破坏、A\* 寻路计算与闭环跟随 | 任务状态转换、模型调用           |
+| [`packages/agent-runtime/src/models/`](../packages/agent-runtime/src/models)   | 模型接口适配、流式生成处理、请求级计费与取消        | 业务逻辑、工具执行               |
+| [`packages/agent-runtime/src/client/`](../packages/agent-runtime/src/client)   | Colyseus 网络连接、状态观察订阅、世界写请求         | 任务逻辑、决策生成               |
 
 ---
 
@@ -99,7 +101,7 @@ flowchart TD
     Lock{"WeakSet 互斥检查:<br/>Agent 实例是否正在执行?"}
     Aborted{"AbortSignal 检查:<br/>当前运行是否已取消?"}
     CheckAttention{"是否有待处理的排队消息?<br/>(attention.take())"}
-    
+
     subgraph ConversationFlow["阶段 A: 会话响应 (ConversationRunner)"]
         CR["进入 ConversationRunner"]
         CRTools["仅挂载会话工具:<br/>reply, start_task, revise_task,<br/>pause_task, resume_task, cancel_task"]
@@ -233,7 +235,7 @@ flowchart TD
     In(["进入 follow-step 唤醒"]):::startNode
     CheckTarget{"目标玩家是否在线且在视距内?"}
     CalcDist{"计算与玩家的欧式距离"}
-    
+
     Near["距离 <= 停止阈值:<br/>原地保持，停止平移输入"]
     Far["距离在有效跟踪区间:<br/>启动本地 A* 路径检索 (voxel-astar)"]
     Lost["目标离开视野或丢失:<br/>停止移动，清理 follow 状态"]

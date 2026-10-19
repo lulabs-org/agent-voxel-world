@@ -35,7 +35,9 @@
     "test:agent:tasks": "pnpm --filter @voxel/server exec tsx test/integration/agent-tasks.ts",
     "test:navigation": "pnpm --filter @voxel/server exec tsx test/integration/navigation.ts",
     "bench:navigation": "tsx tests/benchmarks/navigation.ts",
-    "test:navigation:live": "pnpm --filter @voxel/server exec tsx test/integration/navigation-live-model.ts"
+    "test:navigation:live": "pnpm --filter @voxel/server exec tsx test/integration/navigation-live-model.ts",
+    "agent:ctl": "pnpm --filter @voxel/agent-cli ctl",
+    "test:gateway": "pnpm --filter @voxel/server exec tsx test/integration/gateway.ts"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
@@ -44,6 +46,9 @@
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "vitest": "^3.2.4",
-    "@voxel/agent-runtime": "workspace:*"
+    "@voxel/agent-runtime": "workspace:*",
+    "@voxel/agent-gateway": "workspace:*",
+    "@voxel/gateway-protocol": "workspace:*",
+    "@voxel/gateway-client": "workspace:*"
   }
 }

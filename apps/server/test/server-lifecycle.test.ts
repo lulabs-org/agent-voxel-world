@@ -79,13 +79,15 @@ describe('server assembly and lifecycle', () => {
         '/voice/asr/services',
         '/chat/audio/missing',
       ])
-        expect((await fetch(server.httpUrl + path)).status, path).toBe(403);
+        expect((await fetch(server.httpUrl + path)).status, path).toBe(
+          path.startsWith('/chat/') ? 403 : 401,
+        );
       const rejected = await fetch(server.httpUrl + '/agents', {
         headers: { Origin: 'https://foreign.example' },
       });
       expect(rejected.status).toBe(403);
       expect(await rejected.json()).toEqual({
-        error: '仅允许配置的本机游戏页面管理 Agent。',
+        error: '不允许此页面管理 Agent。',
       });
       const options = await fetch(server.httpUrl + '/agents', {
         method: 'OPTIONS',
@@ -98,14 +100,21 @@ describe('server assembly and lifecycle', () => {
       expect(options.headers.get('vary')).toBe('Origin');
       const badType = await fetch(server.httpUrl + '/agents', {
         method: 'POST',
-        headers: { Origin: origin },
+        headers: {
+          Origin: origin,
+          Authorization: 'Bearer fixture-gateway-token-for-tests',
+        },
         body: 'x',
       });
       expect(badType.status).toBe(415);
       expect(await badType.json()).toEqual({ error: '请使用 JSON 请求。' });
       const badJson = await fetch(server.httpUrl + '/agents', {
         method: 'POST',
-        headers: { Origin: origin, 'Content-Type': 'application/json' },
+        headers: {
+          Origin: origin,
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer fixture-gateway-token-for-tests',
+        },
         body: '{',
       });
       expect(badJson.status).toBe(400);

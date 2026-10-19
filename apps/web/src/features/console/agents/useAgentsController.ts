@@ -1,3 +1,4 @@
+import { refreshOnGatewayChange } from '../../../network/gateway';
 import {
   agentPermissions,
   type ManagedAgentView,
@@ -37,7 +38,6 @@ export function useAgentsController(
     if (!open) return;
     if (initialTab) setShowAgentForm(false);
     const abort = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       const revision = jobsRevision.current;
       try {
@@ -54,12 +54,11 @@ export function useAgentsController(
           setLoadingJobs(false);
         }
       }
-      if (!abort.signal.aborted) timer = setTimeout(poll, 2000);
     };
-    void poll();
+    const stop = refreshOnGatewayChange(poll);
     return () => {
       abort.abort();
-      clearTimeout(timer);
+      stop();
     };
   }, [open, initialTab]);
   const openAgentEditor = (job?: ManagedAgentView) => {

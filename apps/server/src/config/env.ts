@@ -32,6 +32,25 @@ export function readServerConfig(env = process.env) {
       throw Error('WEB_ORIGIN 必须是 HTTP(S) Origin 或 *。');
     }
   }
+  const gatewayOrigins = (
+    env.AGENT_GATEWAY_ALLOWED_ORIGINS ??
+    (origin !== '*'
+      ? origin
+      : 'http://localhost,http://127.0.0.1,http://localhost:5173,http://127.0.0.1:5173')
+  )
+    .split(',')
+    .map((value) => value.trim());
+  for (const value of gatewayOrigins) {
+    try {
+      const url = new URL(value);
+      if (!['http:', 'https:'].includes(url.protocol) || url.origin !== value)
+        throw Error();
+    } catch {
+      throw Error(
+        'AGENT_GATEWAY_ALLOWED_ORIGINS 必须是明确的 HTTP(S) Origin 列表，不能使用 *。',
+      );
+    }
+  }
   const voice = readVoiceConfig(env);
   if (!['mock', 'browser', 'ollama'].includes(voice.provider))
     throw Error('VOICE_PROVIDER 仅支持 mock、browser 或 ollama。');
@@ -41,6 +60,12 @@ export function readServerConfig(env = process.env) {
     webOrigin: origin,
     databaseUrl: env.DATABASE_URL ?? '',
     voice,
+    gateway: {
+      token: env.AGENT_GATEWAY_TOKEN,
+      tokenFile:
+        env.AGENT_GATEWAY_TOKEN_FILE || dataPath('agent-gateway-token'),
+      origins: gatewayOrigins,
+    },
     realtime: readRealtimeConfig(env),
   };
 }

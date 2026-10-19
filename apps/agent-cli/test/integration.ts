@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { Session, delay, until } from '@voxel/agent-runtime';
-const a = await new Session().join('Test-A', 'human'),
-  b = await new Session().join('Test-B', 'human'),
-  agent = await new Session().join('Validator · scripted test');
+import { createTestServer } from '../../server/test/helpers/test-server';
+const server = await createTestServer();
+const a = await new Session(server.url).join('Test-A', 'human'),
+  b = await new Session(server.url).join('Test-B', 'human'),
+  agent = await new Session(server.url).join('Validator · scripted test');
 const tests: string[] = [];
 try {
   await until(() => a.room.state.players.size >= 3);
@@ -91,14 +93,14 @@ try {
   assert.equal(a.room.sessionId, id);
   assert.equal((await a.observe()).self.connected, true);
   tests.push('abnormal socket reconnect preserves identity');
-  const fresh = await new Session().join('Refresh test', 'human');
+  const fresh = await new Session(server.url).join('Refresh test', 'human');
   try {
     assert(
       fresh.snapshot?.blocks.some(
         (v) => v.x === cell.x && v.y === cell.y && v.z === cell.z,
       ),
     );
-    assert.equal(fresh.snapshot?.persistence, 'postgresql');
+    assert.equal(fresh.snapshot?.persistence, 'memory');
   } finally {
     await fresh.close();
   }
@@ -131,4 +133,5 @@ try {
   console.log(JSON.stringify({ passed: tests.length, tests }, null, 2));
 } finally {
   await Promise.all([a.close(), b.close(), agent.close()]);
+  await server.close();
 }

@@ -1,3 +1,4 @@
+import { refreshOnGatewayChange } from '../../../network/gateway';
 import type { ProviderView } from '@voxel/shared';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ConsoleFeedback } from '../useConsoleFeedback';
@@ -31,15 +32,21 @@ export function useProvidersController(
     if (!open) return;
     setLoadingModels(false);
     const abort = new AbortController();
-    void providersApi
-      .listProviders(abort.signal)
-      .then((list) => {
-        if (!abort.signal.aborted) setProviders(list);
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setError(String(e.message));
-      });
+    const stop = refreshOnGatewayChange(
+      async () => {
+        await providersApi
+          .listProviders(abort.signal)
+          .then((list) => {
+            if (!abort.signal.aborted) setProviders(list);
+          })
+          .catch((e) => {
+            if (!abort.signal.aborted) setError(String(e.message));
+          });
+      },
+      { resource: 'providers' },
+    );
     return () => {
+      stop();
       abort.abort();
       modelRequest.current?.abort();
     };

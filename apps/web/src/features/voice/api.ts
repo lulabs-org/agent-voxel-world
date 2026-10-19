@@ -1,3 +1,4 @@
+import { adminHeaders } from '../../network/gateway';
 import type { AsrServiceDraft, AsrServiceView } from '@voxel/shared';
 import type { SpeechCapabilities } from '../../audio';
 import { serverHttpUrl } from '../../network/endpoints';
@@ -11,7 +12,10 @@ async function asrRequest<T>(
   const response = await fetch(`${serverHttpUrl()}/voice/asr/services${path}`, {
     method,
     signal,
-    headers: draft ? { 'Content-Type': 'application/json' } : undefined,
+    headers: {
+      ...adminHeaders(),
+      ...(draft ? { 'Content-Type': 'application/json' } : {}),
+    },
     body: draft ? JSON.stringify(draft) : undefined,
   });
   if (response.status === 204) return undefined as T;

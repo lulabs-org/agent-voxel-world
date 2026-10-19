@@ -11,9 +11,18 @@ importers:
       '@types/node':
         specifier: ^22.18.0
         version: 22.20.5
+      '@voxel/agent-gateway':
+        specifier: workspace:*
+        version: link:packages/agent-gateway
       '@voxel/agent-runtime':
         specifier: workspace:*
         version: link:packages/agent-runtime
+      '@voxel/gateway-client':
+        specifier: workspace:*
+        version: link:packages/gateway-client
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:packages/gateway-protocol
       concurrently:
         specifier: ^9.2.1
         version: 9.2.5
@@ -35,6 +44,19 @@ importers:
       '@voxel/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
+      '@voxel/gateway-client':
+        specifier: workspace:*
+        version: link:../../packages/gateway-client
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:../../packages/gateway-protocol
+      ws:
+        specifier: 8.22.0
+        version: 8.22.0
+    devDependencies:
+      '@types/ws':
+        specifier: 8.18.2
+        version: 8.18.2
 
   apps/server:
     dependencies:
@@ -53,9 +75,15 @@ importers:
       '@prisma/client':
         specifier: 7.10.1
         version: 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3))(typescript@5.9.3)
+      '@voxel/agent-gateway':
+        specifier: workspace:*
+        version: link:../../packages/agent-gateway
       '@voxel/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:../../packages/gateway-protocol
       '@voxel/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -102,6 +130,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@voxel/gateway-client':
+        specifier: workspace:*
+        version: link:../../packages/gateway-client
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:../../packages/gateway-protocol
       '@voxel/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -134,6 +168,18 @@ importers:
         specifier: ^7.1.7
         version: 7.3.7(@types/node@22.20.5)(jiti@2.7.0)(tsx@4.23.15)
 
+  packages/agent-gateway:
+    dependencies:
+      '@voxel/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:../gateway-protocol
+      '@voxel/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/agent-runtime:
     dependencies:
       '@earendil-works/pi-agent-core':
@@ -151,6 +197,18 @@ importers:
       openai:
         specifier: ^7.34.0
         version: 7.34.0(@aws-sdk/credential-provider-node@3.972.86)(@smithy/signature-v4@5.7.4)(ws@8.22.0)
+
+  packages/gateway-client:
+    dependencies:
+      '@voxel/gateway-protocol':
+        specifier: workspace:*
+        version: link:../gateway-protocol
+
+  packages/gateway-protocol:
+    dependencies:
+      '@voxel/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/shared: {}
 

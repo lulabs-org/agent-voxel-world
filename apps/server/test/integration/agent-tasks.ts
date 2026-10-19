@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
+import { AgentManager } from '../../src/modules/agent/manager';
+import { ProviderStore } from '../../src/modules/agent/provider-store';
 import { Session, until, delay } from '@voxel/agent-runtime';
 
 import type { ManagedAgentView } from '@voxel/shared';
@@ -220,6 +221,7 @@ try {
     const response = await fetch(`${url}/agents${path}`, {
       method,
       headers: {
+        Authorization: 'Bearer fixture-gateway-token-for-tests',
         Origin: process.env.WEB_ORIGIN!,
         'Content-Type': 'application/json',
       },
@@ -371,14 +373,15 @@ try {
       'random polling performs one decision per interval and honors cap',
     );
     const tokensBeforeContinue = current().task!.tokens;
-    await api(`/${job.id}/resume`, 'POST', { maxTurns: 4 });
+    const continued = await api(`/${job.id}/resume`, 'POST', { maxTurns: 4 });
+    // A committed response can race the next model request; assert the command snapshot.
     assert.equal(
-      current().task!.calls,
+      continued.task!.calls,
       2,
       'continuation retains consumed calls',
     );
     assert.equal(
-      current().task!.tokens,
+      continued.task!.tokens,
       tokensBeforeContinue,
       'continuation retains consumed tokens',
     );

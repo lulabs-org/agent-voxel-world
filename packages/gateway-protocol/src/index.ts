@@ -1,0 +1,252 @@
+import type { ManagedAgentView, TaskPlan, TaskRun } from '@voxel/shared';
+/** Browser-safe control protocol. World/player identity never comes from these frames. */
+export const PROTOCOL_VERSION = 1;
+export const MAX_REQUEST_BYTES = 32768;
+export const methods = [
+  'gateway.status',
+  'gateway.subscribe',
+  'gateway.unsubscribe',
+  'commands.get',
+  'agents.list',
+  'agents.get',
+  'agents.create',
+  'agents.update',
+  'agents.join',
+  'agents.stop',
+  'agents.delete',
+  'agents.voice',
+  'tasks.assign',
+  'tasks.pause',
+  'tasks.resume',
+  'tasks.cancel',
+  'plans.list',
+  'plans.create',
+  'plans.update',
+  'plans.control',
+  'runs.list',
+  'runs.control',
+  'providers.list',
+  'providers.save',
+  'providers.delete',
+  'providers.models',
+] as const;
+export type RpcMethod = (typeof methods)[number];
+export type TaskIdentity = { id: string; revision: number; startedAt: number };
+export type ResourceMetadata = {
+  resourceVersion: number;
+  taskIdentity: TaskIdentity | null;
+};
+export type PublicAgentView = ManagedAgentView & ResourceMetadata;
+export type PublicPlanView = TaskPlan & ResourceMetadata;
+export type PublicRunView = TaskRun & ResourceMetadata;
+export type CommandReceipt = {
+  state: 'pending' | 'committed' | 'rejected' | 'unknown';
+  result?: unknown;
+  error?: RpcErrorData;
+};
+export type RpcParams = {
+  agentId?: string;
+  planId?: string;
+  runId?: string;
+  providerId?: string;
+  offset?: number;
+  operation?: string;
+  value?: Record<string, unknown>;
+  expectedTask?: TaskIdentity | null;
+  commandId?: string;
+  scope?: 'all' | 'agents' | 'agent' | 'plans' | 'runs' | 'providers';
+  subscriptionId?: string;
+};
+export type RpcRequest = {
+  type: 'req';
+  id: string;
+  method: RpcMethod;
+  params: RpcParams;
+  commandId?: string;
+};
+export type Connect = {
+  type: 'connect';
+  version: 1;
+  client: 'web' | 'cli';
+  token: string;
+};
+export type RpcErrorData = { code: string; message: string; status: number };
+export type GatewayEvent = {
+  type: 'event';
+  subscriptionId: string;
+  seq: number;
+  event: 'snapshot' | 'changed' | 'shutdown';
+  data: unknown;
+};
+export type ServerFrame =
+  | {
+      type: 'connected';
+      version: 1;
+      gatewayEpoch: string;
+      capabilities: readonly string[];
+    }
+  | { type: 'res'; id: string; ok: true; result: unknown }
+  | { type: 'res'; id: string; ok: false; error: RpcErrorData }
+  | GatewayEvent
+  | { type: 'error'; error: RpcErrorData };
+export class GatewayError extends Error {
+  constructor(
+    message: string,
+    readonly code = 'INVALID_REQUEST',
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
+export function isWrite(method: RpcMethod) {
+  return ![
+    'gateway.status',
+    'gateway.subscribe',
+    'gateway.unsubscribe',
+    'commands.get',
+    'agents.list',
+    'agents.get',
+    'plans.list',
+    'runs.list',
+    'providers.list',
+    'providers.models',
+  ].includes(method);
+}
+export function record(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+export function identifier(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
+}
+export function parseConnect(value: unknown): Connect {
+  if (
+    !record(value) ||
+    value.type !== 'connect' ||
+    value.version !== 1 ||
+    !['web', 'cli'].includes(String(value.client)) ||
+    typeof value.token !== 'string' ||
+    value.token.length > 4096
+  )
+    throw new GatewayError('网关握手或协议版本无效。', 'BAD_HANDSHAKE');
+  return value as Connect;
+}
+export function parseRequest(value: unknown): RpcRequest {
+  if (
+    !record(value) ||
+    value.type !== 'req' ||
+    !identifier(value.id) ||
+    !methods.includes(value.method as RpcMethod) ||
+    !record(value.params)
+  )
+    throw new GatewayError('网关请求格式无效。');
+  const r = value as RpcRequest,
+    p = r.params;
+  const permitted = [
+    'agentId',
+    'planId',
+    'runId',
+    'providerId',
+    'offset',
+    'operation',
+    'value',
+    'expectedTask',
+    'commandId',
+    'scope',
+    'subscriptionId',
+  ];
+  if (Object.keys(p).some((k) => !permitted.includes(k)))
+    throw new GatewayError('未知请求参数。');
+  for (const k of [
+    'agentId',
+    'planId',
+    'runId',
+    'providerId',
+    'commandId',
+    'subscriptionId',
+  ] as const)
+    if (p[k] !== undefined && !identifier(p[k]))
+      throw new GatewayError('资源标识无效。');
+  if (isWrite(r.method) && !identifier(r.commandId))
+    throw new GatewayError('写操作需要稳定的 commandId。');
+  if (p.value !== undefined && !record(p.value))
+    throw new GatewayError('业务参数格式无效。');
+  if (
+    p.offset !== undefined &&
+    (!Number.isSafeInteger(p.offset) || p.offset < 0)
+  )
+    throw new GatewayError('分页参数无效。');
+  if (
+    p.expectedTask !== undefined &&
+    p.expectedTask !== null &&
+    (!record(p.expectedTask) ||
+      !identifier(p.expectedTask.id) ||
+      !Number.isSafeInteger(p.expectedTask.revision) ||
+      p.expectedTask.revision < 0 ||
+      !Number.isFinite(p.expectedTask.startedAt))
+  )
+    throw new GatewayError('任务修订无效。');
+  const requiredAgent =
+    /^(tasks|plans|runs)\./.test(r.method) ||
+    /^agents\.(get|update|join|stop|delete|voice)$/.test(r.method);
+  if (requiredAgent && !p.agentId) throw new GatewayError('缺少 Agent 标识。');
+  if (
+    ['plans.update', 'plans.control', 'runs.list'].includes(r.method) &&
+    !p.planId
+  )
+    throw new GatewayError('缺少计划标识。');
+  if (r.method === 'runs.control' && !p.runId)
+    throw new GatewayError('缺少执行标识。');
+  if (
+    ['providers.delete', 'providers.models'].includes(r.method) &&
+    !p.providerId
+  )
+    throw new GatewayError('缺少模型服务标识。');
+  if (
+    r.method === 'plans.control' &&
+    !['run', 'pause', 'resume', 'archive', 'extend'].includes(p.operation ?? '')
+  )
+    throw new GatewayError('计划操作无效。');
+  if (
+    r.method === 'runs.control' &&
+    !['pause', 'resume', 'cancel'].includes(p.operation ?? '')
+  )
+    throw new GatewayError('执行操作无效。');
+  if (
+    r.method === 'gateway.subscribe' &&
+    (!['all', 'agents', 'agent', 'plans', 'runs', 'providers'].includes(
+      p.scope ?? 'all',
+    ) ||
+      (['agent', 'plans', 'runs'].includes(p.scope ?? '') && !p.agentId))
+  )
+    throw new GatewayError('订阅范围无效。');
+  if (r.method === 'gateway.subscribe' && p.scope === 'runs' && !p.planId)
+    throw new GatewayError('缺少计划标识。');
+  if (r.method === 'commands.get' && !p.commandId)
+    throw new GatewayError('缺少命令标识。');
+  if (r.method === 'gateway.unsubscribe' && !p.subscriptionId)
+    throw new GatewayError('缺少订阅标识。');
+  return r;
+}
+export function publicError(error: unknown): RpcErrorData {
+  if (error instanceof GatewayError)
+    return { code: error.code, message: error.message, status: error.status };
+  const status =
+    record(error) && typeof error.status === 'number' ? error.status : 500;
+  return {
+    code:
+      status === 409
+        ? 'CONFLICT'
+        : status === 404
+          ? 'NOT_FOUND'
+          : status === 429
+            ? 'BUSY'
+            : status >= 500
+              ? 'INTERNAL'
+              : 'INVALID_REQUEST',
+    message:
+      status < 500 && error instanceof Error
+        ? error.message
+        : '操作未完成，请检查服务状态或存储权限。',
+    status,
+  };
+}

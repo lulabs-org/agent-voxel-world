@@ -1,5 +1,7 @@
 # 协议与扩展边界
 
+Agent 管理协议独立于世界协议，使用 `/agents/gateway` WebSocket RPC；管理 HTTP 兼容接口需要 Bearer 令牌。详见 [Agent Gateway](AGENT_GATEWAY.md)。
+
 客户端先 GET `/world` 获取唯一 `roomId`，再用 Colyseus JS 0.16 `joinById(roomId, {name, kind})` 入房。`kind: scripted-agent` 和 `kind: ai-agent` 分别显示脚本代理和 AI 代理身份，不授予额外权限。其他值按 human 处理。这个原型不提供身份认证；只监听本机。
 
 ## 大厅实时玩家

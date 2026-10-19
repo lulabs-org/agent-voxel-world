@@ -18,8 +18,9 @@
 | ----------------------- | ------------------------------------------------------------ |
 | `config`                | 类型化配置、部署变量校验、`.env` 加载与数据路径              |
 | `common`                | `AppError`、异步路由、请求体、Origin 机制、异常响应、Swagger |
-| `transport`             | 共用 Colyseus 心跳与连接的 ASR WebSocket 路由和关闭          |
-| `modules/agent`         | Agent CRUD、执行、调度、任务操作、日志与持久化               |
+| `transport`             | Gateway、ASR 与 Colyseus WebSocket 路径分发和关闭            |
+| `modules/agent`         | 生产依赖注入、Agent/模型配置文件适配、世界内语音投递         |
+| `modules/gateway`       | 管理令牌、WebSocket RPC、HTTP 兼容路由与 OpenAPI 契约        |
 | `modules/audio/asr`     | 本地 Whisper、百炼识别及 ASR 配置                            |
 | `modules/audio/tts`     | Piper、本地/远程合成、音色服务及合成队列                     |
 | `modules/audio/session` | mock/browser/Ollama 语音会话状态                             |
@@ -29,7 +30,9 @@
 
 `local-speech.ts` 属于识别流程，保留在 `asr`。Piper 模型和声音服务的管理路由归 `audio`，HTTP 地址继续为 `/agents/voice-services`；Agent 音色绑定由 Agent 管理器处理，删除服务通过注入回调检查绑定，音频模块不反向依赖 Agent。`agent-storage.ts` 与 `provider-store.ts` 继续分开。
 
-各业务错误留在所属领域，仅继承通用 `AppError`。复用 Origin 判断和异常处理机制不意味着统一所有端点的策略：保留语音接口允许无 Origin、管理接口的 Origin 校验、原有预检方法、JSON/原始音频限制以及错误状态和文案。Swagger 递归扫描 `routes` 和 `modules` 下的 `*.routes.ts`。
+共享托管业务错误来自 `@voxel/agent-gateway`；服务器音频和聊天错误留在所属领域，继承通用 `AppError`。复用 Origin 判断和异常处理机制不意味着统一所有端点的策略：保留语音接口允许无 Origin、管理接口的 Origin 校验、原有预检方法、JSON/原始音频限制以及错误状态和文案。Swagger 递归扫描 `routes` 和 `modules` 下的 `*.routes.ts`。
+
+Agent 托管集合、调度、任务操作和日志位于 `packages/agent-gateway`。`modules/agent/manager.ts` 仅注入生产依赖；该目录不保留共享包的转导出文件。HTTP 装配、接口注释与命令分发统一放在 `modules/gateway/http.routes.ts`。
 
 Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端。服务端与 CLI 都通过 `AgentRunner.run()` 进入统一协调器；对话、任务服务和任务执行使用独立职责，CLI 的 `runAgent` 保留自身调度循环。
 

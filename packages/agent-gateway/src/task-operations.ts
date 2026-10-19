@@ -41,6 +41,7 @@ export function taskBusy(job: Job) {
 
 export function captureTask(job: Job) {
   if (!job.memory.task) return;
+  new TaskService(job.memory).lease();
   let run = currentRun(job);
   if (!run || (run.task && run.task.startedAt !== job.memory.task.startedAt)) {
     const p = newPlan(

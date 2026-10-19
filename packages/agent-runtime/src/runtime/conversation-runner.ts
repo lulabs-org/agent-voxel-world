@@ -21,7 +21,7 @@ export class ConversationRunner {
   ) {}
   async run(o: RunOptions, message: WorldEvent) {
     const { memory, signal } = o;
-    const key = `${message.actor}:${message.seq}`;
+    const key = `${o.attention?.generation ?? 'standalone'}:${message.actor}:${message.seq}`;
     if (memory.conversation?.key === key) return;
     const state = loopState();
     const bounded = (value: number | undefined, fallback: number) =>

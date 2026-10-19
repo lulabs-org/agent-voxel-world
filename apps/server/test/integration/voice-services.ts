@@ -13,7 +13,8 @@ import type {
   ManagedAgentView,
   VoiceServiceView,
 } from '@voxel/shared';
-import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
+import { AgentManager } from '../../src/modules/agent/manager';
+import { ProviderStore } from '../../src/modules/agent/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 import { validatePcmWav } from '../../src/modules/audio/asr/local-speech';
 
@@ -95,12 +96,13 @@ try {
     fetch(`${url}/agents${path}`, {
       method,
       headers: {
+        Authorization: 'Bearer fixture-gateway-token-for-tests',
         Origin: process.env.WEB_ORIGIN!,
         'Content-Type': 'application/json',
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  assert.equal((await fetch(`${url}/agents/voice-services`)).status, 403);
+  assert.equal((await fetch(`${url}/agents/voice-services`)).status, 401);
   const add = async (name: string, voice: string, speed: number) => {
     const response = await api('/voice-services', 'POST', {
       name,

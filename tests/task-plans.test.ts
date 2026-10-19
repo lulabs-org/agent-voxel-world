@@ -5,10 +5,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, readFile, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  AgentManager,
-  ProviderStore,
-} from '../apps/server/src/modules/agent/manager';
+import { AgentManager } from '../apps/server/src/modules/agent/manager';
+import { ProviderStore } from '../apps/server/src/modules/agent/provider-store';
 import {
   DEFAULT_TASK_LIMITS,
   type TaskPlanDraft,

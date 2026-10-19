@@ -1,5 +1,7 @@
 # 接入 AI 玩家
 
+管理入口、管理员令牌、WebSocket RPC 和托管 CLI 见 [Agent Gateway](AGENT_GATEWAY.md)。
+
 CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。模型通过 `pi-ai` 的 OpenAI-compatible 流式工具接口接入；`pi-agent-core` 负责“推理 → 工具 → 结果 → 再推理”，项目负责权限、任务、调度和世界状态。
 
 ## 代码职责与依赖

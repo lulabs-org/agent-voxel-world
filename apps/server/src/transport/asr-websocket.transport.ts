@@ -1,3 +1,5 @@
+import type WebSocket from 'ws';
+import type { IncomingMessage } from 'node:http';
 import { webOrigin } from '../config/env';
 import { originAllowed } from '../common/middleware/cors';
 import type { Server } from 'node:http';
@@ -15,13 +17,21 @@ export class AsrWebSocketTransport extends WebSocketTransport {
     store: AsrSettingsStore,
     bridge = bridgeBailianAsr,
     origin = webOrigin(),
+    gateway?: (socket: WebSocket, req: IncomingMessage) => void,
   ) {
-    super({ server, maxPayload: 16384 });
+    super({ server, maxPayload: 32768 });
     let running = 0;
     this.wss.off('connection', this.onConnection);
     this.wss.on('connection', (socket, req) => {
       const url = new URL(req.url ?? '/', 'http://localhost');
       const client = Object.assign(socket, { pingCount: 0 });
+      if (url.pathname === '/agents/gateway' && gateway) {
+        client.on('pong', () => {
+          client.pingCount = 0;
+        });
+        gateway(client, req);
+        return;
+      }
       if (url.pathname !== '/voice/asr/realtime') {
         void this.onConnection(client, req);
         return;

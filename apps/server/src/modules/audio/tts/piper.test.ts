@@ -5,7 +5,7 @@ import { PiperModels } from './piper-models';
 import { PiperTts } from './piper-tts';
 import { speechEndpoint } from '../speech-endpoint';
 import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '@voxel/shared';
-import { installAgentRoutes } from '../../agent/routes/index';
+import { installGatewayRoutes } from '../../gateway/http.routes';
 import type { AgentManager } from '../../agent/manager';
 
 afterEach(() => {
@@ -181,7 +181,7 @@ it('keeps Piper management under the configured origin boundary and returns 202 
     vi.fn<typeof fetch>(async () => catalog(true)),
   );
   const app = express();
-  installAgentRoutes(app, {
+  installGatewayRoutes(app, {
     voiceServices: { piperModels: models },
   } as unknown as AgentManager);
   const server = createServer(app);

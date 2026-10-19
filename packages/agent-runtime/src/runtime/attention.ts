@@ -8,7 +8,10 @@ export class AgentAttention {
   get pending() {
     return this.queue.length > 0;
   }
-  push(event: WorldEvent, self: string) {
+  readonly generation = crypto.randomUUID();
+  rejected = false;
+  accept(event: WorldEvent, self: string) {
+    this.rejected = false;
     if (event.seq <= this.lastSeq) return false;
     this.lastSeq = event.seq;
     if (
@@ -23,8 +26,17 @@ export class AgentAttention {
       !data.recipients.includes(self)
     )
       return false;
+    return true;
+  }
+  push(event: WorldEvent, self: string) {
+    return this.accept(event, self) && this.enqueue(event);
+  }
+  enqueue(event: WorldEvent) {
+    if (this.queue.length >= 8) {
+      this.rejected = true;
+      return false;
+    }
     this.queue.push(event);
-    if (this.queue.length > 8) this.queue.shift();
     this.wake?.();
     return true;
   }

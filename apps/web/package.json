@@ -11,7 +11,9 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0",
-    "colyseus.js": "^0.16.19"
+    "colyseus.js": "^0.16.19",
+    "@voxel/gateway-client": "workspace:*",
+    "@voxel/gateway-protocol": "workspace:*"
   },
   "devDependencies": {
     "vite": "^7.1.7",

@@ -59,6 +59,8 @@ services:
       PORT: 2567
       DATABASE_URL: postgresql://${POSTGRES_USER:-voxel}:${POSTGRES_PASSWORD:-voxelpassword}@db:5432/${POSTGRES_DB:-voxel}?schema=public
       WEB_ORIGIN: '${WEB_ORIGIN:-*}'
+      AGENT_GATEWAY_TOKEN: '${AGENT_GATEWAY_TOKEN:-}'
+      AGENT_GATEWAY_ALLOWED_ORIGINS: '${AGENT_GATEWAY_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}'
       VOICE_PROVIDER: '${VOICE_PROVIDER:-mock}'
       SPEECH_API_URL: '${SPEECH_API_URL:-http://speech:8000/v1}'
       WHISPER_API_URL: '${WHISPER_API_URL:-}'

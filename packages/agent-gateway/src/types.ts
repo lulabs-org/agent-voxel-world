@@ -5,9 +5,11 @@ import type {
   Session,
 } from '@voxel/agent-runtime';
 import type { TaskBook } from './scheduler';
+import type { AgentHost } from './executor';
 
 export type Job = {
   view: ManagedAgentView;
+  host?: AgentHost;
   abort: AbortController;
   session?: Session;
   done?: Promise<void>;
@@ -16,8 +18,8 @@ export type Job = {
   taskMutating?: boolean;
   attention: AgentAttention;
   updating?: boolean;
-  timer?: ReturnType<typeof setTimeout>;
   controlling?: boolean;
+  storageFailed?: boolean;
 };
 
 export const active = (status: ManagedAgentView['status']) =>

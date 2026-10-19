@@ -1,181 +1,141 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { agentsApi } from './agents/api';
-import { initialAgent } from './agents/model';
 import { providersApi } from './providers/api';
-import { freshProvider } from './providers/model';
 import { tasksApi } from './tasks/api';
 import { voiceApi } from './voice/api';
-
-const request = vi.fn<typeof fetch>();
+import { initialAgent } from './agents/model';
+import { freshProvider } from './providers/model';
+const rpc = vi.hoisted(() => vi.fn());
+vi.mock('../../network/gateway', () => ({
+  gatewayRequest: rpc,
+  adminHeaders: () => ({ Authorization: 'Bearer fixture-token' }),
+}));
+const http = vi.fn<typeof fetch>();
 beforeEach(() => {
   vi.stubEnv('VITE_SERVER_URL', 'wss://world.example');
-  vi.stubGlobal('fetch', request);
-  request.mockImplementation(async () => new Response('{}'));
+  vi.stubGlobal('fetch', http);
+  rpc.mockResolvedValue({});
 });
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
-  request.mockReset();
+  rpc.mockReset();
+  http.mockReset();
 });
-
-it('propagates cancellation to list and model requests, encoding provider IDs', async () => {
+it('routes queries through RPC preserving cancellation and identifiers', async () => {
   const signal = new AbortController().signal;
   await providersApi.listProviders(signal);
   await agentsApi.listAgents(signal);
   await providersApi.listModels('custom/provider', signal);
-  expect(
-    request.mock.calls.map(([url, init]) => [
-      url,
-      init?.method,
-      init?.signal,
-      init?.body,
-    ]),
-  ).toEqual([
-    ['https://world.example/agents/providers', 'GET', signal, undefined],
-    ['https://world.example/agents', 'GET', signal, undefined],
-    [
-      'https://world.example/agents/providers/custom%2Fprovider/models',
-      'GET',
-      signal,
-      undefined,
-    ],
+  expect(rpc.mock.calls).toEqual([
+    ['providers.list', {}, signal, undefined],
+    ['agents.list', {}, signal, undefined],
+    ['providers.models', { providerId: 'custom/provider' }, signal, undefined],
+  ]);
+  expect(http).not.toHaveBeenCalled();
+});
+it('preserves provider settings and empty-key preservation across RPC', async () => {
+  const value = freshProvider('compatible');
+  await providersApi.saveProvider(value);
+  await providersApi.saveProvider(value, 'custom');
+  await providersApi.deleteProvider('custom');
+  expect(rpc.mock.calls.map((c) => c.slice(0, 2))).toEqual([
+    ['providers.save', { value }],
+    ['providers.save', { providerId: 'custom', value }],
+    ['providers.delete', { providerId: 'custom' }],
   ]);
 });
-
-it('keeps provider create, edit, key preservation and deletion contracts', async () => {
-  const draft = freshProvider('compatible');
-  await providersApi.saveProvider(draft);
-  await providersApi.saveProvider(draft, 'provider/id');
-  request.mockResolvedValueOnce(new Response(null, { status: 204 }));
-  await expect(
-    providersApi.deleteProvider('provider/id'),
-  ).resolves.toBeUndefined();
-  expect(request.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
-    ['https://world.example/agents/providers', 'POST'],
-    ['https://world.example/agents/providers/provider%2Fid', 'PUT'],
-    ['https://world.example/agents/providers/provider%2Fid', 'DELETE'],
+it('keeps creation and update distinct and does not invent standby goals', async () => {
+  const value = {
+    ...initialAgent,
+    name: 'Partner',
+    goal: '',
+    startTask: false,
+  };
+  await agentsApi.saveAgent(value);
+  await agentsApi.saveAgent(value, 'a');
+  expect(rpc.mock.calls.map((c) => c.slice(0, 2))).toEqual([
+    ['agents.create', { value }],
+    ['agents.update', { agentId: 'a', value }],
   ]);
-  const init = request.mock.calls[1][1]!;
-  expect(init.headers).toEqual({ 'Content-Type': 'application/json' });
-  expect(JSON.parse(init.body as string)).toEqual(draft);
-  expect(JSON.parse(init.body as string).apiKey).toBe('');
 });
-it('loads server voice choices with cancellation and preserves server errors', async () => {
+it('keeps task history pagination and stable request IDs at the API boundary', async () => {
   const signal = new AbortController().signal;
-  const voices = [{ name: 'Tingting', language: 'zh_CN' }];
-  request.mockResolvedValueOnce(new Response(JSON.stringify(voices)));
-  await expect(voiceApi.listPiperModels(signal)).resolves.toEqual(voices);
-  expect(request).toHaveBeenCalledWith(
-    'https://world.example/agents/voice-services/piper/models',
-    expect.objectContaining({ signal, method: 'GET' }),
+  await tasksApi.listTaskRuns('a', 'p', 20, signal);
+  await tasksApi.taskPlanAction('a', 'p', 'run', { requestId: 'stable' });
+  await tasksApi.taskRunAction('a', 'r', 'resume', {
+    maxTurns: 150,
+    tokenBudget: 100000,
+  });
+  expect(rpc.mock.calls[0]).toEqual([
+    'runs.list',
+    { agentId: 'a', planId: 'p', offset: 20 },
+    signal,
+    undefined,
+  ]);
+  expect(rpc.mock.calls[1]).toEqual([
+    'plans.control',
+    {
+      agentId: 'a',
+      planId: 'p',
+      operation: 'run',
+      value: { requestId: 'stable' },
+    },
+    undefined,
+    'stable',
+  ]);
+  expect(rpc.mock.calls[2][1]).toMatchObject({
+    agentId: 'a',
+    runId: 'r',
+    operation: 'resume',
+    value: { maxTurns: 150 },
+  });
+});
+it.each([
+  ['agents.join', () => agentsApi.joinAgent('a')],
+  ['agents.stop', () => agentsApi.stopAgent('a')],
+  ['tasks.pause', () => tasksApi.pauseAgent('a')],
+  ['tasks.cancel', () => tasksApi.cancelTask('a')],
+  ['tasks.resume', () => tasksApi.resumeAgent('a')],
+  ['tasks.assign', () => tasksApi.assignTask('a', '木屋')],
+  ['agents.voice', () => agentsApi.setVoiceReplies('a', false)],
+] as const)('routes %s without HTTP fallback', async (method, action) => {
+  await action();
+  expect(rpc.mock.calls[0][0]).toBe(method);
+  expect(rpc.mock.calls[0][1].agentId).toBe('a');
+  expect(http).not.toHaveBeenCalled();
+});
+it('surfaces RPC rejection without issuing a second write through HTTP', async () => {
+  rpc.mockRejectedValueOnce(Error('请先暂停任务'));
+  await expect(agentsApi.saveAgent(initialAgent, 'busy')).rejects.toThrow(
+    '请先暂停任务',
   );
-  request.mockResolvedValueOnce(
+  expect(http).not.toHaveBeenCalled();
+});
+it('retains authenticated HTTP voice management and actionable HTTP errors', async () => {
+  const signal = new AbortController().signal;
+  http.mockResolvedValueOnce(new Response('[]'));
+  await voiceApi.listPiperModels(signal);
+  expect(http).toHaveBeenCalledWith(
+    'https://world.example/agents/voice-services/piper/models',
+    expect.objectContaining({
+      signal,
+      headers: expect.objectContaining({
+        Authorization: 'Bearer fixture-token',
+      }),
+    }),
+  );
+  http.mockResolvedValueOnce(
     new Response(JSON.stringify({ error: '音色不可用' }), { status: 503 }),
   );
   await expect(voiceApi.listPiperModels(signal)).rejects.toThrow('音色不可用');
 });
 
-it('keeps editing separate from creation and preserves explicit agent settings', async () => {
-  const settings = {
-    ...initialAgent,
-    intervalMode: 'random' as const,
-    intervalMinMs: 1200,
-    intervalMaxMs: 8500,
-    voiceReplies: false,
-  };
-  await agentsApi.saveAgent(settings);
-  await agentsApi.saveAgent(settings, 'agent/id');
-  expect(
-    request.mock.calls.map(([url, init]) => [
-      url,
-      init?.method,
-      JSON.parse(init?.body as string),
-    ]),
-  ).toEqual([
-    ['https://world.example/agents', 'POST', settings],
-    ['https://world.example/agents/agent%2Fid', 'PUT', settings],
-  ]);
-});
-
-it.each([
-  ['join', () => agentsApi.joinAgent('a/b'), {}],
-  ['resume', () => tasksApi.resumeAgent('a/b'), {}],
-  ['pause', () => tasksApi.pauseAgent('a/b'), {}],
-  ['cancel', () => tasksApi.cancelTask('a/b'), {}],
-  ['stop', () => agentsApi.stopAgent('a/b'), {}],
-  ['task', () => tasksApi.assignTask('a/b', '建造木屋'), { goal: '建造木屋' }],
-  ['voice', () => agentsApi.setVoiceReplies('a/b', false), { enabled: false }],
-] as const)('sends %s as a scoped action', async (path, action, body) => {
-  await action();
-  expect(request).toHaveBeenCalledWith(
-    `https://world.example/agents/a%2Fb/${path}`,
-    expect.objectContaining({ method: 'POST', body: JSON.stringify(body) }),
-  );
-});
-
-it('preserves actionable errors for HTML responses and server rejections', async () => {
-  request.mockResolvedValueOnce(
-    new Response('<html>not found</html>', { status: 404 }),
-  );
-  await expect(agentsApi.listAgents()).rejects.toThrow('Agent 接口不可用');
-  request.mockResolvedValueOnce(
-    new Response(JSON.stringify({ error: '请先暂停任务' }), { status: 409 }),
-  );
-  await expect(agentsApi.saveAgent(initialAgent, 'busy')).rejects.toThrow(
-    '请先暂停任务',
-  );
-});
-
-it('sends standby creation explicitly without inventing a task', async () => {
-  await agentsApi.saveAgent({
-    ...initialAgent,
-    name: 'Partner',
-    goal: '',
-    startTask: false,
-  });
-  expect(JSON.parse(request.mock.calls[0][1]!.body as string)).toMatchObject({
-    goal: '',
-    startTask: false,
-  });
-});
-
-it('submits task-specific quotas with assignment and renewal', async () => {
-  const limits = { maxTurns: 12, tokenBudget: 15000, taskTimeoutMs: 180000 };
-  await tasksApi.assignTask('fixture', '观察营地', limits);
-  await tasksApi.resumeAgent('fixture', limits);
-  expect(
-    request.mock.calls.map(([, init]) => JSON.parse(init!.body as string)),
-  ).toEqual([{ goal: '观察营地', ...limits }, limits]);
-});
-
-it('keeps task history cancellation, encoded routes and idempotency keys in the API boundary', async () => {
-  const signal = new AbortController().signal;
-  await tasksApi.listTaskPlans('a/b', signal);
-  await tasksApi.listTaskRuns('a/b', 'p/q', 20, signal);
-  await tasksApi.taskPlanAction('a/b', 'p/q', 'run', {
-    requestId: 'stable-retry',
-  });
-  await tasksApi.taskRunAction('a/b', 'r/s', 'resume', {
-    maxTurns: 150,
-    tokenBudget: 100000,
-  });
-  expect(
-    request.mock.calls.map(([url, init]) => [url, init?.method, init?.signal]),
-  ).toEqual([
-    ['https://world.example/agents/a%2Fb/tasks', 'GET', signal],
-    [
-      'https://world.example/agents/a%2Fb/tasks/p%2Fq/runs?offset=20',
-      'GET',
-      signal,
-    ],
-    ['https://world.example/agents/a%2Fb/tasks/p%2Fq/run', 'POST', undefined],
-    [
-      'https://world.example/agents/a%2Fb/task-runs/r%2Fs/resume',
-      'POST',
-      undefined,
-    ],
-  ]);
-  expect(JSON.parse(request.mock.calls[2][1]!.body as string)).toEqual({
-    requestId: 'stable-retry',
-  });
+it('binds controls to the task identity displayed to the user', async () => {
+  const identity = { id: 'original-task', revision: 3, startedAt: 42 };
+  await tasksApi.pauseAgent('a', identity);
+  await tasksApi.taskRunAction('a', 'r', 'resume', undefined, identity);
+  await tasksApi.taskPlanAction('a', 'p', 'run', {}, identity);
+  for (const call of rpc.mock.calls)
+    expect(call[1].expectedTask).toEqual(identity);
 });

@@ -411,3 +411,47 @@
 - 确认结束后任务进入历史执行，当前执行清空；运行记录可正常显示。
 
 截图：`output/playwright/agent-conversation-task-refactor.png`；交互快照在 `.playwright-cli/`，均为本地忽略产物。验收未修改现用世界数据、未重启现用服务、未运行数据库迁移。存档升级由首次加载时备份并迁移，兼容性在临时存档中验证；本次未部署 Docker，也未重新验收真实麦克风或外部 ASR/TTS。
+
+## 2026-10-19：Agent Gateway 统一接入与托管
+
+架构、认证配置与管理命令见 [Agent Gateway](AGENT_GATEWAY.md)。本次未部署切换或重启现用服务，未执行数据库迁移。
+
+### 本地检查与 fixture 集成
+
+- `pnpm check` 通过：61 个测试文件、592 项测试、TypeScript 检查和全部工作区构建；`pnpm format:check` 和 `git diff --check` 通过。
+- Gateway 测试覆盖协议与认证拒绝、命令去重/冲突/过期、每 Agent 提交顺序、写入失败阻止世界动作及成功事件、订阅快照期间更新、慢客户端、断线恢复、未知结果和依赖方向。
+- `pnpm test:gateway` 通过：真实 HTTP/WebSocket 的授权、HTTP/RPC 共用命令结果、任务修订冲突、事件序号与脱敏、任务控制、断线后托管继续，以及 CLI 查询和 watch 退出。ASR 管理接口验证 Bearer 授权及无 Origin 的 CLI 请求；实际音频通道保持原授权。
+- `pnpm test:agents`、`pnpm test:agent:tasks`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:voice:services`、`pnpm test:agent:deepseek`、`pnpm test:navigation` 通过。模型/语音 fixture 结果不等同于外部模型或音频服务验收。
+- 修正后的 `pnpm test:integration` 在随机端口、临时存档和内存世界中通过 9 项 CLI/世界协议场景。
+
+**首次旧 CLI 测试的隔离问题：** 该脚本原先使用默认 `Session()`，首次运行误连默认本机 `2567`，在并发编辑断言处失败，随后关闭测试连接。失败前发送过编辑请求，包括条件式删除测试坐标已有方块；现有输出不足以确认是否影响原有方块。没有重启现用服务，也没有进行猜测性回滚。脚本现已改为自行创建隔离服务器，不再依赖默认世界地址，重新运行通过。
+
+### 浏览器
+
+真实 Chromium 使用独立前端 `5189` 和临时世界 `2589`，模型为 fixture：
+
+- 输入令牌、创建 Agent、保存模型服务、创建任务、暂停/恢复/取消、查看历史与累计用量均通过。
+- Web 创建的 Agent 可由 CLI 查询；CLI 暂停后 Web 自动显示新状态。
+- 空闲观察没有管理轮询；关闭控制台释放连接；重开及切换分类只保留一条管理连接。
+- 主动断开 socket 后重新连接并取得订阅快照，没有自动重发写请求。
+
+截图保存在本地忽略产物 `output/playwright/gateway-console.png`。这次未重新验证真实麦克风和外部 ASR/TTS 推理。
+
+### 真实模型
+
+`NAVIGATION_PROVIDERS=… NAVIGATION_OUTPUT=… pnpm test:navigation:live` 使用现有 DeepSeek 配置、临时世界、真实聊天入口和世界物理，每场景最多 8 次模型请求：
+
+| 场景                           | 请求次数 | 结果                                                            |
+| ------------------------------ | -------: | --------------------------------------------------------------- |
+| 到我这里来：平地               |        3 | 到达并完成，水平误差 0                                          |
+| 取消旧任务后绕墙               |        4 | 到达并完成，水平误差 0                                          |
+| 取消旧任务后上台阶             |        4 | 到达并完成，水平误差 0                                          |
+| 持续跟随、任务中问答、修改目标 |        7 | 跟随由本地控制器推进；问答只计 Agent 用量；修改目标后到达并完成 |
+
+共 18 次真实模型请求。证据保存在 `artifacts/gateway-live-model.json`，不包含凭据。这是有界场景验收，不代表所有模型和自然语言输入的成功率。
+
+### Docker 与反向代理
+
+- `Dockerfile.server` 和 `Dockerfile.web` 的最终工作区构建均通过，验证新增包的依赖安装与生产打包边界。
+- 独立测试容器通过现有 Nginx 配置同时连接 Gateway 与 Colyseus；实时 ASR 路径到达对应服务并返回缺少配置的预期校验结果。该项验证路径共存，不代表已调用外部 ASR 推理。
+- 临时容器使用内存世界，不连接现用数据库；本次未替换现用镜像或容器。部署与现用存档首次加载仍是单独步骤。

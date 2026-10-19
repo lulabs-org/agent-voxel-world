@@ -1,3 +1,4 @@
+import { adminHeaders } from '../../../network/gateway';
 import type {
   PiperModelView,
   VoiceServiceDraft,
@@ -37,7 +38,7 @@ export const voiceApi = {
       {
         method: 'POST',
         signal,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       },
     );

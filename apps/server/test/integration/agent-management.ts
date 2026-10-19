@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager, ProviderStore } from '../../src/modules/agent/manager';
+import { AgentManager } from '../../src/modules/agent/manager';
+import { ProviderStore } from '../../src/modules/agent/provider-store';
 import { Session, until, type Observation } from '@voxel/agent-runtime';
 
 import type { ManagedAgentView } from '@voxel/shared';
@@ -88,6 +89,7 @@ try {
     fetch(`${url}/agents${path}`, {
       method,
       headers: {
+        Authorization: 'Bearer fixture-gateway-token-for-tests',
         ...(origin ? { Origin: origin } : {}),
         'Content-Type': 'application/json',
       },
@@ -98,7 +100,7 @@ try {
       .status,
     403,
   );
-  assert.equal((await fetch(`${url}/agents/providers`)).status, 403);
+  assert.equal((await fetch(`${url}/agents/providers`)).status, 401);
   assert.equal((await api('/providers', 'OPTIONS')).status, 204);
   const missingRoute = await api('/missing/endpoint', 'POST', {});
   assert.equal(missingRoute.status, 404);

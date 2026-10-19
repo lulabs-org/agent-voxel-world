@@ -6,7 +6,7 @@ import {
   wallClockInstant,
   duePlans,
   emptyTaskBook,
-} from '../apps/server/src/modules/agent/scheduler';
+} from '@voxel/agent-gateway';
 import {
   DEFAULT_TASK_LIMITS,
   type TaskTiming,

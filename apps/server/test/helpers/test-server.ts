@@ -38,6 +38,8 @@ export async function createTestServer(
         WEB_ORIGIN: options.origin ?? 'http://127.0.0.1:5173',
         DATABASE_URL: '',
         VOICE_PROVIDER: 'mock',
+        AGENT_GATEWAY_TOKEN: 'fixture-gateway-token-for-tests',
+        AGENT_GATEWAY_TOKEN_FILE: join(directory, 'gateway-token'),
       }),
       databaseCheck: async () => {},
     });

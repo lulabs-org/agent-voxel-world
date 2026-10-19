@@ -5,6 +5,11 @@ try {
   const config = loadEnvironment();
   const server = await createServer({ config });
   const url = (await server.listen()).replace(/^ws:/, 'http:');
+  console.log(
+    config.gateway.token
+      ? 'Agent Gateway 使用 AGENT_GATEWAY_TOKEN。'
+      : `Agent Gateway 令牌文件 ${config.gateway.tokenFile}`,
+  );
   console.log(`Voxel server ${url}`);
   console.log(`Swagger UI   ${url}/api-docs`);
   console.log(`OpenAPI JSON ${url}/api-docs.json`);
