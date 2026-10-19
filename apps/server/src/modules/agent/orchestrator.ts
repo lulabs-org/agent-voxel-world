@@ -1,16 +1,16 @@
-import { PlanService } from '../tasks/plans/service';
-import { migrateArchive } from './archive';
-import { GatewayScheduler } from './wake-scheduler';
-import { PlanScheduler } from '../tasks/plans/scheduler';
-import { endedRun } from '../tasks/plans/model';
-import { appendAgentLog } from './agent-logs';
 import {
+  PlanService,
+  TaskScheduler,
+  endedRun,
   validatePlan,
   newPlan,
   newRun,
   nextOccurrence,
   duePlans,
-} from '../tasks/plans/model';
+} from '../tasks';
+import { migrateArchive } from './archive';
+import { GatewayScheduler } from './wake-scheduler';
+import { appendAgentLog } from './agent-logs';
 import {
   hasPlanTokenLimit,
   isRepeating,
@@ -69,7 +69,7 @@ export class AgentOrchestrator {
   private shutdownPresence = new Map<string, Job['view']['status']>();
   private probing = new Set<string>();
   readonly taskScheduler = new GatewayScheduler();
-  readonly planScheduler = new PlanScheduler(() => this.dispatchDue());
+  readonly planScheduler = new TaskScheduler(() => this.dispatchDue());
   readonly plans = new PlanService();
   readonly committedPlans = new PlanService();
   private saving: Promise<void> = Promise.resolve();

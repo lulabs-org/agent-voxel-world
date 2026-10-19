@@ -5,10 +5,15 @@ import {
   restoreBatchHistory,
   restorePiCheckpoint,
 } from '@voxel/agent-runtime';
-import { PlanService } from '../tasks/plans/service';
+import {
+  PlanService,
+  duePlans,
+  endedRun,
+  newRun,
+  nextOccurrence,
+} from '../tasks';
 import { isRepeating } from '@voxel/shared';
 import { restoreAgentLogs } from './agent-logs';
-import { duePlans, endedRun, newRun, nextOccurrence } from '../tasks/plans/model';
 import { validateAgent } from './agent-validation';
 import { AppError } from '../../common/errors';
 import type { ProviderPort, RestoredAgentRecord } from './ports';

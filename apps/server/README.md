@@ -30,7 +30,7 @@
 | `modules/realtime`      | 百炼实时会话、工具确认与离线协议模拟器                       |
 | `modules/world`         | 权威物理房间、Schema、世界持久化与在线状态 SSE               |
 
-`local-speech.ts` 属于识别流程，保留在 `asr`。Piper 模型和声音服务的管理路由归 `audio`，HTTP 地址继续为 `/agents/voice-services`；Agent 音色绑定由 Agent 管理器处理，删除服务通过注入回调检查绑定，音频模块不反向依赖 Agent。`agent-storage.ts`、`orchestrator.ts` 留在 `agent` 模块，`provider-store.ts` 归属 `providers` 模块，`tasks-service.ts` 与 `plans/` 归属 `tasks` 模块。
+`local-speech.ts` 属于识别流程，保留在 `asr`。Piper 模型和声音服务的管理路由归 `audio`，HTTP 地址继续为 `/agents/voice-services`；Agent 音色绑定由 Agent 管理器处理，删除服务通过注入回调检查绑定，音频模块不反向依赖 Agent。`agent-storage.ts`、`orchestrator.ts` 留在 `agent` 模块，`provider-store.ts` 归属 `providers` 模块，`task-port.ts`、`task-service.ts`、`task-model.ts` 与 `task-scheduler.ts` 归属 `tasks` 模块。
 
 业务错误与通用异常统一使用 `common/errors.ts` 中的 `AppError`。复用 Origin 判断和异常处理机制不意味着统一所有端点的策略：保留语音接口允许无 Origin、管理接口的 Origin 校验、原有预检方法、JSON/原始音频限制以及错误状态和文案。Swagger 递归扫描 `routes` 和 `modules` 下的 `*.routes.ts`。
 

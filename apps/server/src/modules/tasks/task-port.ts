@@ -35,6 +35,7 @@ export interface TasksManagerPort {
     value: unknown,
   ): Promise<unknown>;
 }
+export type TaskPort = TasksManagerPort;
 
 /**
  * Tasks / Plans 领域的业务服务封装

@@ -1,5 +1,5 @@
 /** Runs only plan triggers; Agent wake timers are owned separately. */
-export class PlanScheduler {
+export class TaskScheduler {
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   private running = false;

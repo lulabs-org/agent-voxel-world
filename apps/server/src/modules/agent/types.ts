@@ -4,7 +4,7 @@ import type {
   AgentRunState,
   Session,
 } from '@voxel/agent-runtime';
-import type { PlanService } from '../tasks/plans/service';
+import type { PlanService } from '../tasks';
 import type { SavedProvider } from '../providers/provider-validation';
 
 export interface HostedAgent {

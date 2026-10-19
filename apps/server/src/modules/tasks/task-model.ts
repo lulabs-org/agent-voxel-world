@@ -1,4 +1,4 @@
-import { AppError } from '../../../common/errors';
+import { AppError } from '../../common/errors';
 import { nextOccurrence } from '@voxel/shared';
 export { nextOccurrence, wallClockInstant } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';

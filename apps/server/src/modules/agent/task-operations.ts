@@ -4,7 +4,7 @@ import {
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
-import { endedRun, newRun, nextOccurrence, runView } from '../tasks/plans/model';
+import { endedRun, newRun, nextOccurrence, runView } from '../tasks';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import { object } from '../../common/validation';
 import { taskLimits, validateAgent } from './agent-validation';

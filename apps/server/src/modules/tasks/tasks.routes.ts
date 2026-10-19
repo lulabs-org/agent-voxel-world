@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 import type { RpcParams } from '@voxel/gateway-protocol';
-import { TasksService, type TasksManagerPort } from './tasks-service';
+import { TasksService, type TasksManagerPort, type TaskPort } from './task-port';
 
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
