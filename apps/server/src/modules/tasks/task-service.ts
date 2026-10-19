@@ -4,7 +4,7 @@ import {
   nextOccurrence,
   type TaskPlan,
 } from '@voxel/shared';
-import type { StoredRun } from './task-model';
+import type { StoredRun, TaskRunsPage } from './task-types';
 import { endedRun, runView } from './task-model';
 import { integer, object } from '../../common/validation';
 import { AppError } from '../../common/errors';
@@ -130,7 +130,7 @@ export class TaskPlanService {
         };
       });
   }
-  history(planId: string, offset = 0) {
+  history(planId: string, offset = 0): TaskRunsPage {
     this.get(planId);
     if (!Number.isSafeInteger(offset) || offset < 0)
       throw new AppError('分页参数无效。');
