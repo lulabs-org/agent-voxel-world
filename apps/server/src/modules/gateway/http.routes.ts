@@ -4,8 +4,8 @@ import type { AgentManager } from '../agent/manager';
 import { SpeechError } from '../audio/errors';
 import { installVoiceServiceRoutes } from '../audio/routes/voice-services.routes';
 import { installProviderRoutes } from '../providers/routes/providers.routes';
-import { installAgentRoutes } from '../agent/routes/agents.routes';
-import { installTaskRoutes } from '../tasks/routes/tasks.routes';
+import { installAgentRoutes } from '../agent/agents.routes';
+import { installTaskRoutes } from '../tasks/tasks.routes';
 import { createOriginGuard } from '../../common/middleware/cors';
 import { requireJsonBody } from '../../common/middleware/json-body';
 import { errorHandler } from '../../common/middleware/error-handler';
@@ -39,15 +39,15 @@ export function installGatewayRoutes(
     ...(authenticated
       ? []
       : [
-          createOriginGuard({
-            origin,
-            message: '仅允许配置的本机游戏页面管理 Agent。',
-            vary: true,
-            alwaysHeader: true,
-            cacheControl: 'no-store',
-            methods: 'GET, POST, PUT, DELETE, OPTIONS',
-          }),
-        ]),
+        createOriginGuard({
+          origin,
+          message: '仅允许配置的本机游戏页面管理 Agent。',
+          vary: true,
+          alwaysHeader: true,
+          cacheControl: 'no-store',
+          methods: 'GET, POST, PUT, DELETE, OPTIONS',
+        }),
+      ]),
     (req, res, next) => {
       const key = req.header('Idempotency-Key');
       if (key !== undefined && !identifier(key)) {

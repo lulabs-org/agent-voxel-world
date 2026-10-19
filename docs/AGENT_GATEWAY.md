@@ -34,6 +34,7 @@ flowchart TD
 - `packages/gateway-client`：宿主注入 socket；处理握手、请求关联、超时、订阅序号、重连和未确认命令查询。不会自动重发写请求。
 - `apps/server/src/modules/gateway`：令牌、HTTP 网关路由装配及其 OpenAPI 契约、socket 适配。
 - `apps/server/src/modules/providers`：`provider-store.ts`（模型提供商配置文件适配与持久化）、`providers.routes.ts`。
+- `apps/server/src/modules/tasks`：`tasks-service.ts`（任务与计划领域服务封装）、`tasks.routes.ts`。
 - `apps/server/src/modules/agent`：`manager.ts`（生产依赖注入）、`agent-storage.ts`（存档文件适配）、`speech.ts`（世界内语音投递）、`agents.routes.ts`。调度、日志、校验和业务错误直接从共享包引用，不保留转导出占位文件。
 
 Gateway 按程序规则路由。消息意图仍由 ConversationRunner 判断；网关没有模型分类请求。每个角色的模型和动作串行，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。
