@@ -1,21 +1,25 @@
 import type { ProviderView } from '@voxel/shared';
 import type { ProviderDraft } from '../providers/model';
-import { providerPath, request } from '../request';
+import { consoleFetch } from '../request';
+
 export const providersApi = {
   listProviders: (signal?: AbortSignal) =>
-    request<ProviderView[]>('/providers', 'GET', undefined, signal),
+    consoleFetch<ProviderView[]>('/providers', { signal }),
   listModels: (id: string, signal?: AbortSignal) =>
-    request<{ models: string[] }>(
-      `${providerPath(id)}/models`,
-      'GET',
-      undefined,
-      signal,
+    consoleFetch<{ models: string[] }>(
+      `/providers/${encodeURIComponent(id)}/models`,
+      { signal },
     ),
   saveProvider: (draft: ProviderDraft, id?: string) =>
-    request<ProviderView>(
-      id ? providerPath(id) : '/providers',
-      id ? 'PUT' : 'POST',
-      draft,
+    consoleFetch<ProviderView>(
+      id ? `/providers/${encodeURIComponent(id)}` : '/providers',
+      {
+        method: id ? 'PUT' : 'POST',
+        body: draft,
+      },
     ),
-  deleteProvider: (id: string) => request<void>(providerPath(id), 'DELETE'),
+  deleteProvider: (id: string) =>
+    consoleFetch<void>(`/providers/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
 };
