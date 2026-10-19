@@ -1,6 +1,6 @@
 import type { Express } from 'express';
-import type { AgentManager } from '../manager';
-import { asyncRoute as route } from '../../../common/middleware/async-route';
+import type { AgentManager } from './manager';
+import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**
  * 安装 Agent 基础配置与生命周期控制相关 HTTP REST 路由

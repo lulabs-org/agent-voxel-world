@@ -1,12 +1,21 @@
 import type { Express } from 'express';
-import type { AgentManager } from '../../agent/manager';
-import { asyncRoute as route } from '../../../common/middleware/async-route';
+import type { AgentManager } from '../agent/manager';
+import { asyncRoute as route } from '../../common/middleware/async-route';
 import type { RpcParams } from '@voxel/gateway-protocol';
+import { TasksService } from './tasks-service';
 
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
  */
-export function installTaskRoutes(app: Express, manager: AgentManager) {
+export function installTaskRoutes(
+  app: Express,
+  managerOrService: AgentManager | TasksService,
+) {
+  const service =
+    managerOrService instanceof TasksService
+      ? managerOrService
+      : new TasksService(managerOrService);
+
   // ---------------------------------------------------------------------------
   // 全局任务计划与控制
   // ---------------------------------------------------------------------------
@@ -42,7 +51,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.get(
     '/agents/tasks',
     route((req, res) => {
-      const page = manager.planPage({
+      const page = service.listGlobalPlans({
         state: (req.query.state
           ? String(req.query.state)
           : undefined) as RpcParams['state'],
@@ -76,7 +85,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
     '/agents/tasks',
     route(async (req, res) => {
       const agentId = String(req.body?.agentId ?? '');
-      const result = await manager.createTaskPlan(agentId, req.body ?? {});
+      const result = await service.createPlan(agentId, req.body ?? {});
       res.status(201).json(result);
     }),
   );
@@ -101,7 +110,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.get(
     '/agents/tasks/:planId',
     route((req, res) => {
-      res.json(manager.publicPlan(String(req.params.planId)));
+      res.json(service.getPlan(String(req.params.planId)));
     }),
   );
 
@@ -133,7 +142,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
     route(async (req, res) => {
       const planId = String(req.params.planId);
       const agentId = req.body?.agentId ? String(req.body.agentId) : undefined;
-      const result = await manager.updateTaskPlan(
+      const result = await service.updatePlan(
         agentId,
         planId,
         req.body ?? {},
@@ -162,12 +171,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.delete(
     '/agents/tasks/:planId',
     route(async (req, res) => {
-      await manager.controlTaskPlan(
-        undefined,
-        String(req.params.planId),
-        'delete',
-        {},
-      );
+      await service.deletePlan(undefined, String(req.params.planId));
       res.sendStatus(204);
     }),
   );
@@ -198,7 +202,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.post(
     '/agents/tasks/:planId/reassign',
     route(async (req, res) => {
-      const result = await manager.reassignPlan(
+      const result = await service.reassignPlan(
         String(req.params.planId),
         String(req.body?.targetAgentId ?? ''),
       );
@@ -226,7 +230,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.get(
     '/agents/tasks/:planId/runs',
     route((req, res) => {
-      const result = manager.publicRuns(
+      const result = service.listRuns(
         undefined,
         String(req.params.planId),
         Number(req.query.offset ?? 0),
@@ -261,7 +265,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.post(
     '/agents/tasks/:planId/:operation',
     route(async (req, res) => {
-      const result = await manager.controlTaskPlan(
+      const result = await service.controlPlan(
         undefined,
         String(req.params.planId),
         String(req.params.operation),
@@ -297,7 +301,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
     '/agents/task-runs/:runId/:operation',
     route(async (req, res) => {
       const agentId = req.body?.agentId ? String(req.body.agentId) : '';
-      const result = await manager.controlTaskRun(
+      const result = await service.controlRun(
         agentId,
         String(req.params.runId),
         String(req.params.operation),
@@ -331,7 +335,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.get(
     '/agents/:id/tasks',
     route((req, res) => {
-      res.json(manager.publicPlans(String(req.params.id)));
+      res.json(service.listAgentPlans(String(req.params.id)));
     }),
   );
 
@@ -361,7 +365,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.post(
     '/agents/:id/tasks',
     route(async (req, res) => {
-      const result = await manager.createTaskPlan(
+      const result = await service.createPlan(
         String(req.params.id),
         req.body ?? {},
       );
@@ -394,7 +398,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.get(
     '/agents/:id/tasks/:planId',
     route((req, res) => {
-      res.json(manager.publicPlan(String(req.params.planId)));
+      res.json(service.getPlan(String(req.params.planId)));
     }),
   );
 
@@ -429,7 +433,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.put(
     '/agents/:id/tasks/:planId',
     route(async (req, res) => {
-      const result = await manager.updateTaskPlan(
+      const result = await service.updatePlan(
         String(req.params.id),
         String(req.params.planId),
         req.body ?? {},
@@ -458,11 +462,9 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.delete(
     '/agents/:id/tasks/:planId',
     route(async (req, res) => {
-      await manager.controlTaskPlan(
+      await service.deletePlan(
         String(req.params.id),
         String(req.params.planId),
-        'delete',
-        {},
       );
       res.sendStatus(204);
     }),
@@ -489,7 +491,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
     '/agents/:id/tasks/:planId/runs',
     route((req, res) => {
       res.json(
-        manager.publicRuns(
+        service.listRuns(
           String(req.params.id),
           String(req.params.planId),
           Number(req.query.offset ?? 0),
@@ -529,7 +531,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.post(
     '/agents/:id/tasks/:planId/:operation',
     route(async (req, res) => {
-      const result = await manager.controlTaskPlan(
+      const result = await service.controlPlan(
         String(req.params.id),
         String(req.params.planId),
         String(req.params.operation),
@@ -557,11 +559,6 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
    *         required: true
    *         schema:
    *           type: string
-   *       - in: path
-   *         name: operation
-   *         required: true
-   *         schema:
-   *           type: string
    *     responses:
    *       200:
    *         description: 操作成功
@@ -569,7 +566,7 @@ export function installTaskRoutes(app: Express, manager: AgentManager) {
   app.post(
     '/agents/:id/task-runs/:runId/:operation',
     route(async (req, res) => {
-      const result = await manager.controlTaskRun(
+      const result = await service.controlRun(
         String(req.params.id),
         String(req.params.runId),
         String(req.params.operation),
