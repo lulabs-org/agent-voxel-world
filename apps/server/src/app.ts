@@ -9,14 +9,11 @@ import { installAgentRoutes } from './modules/agent';
 import { installProviderRoutes } from './modules/providers/providers.routes';
 import { installTaskRoutes } from './modules/tasks';
 import type { VoiceServiceStore } from './modules/audio/tts/voice-services';
-import { installPiperRoutes } from './modules/audio/routes/piper.routes';
-import { installVoiceServiceRoutes } from './modules/audio/routes/voice-services.routes';
+import { installAudioRoutes } from './modules/audio/routes';
 import {
   managementBody,
   managementErrors,
 } from './common/middleware/management-http';
-import { installSpeechRoutes } from './modules/audio/routes/speech.routes';
-import { installAsrRoutes } from './modules/audio/routes/asr.routes';
 import { installChatRoutes } from './modules/chat/chat.routes';
 import {
   installWorldRoutes,
@@ -47,17 +44,16 @@ export function createApp(deps: {
   });
   installDocsRoutes(app);
   installHealthRoutes(app, deps.config);
-  const managementPaths = [
-    '/agents',
-    '/providers',
-    '/tasks',
-    '/task-runs',
-    '/voice/tts',
-  ];
+  const managementPaths = ['/agents', '/providers', '/tasks', '/task-runs'];
   app.use(managementPaths, deps.gatewayAuth.middleware, ...managementBody);
-  app.use('/voice/asr/services', deps.gatewayAuth.middleware);
-  installSpeechRoutes(app, deps.speech, deps.asrSettings, origin);
-  installAsrRoutes(app, deps.asrSettings, origin, true);
+  installAudioRoutes(app, {
+    origin,
+    authenticateManagement: deps.gatewayAuth.middleware,
+    speech: deps.speech,
+    asrSettings: deps.asrSettings,
+    voiceServices: deps.voiceServices,
+    removeVoiceService: (id) => deps.agents.removeVoiceService(id),
+  });
   installAgentRoutes(app, deps.agents);
   installProviderRoutes(app, {
     store: deps.agents.providers,
@@ -66,12 +62,6 @@ export function createApp(deps: {
     changed: () => deps.agents.events.publish('providers'),
   });
   installTaskRoutes(app, deps.agents.tasks);
-  installVoiceServiceRoutes(
-    app,
-    () => deps.voiceServices,
-    (id) => deps.agents.removeVoiceService(id),
-  );
-  installPiperRoutes(app, deps.voiceServices.piperModels);
   installWorldRoutes(app, () => deps.world()?.roomId ?? '');
   installChatRoutes(
     app,

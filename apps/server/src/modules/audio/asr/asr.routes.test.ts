@@ -10,11 +10,11 @@ import {
   DEFAULT_WHISPER_ASR,
   type BailianAsrDraft,
 } from '@voxel/shared';
-import { AsrSettingsStore } from '../asr/asr-settings';
+import { AsrSettingsStore } from './asr-settings';
 import { installAsrRoutes } from './asr.routes.ts';
 import { AsrWebSocketTransport } from '../../../transport/asr-websocket.transport';
-import { installSpeechRoutes } from './speech.routes.ts';
-import { LocalSpeech } from '../asr/local-speech';
+import { installCapabilitiesRoutes } from '../capabilities.routes';
+import { LocalSpeech } from './local-speech';
 
 let server: Server,
   transport: AsrWebSocketTransport,
@@ -39,7 +39,7 @@ beforeEach(async () => {
     available: true,
     reason: 'local',
   });
-  installSpeechRoutes(app, speech, store);
+  installCapabilitiesRoutes(app, speech, store);
   installAsrRoutes(app, store);
   server = createServer(app);
   transport = new AsrWebSocketTransport(server, store, bridge);

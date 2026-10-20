@@ -1,22 +1,19 @@
 import { env } from '../../../config/env';
 import { createOriginGuard } from '../../../common/middleware/cors';
 import { errorHandler } from '../../../common/middleware/error-handler';
-import { AsrSettingsStore } from '../asr/asr-settings';
-import { listWhisperModels } from '../asr/whisper-settings';
+import { AsrSettingsStore } from './asr-settings';
 import express, { type Express } from 'express';
-import { LocalSpeech, MAX_AUDIO_BYTES } from '../asr/local-speech';
+import { LocalSpeech, MAX_AUDIO_BYTES } from './local-speech';
 import { AppError } from '../../../common/errors';
-import { createVoiceProvider } from '../session/voice';
-import { PiperModels } from '../tts/piper-models';
 import { scheduleSpeech } from '../tts/speech-scheduler';
-export function installSpeechRoutes(
+export function installTranscribeRoutes(
   app: Express,
   speech = new LocalSpeech(),
   asrSettings = new AsrSettingsStore(),
   origin = env.webOrigin(),
 ) {
   app.use(
-    ['/voice/capabilities', '/voice/transcribe'],
+    '/voice/transcribe',
     createOriginGuard({
       origin,
       required: false,
@@ -26,67 +23,6 @@ export function installSpeechRoutes(
       methods: 'GET, POST, OPTIONS',
     }),
   );
-
-  /**
-   * @openapi
-   * /voice/capabilities:
-   *   get:
-   *     summary: 查询当前语音能力与可用模型
-   *     tags:
-   *       - Voice
-   *     parameters:
-   *       - in: query
-   *         name: serviceId
-   *         required: false
-   *         schema:
-   *           type: string
-   *         description: 可选的 ASR 服务 ID
-   *     responses:
-   *       200:
-   *         description: 语音服务支持能力
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 local:
-   *                   type: object
-   *                 whisperModels:
-   *                   type: array
-   *                   items:
-   *                     type: string
-   *                 ollamaConfigured:
-   *                   type: boolean
-   *                 agentSpeech:
-   *                   type: object
-   */
-  app.get('/voice/capabilities', async (req, res) => {
-    try {
-      const selected =
-        req.query.serviceId === undefined
-          ? undefined
-          : asrSettings.get(String(req.query.serviceId));
-      if (selected && selected.provider !== 'whisper')
-        throw new AppError('请选择 Whisper 服务。');
-      let ollamaConfigured = false;
-      try {
-        createVoiceProvider('ollama');
-        ollamaConfigured = true;
-      } catch {
-        /* Optional. */
-      }
-      res.json({
-        local: await speech.status(selected),
-        whisperModels: await listWhisperModels(),
-        ollamaConfigured,
-        agentSpeech: await new PiperModels().status(),
-      });
-    } catch (error) {
-      res.status(error instanceof AppError ? error.status : 500).json({
-        error: error instanceof AppError ? error.message : '无法检查识别服务。',
-      });
-    }
-  });
 
   /**
    * @openapi

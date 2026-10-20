@@ -1,5 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createTestServer } from './helpers/test-server';
+import { LocalSpeech } from '../src/modules/audio/asr/local-speech';
+import { PiperModels } from '../src/modules/audio/tts/piper-models';
 
 const token = 'Bearer fixture-gateway-token-for-tests';
 const origin = 'http://world.test';
@@ -8,6 +10,63 @@ const headers = {
   Origin: origin,
   'Content-Type': 'application/json',
 };
+
+it('assembles public audio endpoints separately from protected management routes', async () => {
+  const speech = new LocalSpeech();
+  vi.spyOn(speech, 'status').mockResolvedValue({
+    available: true,
+    reason: 'fixture',
+  });
+  const transcribe = vi
+    .spyOn(speech, 'transcribe')
+    .mockResolvedValue('fixture text');
+  vi.spyOn(PiperModels.prototype, 'status').mockResolvedValue({
+    available: false,
+    reason: 'fixture',
+  });
+  const server = await createTestServer({ origin, speech });
+  try {
+    const capabilities = await fetch(server.httpUrl + '/voice/capabilities', {
+      headers: { Origin: origin },
+    });
+    expect(capabilities.status).toBe(200);
+    expect(await capabilities.json()).toMatchObject({
+      local: { available: true },
+    });
+    const response = await fetch(
+      server.httpUrl + '/voice/transcribe?language=en',
+      {
+        method: 'POST',
+        headers: { Origin: origin, 'Content-Type': 'audio/wav' },
+        body: 'fixture audio',
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ text: 'fixture text' });
+    expect(transcribe.mock.calls[0][0]).toEqual(Buffer.from('fixture audio'));
+    expect(transcribe.mock.calls[0][2]).toBe('en');
+    const missing = await fetch(server.httpUrl + '/voice/tts/missing', {
+      headers,
+    });
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({
+      error: '管理接口不存在，请确认前后端版本一致。',
+    });
+    const spec = await (await fetch(server.httpUrl + '/api-docs.json')).json();
+    for (const [path, method] of [
+      ['/voice/capabilities', 'get'],
+      ['/voice/transcribe', 'post'],
+      ['/voice/asr/services', 'get'],
+      ['/voice/tts/services', 'get'],
+      ['/voice/tts/piper/models', 'get'],
+    ]) {
+      expect(spec.paths[path]?.[method], `${method} ${path}`).toBeDefined();
+    }
+  } finally {
+    await server.close();
+    vi.restoreAllMocks();
+  }
+});
 
 it('protects each management domain and retains transport policies after path migration', async () => {
   const server = await createTestServer({ origin });

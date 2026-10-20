@@ -1,25 +1,19 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AsrSettingsStore } from '../asr/asr-settings';
+import { AsrSettingsStore } from './asr-settings';
 import { DEFAULT_WHISPER_ASR, DEFAULT_BAILIAN_ASR } from '@voxel/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import { createServer, type Server } from 'node:http';
-import { installSpeechRoutes } from './speech.routes.ts';
-import { LocalSpeech } from '../asr/local-speech';
+import { installTranscribeRoutes } from './transcribe.routes';
+import { LocalSpeech } from './local-speech';
 import { AppError } from '../../../common/errors';
-import { PiperModels } from '../tts/piper-models';
-describe('local speech HTTP boundary', () => {
+describe('transcription HTTP boundary', () => {
   let server: Server, url: string, store: AsrSettingsStore, dir: string;
   const transcribe = vi.fn();
   beforeEach(async () => {
     vi.stubEnv('WEB_ORIGIN', 'http://127.0.0.1:5187');
-    vi.stubEnv('OLLAMA_MODEL', '');
-    vi.spyOn(PiperModels.prototype, 'status').mockResolvedValue({
-      available: false,
-      reason: '请安装 Piper 模型。',
-    });
     transcribe.mockReset().mockResolvedValue('hello');
     const speech = new LocalSpeech();
     vi.spyOn(speech, 'status').mockResolvedValue({
@@ -31,7 +25,7 @@ describe('local speech HTTP boundary', () => {
     store = new AsrSettingsStore(join(dir, 'services.json'));
     await store.load();
     const app = express();
-    installSpeechRoutes(app, speech, store);
+    installTranscribeRoutes(app, speech, store);
     server = createServer(app);
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),
@@ -44,13 +38,6 @@ describe('local speech HTTP boundary', () => {
     await rm(dir, { recursive: true, force: true });
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
-  });
-  it('advertises local readiness separately from optional Ollama configuration', async () => {
-    const response = await fetch(`${url}/voice/capabilities`);
-    expect(await response.json()).toMatchObject({
-      local: { available: true },
-      ollamaConfigured: false,
-    });
   });
   it('allows the configured page preflight but rejects other origins', async () => {
     const allowed = await fetch(`${url}/voice/transcribe`, {
@@ -172,11 +159,5 @@ describe('local speech HTTP boundary', () => {
     expect((await pending).status).toBe(200);
     await store.remove(a.id);
     expect((await send(a.id)).status).toBe(404);
-    expect(
-      (await fetch(`${url}/voice/capabilities?serviceId=${a.id}`)).status,
-    ).toBe(404);
-    expect(
-      (await fetch(`${url}/voice/capabilities?serviceId=${b.id}`)).status,
-    ).toBe(200);
   });
 });
