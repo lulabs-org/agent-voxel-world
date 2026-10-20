@@ -328,9 +328,7 @@ const hello = {
   token: 'fixture-gateway-token-for-tests',
 };
 it('buffers changes during a subscription snapshot and disconnects slow clients', async () => {
-  const { GatewayEvents } = await import(
-    '../apps/server/src/modules/agent/events'
-  );
+  const { GatewayEvents } = await import('../apps/server/src/modules/agent');
   const events = new GatewayEvents();
   let resolve!: (value: unknown) => void;
   const gateway = {

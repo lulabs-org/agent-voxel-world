@@ -1,6 +1,6 @@
-import type { RestoredAgentRecord, GatewayArchive } from './ports';
+import type { RestoredAgentRecord, AgentArchive } from './agent-ports';
 
-export type Change = {
+export type AgentResourceChange = {
   resource: 'agents' | 'providers' | 'plans' | 'runs';
   planIds?: string[];
   runIds?: string[];
@@ -8,19 +8,23 @@ export type Change = {
   version: number;
 };
 
-export class GatewayEvents {
-  private listeners = new Set<(change: Change) => void>();
+export type Change = AgentResourceChange;
+
+export class AgentEvents {
+  private listeners = new Set<(change: AgentResourceChange) => void>();
   private previous = new Map<string, string>();
   private planState = new Map<string, string>();
   private runState = new Map<string, string>();
   version = 0;
-  on(listener: (change: Change) => void) {
+
+  on(listener: (change: AgentResourceChange) => void) {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   }
-  commit(records: RestoredAgentRecord[], archive?: GatewayArchive) {
+
+  commit(records: RestoredAgentRecord[], archive?: AgentArchive) {
     const next = new Map(records.map((r) => [r.id, JSON.stringify(r)]));
     const ids = [...new Set([...next.keys(), ...this.previous.keys()])].filter(
       (id) => next.get(id) !== this.previous.get(id),
@@ -59,12 +63,13 @@ export class GatewayEvents {
         });
     }
   }
+
   publish(
-    resource: Change['resource'],
+    resource: AgentResourceChange['resource'],
     agentIds: string[] = [],
     details: { planIds?: string[]; runIds?: string[] } = {},
   ) {
-    const c = { resource, agentIds, ...details, version: ++this.version };
+    const c: AgentResourceChange = { resource, agentIds, ...details, version: ++this.version };
     for (const listener of this.listeners) {
       try {
         listener(c);
@@ -73,7 +78,11 @@ export class GatewayEvents {
       }
     }
   }
+
   close() {
     this.listeners.clear();
   }
 }
+
+/** Backward-compatibility alias */
+export { AgentEvents as GatewayEvents };

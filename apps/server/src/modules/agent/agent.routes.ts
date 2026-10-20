@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import type { AgentManager } from './manager';
+import type { AgentManager } from './agent-manager';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**
@@ -49,7 +49,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     '/agents',
     route(async (req, res) => {
       const result = await manager.create(req.body);
-      manager.gateway.events.publish('agents');
+      manager.events.publish('agents');
       res.status(201).json(result);
     }),
   );
@@ -81,7 +81,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     '/agents/:id',
     route(async (req, res) => {
       const result = await manager.update(String(req.params.id), req.body);
-      manager.gateway.events.publish('agents');
+      manager.events.publish('agents');
       res.json(result);
     }),
   );
@@ -110,7 +110,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     '/agents/:id',
     route(async (req, res) => {
       await manager.remove(String(req.params.id));
-      manager.gateway.events.publish('agents');
+      manager.events.publish('agents');
       res.sendStatus(204);
     }),
   );
@@ -196,7 +196,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
     '/agents/:id/voice',
     route(async (req, res) => {
       const result = await manager.setVoice(String(req.params.id), req.body);
-      manager.gateway.events.publish('agents');
+      manager.events.publish('agents');
       res.json(result);
     }),
   );
@@ -306,7 +306,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 任务分配成功
    */
   app.post(
-    '/agents/:id/task',
+    '/agents/{id}/task',
     route(async (req, res) => {
       res.json(await manager.assignTask(String(req.params.id), req.body ?? {}));
     }),

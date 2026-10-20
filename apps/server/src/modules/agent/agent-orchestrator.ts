@@ -1,19 +1,8 @@
-import {
-  PlanService,
-  TaskScheduler,
-  endedRun,
-  validatePlan,
-  newPlan,
-  newRun,
-  nextOccurrence,
-  duePlans,
-} from '../tasks';
-import { migrateArchive } from './archive';
-import { GatewayScheduler } from './wake-scheduler';
+import { migrateArchive } from './agent-storage';
+import { AgentWakeScheduler } from './agent-wake-scheduler';
 import { appendAgentLog } from './agent-logs';
 import {
   hasPlanTokenLimit,
-  isRepeating,
   agentPermissions,
   type AgentSettings,
 } from '@voxel/shared';
@@ -22,19 +11,16 @@ import type {
   VoiceServicePort,
   ProviderPort,
   ArchivePort,
-  RestoredAgentRecord,
-  GatewayArchive,
-} from './ports';
-import { AgentRegistry } from './registry';
-import { GatewayEvents } from './events';
-import type { RpcParams, RpcMethod } from '@voxel/gateway-protocol';
+} from './agent-ports';
+import { AgentRegistry } from './agent-types';
+import { AgentEvents } from './agent-events';
+import type { RpcParams } from '@voxel/gateway-protocol';
 import {
   Session,
   newTask,
   AgentAttention,
   AgentRunner,
   TaskService,
-  listModels,
   nextIntervalMs,
   type AgentConfig,
 } from '@voxel/agent-runtime';
@@ -44,203 +30,133 @@ import { validateAgent, taskLimits } from './agent-validation';
 import type { SavedProvider } from '../providers/provider-validation';
 import { AppError } from '../../common/errors';
 
-import { active, resident, type Job } from './types';
+import { active, resident, type Job } from './agent-types';
 import {
   captureTask,
-  commitExecution,
   currentRun,
-  getTaskPlans,
-  getTaskRuns,
   reserveRun,
-  taskBusy,
-  executeTaskPlanControl,
-  executeTaskRunControl,
 } from './agent-task-execution';
-import { restoreAgentJob } from './restore';
-import { AgentHost, type ExecutionContext } from './executor';
+import { restoreAgentJob } from './agent-restore';
+import { AgentHost, type ExecutionContext } from './agent-host';
+import { AgentPersistence } from './agent-persistence';
+import { AgentPlanCoordinator } from './agent-plan-coordinator';
+import { endedRun, newPlan, newRun, validatePlan } from '../tasks';
 
 export * from './agent-validation';
 
 export class AgentOrchestrator {
   readonly jobs = new AgentRegistry();
-  readonly events = new GatewayEvents();
+  readonly events = new AgentEvents();
+  readonly taskScheduler = new AgentWakeScheduler();
+  readonly persistence: AgentPersistence;
+  readonly planCoordinator: AgentPlanCoordinator;
+
   private closing = false;
   private closePromise?: Promise<void>;
   private shutdownPresence = new Map<string, Job['view']['status']>();
   private probing = new Set<string>();
-  readonly taskScheduler = new GatewayScheduler();
-  readonly planScheduler = new TaskScheduler(() => this.dispatchDue());
-  readonly plans = new PlanService();
-  readonly committedPlans = new PlanService();
-  private saving: Promise<void> = Promise.resolve();
-  private committed = new Map<string, RestoredAgentRecord>();
-  private committedViews: ReturnType<AgentOrchestrator['list']> = [];
-  storageRevision = 0;
-  private planStorageFailed = false;
+
+  constructor(
+    readonly providers: ProviderPort,
+    private serverUrl: string | (() => string),
+    private dependencies: AgentDependencies,
+    readonly voiceServices: VoiceServicePort | undefined,
+    private archive: ArchivePort,
+  ) {
+    this.persistence = new AgentPersistence(this.archive, this.events);
+    this.planCoordinator = new AgentPlanCoordinator({
+      taskJob: (id) => this.taskJob(id),
+      jobById: (id) => this.jobs.get(id),
+      allJobs: () => this.jobs.values(),
+      save: () => this.save(),
+      schedule: (job) => this.schedule(job),
+      launchReserved: (job) => this.launchReserved(job),
+      controlTask: (id, op) => this.controlTask(id, op),
+      getProvider: (id) => this.providers.get(id),
+      persistence: this.persistence,
+      events: this.events,
+      isClosing: () => this.closing,
+      assertWritable: (id) => this.assertWritable(id),
+    });
+  }
+
+  get storageRevision() {
+    return this.persistence.storageRevision;
+  }
+
+  get plans() {
+    return this.planCoordinator.plans;
+  }
+
+  get committedPlans() {
+    return this.planCoordinator.committedPlans;
+  }
+
+  get planScheduler() {
+    return this.planCoordinator.planScheduler;
+  }
 
   assertWritable(id?: string) {
-    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
-    if (id && this.jobs.get(id)?.storageFailed)
-      throw new AppError(
-        '存档失败，已停止此 Agent 的后续动作。请修复存储后重启服务。',
-        503,
-      );
+    this.persistence.assertWritable(
+      this.closing,
+      id ? this.jobs.get(id)?.storageFailed : undefined,
+    );
   }
+
   publicList() {
-    return structuredClone(this.committedViews);
+    return this.persistence.publicList();
   }
+
   publicIdentity(id: string) {
-    return structuredClone(this.committed.get(id)?.runtime?.identity);
+    return this.persistence.publicIdentity(id);
   }
+
   publicPlans(id?: string, metadata = false) {
-    const plans = this.committedPlans.views(id).map((p) => ({
-      ...p,
-      agentName: p.agentId
-        ? (this.committed.get(p.agentId)?.name ?? p.agentName)
-        : p.agentName,
-    }));
-    return metadata
-      ? plans.map((plan) => ({
-          ...plan,
-          resourceVersion: this.events.version,
-          taskIdentity: plan.agentId
-            ? (this.publicIdentity(plan.agentId) ?? null)
-            : null,
-        }))
-      : plans;
+    return this.planCoordinator.publicPlans(id, metadata);
   }
+
   publicRuns(
     id: string | undefined,
     plan: string,
     offset?: number,
     metadata = false,
   ) {
-    if (id) this.committedPlans.assertBinding(plan, id);
-    const page = this.committedPlans.history(plan, offset);
-    if (!metadata) return page;
-    const annotate = (run: (typeof page.items)[number]) => ({
-      ...run,
-      resourceVersion: this.events.version,
-      taskIdentity: run.agentId
-        ? (this.publicIdentity(run.agentId) ?? null)
-        : null,
-    });
-    return {
-      ...page,
-      resourceVersion: this.events.version,
-      items: page.items.map(annotate),
-      active: page.active.map(annotate),
-    };
+    return this.planCoordinator.publicRuns(id, plan, offset, metadata);
   }
+
   planPage(p: RpcParams) {
-    let all = this.publicPlans(p.agentId, true).filter(
-      (plan) =>
-        (!p.search ||
-          plan.name
-            .toLocaleLowerCase()
-            .includes(p.search.toLocaleLowerCase())) &&
-        (!p.state ||
-          (p.state === 'unassigned'
-            ? !plan.agentId && plan.state === 'paused'
-            : plan.state === p.state)) &&
-        (!p.timing || plan.timing.kind === p.timing),
-    );
-    if (!p.state) all = all.filter((plan) => plan.state !== 'archived');
-    all.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
-    const offset = p.offset ?? 0;
-    return {
-      items: all.slice(offset, offset + 20),
-      total: all.length,
-      nextOffset: offset + 20 < all.length ? offset + 20 : undefined,
-    };
+    return this.planCoordinator.planPage(p);
   }
+
   publicPlan(id: string) {
-    const p = this.publicPlans(undefined, true).find((p) => p.id === id);
-    if (!p) throw new AppError('计划不存在。', 404);
-    return p;
+    return this.planCoordinator.publicPlan(id);
   }
+
   async reassignPlan(id: string, agentId: string) {
-    const agent = this.taskJob(agentId);
-    return this.commitPlan(id, () => this.plans.reassign(id, agent.view));
+    return this.planCoordinator.reassignPlan(id, agentId);
   }
+
   async settled(id: string) {
     await this.jobs.get(id)?.done;
   }
 
   private persist() {
-    for (const job of this.jobs.values()) captureTask(job);
-    const views = this.list();
-    const records = [...views].reverse().map((view) => ({
-      ...view,
-      status: this.shutdownPresence.get(view.id) ?? view.status,
-      sessionId: undefined,
-      runtime: structuredClone(this.jobs.get(view.id)?.memory),
-      currentRunId: this.jobs.get(view.id)?.currentRunId,
-    }));
-    const snapshot: GatewayArchive = {
-      version: 1,
-      agents: records,
-      plans: structuredClone(this.plans.plans),
-      runs: structuredClone(this.plans.runs),
-      requests: { ...this.plans.requests },
-    };
-    this.saving = this.saving
-      .catch(() => {})
-      .then(async () => {
-        try {
-          await this.archive.save(snapshot);
-        } catch (error) {
-          this.storageRevision++;
-          const changedPlans = snapshot.plans.filter(
-            (p) =>
-              JSON.stringify(p) !==
-              JSON.stringify(
-                this.committedPlans.plans.find((old) => old.id === p.id),
-              ),
-          );
-          const changedRuns = snapshot.runs.filter(
-            (r) =>
-              JSON.stringify(r) !==
-              JSON.stringify(
-                this.committedPlans.runs.find((old) => old.id === r.id),
-              ),
-          );
-          if (changedPlans.length || changedRuns.length)
-            this.planStorageFailed = true;
-          const affected = new Set(
-            [...changedPlans, ...changedRuns].map((x) => x.agentId),
-          );
-          for (const record of records) {
-            if (
-              !affected.has(record.id) &&
-              JSON.stringify(this.committed.get(record.id)) ===
-                JSON.stringify(record)
-            )
-              continue;
-            const job = this.jobs.get(record.id);
-            if (job) {
-              job.storageFailed = true;
-              job.abort.abort();
-              this.taskScheduler.cancel(record.id);
-            }
-          }
-          throw error;
-        }
-        this.committed = new Map(records.map((record) => [record.id, record]));
-        this.committedViews = views;
-        Object.assign(this.committedPlans, {
-          plans: snapshot.plans,
-          runs: snapshot.runs,
-          requests: snapshot.requests,
-        });
-        this.events.commit(records, snapshot);
-      });
-    void this.saving.catch(() => console.error('无法保存 Agent 记录。'));
+    return this.persistence.persist(
+      this.jobs,
+      this.plans,
+      this.committedPlans,
+      this.taskScheduler,
+      () => this.list(),
+      this.shutdownPresence,
+    );
   }
 
   private save(): Promise<void> {
-    this.persist();
-    return this.saving;
+    return this.persist();
+  }
+
+  async flush(since = this.storageRevision) {
+    return this.persistence.flush(since);
   }
 
   async load() {
@@ -280,28 +196,18 @@ export class AgentOrchestrator {
     this.planScheduler.start();
   }
 
-  constructor(
-    readonly providers: ProviderPort,
-    private serverUrl: string | (() => string),
-    private dependencies: GatewayDependencies,
-    readonly voiceServices: VoiceServicePort | undefined,
-    private archive: ArchivePort,
-  ) {}
-
-  async flush(since = this.storageRevision) {
-    await this.saving;
-    if (since !== this.storageRevision)
-      throw new AppError('保存失败，操作结果待确认，请检查存储。', 503);
-  }
   currentRunId(id: string) {
     return this.jobs.get(id)?.currentRunId;
   }
+
   taskIdentity(id: string) {
     return this.jobs.get(id)?.memory.identity;
   }
+
   interrupt(id: string) {
     this.jobs.get(id)?.abort.abort();
   }
+
   private checkVoice(settings: AgentSettings) {
     if (settings.voiceReplies && !settings.voiceServiceId)
       throw new AppError('请先选择语音服务。');
@@ -346,11 +252,11 @@ export class AgentOrchestrator {
   }
 
   taskPlans(id: string) {
-    return getTaskPlans(this.taskJob(id));
+    return this.planCoordinator.taskPlans(id);
   }
 
   taskRuns(id: string, planId: string, offset = 0) {
-    return getTaskRuns(this.taskJob(id), planId, offset);
+    return this.planCoordinator.taskRuns(id, planId, offset);
   }
 
   private launchReserved(job: Job) {
@@ -360,189 +266,38 @@ export class AgentOrchestrator {
     job.done = this.execute(job, this.providers.get(job.view.providerId));
   }
 
-  async createTaskPlan(id: string, value: unknown) {
-    this.assertWritable(id);
-    if (this.planStorageFailed)
-      throw new AppError('计划存档失败，请修复存储后重启。', 503);
-    const job = this.taskJob(id);
-    const requestId = object(value).requestId;
-    if (
-      requestId !== undefined &&
-      (typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(requestId))
-    )
-      throw new AppError('请求标识无效。');
-    const priorId =
-      typeof requestId === 'string' &&
-      job.ledger.requests &&
-      Object.hasOwn(job.ledger.requests, `${id}:${requestId}`)
-        ? job.ledger.requests[`${id}:${requestId}`]
-        : undefined;
-    if (priorId)
-      return structuredClone(job.ledger.plans.find((p) => p.id === priorId)!);
-    const draft = validatePlan(value);
-    if (draft.timing.kind === 'immediate' && (!job.session || taskBusy(job)))
-      throw new AppError('请先让角色上线并结束或暂停当前执行。', 409);
-    let runId: string | undefined;
-    const plan = await commitExecution(
-      job,
-      () => {
-        const p = {
-          ...newPlan(draft, Date.now()),
-          agentId: id,
-          agentName: job.view.name,
-        };
-        job.ledger.plans.push(p);
-        if (p.timing.kind === 'immediate')
-          runId = reserveRun(job, p, 'manual', Date.now());
-        if (typeof requestId === 'string')
-          job.ledger.requests[`${id}:${requestId}`] = p.id;
-        return p;
-      },
-      () => this.save(),
-      (j) => this.schedule(j),
-      draft.timing.kind === 'immediate',
-    );
-    if (runId) this.launchReserved(job);
-    this.planScheduler.start();
-    return structuredClone(plan);
+  createTaskPlan(id: string, value: unknown) {
+    return this.planCoordinator.createTaskPlan(id, value);
   }
 
-  private changingPlans = new Set<string>();
+  commitPlan<T>(planId: string, change: () => T) {
+    return this.planCoordinator.commitPlan(planId, change);
+  }
 
-  private async commitPlan<T>(planId: string, change: () => T) {
-    if (this.planStorageFailed)
-      throw new AppError('计划存档失败，请修复存储后重启。', 503);
-    const bound = this.plans.get(planId).agentId;
-    if (
-      this.changingPlans.has(planId) ||
-      (bound && this.jobs.get(bound)?.taskMutating)
-    )
-      throw new AppError('计划正在提交，请稍后重试。', 409);
-    this.changingPlans.add(planId);
-    const before = structuredClone(this.plans.get(planId));
-    try {
-      const value = change();
-      await this.save();
-      return value;
-    } catch (e) {
-      this.plans.plans[this.plans.plans.findIndex((p) => p.id === planId)] =
-        before;
-      throw e;
-    } finally {
-      this.changingPlans.delete(planId);
-    }
+  updateTaskPlan(id: string | undefined, planId: string, value: unknown) {
+    return this.planCoordinator.updateTaskPlan(id, planId, value);
   }
-  async updateTaskPlan(id: string | undefined, planId: string, value: unknown) {
-    const plan = this.plans.get(planId);
-    if (id) this.plans.assertBinding(planId, id);
-    if (plan.state === 'archived')
-      throw new AppError('已归档任务不能修改。');
-    const draft = validatePlan(value, Date.now(), plan);
-    return this.commitPlan(planId, () => {
-      Object.assign(plan, draft);
-      this.plans.touch(plan);
-      plan.nextRunAt =
-        plan.state === 'enabled' ? nextOccurrence(plan, Date.now()) : undefined;
-      return structuredClone(plan);
-    });
-  }
-  async controlTaskPlan(
+
+  controlTaskPlan(
     id: string | undefined,
     planId: string,
     operation: string,
     value: unknown = {},
   ) {
-    if (id) this.plans.assertBinding(planId, id);
-    if (operation !== 'run')
-      return this.commitPlan(planId, () =>
-        this.plans.control(planId, operation, value),
-      );
-    const target = this.plans.get(planId).agentId;
-    if (!target) throw new AppError('请先指派执行角色。', 409);
-    return executeTaskPlanControl(
-      this.taskJob(target),
-      planId,
-      operation,
-      value,
-      () => this.save(),
-      (j) => this.schedule(j),
-      (j) => this.launchReserved(j),
-    );
+    return this.planCoordinator.controlTaskPlan(id, planId, operation, value);
   }
 
-  async controlTaskRun(
+  controlTaskRun(
     id: string | undefined,
     runId: string,
     operation: string,
     value: unknown = {},
   ) {
-    const targetId = id || this.plans.run(runId).agentId;
-    if (!targetId) throw new AppError('任务未关联执行角色。', 404);
-    const job = this.taskJob(targetId);
-    return executeTaskRunControl(
-      job,
-      runId,
-      operation,
-      value,
-      this.providers.get(job.view.providerId),
-      () => this.save(),
-      (j) => this.schedule(j),
-      (j) => this.launchReserved(j),
-      (op) => this.controlTask(targetId, op),
-    );
+    return this.planCoordinator.controlTaskRun(id, runId, operation, value);
   }
 
-  async dispatchDue(now = Date.now()) {
-    if (this.closing || this.planStorageFailed) return;
-    for (const job of this.jobs.values()) {
-      if (
-        job.storageFailed ||
-        job.taskMutating ||
-        job.updating ||
-        job.controlling
-      )
-        continue;
-      const due = duePlans(job.ledger, now).filter(
-        (p) => p.agentId === job.view.id,
-      );
-      let selected = false;
-      for (const plan of due) {
-        if (this.changingPlans.has(plan.id)) continue;
-        const at = plan.nextRunAt!;
-        const skip =
-          selected || taskBusy(job) || this.plans.unfinished(plan.id)
-            ? '角色忙碌，本次触发已跳过。'
-            : !job.session
-              ? '角色离线，本次触发已错过。'
-              : undefined;
-        let runId: string | undefined;
-        await commitExecution(
-          job,
-          () => {
-            if (
-              hasPlanTokenLimit(plan) &&
-              plan.spentTokens >= plan.totalTokenBudget
-            ) {
-              plan.state = 'paused';
-              plan.reason = '累计额度已用尽。';
-              delete plan.nextRunAt;
-              return;
-            }
-            runId = reserveRun(job, plan, 'scheduled', at, skip);
-            plan.nextRunAt = isRepeating(plan.timing)
-              ? nextOccurrence(plan, now)
-              : undefined;
-          },
-          () => this.save(),
-          (j) => this.schedule(j),
-          !skip,
-        );
-        if (runId) {
-          selected = true;
-          this.launchReserved(job);
-        }
-      }
-    }
+  dispatchDue(now = Date.now()) {
+    return this.planCoordinator.dispatchDue(now);
   }
 
   async models(id: string) {
@@ -858,8 +613,6 @@ export class AgentOrchestrator {
         captureTask(job);
         delete job.currentRunId;
         job.memory = { usage: job.memory.usage };
-        // Legacy profile goal edits are explicit administrative assignments.
-        // Keep them in the plan domain instead of inventing a chat execution.
         if (replacementDraft) {
           const plan = {
             ...newPlan(replacementDraft, Date.now()),
@@ -1024,10 +777,8 @@ export class AgentOrchestrator {
     const taskEnded = () =>
       !!job.memory.task &&
       ['completed', 'cancelled'].includes(job.memory.task.status);
-    // Repeated controls on an ended task are idempotent. An active reply can
-    // still be interrupted, but must not rewrite the task it follows.
     if (taskEnded() && !active(job.view.status)) {
-      await this.saving;
+      await this.flush();
       return this.list().find((v) => v.id === id)!;
     }
     job.controlling = true;
@@ -1036,8 +787,6 @@ export class AgentOrchestrator {
     job.abort.abort();
     try {
       await job.done;
-      // Completion can win while the in-flight runner settles after abort.
-      // Recheck here rather than relying on the status at request admission.
       if (job.memory.task && !taskEnded()) {
         new TaskService(job.memory).command(
           { type: operation },
@@ -1129,12 +878,12 @@ export class AgentOrchestrator {
     }
     return this.list().find((v) => v.id === job.view.id)!;
   }
+
   async remove(id: string) {
     const job = this.jobs.get(id);
     if (!job) throw new AppError('Agent 不存在。', 404);
     if (this.closing || job.updating || job.taskMutating || job.controlling)
       throw new AppError('Agent 状态正在更新，请稍候。', 409);
-    // Block scheduling and mutations until all in-flight effects have settled.
     job.controlling = true;
     try {
       this.stop(id);
@@ -1166,9 +915,8 @@ export class AgentOrchestrator {
       this.jobs.delete(id);
       this.persist();
       try {
-        await this.saving;
+        await this.flush();
       } catch (error) {
-        // A failed archive write must leave a stopped, recoverable character.
         for (const p of priorPlans) {
           const idx = this.plans.plans.findIndex((x) => x.id === p.id);
           this.plans.plans[idx] = p;
@@ -1179,13 +927,14 @@ export class AgentOrchestrator {
         ];
         this.jobs.set(id, job);
         this.persist();
-        await this.saving.catch(() => {});
+        await this.flush().catch(() => {});
         throw error;
       }
     } finally {
       job.controlling = false;
     }
   }
+
   async removeProvider(id: string) {
     if ([...this.jobs.values()].some((j) => j.view.providerId === id))
       throw new AppError(
@@ -1231,7 +980,7 @@ export class AgentOrchestrator {
   }
 }
 
-export type OrchestratorDependencies = {
+export type AgentDependencies = {
   session: (url: string) => Session;
   runner: (
     config: AgentConfig,
@@ -1239,4 +988,5 @@ export type OrchestratorDependencies = {
   ) => Pick<AgentRunner, 'run'>;
   models: (provider: SavedProvider) => Promise<string[]>;
 };
-export type GatewayDependencies = OrchestratorDependencies;
+export type OrchestratorDependencies = AgentDependencies;
+export type GatewayDependencies = AgentDependencies;

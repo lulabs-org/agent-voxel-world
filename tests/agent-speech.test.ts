@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { AgentSpeech } from '../apps/server/src/modules/agent/speech';
+import { AgentSpeech } from '../apps/server/src/modules/agent';
 import type {
   AgentSpeechEvent,
   ChatData,

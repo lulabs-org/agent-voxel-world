@@ -16,8 +16,8 @@ import { isRepeating } from '@voxel/shared';
 import { restoreAgentLogs } from './agent-logs';
 import { validateAgent } from './agent-validation';
 import { AppError } from '../../common/errors';
-import type { ProviderPort, RestoredAgentRecord } from './ports';
-import type { Job } from './types';
+import type { ProviderPort, RestoredAgentRecord } from './agent-ports';
+import type { Job } from './agent-types';
 import { captureTask } from './agent-task-execution';
 
 export function restoreAgentJob(

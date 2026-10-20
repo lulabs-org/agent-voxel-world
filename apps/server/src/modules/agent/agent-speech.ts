@@ -18,6 +18,7 @@ type Pending = {
   at: number;
 };
 type Clip = { event: AgentSpeechEvent; bytes: Buffer; recipients: string[] };
+
 export class AgentSpeech {
   private queue: Pending[] = [];
   private current?: Pending;

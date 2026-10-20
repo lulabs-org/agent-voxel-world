@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import type { AgentManager } from '../agent/manager';
+import type { AgentManager } from '../agent';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**
@@ -45,7 +45,7 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
     '/agents/providers',
     route(async (req, res) => {
       const result = await manager.providers.save(req.body);
-      manager.gateway.events.publish('providers');
+      manager.events.publish('providers');
       res.status(201).json(result);
     }),
   );
@@ -80,7 +80,7 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
         req.body,
         String(req.params.id),
       );
-      manager.gateway.events.publish('providers');
+      manager.events.publish('providers');
       res.json(result);
     }),
   );
@@ -106,7 +106,7 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
     '/agents/providers/:id',
     route(async (req, res) => {
       await manager.removeProvider(String(req.params.id));
-      manager.gateway.events.publish('providers');
+      manager.events.publish('providers');
       res.sendStatus(204);
     }),
   );

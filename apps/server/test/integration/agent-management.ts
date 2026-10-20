@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager } from '../../src/modules/agent/manager';
+import { AgentManager } from '../../src/modules/agent';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { Session, until, type Observation } from '@voxel/agent-runtime';
 

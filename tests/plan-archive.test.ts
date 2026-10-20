@@ -2,13 +2,13 @@ import { expect, it } from 'vitest';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateArchive } from '../apps/server/src/modules/agent/archive';
-import { newPlan, newRun } from '../apps/server/src/modules/tasks';
-import { DEFAULT_TASK_LIMITS } from '../packages/shared/src/index';
 import {
+  migrateArchive,
   readAgentArchive,
   writeAgentArchive,
-} from '../apps/server/src/modules/agent/agent-storage';
+} from '../apps/server/src/modules/agent';
+import { newPlan, newRun } from '../apps/server/src/modules/tasks';
+import { DEFAULT_TASK_LIMITS } from '../packages/shared/src/index';
 
 const draft = {
   name: '巡查',

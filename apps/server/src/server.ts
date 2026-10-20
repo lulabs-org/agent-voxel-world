@@ -6,7 +6,8 @@ import type { AddressInfo, Socket } from 'node:net';
 import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
 import { env, type ServerConfig } from './config';
-import { AgentManager } from './modules/agent/manager';
+import { AgentManager } from './modules/agent';
+import { AgentGateway } from './modules/gateway/gateway';
 import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { AsrSettingsStore } from './modules/audio/asr/asr-settings';
@@ -55,10 +56,12 @@ export async function createServer(options: ServerOptions = {}) {
     options.agentDependencies,
     voiceServices,
   );
+  const gateway = new AgentGateway(agents);
   const app = createApp({
     config,
     gatewayAuth,
     agents,
+    gateway,
     asrSettings,
     speech: options.speech ?? new LocalSpeech(),
     world: () => world,
@@ -75,7 +78,7 @@ export async function createServer(options: ServerOptions = {}) {
     options.asrBridge,
     config.webOrigin,
     (socket, req) =>
-      gatewaySocket(agents.gateway, gatewayAuth, gatewayEpoch, socket, req),
+      gatewaySocket(gateway, gatewayAuth, gatewayEpoch, socket, req),
   );
   const server = new Server({
     transport,

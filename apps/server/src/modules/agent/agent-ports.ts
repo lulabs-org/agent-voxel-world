@@ -15,7 +15,7 @@ export type RestoredAgentRecord = ManagedAgentView & {
   currentRunId?: string;
 };
 
-export type GatewayArchive = {
+export type AgentArchive = {
   version: 1;
   agents: RestoredAgentRecord[];
   plans: TaskPlan[];
@@ -23,9 +23,12 @@ export type GatewayArchive = {
   requests: Record<string, string>;
 };
 
+/** Backward-compatibility alias */
+export type GatewayArchive = AgentArchive;
+
 export interface ArchivePort {
-  load(): Promise<RestoredAgentRecord[] | GatewayArchive | undefined>;
-  save(records: GatewayArchive): Promise<void>;
+  load(): Promise<RestoredAgentRecord[] | AgentArchive | undefined>;
+  save(records: AgentArchive): Promise<void>;
 }
 
 export interface VoiceServicePort {
