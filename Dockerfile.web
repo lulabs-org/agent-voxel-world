@@ -12,7 +12,6 @@ RUN corepack enable && corepack prepare pnpm@10.6.2 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/agent-runtime/package.json ./packages/agent-runtime/
-COPY packages/agent-gateway/package.json ./packages/agent-gateway/
 COPY packages/gateway-protocol/package.json ./packages/gateway-protocol/
 COPY packages/gateway-client/package.json ./packages/gateway-client/
 COPY apps/web/package.json ./apps/web/

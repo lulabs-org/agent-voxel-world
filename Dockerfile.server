@@ -19,7 +19,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/gateway-protocol/package.json ./packages/gateway-protocol/
 COPY packages/gateway-client/package.json ./packages/gateway-client/
-COPY packages/agent-gateway/package.json ./packages/agent-gateway/
 COPY packages/agent-runtime/package.json ./packages/agent-runtime/
 COPY apps/server/package.json ./apps/server/
 
@@ -30,7 +29,6 @@ RUN pnpm install --frozen-lockfile
 COPY packages/shared ./packages/shared
 COPY packages/gateway-protocol ./packages/gateway-protocol
 COPY packages/gateway-client ./packages/gateway-client
-COPY packages/agent-gateway ./packages/agent-gateway
 COPY packages/agent-runtime ./packages/agent-runtime
 COPY apps/server ./apps/server
 COPY docker/server-entrypoint.sh ./docker/server-entrypoint.sh
