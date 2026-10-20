@@ -19,12 +19,12 @@
 | `config`                | 类型化配置、部署变量校验、`.env` 加载与数据路径              |
 | `common`                | `AppError`、异步路由、请求体、Origin 机制、异常响应、Swagger |
 | `transport`             | Gateway、ASR 与 Colyseus WebSocket 路径分发和关闭            |
-| `modules/agent`         | 生产依赖注入、Agent/模型配置文件适配、世界内语音投递         |
+| `modules/agent`         | 生产依赖注入、Agent 生命周期编排与配置文件适配               |
 | `modules/providers`     | 模型提供商持久化存储与模型列表服务                           |
 | `modules/tasks`         | 任务计划、运行历史与执行控制领域服务                         |
 | `modules/gateway`       | 管理令牌、WebSocket RPC、HTTP 兼容路由与 OpenAPI 契约        |
 | `modules/audio/asr`     | 本地 Whisper、百炼识别及 ASR 配置                            |
-| `modules/audio/tts`     | Piper、本地/远程合成、音色服务及合成队列                     |
+| `modules/audio/tts`     | Piper、本地/远程合成、音色服务、合成队列与世界内语音投递     |
 | `modules/audio/session` | mock/browser/Ollama 语音会话状态                             |
 | `modules/chat`          | 消息、附件、音频票据及私聊权限                               |
 | `modules/realtime`      | 百炼实时会话、工具确认与离线协议模拟器                       |
@@ -37,6 +37,8 @@
 Agent 托管集合、调度、任务操作和日志完整内聚在 `modules/agent`，计划调度归入 `modules/tasks`，模型提供商归入 `modules/providers`。各模块高内聚低耦合，不再依赖外部编排包。HTTP 装配、接口注释与命令分发统一放在 `modules/gateway/http.routes.ts`。
 
 Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端。服务端与 CLI 都通过 `AgentRunner.run()` 进入统一协调器；对话、任务服务和任务执行使用独立职责，CLI 的 `runAgent` 保留自身调度循环。
+
+`AgentSpeech` 位于 `modules/audio/tts/agent-speech.ts`，负责语音合成队列、空间听众筛选和音频缓存访问。`WorldRoom` 装配它，在聊天消息送达后入队，在关闭语音、离线、音色服务变更或房间销毁时取消或清理；聊天路由直接引用音频模块读取音频。Agent 核心调度不依赖该服务，`modules/agent` 不重导出它。
 
 ## 状态与测试
 

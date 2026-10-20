@@ -1,5 +1,5 @@
 import { env } from '../../../config/env';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 import { speechEndpoint } from '../speech-endpoint';
 import type { WhisperAsrSettings } from '@voxel/shared';
 import { whisperModelPath } from './whisper-settings';
@@ -70,14 +70,14 @@ export function validatePcmWav(wav: Buffer, maxSeconds = 20.5) {
     wav.toString('ascii', 0, 4) !== 'RIFF' ||
     wav.toString('ascii', 8, 12) !== 'WAVE'
   )
-    throw new SpeechError('音频转换失败。');
+    throw new AppError('音频转换失败。');
   let pcm: Buffer | undefined,
     validFormat = false;
   for (let offset = 12; offset + 8 <= wav.length; ) {
     const id = wav.toString('ascii', offset, offset + 4),
       size = wav.readUInt32LE(offset + 4);
     if (offset + 8 + size > wav.length)
-      throw new SpeechError('音频文件不完整。');
+      throw new AppError('音频文件不完整。');
     if (id === 'fmt ' && size >= 16)
       validFormat =
         wav.readUInt16LE(offset + 8) === 1 &&
@@ -88,11 +88,11 @@ export function validatePcmWav(wav: Buffer, maxSeconds = 20.5) {
     offset += 8 + size + (size % 2);
   }
   if (!validFormat || !pcm || pcm.length % 2)
-    throw new SpeechError('音频格式不正确。');
+    throw new AppError('音频格式不正确。');
   const seconds = pcm.length / 32000;
-  if (seconds < 0.25) throw new SpeechError('录音太短，请至少说一句话。');
+  if (seconds < 0.25) throw new AppError('录音太短，请至少说一句话。');
   if (seconds > maxSeconds)
-    throw new SpeechError(
+    throw new AppError(
       maxSeconds === 20.5
         ? '录音超过 20 秒，请分段录音。'
         : '音频过长，请分段发送。',
@@ -101,7 +101,7 @@ export function validatePcmWav(wav: Buffer, maxSeconds = 20.5) {
   for (let i = 0; i < pcm.length; i += 2)
     sum += (pcm.readInt16LE(i) / 32768) ** 2;
   if (Math.sqrt(sum / (pcm.length / 2)) < 0.003)
-    throw new SpeechError(
+    throw new AppError(
       '没有检测到清晰声音，请靠近麦克风后重试。',
       400,
       'no-speech',
@@ -193,7 +193,7 @@ export class LocalSpeech {
   async normalize(audio: Buffer, contentType: string, signal: AbortSignal) {
     const format = formats[contentType.split(';')[0].trim().toLowerCase()];
     if (!format || !audio.length || audio.length > MAX_AUDIO_BYTES)
-      throw new SpeechError('音频格式或大小无效。');
+      throw new AppError('音频格式或大小无效。');
     const dir = await mkdtemp(join(tmpdir(), 'voxel-clip-'));
     try {
       const input = join(dir, 'input'),
@@ -229,8 +229,8 @@ export class LocalSpeech {
       const durationMs = validatePcmWav(bytes);
       return { bytes, durationMs };
     } catch (error) {
-      if (error instanceof SpeechError || signal.aborted) throw error;
-      throw new SpeechError(
+      if (error instanceof AppError || signal.aborted) throw error;
+      throw new AppError(
         '无法处理录音，请检查服务器上的 FFmpeg 或重试。',
         502,
       );
@@ -247,21 +247,21 @@ export class LocalSpeech {
   ) {
     const format = formats[contentType.split(';')[0].trim().toLowerCase()];
     if (!format)
-      throw new SpeechError(
+      throw new AppError(
         '不支持的音频格式，请使用 WAV、WebM、MP4 或 Ogg。',
         415,
       );
     if (!audio.length || audio.length > MAX_AUDIO_BYTES)
-      throw new SpeechError('音频不能为空且不能超过 5 MiB。', 413);
+      throw new AppError('音频不能为空且不能超过 5 MiB。', 413);
     if (!['zh', 'en'].includes(language))
-      throw new SpeechError('只支持中文或英文识别。');
+      throw new AppError('只支持中文或英文识别。');
     if (this.busy)
-      throw new SpeechError('服务器正在识别另一段录音，请稍后重试。', 429);
+      throw new AppError('服务器正在识别另一段录音，请稍后重试。', 429);
     this.busy = true;
     let dir: string | undefined;
     try {
       const status = await this.status(settings);
-      if (!status.available) throw new SpeechError(status.reason, 503);
+      if (!status.available) throw new AppError(status.reason, 503);
       signal.throwIfAborted();
       if (this.apiUrl) {
         return await this.transcribeRemote(
@@ -341,13 +341,13 @@ export class LocalSpeech {
         .replace(/\s+/g, ' ')
         .trim();
       if (!text || /^\[.*\]$/.test(text))
-        throw new SpeechError('没有识别到文字，请重试。', 400, 'no-speech');
+        throw new AppError('没有识别到文字，请重试。', 400, 'no-speech');
       if (text.length > 240)
-        throw new SpeechError('识别超过 240 字，请分成更短的句子。');
+        throw new AppError('识别超过 240 字，请分成更短的句子。');
       return text;
     } catch (error) {
-      if (error instanceof SpeechError || signal.aborted) throw error;
-      throw new SpeechError(
+      if (error instanceof AppError || signal.aborted) throw error;
+      throw new AppError(
         '服务器识别失败或超时，请使用有效短录音，并检查 Whisper 模型与工具。',
         502,
       );
@@ -406,7 +406,7 @@ export class LocalSpeech {
       signal,
     }).catch((err) => {
       if (signal.aborted) throw err;
-      throw new SpeechError('请求 Whisper 独立服务失败或超时。', 502);
+      throw new AppError('请求 Whisper 独立服务失败或超时。', 502);
     });
 
     if (response.status === 404) {
@@ -427,12 +427,12 @@ export class LocalSpeech {
         signal,
       }).catch((err) => {
         if (signal.aborted) throw err;
-        throw new SpeechError('请求 Whisper 独立服务失败或超时。', 502);
+        throw new AppError('请求 Whisper 独立服务失败或超时。', 502);
       });
     }
 
     if (!response.ok) {
-      throw new SpeechError(
+      throw new AppError(
         `Whisper 服务返回错误 (HTTP ${response.status})。`,
         502,
       );
@@ -440,9 +440,9 @@ export class LocalSpeech {
     const data = (await response.json()) as { text?: string };
     const text = (data.text ?? '').replace(/\s+/g, ' ').trim();
     if (!text || /^\[.*\]$/.test(text))
-      throw new SpeechError('没有识别到文字，请重试。', 400, 'no-speech');
+      throw new AppError('没有识别到文字，请重试。', 400, 'no-speech');
     if (text.length > 240)
-      throw new SpeechError('识别超过 240 字，请分成更短的句子。');
+      throw new AppError('识别超过 240 字，请分成更短的句子。');
     return text;
   }
 }

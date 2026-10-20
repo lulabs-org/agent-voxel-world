@@ -5,7 +5,7 @@ import { AsrSettingsStore } from '../asr/asr-settings';
 import { listWhisperModels } from '../asr/whisper-settings';
 import express, { type Express } from 'express';
 import { LocalSpeech, MAX_AUDIO_BYTES } from '../asr/local-speech';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 import { createVoiceProvider } from '../session/voice';
 import { PiperModels } from '../tts/piper-models';
 import { scheduleSpeech } from '../tts/speech-scheduler';
@@ -70,7 +70,7 @@ export function installSpeechRoutes(
           ? undefined
           : asrSettings.get(String(req.query.serviceId));
       if (selected && selected.provider !== 'whisper')
-        throw new SpeechError('请选择 Whisper 服务。');
+        throw new AppError('请选择 Whisper 服务。');
       let ollamaConfigured = false;
       try {
         createVoiceProvider('ollama');
@@ -85,9 +85,9 @@ export function installSpeechRoutes(
         agentSpeech: await new PiperModels().status(),
       });
     } catch (error) {
-      res.status(error instanceof SpeechError ? error.status : 500).json({
+      res.status(error instanceof AppError ? error.status : 500).json({
         error:
-          error instanceof SpeechError ? error.message : '无法检查识别服务。',
+          error instanceof AppError ? error.message : '无法检查识别服务。',
       });
     }
   });
@@ -153,7 +153,7 @@ export function installSpeechRoutes(
             : asrSettings.acquire(String(req.query.serviceId));
         release = selected?.release;
         if (selected && selected.settings.provider !== 'whisper')
-          throw new SpeechError('请选择 Whisper 服务。');
+          throw new AppError('请选择 Whisper 服务。');
         const text = await scheduleSpeech(speech).transcribe(
           Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
           req.headers['content-type'] ?? '',
@@ -167,10 +167,10 @@ export function installSpeechRoutes(
         if (!controller.signal.aborted) res.json({ text });
       } catch (error) {
         if (!controller.signal.aborted)
-          res.status(error instanceof SpeechError ? error.status : 500).json({
-            code: error instanceof SpeechError ? error.code : undefined,
+          res.status(error instanceof AppError ? error.status : 500).json({
+            code: error instanceof AppError ? error.code : undefined,
             error:
-              error instanceof SpeechError
+              error instanceof AppError
                 ? error.message
                 : '服务器识别失败，请重试。',
           });

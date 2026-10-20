@@ -1,7 +1,7 @@
 import express, { type Express } from 'express';
 import type { AgentGateway } from './gateway';
 import type { AgentManager } from '../agent';
-import { SpeechError } from '../audio/errors';
+import { AppError } from '../../common/errors';
 import { installVoiceServiceRoutes } from '../audio/routes/voice-services.routes';
 import { installProviderRoutes } from '../providers/providers.routes';
 import { installAgentRoutes } from '../agent';
@@ -80,7 +80,7 @@ export function installGatewayRoutes(
   app.use(
     '/agents',
     errorHandler((error) => {
-      if (error instanceof SpeechError) {
+      if (error instanceof AppError) {
         return { status: error.status, body: { error: error.message } };
       }
       if (error?.type === 'entity.too.large') {

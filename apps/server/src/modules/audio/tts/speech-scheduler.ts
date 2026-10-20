@@ -1,6 +1,6 @@
 import type { WhisperAsrSettings } from '@voxel/shared';
 import { LocalSpeech } from '../asr/local-speech';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 
 type Job = { run: () => Promise<void>; cancel: () => void };
 /** Final sentences wait in a bounded queue. Obsolete previews never queue. */
@@ -18,14 +18,14 @@ export class SpeechScheduler {
   ): Promise<string> {
     if (signal.aborted) return Promise.reject(signal.reason);
     if ((partial && this.running) || this.queue.length >= 4)
-      return Promise.reject(new SpeechError('识别服务繁忙，请稍后重试。', 429));
+      return Promise.reject(new AppError('识别服务繁忙，请稍后重试。', 429));
     return new Promise((resolve, reject) => {
       const timeout = new AbortController();
       const combined = AbortSignal.any([signal, timeout.signal]);
       const timer = setTimeout(
         () =>
           timeout.abort(
-            new SpeechError('识别超时，请缩短句子或稍后重试。', 504),
+            new AppError('识别超时，请缩短句子或稍后重试。', 504),
           ),
         partial ? 8000 : 90000,
       );

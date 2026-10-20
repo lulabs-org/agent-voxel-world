@@ -3,12 +3,12 @@ import {
   PIPER_MODELS,
   type PiperModelView,
 } from '@voxel/shared';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 import { speechEndpoint } from '../speech-endpoint';
 
 export function piperModel(id: unknown) {
   const model = PIPER_MODELS.find((value) => value.id === id);
-  if (!model) throw new SpeechError('请选择支持的 Piper 模型。');
+  if (!model) throw new AppError('请选择支持的 Piper 模型。');
   return model;
 }
 
@@ -39,7 +39,7 @@ export class PiperModels {
       return new Set(data.data.map((model: { id: string }) => model.id));
     } catch (error) {
       if (signal?.aborted) throw error;
-      throw new SpeechError(
+      throw new AppError(
         '无法连接语音服务，请检查 speech 容器和接口地址。',
         503,
       );
@@ -67,7 +67,7 @@ export class PiperModels {
   start(id: unknown) {
     const model = piperModel(id);
     if (this.installing && this.installing !== model.id)
-      throw new SpeechError('另一个模型正在安装，请等待完成。', 409);
+      throw new AppError('另一个模型正在安装，请等待完成。', 409);
     if (!this.installing) {
       this.installing = model.id;
       this.failures.delete(model.id);

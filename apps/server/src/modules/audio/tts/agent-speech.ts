@@ -6,9 +6,9 @@ import {
   type ChatData,
   type Player,
 } from '@voxel/shared';
-import { ChatError } from '../chat/errors';
-import type { SpeechSynthesizer } from '../audio/tts/speech-synthesizer';
-import { PiperTts } from '../audio/tts/piper-tts';
+import { ChatError } from '../../chat/errors';
+import type { SpeechSynthesizer } from './speech-synthesizer';
+import { PiperTts } from './piper-tts';
 
 type Pending = {
   actor: string;

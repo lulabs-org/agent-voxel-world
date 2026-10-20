@@ -9,37 +9,37 @@ import {
   type AsrServiceView,
 } from '@voxel/shared';
 import { validateWhisperSettings } from './whisper-settings';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 
 export function validateAsrSettings(
   value: unknown,
   previous?: BailianAsrDraft,
 ): BailianAsrDraft {
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new SpeechError('识别服务配置无效。');
+    throw new AppError('识别服务配置无效。');
   const v = value as Record<string, unknown>;
   if (v.region !== 'beijing' && v.region !== 'singapore')
-    throw new SpeechError('请选择北京或新加坡地域。');
+    throw new AppError('请选择北京或新加坡地域。');
   if (v.model !== 'fun-asr-realtime' && v.model !== 'paraformer-realtime-v2')
-    throw new SpeechError('请选择支持的实时识别模型。');
+    throw new AppError('请选择支持的实时识别模型。');
   if (
     typeof v.workspaceId !== 'string' ||
     !/^[a-zA-Z0-9-]{0,80}$/.test(v.workspaceId)
   )
-    throw new SpeechError('业务空间 ID 格式无效。');
+    throw new AppError('业务空间 ID 格式无效。');
   if (
     typeof v.apiKey !== 'string' ||
     v.apiKey.length > 4096 ||
     /[\r\n\0]/.test(v.apiKey)
   )
-    throw new SpeechError('API Key 格式无效。');
+    throw new AppError('API Key 格式无效。');
   let apiKey = v.apiKey.trim();
   if (!apiKey && previous?.apiKey) {
     if (previous.region !== v.region || previous.workspaceId !== v.workspaceId)
-      throw new SpeechError('更换地域或业务空间时，请重新填写 API Key。');
+      throw new AppError('更换地域或业务空间时，请重新填写 API Key。');
     apiKey = previous.apiKey;
   }
-  if (!apiKey) throw new SpeechError('请填写百炼 API Key。');
+  if (!apiKey) throw new AppError('请填写百炼 API Key。');
   return {
     region: v.region,
     workspaceId: v.workspaceId,
@@ -68,13 +68,13 @@ function validateService(
   previous?: SavedService,
 ): SavedService {
   if (!input || typeof input !== 'object' || Array.isArray(input))
-    throw new SpeechError('识别服务配置无效。');
+    throw new AppError('识别服务配置无效。');
   const value = input as Record<string, unknown>;
   const provider = value.provider ?? 'bailian';
   if (provider !== 'whisper' && provider !== 'bailian')
-    throw new SpeechError('请选择支持的识别服务类型。');
+    throw new AppError('请选择支持的识别服务类型。');
   if (previous && provider !== (previous.provider ?? 'bailian'))
-    throw new SpeechError('已有服务不能更改类型，请添加新的服务。');
+    throw new AppError('已有服务不能更改类型，请添加新的服务。');
   const settings =
     provider === 'whisper'
       ? { ...validateWhisperSettings(value), provider: 'whisper' as const }
@@ -92,7 +92,7 @@ function validateService(
     name.length > 50 ||
     /[\r\n\0]/.test(name)
   )
-    throw new SpeechError('请填写 1–50 字的识别服务名称。');
+    throw new AppError('请填写 1–50 字的识别服务名称。');
   return { ...settings, name: name.trim(), id: previous?.id ?? randomUUID() };
 }
 
@@ -141,7 +141,7 @@ export class AsrSettingsStore {
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new SpeechError('无法读取 ASR 配置，请检查服务器配置文件。', 500);
+        throw new AppError('无法读取 ASR 配置，请检查服务器配置文件。', 500);
     }
   }
   list() {
@@ -150,7 +150,7 @@ export class AsrSettingsStore {
   get(id: string) {
     const value = this.values.find((value) => value.id === id);
     if (!value || this.deleting.has(id))
-      throw new SpeechError('识别服务不存在，请重新选择或添加服务。', 404);
+      throw new AppError('识别服务不存在，请重新选择或添加服务。', 404);
     return { ...value };
   }
   acquire(id: string) {
@@ -193,7 +193,7 @@ export class AsrSettingsStore {
   save(input: unknown, id?: string) {
     return this.mutate(async () => {
       if (!id && this.values.length >= 20)
-        throw new SpeechError('最多保存 20 个识别服务。');
+        throw new AppError('最多保存 20 个识别服务。');
       const entry = validateService(input, id ? this.get(id) : undefined);
       const next = id
         ? this.values.map((v) => (v.id === id ? entry : v))
@@ -207,7 +207,7 @@ export class AsrSettingsStore {
     return this.mutate(async () => {
       this.get(id);
       if (this.active.has(id))
-        throw new SpeechError('此服务正在识别，请先结束录音后再删除。', 409);
+        throw new AppError('此服务正在识别，请先结束录音后再删除。', 409);
       this.deleting.add(id);
       try {
         const next = this.values.filter((v) => v.id !== id);
