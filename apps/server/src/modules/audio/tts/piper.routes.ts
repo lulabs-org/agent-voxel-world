@@ -10,7 +10,7 @@ export function installPiperRoutes(app: Express, models: PiperModels) {
    *     security:
    *       - ManagementBearer: []
    *     summary: 查询 Piper 模型目录与安装状态
-   *     tags: [TTS Models]
+   *     tags: [TTS]
    *     responses:
    *       200:
    *         description: 固定中英文模型目录，状态为 missing、installing、installed 或 failed
@@ -21,7 +21,7 @@ export function installPiperRoutes(app: Express, models: PiperModels) {
    *     security:
    *       - ManagementBearer: []
    *     summary: 后台安装 Piper 模型
-   *     tags: [TTS Models]
+   *     tags: [TTS]
    *     requestBody:
    *       required: true
    *       content:
