@@ -125,3 +125,30 @@ it('exposes task controls only through plans and explicit run IDs', () => {
     spec.paths['/task-runs/{runId}/{operation}'].post.description,
   ).toContain('不自动上线');
 });
+
+it('documents profile-only Agent writes and default standby with optional offline creation', () => {
+  expect(
+    spec.paths['/agents'].post.requestBody.content['application/json'].schema
+      .$ref,
+  ).toBe('#/components/schemas/AgentCreate');
+  expect(
+    spec.paths['/agents/{id}'].put.requestBody.content['application/json']
+      .schema.$ref,
+  ).toBe('#/components/schemas/AgentProfileUpdate');
+  expect(spec.components.schemas.AgentCreate.properties.joinWorld).toEqual({
+    type: 'boolean',
+    default: true,
+  });
+  for (const name of ['AgentCreate', 'AgentProfileUpdate']) {
+    const schema = spec.components.schemas[name];
+    expect(schema.properties.goal).toBeUndefined();
+    expect(schema.properties.startTask).toBeUndefined();
+    expect(schema.properties.taskTimeZone).toBeUndefined();
+    expect(schema.not.anyOf).toEqual(
+      expect.arrayContaining([
+        { required: ['startTask'] },
+        { required: ['taskTimeZone'] },
+      ]),
+    );
+  }
+});

@@ -92,7 +92,7 @@ Agent HTTP 只提供配置、加入世界、停止离线、删除与语音绑定
 - 后续新增执行使用 `POST /tasks/:planId/run` 或 RPC `plans.control` 的 run；已有执行的暂停、继续、取消使用 `/task-runs/:runId/:operation` 或 RPC `runs.control`。
 - `/tasks/:planId/pause` 只暂停未来调度，当前执行不受影响；resume 恢复定时调度。执行 resume 保留进度与用量，已结束执行应重新 run。
 
-创建角色携带 goal/startTask 的既有行为暂保留；内部执行器的暂停、取消能力供 Tasks 和世界生命周期调用，不作为另一套公开任务入口。
+创建与更新角色只写角色配置，不再通过 goal/startTask 隐式创建或替换任务。默认创建后上线待命，joinWorld=false 仅保存离线角色；两种方式都不生成计划或执行，也不自动调用模型。startTask（包括 false）、taskTimeZone 和非空 goal 返回 400 并提示使用 Tasks；空 goal 仅兼容旧请求，不清空已有任务。已有任务的摘要仍可在查询中展示，进度、用量和历史不变。内部执行器的暂停、取消能力供 Tasks 和世界生命周期调用。
 
 ## CLI
 

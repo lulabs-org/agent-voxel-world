@@ -51,7 +51,7 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 1. 在 **模型服务** 中配置 DeepSeek、本机 Ollama 或 OpenAI 兼容服务。密钥仅保存在服务器。
 2. 打开 **Agent 玩家 → 创建 Agent**，填写自定义昵称和可选的 **角色设定**，选择已保存的模型服务。模型 ID 与连接检测统一在 **模型服务** 页面配置，Agent 直接使用该服务保存的模型。
 3. 选择角色技能与动作权限：建筑规划、探索勘察、导览讲解可多选；移动与跳跃、发送聊天默认开启，放置方块、拆除方块默认关闭。技能不会自动授予权限或发起任务。语音默认仅文字，可选择已保存的 TTS 服务并试听。
-4. 创建角色只保存角色，可勾选加入世界待命，不附带首个任务。创建时不调用模型；消息通过原聊天入口触发。
+4. 创建角色只保存角色，默认加入世界待命；取消勾选则保存为离线角色，不附带首个任务。创建时不调用模型；消息通过原聊天入口触发。
 5. 打开一级 **任务计划** 创建一次性或周期计划，必须明确选择执行角色。立即执行要求在线且空闲；未来计划可以选择离线角色，到期离线会跳过。
 
 角色列表支持全部、在线、待处理和离线筛选。角色页默认展示 **角色设置**，另有 **运行记录**；没有创建、暂停、恢复、取消任务或暂停后编辑按钮。正在执行时禁用受影响的设置，计划执行在任务计划页管理，聊天执行通过聊天控制。角色运行记录展示聊天、动作、生命周期和累计用量。
@@ -110,7 +110,9 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 通用服务必须兼容 OpenAI **Chat Completions** 的 SSE 流式响应、工具调用及 `tool_choice=required`；不支持时明确报错，不降级到 JSON 文本解析。原生 Anthropic/Responses 等接口本期未接入。可在兼容设置中选择 `max_tokens` 或 `max_completion_tokens`。旧 `jsonMode` 字段可读取但不再生效，控制台已移除该选项。DeepSeek 专用思考字段不会发给其他服务商。本机 Ollama 使用 `http://127.0.0.1:11434/v1`，先在 Ollama 下载模型，再获取列表；配置 Ollama 失败不影响使用 DeepSeek。[Ollama 官方兼容接口说明](https://docs.ollama.com/api/openai-compatibility)。
 
-管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /providers` 返回脱敏配置，`POST/PUT/DELETE /providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（新建传 `startTask: false` 表示只加入待命，可省略 `goal`；省略此开关保持原有创建并执行语义），`DELETE /agents/:id` 停止并删除角色，保留计划及历史，`PUT /agents/:id` 保存已有 Agent 参数（不启动），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
+管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /providers` 返回脱敏配置，`POST/PUT/DELETE /providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（默认创建后上线待命，`joinWorld: false` 仅保存离线角色；不创建任务、不调用模型），`DELETE /agents/:id` 停止并删除角色，保留计划及历史，`PUT /agents/:id` 保存已有 Agent 参数（不创建或替换任务），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
+
+创建和更新 Agent 不再接受 `startTask`（包括 false）、`taskTimeZone` 或非空 `goal`，返回 400 并提示使用 Tasks；空 `goal` 兼容旧请求，但不会清空或替换当前任务。任务目标从任务 API 写入，查询角色时仍可展示当前任务摘要。已有存档、执行进度、用量和历史保持不变。
 
 ### 任务管理 API
 

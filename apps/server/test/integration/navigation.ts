@@ -190,11 +190,18 @@ try {
   const managed = manager.create({
     providerId: 'deepseek',
     name: 'Managed navigator',
-    goal: '持续跟随',
     intervalMs: 60000,
     maxTurns: 10,
   });
   const view = () => manager!.list().find((a) => a.id === managed.id)!;
+  await manager.settled(managed.id);
+  await manager.createTaskPlan(managed.id, {
+    name: '持续跟随',
+    goal: '持续跟随',
+    timing: { kind: 'immediate' },
+    timeZone: 'UTC',
+    limits: { maxTurns: 10 },
+  });
   const managedPosition = () => room.state.players.get(view().sessionId!)!;
   const separation = () => {
     const p = managedPosition(),

@@ -91,12 +91,8 @@ it('routes agent operations through HTTP REST endpoints', async () => {
     expect.objectContaining({ method: 'GET', signal }),
   );
 
-  const value = {
-    ...initialAgent,
-    name: 'Partner',
-    goal: '',
-    startTask: false,
-  };
+  const { goal: _goal, ...profile } = initialAgent;
+  const value = { ...profile, name: 'Partner' };
   await agentsApi.saveAgent(value);
   expect(http).toHaveBeenLastCalledWith(
     'https://world.example/agents',

@@ -132,7 +132,6 @@ try {
     providerId: 'deepseek',
     name: 'Gateway fixture',
     goal: '',
-    startTask: false,
   };
   const first = await c.request<any>(
     'agents.create',
@@ -155,6 +154,35 @@ try {
     ),
   );
   await until(() => server.agents.list()[0].status === 'idle');
+  const standby = await c.request<any>('agents.get', { agentId: first.id });
+  assert.equal(standby.taskIdentity, null);
+  assert.equal(standby.task, undefined);
+  assert.equal((await c.request<any>('plans.list')).total, 0);
+  for (const [i, value] of [
+    { startTask: true },
+    { startTask: false },
+    { taskTimeZone: 'UTC' },
+    { goal: 'Hidden task' },
+  ].entries()) {
+    await assert.rejects(
+      c.request(
+        'agents.create',
+        { value: { providerId: 'deepseek', name: 'Rejected', ...value } },
+        { commandId: `invalid-create-${i}` },
+      ),
+      /Tasks/,
+    );
+    await assert.rejects(
+      c.request(
+        'agents.update',
+        { agentId: first.id, value },
+        { commandId: `invalid-update-${i}` },
+      ),
+      /Tasks/,
+    );
+  }
+  assert.equal((await c.request<any[]>('agents.list')).length, 1);
+  assert.equal((await c.request<any>('plans.list')).total, 0);
   const immediate = {
     name: 'Immediate fixture',
     goal: '等待',
@@ -176,6 +204,28 @@ try {
   const history = await c.request<any>('runs.list', { planId: plan.id });
   assert.equal(history.total, 1, 'immediate creation starts exactly one run');
   const runId = history.items[0].id;
+  await server.agents.settled(first.id);
+  const beforeUpdate = await c.request<any>('agents.get', {
+    agentId: first.id,
+  });
+  await assert.rejects(
+    c.request(
+      'agents.update',
+      {
+        agentId: first.id,
+        value: { goal: 'Replacement', name: 'Must not rename' },
+      },
+      { commandId: 'reject-replacement' },
+    ),
+    /Tasks/,
+  );
+  const afterUpdate = await c.request<any>('agents.get', { agentId: first.id });
+  assert.deepEqual(afterUpdate.task, beforeUpdate.task);
+  assert.equal(afterUpdate.name, beforeUpdate.name);
+  assert.equal(
+    (await c.request<any>('runs.list', { planId: plan.id })).total,
+    1,
+  );
   for (const operation of ['task', 'pause', 'resume', 'cancel']) {
     assert.equal(
       (

@@ -5,8 +5,7 @@ export const agentsApi = {
   listAgents: (signal?: AbortSignal) =>
     consoleFetch<ManagedAgentView[]>('/agents', { signal }),
   saveAgent: (
-    settings: Partial<AgentSettings> & {
-      startTask?: boolean;
+    settings: Partial<Omit<AgentSettings, 'goal'>> & {
       joinWorld?: boolean;
     },
     id?: string,

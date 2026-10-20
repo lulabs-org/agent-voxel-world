@@ -75,6 +75,6 @@ Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照
 
 `ManagedAgentView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 agentId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
 
-HTTP 任务入口统一为 `/tasks` 与 `/task-runs`，管理 HTTP 与 RPC 共用管理员令牌和 Origin 校验。`/agents/:id/task`、`pause`、`resume`、`cancel` 及 RPC `tasks.assign/pause/resume/cancel` 已移除。即时任务通过 `/tasks` 或 `plans.create` 创建即执行；计划的 pause/resume 管理调度，执行的 pause/resume/cancel 必须使用 runId。恢复执行前须先通过 join 上线，join 本身不恢复任务。创建角色附带任务的既有行为暂保留。
+HTTP 任务入口统一为 `/tasks` 与 `/task-runs`，管理 HTTP 与 RPC 共用管理员令牌和 Origin 校验。`/agents/:id/task`、`pause`、`resume`、`cancel` 及 RPC `tasks.assign/pause/resume/cancel` 已移除。即时任务通过 `/tasks` 或 `plans.create` 创建即执行；计划的 pause/resume 管理调度，执行的 pause/resume/cancel 必须使用 runId。恢复执行前须先通过 join 上线，join 本身不恢复任务。Agent 创建默认上线待命，joinWorld=false 仅保存离线角色，不生成计划或执行。创建/更新中的 startTask、taskTimeZone 或非空 goal 返回 400；空 goal 兼容接受但不修改已有任务。任务统一通过 Tasks 创建与控制，已有历史和进度保留。
 
 模型使用独立对话/任务工具集，不再返回 intent/update_task 协议。任务身份、权限、取消、预算及检查点由程序控制。私聊保留原接收会话，公开问题不获得私聊执行上下文；重启后失效私聊需重新通过聊天发起。

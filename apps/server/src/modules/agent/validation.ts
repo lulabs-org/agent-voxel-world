@@ -107,3 +107,17 @@ export function validateAgent(
     ),
   };
 }
+
+/** Public profile writes cannot create or replace task execution. Empty legacy goals are harmless. */
+export function agentProfileInput(value: unknown) {
+  const input = object(value);
+  if (
+    input.startTask !== undefined ||
+    input.taskTimeZone !== undefined ||
+    (input.goal !== undefined && input.goal !== '')
+  )
+    throw new AppError(
+      'Agent 配置不接受任务参数，请通过 Tasks 创建或修改任务。',
+    );
+  return input;
+}

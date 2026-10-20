@@ -245,7 +245,6 @@ try {
   const job = await api('', 'POST', {
     providerId: 'deepseek',
     name: '任务测试员',
-    goal: '检查附近环境一次',
     maxTurns: 30,
     intervalMs: 1000,
     allowEdits: true,
@@ -275,6 +274,10 @@ try {
       },
       201,
     );
+  await until(() => current().status === 'idle');
+  assert.equal(current().task, undefined);
+  assert.equal(calls, 0, 'creating a role only joins the world');
+  await createTask('检查附近环境一次');
   await until(() => current().task?.status === 'completed');
   const identity = current().sessionId;
   assert.equal(calls, 1);

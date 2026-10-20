@@ -74,17 +74,24 @@ try {
     model: 'fixture-model',
     name: '林间向导',
     goal: '',
-    startTask: false,
   });
   const b = manager.create({
     providerId: 'deepseek',
     model: 'fixture-model',
     name: '营地建筑师',
-    goal: '等待附近环境变化',
     allowEdits: true,
   });
   await until(
     () => manager!.list().filter((j) => j.status === 'idle').length === 2,
+  );
+  await manager.createTaskPlan(b.id, {
+    name: '等待附近环境变化',
+    goal: '等待附近环境变化',
+    timing: { kind: 'immediate' },
+    timeZone: 'UTC',
+  });
+  await until(
+    () => manager!.list().find((j) => j.id === b.id)?.status === 'idle',
   );
   manager.stop(a.id);
   await until(

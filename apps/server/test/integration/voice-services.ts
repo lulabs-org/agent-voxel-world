@@ -143,7 +143,6 @@ try {
     const response = await api('/agents', 'POST', {
       providerId: 'deepseek',
       name,
-      goal: 'Say hello once.',
       maxTurns: 1,
       voiceReplies: true,
       voiceServiceId: serviceId,
@@ -152,6 +151,24 @@ try {
     const job = (await response.json()) as ManagedAgentView;
     await until(
       () => manager!.list().find((j) => j.id === job.id)?.status === 'idle',
+    );
+    assert.equal(
+      (
+        await api('/tasks', 'POST', {
+          agentId: job.id,
+          name: 'Say hello once',
+          goal: 'Say hello once.',
+          timing: { kind: 'immediate' },
+          timeZone: 'UTC',
+          limits: { maxTurns: 1 },
+        })
+      ).status,
+      201,
+    );
+    await until(
+      () =>
+        manager!.list().find((j) => j.id === job.id)?.task?.status ===
+        'completed',
     );
     return manager!.list().find((j) => j.id === job.id)!;
   };
