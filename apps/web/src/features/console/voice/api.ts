@@ -10,10 +10,10 @@ import { consoleFetch } from '../request';
 
 export const voiceApi = {
   listPiperModels: (signal?: AbortSignal) =>
-    consoleFetch<PiperModelView[]>('/voice-services/piper/models', { signal }),
+    consoleFetch<PiperModelView[]>('/voice/tts/piper/models', { signal }),
   installPiperModel: (model: string, signal?: AbortSignal) =>
     consoleFetch<{ model: string; state: 'installing' }>(
-      '/voice-services/piper/install',
+      '/voice/tts/piper/install',
       {
         method: 'POST',
         body: { model },
@@ -21,22 +21,24 @@ export const voiceApi = {
       },
     ),
   listVoiceServices: (signal?: AbortSignal) =>
-    consoleFetch<VoiceServiceView[]>('/voice-services', { signal }),
+    consoleFetch<VoiceServiceView[]>('/voice/tts/services', { signal }),
   saveVoiceService: (draft: VoiceServiceDraft, id?: string) =>
     consoleFetch<VoiceServiceView>(
-      id ? `/voice-services/${encodeURIComponent(id)}` : '/voice-services',
+      id
+        ? `/voice/tts/services/${encodeURIComponent(id)}`
+        : '/voice/tts/services',
       {
         method: id ? 'PUT' : 'POST',
         body: draft,
       },
     ),
   deleteVoiceService: (id: string) =>
-    consoleFetch<void>(`/voice-services/${encodeURIComponent(id)}`, {
+    consoleFetch<void>(`/voice/tts/services/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
   previewVoice: async (id: string, text: string, signal: AbortSignal) => {
     const response = await fetch(
-      `${serverHttpUrl()}/agents/voice-services/${encodeURIComponent(id)}/preview`,
+      `${serverHttpUrl()}/voice/tts/services/${encodeURIComponent(id)}/preview`,
       {
         method: 'POST',
         signal,

@@ -45,7 +45,11 @@ it('keeps infrastructure independent of business modules and modules independent
             target.startsWith('transport/'),
           `${name} -> ${target}`,
         ).toBe(false);
-      if (name.startsWith('modules/audio/'))
+      if (
+        name.startsWith('modules/audio/') ||
+        name.startsWith('modules/providers/') ||
+        name.startsWith('modules/tasks/')
+      )
         expect(
           target.startsWith('modules/agent/'),
           `${name} -> ${target}`,

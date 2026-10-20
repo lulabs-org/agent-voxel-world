@@ -110,7 +110,7 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 通用服务必须兼容 OpenAI **Chat Completions** 的 SSE 流式响应、工具调用及 `tool_choice=required`；不支持时明确报错，不降级到 JSON 文本解析。原生 Anthropic/Responses 等接口本期未接入。可在兼容设置中选择 `max_tokens` 或 `max_completion_tokens`。旧 `jsonMode` 字段可读取但不再生效，控制台已移除该选项。DeepSeek 专用思考字段不会发给其他服务商。本机 Ollama 使用 `http://127.0.0.1:11434/v1`，先在 Ollama 下载模型，再获取列表；配置 Ollama 失败不影响使用 DeepSeek。[Ollama 官方兼容接口说明](https://docs.ollama.com/api/openai-compatibility)。
 
-管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /agents/providers` 返回脱敏配置，`POST/PUT/DELETE /agents/providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /agents/providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（新建传 `startTask: false` 表示只加入待命，可省略 `goal`；省略此开关保持原有创建并执行语义），`DELETE /agents/:id` 停止并删除角色，保留计划及历史，`PUT /agents/:id` 保存已有 Agent 参数（不启动），`POST /agents/:id/task` 布置任务（传 `goal`），`POST /agents/:id/pause` 暂停，`POST /agents/:id/cancel` 取消，`POST /agents/:id/resume` 手动继续（可传 `goal` 新建），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
+管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /providers` 返回脱敏配置，`POST/PUT/DELETE /providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（新建传 `startTask: false` 表示只加入待命，可省略 `goal`；省略此开关保持原有创建并执行语义），`DELETE /agents/:id` 停止并删除角色，保留计划及历史，`PUT /agents/:id` 保存已有 Agent 参数（不启动），`POST /agents/:id/task` 布置任务（传 `goal`），`POST /agents/:id/pause` 暂停，`POST /agents/:id/cancel` 取消，`POST /agents/:id/resume` 手动继续（可传 `goal` 新建），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
 
 ### 任务管理 API
 

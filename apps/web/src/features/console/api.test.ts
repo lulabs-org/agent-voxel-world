@@ -27,11 +27,13 @@ afterEach(() => {
 
 it('routes provider queries and mutations through HTTP REST endpoints', async () => {
   const signal = new AbortController().signal;
-  http.mockImplementation(() => Promise.resolve(new Response(JSON.stringify([]))));
+  http.mockImplementation(() =>
+    Promise.resolve(new Response(JSON.stringify([]))),
+  );
 
   await providersApi.listProviders(signal);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/providers',
+    'https://world.example/providers',
     expect.objectContaining({
       method: 'GET',
       signal,
@@ -43,14 +45,14 @@ it('routes provider queries and mutations through HTTP REST endpoints', async ()
 
   await providersApi.listModels('custom/provider', signal);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/providers/custom%2Fprovider/models',
+    'https://world.example/providers/custom%2Fprovider/models',
     expect.objectContaining({ method: 'GET', signal }),
   );
 
   const value = freshProvider('compatible');
   await providersApi.saveProvider(value);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/providers',
+    'https://world.example/providers',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(value),
@@ -62,7 +64,7 @@ it('routes provider queries and mutations through HTTP REST endpoints', async ()
 
   await providersApi.saveProvider(value, 'custom');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/providers/custom',
+    'https://world.example/providers/custom',
     expect.objectContaining({
       method: 'PUT',
       body: JSON.stringify(value),
@@ -72,14 +74,16 @@ it('routes provider queries and mutations through HTTP REST endpoints', async ()
   http.mockResolvedValueOnce(new Response(null, { status: 204 }));
   await providersApi.deleteProvider('custom');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/providers/custom',
+    'https://world.example/providers/custom',
     expect.objectContaining({ method: 'DELETE' }),
   );
 });
 
 it('routes agent operations through HTTP REST endpoints', async () => {
   const signal = new AbortController().signal;
-  http.mockImplementation(() => Promise.resolve(new Response(JSON.stringify([]))));
+  http.mockImplementation(() =>
+    Promise.resolve(new Response(JSON.stringify([]))),
+  );
 
   await agentsApi.listAgents(signal);
   expect(http).toHaveBeenLastCalledWith(
@@ -148,19 +152,19 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
 
   await tasksApi.list({ state: 'unassigned', offset: 20 });
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/tasks?state=unassigned&offset=20',
+    'https://world.example/tasks?state=unassigned&offset=20',
     expect.objectContaining({ method: 'GET' }),
   );
 
   await tasksApi.get('plan-123');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/tasks/plan-123',
+    'https://world.example/tasks/plan-123',
     expect.objectContaining({ method: 'GET' }),
   );
 
   await tasksApi.runs('p', 20);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/tasks/p/runs?offset=20',
+    'https://world.example/tasks/p/runs?offset=20',
     expect.objectContaining({ method: 'GET' }),
   );
 
@@ -171,7 +175,7 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
     identity,
   );
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/tasks/p/run',
+    'https://world.example/tasks/p/run',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({
@@ -188,7 +192,7 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
     'agent-2',
   );
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/tasks/p/reassign',
+    'https://world.example/tasks/p/reassign',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ targetAgentId: 'agent-2' }),
@@ -198,13 +202,13 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
   http.mockResolvedValueOnce(new Response(null, { status: 204 }));
   await tasksApi.delete('p', 'agent-1');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/tasks/p',
+    'https://world.example/tasks/p',
     expect.objectContaining({ method: 'DELETE' }),
   );
 
   await tasksApi.controlRun('run-99', 'resume', {}, identity);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/task-runs/run-99/resume',
+    'https://world.example/task-runs/run-99/resume',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ expectedTask: identity }),
@@ -217,7 +221,7 @@ it('retains authenticated HTTP voice management and actionable HTTP errors', asy
   http.mockResolvedValueOnce(new Response('[]'));
   await voiceApi.listPiperModels(signal);
   expect(http).toHaveBeenCalledWith(
-    'https://world.example/agents/voice-services/piper/models',
+    'https://world.example/voice/tts/piper/models',
     expect.objectContaining({
       signal,
       headers: expect.objectContaining({
@@ -230,4 +234,64 @@ it('retains authenticated HTTP voice management and actionable HTTP errors', asy
     new Response(JSON.stringify({ error: '音色不可用' }), { status: 503 }),
   );
   await expect(voiceApi.listPiperModels(signal)).rejects.toThrow('音色不可用');
+});
+
+it('uses the TTS domain for service CRUD, model installation and binary preview', async () => {
+  const signal = new AbortController().signal;
+  await voiceApi.listVoiceServices(signal);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/voice/tts/services',
+    expect.objectContaining({ method: 'GET', signal }),
+  );
+  const draft = {
+    type: 'browser' as const,
+    baseUrl: '',
+    model: '',
+    apiKey: '',
+    name: 'Browser',
+    voice: 'Test',
+    speed: 1,
+  };
+  await voiceApi.saveVoiceService(draft);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/voice/tts/services',
+    expect.objectContaining({ method: 'POST', body: JSON.stringify(draft) }),
+  );
+  await voiceApi.saveVoiceService(draft, 'custom/voice');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/voice/tts/services/custom%2Fvoice',
+    expect.objectContaining({ method: 'PUT' }),
+  );
+  http.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  await voiceApi.deleteVoiceService('custom/voice');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/voice/tts/services/custom%2Fvoice',
+    expect.objectContaining({ method: 'DELETE' }),
+  );
+  await voiceApi.installPiperModel('fixture-model', signal);
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/voice/tts/piper/install',
+    expect.objectContaining({
+      method: 'POST',
+      body: '{"model":"fixture-model"}',
+      signal,
+    }),
+  );
+  http.mockResolvedValueOnce(
+    new Response('wav', { headers: { 'Content-Type': 'audio/wav' } }),
+  );
+  expect(
+    await (await voiceApi.previewVoice('custom/voice', 'hello', signal)).text(),
+  ).toBe('wav');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/voice/tts/services/custom%2Fvoice/preview',
+    expect.objectContaining({
+      method: 'POST',
+      signal,
+      headers: expect.objectContaining({
+        Authorization: 'Bearer fixture-token',
+      }),
+      body: '{"text":"hello"}',
+    }),
+  );
 });

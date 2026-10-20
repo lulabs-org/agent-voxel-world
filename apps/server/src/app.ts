@@ -2,11 +2,19 @@ import type { GatewayAuth } from './modules/gateway/auth';
 import express from 'express';
 import type { ServerConfig } from './config';
 import type { AgentManager } from './modules/agent';
-import type { AgentGateway } from './modules/gateway/gateway';
 import type { AsrSettingsStore } from './modules/audio/asr/asr-settings';
 import type { LocalSpeech } from './modules/audio/asr/local-speech';
 import type { WorldRoom } from './modules/world/room';
-import { installGatewayRoutes } from './modules/gateway/http.routes';
+import { installAgentRoutes } from './modules/agent/agent.routes';
+import { installProviderRoutes } from './modules/providers/providers.routes';
+import { installTaskRoutes } from './modules/tasks/tasks.routes';
+import type { VoiceServiceStore } from './modules/audio/tts/voice-services';
+import { installPiperRoutes } from './modules/audio/routes/piper.routes';
+import { installVoiceServiceRoutes } from './modules/audio/routes/voice-services.routes';
+import {
+  managementBody,
+  managementErrors,
+} from './common/middleware/management-http';
 import { installSpeechRoutes } from './modules/audio/routes/speech.routes';
 import { installAsrRoutes } from './modules/audio/routes/asr.routes';
 import { installChatRoutes } from './modules/chat/chat.routes';
@@ -24,7 +32,7 @@ export function createApp(deps: {
   config: ServerConfig;
   gatewayAuth: GatewayAuth;
   agents: AgentManager;
-  gateway?: AgentGateway;
+  voiceServices: VoiceServiceStore;
   speech: LocalSpeech;
   asrSettings: AsrSettingsStore;
   world: () => WorldRoom | undefined;
@@ -39,11 +47,31 @@ export function createApp(deps: {
   });
   installDocsRoutes(app);
   installHealthRoutes(app, deps.config);
-  app.use('/agents', deps.gatewayAuth.middleware);
+  const managementPaths = [
+    '/agents',
+    '/providers',
+    '/tasks',
+    '/task-runs',
+    '/voice/tts',
+  ];
+  app.use(managementPaths, deps.gatewayAuth.middleware, ...managementBody);
   app.use('/voice/asr/services', deps.gatewayAuth.middleware);
   installSpeechRoutes(app, deps.speech, deps.asrSettings, origin);
   installAsrRoutes(app, deps.asrSettings, origin, true);
-  installGatewayRoutes(app, deps.gateway ?? deps.agents, origin, true);
+  installAgentRoutes(app, deps.agents);
+  installProviderRoutes(app, {
+    store: deps.agents.providers,
+    models: (id) => deps.agents.models(id),
+    remove: (id) => deps.agents.removeProvider(id),
+    changed: () => deps.agents.events.publish('providers'),
+  });
+  installTaskRoutes(app, deps.agents);
+  installVoiceServiceRoutes(
+    app,
+    () => deps.voiceServices,
+    (id) => deps.agents.removeVoiceService(id),
+  );
+  installPiperRoutes(app, deps.voiceServices.piperModels);
   installWorldRoutes(app, () => deps.world()?.roomId ?? '');
   installChatRoutes(
     app,
@@ -53,6 +81,10 @@ export function createApp(deps: {
     origin,
   );
   installPresenceRoutes(app, () => deps.world()?.getPresence(), origin);
+  app.use(managementPaths, (_req, res) => {
+    res.status(404).json({ error: '管理接口不存在，请确认前后端版本一致。' });
+  });
+  app.use(managementPaths, managementErrors);
   app.use(errorHandler());
   return app;
 }

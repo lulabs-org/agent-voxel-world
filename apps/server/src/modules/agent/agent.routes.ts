@@ -14,6 +14,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents:
    *   get:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 获取所有 Agent 列表
    *     tags:
    *       - Agents
@@ -32,6 +34,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 创建新 Agent
    *     tags:
    *       - Agents
@@ -58,6 +62,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}:
    *   put:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 更新 Agent 信息与配置
    *     tags:
    *       - Agents
@@ -90,7 +96,9 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}:
    *   delete:
-   *     summary: 停止并删除 Agent、任务计划和运行记录（保留世界建筑和共享服务）
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 停止并删除 Agent，保留任务计划、运行历史、世界建筑和共享服务
    *     tags: [Agents]
    *     parameters:
    *       - in: path
@@ -119,6 +127,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/join:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 让 Agent 加入游戏世界房间
    *     tags:
    *       - Agents
@@ -146,6 +156,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/stop:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 停止 Agent 并移出世界
    *     tags:
    *       - Agents
@@ -173,6 +185,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/voice:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 配置 Agent 音色与发音服务
    *     tags:
    *       - Agents
@@ -209,6 +223,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/pause:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 暂停 Agent 当前任务
    *     tags:
    *       - Agents
@@ -233,6 +249,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/resume:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 恢复 Agent 运行
    *     tags:
    *       - Agents
@@ -262,6 +280,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/cancel:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 取消 Agent 当前任务
    *     tags:
    *       - Agents
@@ -286,6 +306,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    * @openapi
    * /agents/{id}/task:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 为 Agent 分配即时任务
    *     tags:
    *       - Agents
@@ -306,7 +328,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 任务分配成功
    */
   app.post(
-    '/agents/{id}/task',
+    '/agents/:id/task',
     route(async (req, res) => {
       res.json(await manager.assignTask(String(req.params.id), req.body ?? {}));
     }),

@@ -86,7 +86,7 @@ try {
     body?: unknown,
     origin: string | undefined = process.env.WEB_ORIGIN,
   ) =>
-    fetch(`${url}/agents${path}`, {
+    fetch(`${url}${path}`, {
       method,
       headers: {
         Authorization: 'Bearer fixture-gateway-token-for-tests',
@@ -100,12 +100,12 @@ try {
       .status,
     403,
   );
-  assert.equal((await fetch(`${url}/agents/providers`)).status, 401);
+  assert.equal((await fetch(`${url}/providers`)).status, 401);
   assert.equal((await api('/providers', 'OPTIONS')).status, 204);
-  const missingRoute = await api('/missing/endpoint', 'POST', {});
+  const missingRoute = await api('/agents/missing/endpoint', 'POST', {});
   assert.equal(missingRoute.status, 404);
   assert.equal(typeof (await missingRoute.json()).error, 'string');
-  const missingAgent = await api('/nonexistent/resume', 'POST', {});
+  const missingAgent = await api('/agents/nonexistent/resume', 'POST', {});
   assert.equal(missingAgent.status, 404);
   assert.equal(typeof (await missingAgent.json()).error, 'string');
   const publicProviders = await (await api('/providers')).text();
@@ -113,7 +113,7 @@ try {
   assert(publicProviders.includes('hasApiKey'));
   assert.equal(
     (
-      await api('', 'POST', {
+      await api('/agents', 'POST', {
         providerId: 'deepseek',
         name: 'AI',
         goal: 'Hi',
@@ -122,7 +122,10 @@ try {
     ).status,
     400,
   );
-  assert.equal((await api('', 'POST', { providerId: 'missing' })).status, 404);
+  assert.equal(
+    (await api('/agents', 'POST', { providerId: 'missing' })).status,
+    404,
+  );
   assert.equal(
     (await api('/providers', 'POST', { name: 'A'.repeat(40000) })).status,
     413,
@@ -141,7 +144,7 @@ try {
   assert.equal(customResponse.status, 201);
   const custom = (await customResponse.json()) as { id: string };
   for (const providerId of ['deepseek', custom.id]) {
-    const response = await api('', 'POST', {
+    const response = await api('/agents', 'POST', {
       providerId,
       name: 'Managed AI',
       roleDescription: '你是一名建筑师，负责规划房屋。',
@@ -164,8 +167,11 @@ try {
     const original = room.state.players.get(idle.sessionId!)!;
     const originalPosition = { x: original.x, y: original.y, z: original.z };
     assert.equal(
-      (await api(`/${job.id}/resume`, 'POST', { goal: 'A different task' }))
-        .status,
+      (
+        await api(`/agents/${job.id}/resume`, 'POST', {
+          goal: 'A different task',
+        })
+      ).status,
       200,
     );
     await until(
@@ -190,7 +196,7 @@ try {
     const callsWhenIdle: number = calls;
     await new Promise((resolve) => setTimeout(resolve, 100));
     assert.equal(calls, callsWhenIdle, 'idle does not invoke the model');
-    const edited = await api(`/${job.id}`, 'PUT', {
+    const edited = await api(`/agents/${job.id}`, 'PUT', {
       name: 'Renamed AI',
       roleDescription: '你是一名建筑师，先确认位置和尺寸，再规划施工。',
       intervalMode: 'random',
@@ -254,7 +260,7 @@ try {
     );
     await speaker.close();
     speaker = undefined;
-    assert.equal((await api(`/${job.id}/stop`, 'POST', {})).status, 200);
+    assert.equal((await api(`/agents/${job.id}/stop`, 'POST', {})).status, 200);
     await until(
       () => manager!.list().find((j) => j.id === job.id)?.status === 'stopped',
     );
@@ -264,7 +270,7 @@ try {
       'closing retains reusable config',
     );
   }
-  const standbyResponse = await api('', 'POST', {
+  const standbyResponse = await api('/agents', 'POST', {
     providerId: 'deepseek',
     name: 'Standby',
     goal: '',
@@ -280,19 +286,28 @@ try {
     manager.list().find((j) => j.id === standby.id)?.task,
     undefined,
   );
-  assert.equal((await api(`/${standby.id}/resume`, 'POST', {})).status, 400);
-  await api(`/${standby.id}/stop`, 'POST', {});
+  assert.equal(
+    (await api(`/agents/${standby.id}/resume`, 'POST', {})).status,
+    400,
+  );
+  await api(`/agents/${standby.id}/stop`, 'POST', {});
   await until(
     () =>
       manager!.list().find((j) => j.id === standby.id)?.status === 'stopped',
   );
-  assert.equal((await api(`/${standby.id}/join`, 'POST', {})).status, 200);
+  assert.equal(
+    (await api(`/agents/${standby.id}/join`, 'POST', {})).status,
+    200,
+  );
   await until(
     () => manager!.list().find((j) => j.id === standby.id)?.status === 'idle',
   );
   assert.equal(calls, 8, 'joining also does not call a model');
-  assert.equal((await api(`/${standby.id}/join`, 'POST', {})).status, 409);
-  await api(`/${standby.id}/stop`, 'POST', {});
+  assert.equal(
+    (await api(`/agents/${standby.id}/join`, 'POST', {})).status,
+    409,
+  );
+  await api(`/agents/${standby.id}/stop`, 'POST', {});
   await until(
     () =>
       manager!.list().find((j) => j.id === standby.id)?.status === 'stopped',
@@ -300,7 +315,7 @@ try {
   assert.equal(calls, 8);
   const created = [] as string[];
   for (let i = 0; i < 4; i++) {
-    const res = await api('', 'POST', {
+    const res = await api('/agents', 'POST', {
       providerId: 'deepseek',
       name: `Loop ${i}`,
       goal: 'Observe',
@@ -326,7 +341,7 @@ try {
   const sleeping = manager.list().find((j) => j.id === created[0])!;
   const beforeWake = calls;
   assert.equal(
-    (await api(`/${created[0]}`, 'PUT', { maxTurns: 9 })).status,
+    (await api(`/agents/${created[0]}`, 'PUT', { maxTurns: 9 })).status,
     200,
   );
   await speaker.request('chat', {
@@ -344,7 +359,7 @@ try {
   speaker = undefined;
   assert.equal(
     (
-      await api('', 'POST', {
+      await api('/agents', 'POST', {
         providerId: 'deepseek',
         name: 'Overflow',
         goal: 'Observe',
@@ -353,7 +368,10 @@ try {
     409,
   );
   assert.equal((await api('/providers/deepseek', 'DELETE')).status, 409);
-  assert.equal((await api(`/${created[0]}/stop`, 'POST', {})).status, 200);
+  assert.equal(
+    (await api(`/agents/${created[0]}/stop`, 'POST', {})).status,
+    200,
+  );
   await until(
     () =>
       manager!.list().find((j) => j.id === created[0])?.status === 'stopped',
@@ -372,7 +390,7 @@ try {
   // A forbidden tail must prevent even the permitted edit at the head.
   const beforeCapabilities = calls;
   const permissions = { move: true, chat: false, place: true, remove: false };
-  const capabilityResponse = await api('', 'POST', {
+  const capabilityResponse = await api('/agents', 'POST', {
     providerId: 'deepseek',
     name: 'Capability fixture',
     startTask: false,
@@ -402,7 +420,7 @@ try {
   };
   assert.equal(
     (
-      await api(`/${capabilityJob.id}/task`, 'POST', {
+      await api(`/agents/${capabilityJob.id}/task`, 'POST', {
         goal: 'Validate permissions',
       })
     ).status,
@@ -434,7 +452,7 @@ try {
       .logs.some((line) => line.includes('聊天权限')),
   );
   // Task schedules use the same permission-checked runtime and origin boundary.
-  await api(`/${capabilityJob.id}/pause`, 'POST', {});
+  await api(`/agents/${capabilityJob.id}/pause`, 'POST', {});
   const schedule = await api(`/tasks`, 'POST', {
     agentId: capabilityJob.id,
     name: 'Scheduled capability check',
@@ -469,9 +487,7 @@ try {
       calls > beforeScheduled &&
       manager!.list().find((j) => j.id === capabilityJob.id)?.status === 'idle',
   );
-  const history = await (
-    await api(`/tasks/${plan.id}/runs`)
-  ).json();
+  const history = await (await api(`/tasks/${plan.id}/runs`)).json();
   assert.equal(history.items.length, 1);
   assert.equal(history.items[0].task.calls, 1);
   assert.equal(
@@ -507,13 +523,7 @@ try {
   );
   assert(!JSON.stringify(history).includes('fixture-secret'));
   assert.equal(
-    (
-      await api(
-        `/task-runs/${history.items[0].id}/cancel`,
-        'POST',
-        {},
-      )
-    ).status,
+    (await api(`/task-runs/${history.items[0].id}/cancel`, 'POST', {})).status,
     200,
   );
   assert.equal(
@@ -523,7 +533,7 @@ try {
   assert.equal(
     (
       await api(
-        `/${capabilityJob.id}`,
+        `/agents/${capabilityJob.id}`,
         'DELETE',
         undefined,
         'https://untrusted.example',
@@ -531,9 +541,15 @@ try {
     ).status,
     403,
   );
-  assert.equal((await api(`/${capabilityJob.id}`, 'DELETE')).status, 204);
+  assert.equal(
+    (await api(`/agents/${capabilityJob.id}`, 'DELETE')).status,
+    204,
+  );
   assert(!manager.list().some((j) => j.id === capabilityJob.id));
-  assert.equal((await api(`/${capabilityJob.id}`, 'DELETE')).status, 404);
+  assert.equal(
+    (await api(`/agents/${capabilityJob.id}`, 'DELETE')).status,
+    404,
+  );
   await speaker.close();
   speaker = undefined;
   await until(() => room.state.players.size === 3);

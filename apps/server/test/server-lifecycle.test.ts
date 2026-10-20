@@ -72,7 +72,7 @@ describe('server assembly and lifecycle', () => {
       });
       for (const path of [
         '/agents',
-        '/agents/providers',
+        '/providers',
         '/voice/asr/services',
         '/chat/audio/missing',
       ])

@@ -93,7 +93,7 @@ try {
   const url = server.httpUrl;
   manager = server.agents;
   const api = (path: string, method = 'GET', body?: unknown) =>
-    fetch(`${url}/agents${path}`, {
+    fetch(`${url}${path}`, {
       method,
       headers: {
         Authorization: 'Bearer fixture-gateway-token-for-tests',
@@ -102,9 +102,9 @@ try {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  assert.equal((await fetch(`${url}/agents/voice-services`)).status, 401);
+  assert.equal((await fetch(`${url}/voice/tts/services`)).status, 401);
   const add = async (name: string, voice: string, speed: number) => {
-    const response = await api('/voice-services', 'POST', {
+    const response = await api('/voice/tts/services', 'POST', {
       name,
       type: 'compatible',
       baseUrl: providerUrl,
@@ -120,7 +120,7 @@ try {
   };
   const a = await add('Guide', 'alpha', 0.8),
     b = await add('Builder', 'beta', 1.2);
-  const preview = await api(`/voice-services/${a.id}/preview`, 'POST', {
+  const preview = await api(`/voice/tts/services/${a.id}/preview`, 'POST', {
     text: 'Preview voice',
   });
   assert.equal(preview.status, 200);
@@ -140,7 +140,7 @@ try {
   );
   await until(() => humans.every((s) => !!s.chatToken));
   const create = async (serviceId: string, name: string) => {
-    const response = await api('', 'POST', {
+    const response = await api('/agents', 'POST', {
       providerId: 'deepseek',
       name,
       goal: 'Say hello once.',
@@ -167,10 +167,13 @@ try {
   );
   assert.equal(first.voiceServiceId, a.id);
   assert.equal(second.voiceServiceName, 'Builder');
-  assert.equal((await api(`/voice-services/${a.id}`, 'DELETE')).status, 409);
+  assert.equal(
+    (await api(`/voice/tts/services/${a.id}`, 'DELETE')).status,
+    409,
+  );
   // Editing an idle Agent changes its actual next utterance without restarting the task.
   assert.equal(
-    (await api(`/${first.id}`, 'PUT', { voiceServiceId: b.id })).status,
+    (await api(`/agents/${first.id}`, 'PUT', { voiceServiceId: b.id })).status,
     200,
   );
   const before = events[1].length;
@@ -200,10 +203,13 @@ try {
     validatePcmWav(Buffer.from(await (await audio(humans[0])).arrayBuffer())),
     1000,
   );
-  assert.equal((await api(`/voice-services/${a.id}`, 'DELETE')).status, 204);
+  assert.equal(
+    (await api(`/voice/tts/services/${a.id}`, 'DELETE')).status,
+    204,
+  );
   if (process.env.REAL_TTS === '1') {
     if (process.env.REAL_TTS_MODEL) {
-      const saved = await api('/voice-services/local-default', 'PUT', {
+      const saved = await api('/voice/tts/services/local-default', 'PUT', {
         name: 'Piper integration voice',
         type: 'piper',
         model: process.env.REAL_TTS_MODEL,
@@ -211,9 +217,13 @@ try {
       });
       assert.equal(saved.status, 200);
     }
-    const local = await api('/voice-services/local-default/preview', 'POST', {
-      text: '你好，这是本地语音试听。',
-    });
+    const local = await api(
+      '/voice/tts/services/local-default/preview',
+      'POST',
+      {
+        text: '你好，这是本地语音试听。',
+      },
+    );
     assert.equal(local.status, 200);
     assert(validatePcmWav(Buffer.from(await local.arrayBuffer()), 90.5) > 250);
     await create('local-default', 'Local voice');

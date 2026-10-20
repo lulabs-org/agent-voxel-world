@@ -44,6 +44,8 @@ export function installChatRoutes(
    * @openapi
    * /chat/audio:
    *   post:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 上传并发布语音聊天消息
    *     tags:
    *       - Chat
@@ -140,6 +142,8 @@ export function installChatRoutes(
    * @openapi
    * /chat/spatial/start:
    *   post:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 发起空间语音流
    *     tags:
    *       - Chat
@@ -168,6 +172,8 @@ export function installChatRoutes(
    * @openapi
    * /chat/spatial/{id}:
    *   delete:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 结束空间语音流
    *     tags:
    *       - Chat
@@ -193,6 +199,8 @@ export function installChatRoutes(
    * @openapi
    * /chat/spatial/{id}:
    *   post:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 提交并发布空间语音片段
    *     tags:
    *       - Chat
@@ -214,6 +222,8 @@ export function installChatRoutes(
    *         description: 成功处理语音片段
    * /chat/spatial/{id}/preview:
    *   post:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 实时预览空间语音转录片段
    *     tags:
    *       - Chat
@@ -282,6 +292,8 @@ export function installChatRoutes(
    * @openapi
    * /chat/agent-speech/{id}:
    *   get:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 获取 Agent 语音音频 (WAV)
    *     tags:
    *       - Chat
@@ -316,6 +328,8 @@ export function installChatRoutes(
    * @openapi
    * /chat/audio/{id}:
    *   get:
+   *     security:
+   *       - ChatBearer: []
    *     summary: 获取聊天语音音频 (WAV)
    *     tags:
    *       - Chat
@@ -360,9 +374,7 @@ export function installChatRoutes(
       body: {
         code: e instanceof AppError ? e.code : undefined,
         error:
-          e instanceof AppError
-            ? e.message
-            : '无法处理语音消息，请检查输入。',
+          e instanceof AppError ? e.message : '无法处理语音消息，请检查输入。',
       },
     })),
   );
