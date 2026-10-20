@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { VoiceServiceDraft } from '@voxel/shared';
 import { validatePcmWav } from '../asr/local-speech';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 import type { SpeechSynthesizer } from './speech-synthesizer';
 
 const exec = promisify(execFile);
@@ -39,7 +39,7 @@ async function boundedBody(response: Response, limit: number) {
                 : response.status === 400
                   ? '请求参数不被接受，请检查模型、音色与接口是否匹配。'
                   : '服务暂不可用，请检查接口地址或稍后重试。';
-    throw new SpeechError(`语音服务返回 HTTP ${response.status}：${hint}`, 502);
+    throw new AppError(`语音服务返回 HTTP ${response.status}：${hint}`, 502);
   }
   return readBody(response, limit);
 }
@@ -47,14 +47,14 @@ async function boundedBody(response: Response, limit: number) {
 async function readBody(response: Response, limit: number) {
   const chunks: Uint8Array[] = [];
   let size = 0;
-  if (!response.body) throw new SpeechError('语音服务返回空响应。', 502);
+  if (!response.body) throw new AppError('语音服务返回空响应。', 502);
   const reader = response.body.getReader();
   try {
     while (true) {
       const part = await reader.read();
       if (part.done) break;
       size += part.value.length;
-      if (size > limit) throw new SpeechError('语音服务响应过大。', 502);
+      if (size > limit) throw new AppError('语音服务响应过大。', 502);
       chunks.push(part.value);
     }
     return Buffer.concat(chunks);
@@ -75,7 +75,7 @@ export async function normalizeSpeech(bytes: Buffer, signal: AbortSignal) {
     bytes.toString('ascii', 0, 4) !== 'RIFF' ||
     bytes.toString('ascii', 8, 12) !== 'WAVE'
   )
-    throw new SpeechError('语音服务未返回 WAV 音频。', 502);
+    throw new AppError('语音服务未返回 WAV 音频。', 502);
   const dir = await mkdtemp(join(tmpdir(), 'voxel-cloud-tts-'));
   try {
     const input = join(dir, 'input.wav'),
@@ -166,7 +166,7 @@ export class RemoteTts implements SpeechSynthesizer {
         const data = JSON.parse(bytes.toString('utf8'));
         url = new URL(data?.output?.audio?.url);
       } catch {
-        throw new SpeechError(
+        throw new AppError(
           '百炼未返回有效的音频地址，请检查模型是否支持非流式语音合成。',
           502,
         );
@@ -181,7 +181,7 @@ export class RemoteTts implements SpeechSynthesizer {
           url.hostname,
         )
       )
-        throw new SpeechError('百炼返回了无法识别的音频地址。', 502);
+        throw new AppError('百炼返回了无法识别的音频地址。', 502);
       url.protocol = 'https:';
       bytes = await boundedBody(
         await this.request(url, { signal, redirect: 'error' }),

@@ -8,7 +8,7 @@ import express from 'express';
 import { createServer, type Server } from 'node:http';
 import { installSpeechRoutes } from './speech.routes.ts';
 import { LocalSpeech } from '../asr/local-speech';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 import { PiperModels } from '../tts/piper-models';
 describe('local speech HTTP boundary', () => {
   let server: Server, url: string, store: AsrSettingsStore, dir: string;
@@ -78,7 +78,7 @@ describe('local speech HTTP boundary', () => {
     expect(await response.json()).toEqual({ text: 'hello' });
     expect(transcribe.mock.calls[0][0]).toEqual(Buffer.from('audio'));
     expect(transcribe.mock.calls[0][2]).toBe('en');
-    transcribe.mockRejectedValueOnce(new SpeechError('busy', 429));
+    transcribe.mockRejectedValueOnce(new AppError('busy', 429));
     const failed = await fetch(`${url}/voice/transcribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'audio/wav' },
@@ -89,7 +89,7 @@ describe('local speech HTTP boundary', () => {
   });
   it('distinguishes no-speech from inference failures for live recording clients', async () => {
     transcribe.mockRejectedValueOnce(
-      new SpeechError('没有识别到文字，请重试。', 400, 'no-speech'),
+      new AppError('没有识别到文字，请重试。', 400, 'no-speech'),
     );
     const response = await fetch(`${url}/voice/transcribe`, {
       method: 'POST',

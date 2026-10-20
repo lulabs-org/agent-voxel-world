@@ -5,7 +5,7 @@ import { assertJsonBody } from '../../../common/middleware/json-body';
 import { errorHandler } from '../../../common/middleware/error-handler';
 import express, { type Express, type Request, type Response } from 'express';
 import { AsrSettingsStore } from '../asr/asr-settings';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 
 export function installAsrRoutes(
   app: Express,
@@ -32,7 +32,7 @@ export function installAsrRoutes(
       try {
         assertJsonBody(req);
       } catch {
-        throw new SpeechError('请使用 JSON 请求。', 415);
+        throw new AppError('请使用 JSON 请求。', 415);
       }
       return fn(req, res);
     });
@@ -143,7 +143,7 @@ export function installAsrRoutes(
     '/voice/asr',
     errorHandler((error) => ({
       status:
-        error instanceof SpeechError
+        error instanceof AppError
           ? error.status
           : error.type === 'entity.too.large'
             ? 413
@@ -152,7 +152,7 @@ export function installAsrRoutes(
               : 500,
       body: {
         error:
-          error instanceof SpeechError
+          error instanceof AppError
             ? error.message
             : error.type
               ? '识别配置须为有效 JSON，且不超过 8 KiB。'

@@ -8,7 +8,7 @@ import { PiperTts } from './piper-tts';
 import { PiperModels, piperModel } from './piper-models';
 import { DEFAULT_PIPER_MODEL } from '@voxel/shared';
 import { RemoteTts } from './remote-tts';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 
 type SavedVoice = VoiceServiceDraft & { id: string };
 const publicView = ({ apiKey, ...value }: SavedVoice): VoiceServiceView => ({
@@ -21,12 +21,12 @@ export function validateVoiceService(
   previous?: SavedVoice,
 ): SavedVoice {
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new SpeechError('语音服务配置无效。');
+    throw new AppError('语音服务配置无效。');
   const input = value as Record<string, unknown>;
   const str = (key: string, max: number, fallback = '') => {
     const v = input[key] ?? fallback;
     if (typeof v !== 'string' || v.length > max || /[\r\n\0]/.test(v))
-      throw new SpeechError(`${key} 格式无效。`);
+      throw new AppError(`${key} 格式无效。`);
     return v.trim();
   };
   const type = input.type;
@@ -36,9 +36,9 @@ export function validateVoiceService(
     type !== 'bailian' &&
     type !== 'compatible'
   )
-    throw new SpeechError('请选择支持的语音服务类型。');
+    throw new AppError('请选择支持的语音服务类型。');
   const name = str('name', 50);
-  if (!name) throw new SpeechError('请填写语音服务名称。');
+  if (!name) throw new AppError('请填写语音服务名称。');
   let baseUrl = '',
     apiKey = '',
     model = '';
@@ -49,10 +49,10 @@ export function validateVoiceService(
   const voiceLanguage =
     type === 'browser' ? str('voiceLanguage', 40) : undefined;
   if (voiceLanguage && !/^[a-zA-Z0-9-]+$/.test(voiceLanguage))
-    throw new SpeechError('音色语言格式无效。');
+    throw new AppError('音色语言格式无效。');
   const voicePattern = /^[\p{L}\p{N}_. ()-]+$/u;
   if (type !== 'browser' && voice && !voicePattern.test(voice))
-    throw new SpeechError('音色名称格式无效。');
+    throw new AppError('音色名称格式无效。');
   const speed = input.speed ?? 1;
   if (
     typeof speed !== 'number' ||
@@ -60,13 +60,13 @@ export function validateVoiceService(
     speed < 0.5 ||
     speed > 2
   )
-    throw new SpeechError('语速须为 0.5–2。');
+    throw new AppError('语速须为 0.5–2。');
   if (type !== 'piper' && type !== 'browser') {
     let url: URL;
     try {
       url = new URL(str('baseUrl', 500));
     } catch {
-      throw new SpeechError('请填写有效的语音接口地址。');
+      throw new AppError('请填写有效的语音接口地址。');
     }
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
     if (
@@ -76,7 +76,7 @@ export function validateVoiceService(
       url.hash ||
       (url.protocol !== 'https:' && !(local && url.protocol === 'http:'))
     )
-      throw new SpeechError(
+      throw new AppError(
         '语音接口须为 HTTPS 或本机 HTTP 地址，不能包含凭据或查询参数。',
       );
     baseUrl = url.href.replace(/\/$/, '');
@@ -87,18 +87,18 @@ export function validateVoiceService(
         'https://dashscope-intl.aliyuncs.com/api/v1',
       ].includes(baseUrl)
     )
-      throw new SpeechError('百炼请选择北京或新加坡官方接口。');
+      throw new AppError('百炼请选择北京或新加坡官方接口。');
     apiKey = str('apiKey', 4096);
     if (!apiKey && previous?.apiKey) {
       if (previous.type !== type || previous.baseUrl !== baseUrl)
-        throw new SpeechError('更换类型或地址时，请重新填写密钥。');
+        throw new AppError('更换类型或地址时，请重新填写密钥。');
       apiKey = previous.apiKey;
     }
-    if (!apiKey && !local) throw new SpeechError('请填写语音服务 API Key。');
+    if (!apiKey && !local) throw new AppError('请填写语音服务 API Key。');
     model = str('model', 128);
     if (!model || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]*$/.test(model))
-      throw new SpeechError('请填写有效的语音模型 ID。');
-    if (!voice) throw new SpeechError('请填写音色。');
+      throw new AppError('请填写有效的语音模型 ID。');
+    if (!voice) throw new AppError('请填写音色。');
   }
   return {
     id: previous?.id ?? randomUUID(),
@@ -168,7 +168,7 @@ export class VoiceServiceStore {
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new SpeechError(
+        throw new AppError(
           '无法读取语音服务配置，请检查本地配置文件。',
           500,
         );
@@ -192,7 +192,7 @@ export class VoiceServiceStore {
   get(id: string) {
     const value = this.values.find((v) => v.id === id);
     if (!value || this.deleting.has(id))
-      throw new SpeechError('语音服务不存在，请重新选择。', 404);
+      throw new AppError('语音服务不存在，请重新选择。', 404);
     return { ...value };
   }
   private async persist(values: SavedVoice[]) {
@@ -216,7 +216,7 @@ export class VoiceServiceStore {
   save(value: unknown, id?: string) {
     return this.mutate(async () => {
       if (!id && this.values.length >= 20)
-        throw new SpeechError('最多保存 20 个语音服务。');
+        throw new AppError('最多保存 20 个语音服务。');
       const entry = validateVoiceService(value, id ? this.get(id) : undefined);
       const next = id
         ? this.values.map((v) => (v.id === id ? entry : v))
@@ -232,7 +232,7 @@ export class VoiceServiceStore {
     return this.mutate(async () => {
       this.get(id);
       if (isUsed() || [...this.bindings.values()].includes(id))
-        throw new SpeechError(
+        throw new AppError(
           '有 Agent 正在引用此服务或保存参数，请先完成更新，并在编辑参数中更换或移除语音服务。',
           409,
         );
@@ -285,12 +285,12 @@ export class VoiceServiceStore {
   }
   async synthesize(id: string, text: string, signal: AbortSignal) {
     if (typeof text !== 'string' || !text.trim() || text.length > 240)
-      throw new SpeechError('试听文字需为 1–240 字。');
+      throw new AppError('试听文字需为 1–240 字。');
     const entry = this.get(id);
     if (entry.type === 'browser')
-      throw new SpeechError('此服务由浏览器朗读，请在浏览器中试听。');
+      throw new AppError('此服务由浏览器朗读，请在浏览器中试听。');
     if (this.running >= 2)
-      throw new SpeechError('语音服务繁忙，请稍后重试。', 429);
+      throw new AppError('语音服务繁忙，请稍后重试。', 429);
     this.running++;
     const bounded = AbortSignal.any([signal, AbortSignal.timeout(60000)]);
     try {
@@ -300,8 +300,8 @@ export class VoiceServiceStore {
       return result;
     } catch (error) {
       if (signal.aborted) throw error;
-      if (error instanceof SpeechError) throw error;
-      throw new SpeechError(
+      if (error instanceof AppError) throw error;
+      throw new AppError(
         bounded.aborted
           ? '语音合成超时，请重试。'
           : '语音合成失败，请检查服务配置和音频转换工具。',

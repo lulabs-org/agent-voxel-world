@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import type { VoiceServiceStore } from '../tts/voice-services';
-import { SpeechError } from '../errors';
+import { AppError } from '../../../common/errors';
 import { asyncRoute as route } from '../../../common/middleware/async-route';
 export function installVoiceServiceRoutes(
   app: Express,
@@ -9,7 +9,7 @@ export function installVoiceServiceRoutes(
 ) {
   const voices = () => {
     const value = getVoices();
-    if (!value) throw new SpeechError('语音服务未就绪。', 503);
+    if (!value) throw new AppError('语音服务未就绪。', 503);
     return value;
   };
   /**

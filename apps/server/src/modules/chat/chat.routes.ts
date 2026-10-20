@@ -5,8 +5,8 @@ import express, { type Express } from 'express';
 import { type WorldChat } from './chat';
 import { ChatError } from './errors';
 import { LocalSpeech } from '../audio/asr/local-speech';
-import { SpeechError } from '../audio/errors';
-import type { AgentSpeech } from '../agent';
+import { AppError } from '../../common/errors';
+import type { AgentSpeech } from '../audio/tts/agent-speech';
 import { scheduleSpeech } from '../audio/tts/speech-scheduler';
 export function installChatRoutes(
   app: Express,
@@ -352,15 +352,15 @@ export function installChatRoutes(
     '/chat',
     errorHandler((e) => ({
       status:
-        e instanceof ChatError || e instanceof SpeechError
+        e instanceof AppError
           ? e.status
           : e.type === 'entity.too.large'
             ? 413
             : 400,
       body: {
-        code: e instanceof SpeechError ? e.code : undefined,
+        code: e instanceof AppError ? e.code : undefined,
         error:
-          e instanceof ChatError || e instanceof SpeechError
+          e instanceof AppError
             ? e.message
             : '无法处理语音消息，请检查输入。',
       },

@@ -19,7 +19,6 @@ export {
 export { AgentRegistry, type Job, type HostedAgent } from './agent-types';
 export { AgentWakeScheduler } from './agent-wake-scheduler';
 export { AgentHost } from './agent-host';
-export { AgentSpeech } from './agent-speech';
 export type {
   ArchivePort,
   VoiceServicePort,

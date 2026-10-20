@@ -34,7 +34,8 @@ flowchart TD
 - `apps/server/src/modules/gateway`：令牌、HTTP 网关路由装配及其 OpenAPI 契约、socket 适配。
 - `apps/server/src/modules/providers`：`provider-store.ts`（模型提供商配置持久化）、`provider-validation.ts`、`provider-port.ts`、`providers.routes.ts`。
 - `apps/server/src/modules/tasks`：`plans/`（TaskPlan 核心状态机、计划调度与历史）、`tasks-service.ts`（任务领域服务封装）、`tasks.routes.ts`。
-- `apps/server/src/modules/agent`：`orchestrator.ts`（Agent 核心编排调度器）、`manager.ts`（生产依赖注入）、`executor.ts`（AgentHost 宿主执行器）、`agent-storage.ts`（存档文件适配）、`speech.ts`（世界内语音投递）、`agents.routes.ts`。各类校验与实体紧密内聚在各自领域模块中。
+- `apps/server/src/modules/agent`：`agent-orchestrator.ts`（Agent 核心编排调度器）、`agent-manager.ts`（生产依赖注入）、`agent-host.ts`（AgentHost 宿主执行器）、`agent-storage.ts`（存档文件适配）、`agent.routes.ts`。各类校验与实体紧密内聚在各自领域模块中。
+- `apps/server/src/modules/audio/tts/agent-speech.ts`：世界内语音合成队列、空间听众筛选与音频缓存，由 `WorldRoom` 装配并管理生命周期。
 
 Gateway 按程序规则路由。消息意图仍由 ConversationRunner 判断；网关没有模型分类请求。每个角色的模型和动作串行，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。
 

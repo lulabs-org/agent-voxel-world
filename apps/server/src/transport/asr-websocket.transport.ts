@@ -5,7 +5,7 @@ import { originAllowed } from '../common/middleware/cors';
 import type { Server } from 'node:http';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { AsrSettingsStore } from '../modules/audio/asr/asr-settings';
-import { SpeechError } from '../modules/audio/errors';
+import { AppError } from '../common/errors';
 import { bridgeBailianAsr } from '../modules/audio/asr/bailian-asr';
 /** Shares Colyseus' socket server and heartbeat, dispatching only the explicit ASR path. */
 export class AsrWebSocketTransport extends WebSocketTransport {
@@ -59,9 +59,9 @@ export class AsrWebSocketTransport extends WebSocketTransport {
       }
       try {
         const serviceId = url.searchParams.get('serviceId');
-        if (!serviceId) throw new SpeechError('请先选择已保存的识别服务。');
+        if (!serviceId) throw new AppError('请先选择已保存的识别服务。');
         if (store.get(serviceId).provider === 'whisper')
-          throw new SpeechError('Whisper 服务请使用服务器音频识别接口。');
+          throw new AppError('Whisper 服务请使用服务器音频识别接口。');
         const { settings, release } = store.acquire(serviceId);
         if (settings.provider === 'whisper') {
           release();
@@ -75,7 +75,7 @@ export class AsrWebSocketTransport extends WebSocketTransport {
         bridge(client, settings, language);
       } catch (error) {
         reject(
-          error instanceof SpeechError
+          error instanceof AppError
             ? error.message
             : '无法启动识别，请检查服务配置。',
         );
