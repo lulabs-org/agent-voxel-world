@@ -49,7 +49,7 @@ export function useAgentsController(
         }
       } catch {
         if (!abort.signal.aborted) {
-          setPollError('无法刷新 Agent 状态，请检查世界服务连接。');
+          setPollError('无法刷新 AI 角色状态，请检查世界服务连接。');
           setLoadingJobs(false);
         }
       }
@@ -146,19 +146,19 @@ export function useAgentsController(
       setShowAgentForm(false);
       setNotice(
         editingAgent
-          ? '角色设置已保存。'
+          ? 'AI 角色设置已保存。'
           : !joinOnCreate
-            ? '角色已创建，可在角色页加入世界。'
+            ? 'AI 角色已创建，可在“AI 角色”页上线。'
             : agentPermissions(agent).chat
-              ? '角色正在加入世界待命，可通过私聊或 @ 交流。'
-              : '角色正在加入世界待命。发送聊天已关闭，可在控制台安排任务和查看进展。',
+              ? 'AI 角色正在加入世界待命，可通过私聊或 @ 交流。'
+              : 'AI 角色正在加入世界待命。发送聊天已关闭，可在控制台安排任务和查看进展。',
       );
     });
   const joinAgent = (job: ManagedAgentView) =>
     perform(async () => {
       await agentsApi.joinAgent(job.id);
       setJobs(await agentsApi.listAgents());
-      setNotice('正在加入世界待命，原任务不会自动执行。');
+      setNotice('AI 角色正在上线待命，原任务不会自动执行。');
     });
   const stopAgent = (job: ManagedAgentView) =>
     perform(async () => {
@@ -172,7 +172,7 @@ export function useAgentsController(
       setSelectedAgentId(undefined);
       setEditingAgent(undefined);
       setShowAgentForm(false);
-      setNotice(`已删除 ${job.name}。`);
+      setNotice(`已删除 AI 角色“${job.name}”。`);
     });
   const toggleVoiceReplies = (job: ManagedAgentView) =>
     perform(async () => {

@@ -203,7 +203,7 @@ export function TaskPlans({
       )}
       {!agents.length && (
         <p className="agent-notice">
-          暂无可用角色。请先在“Agent 玩家”创建角色；已有计划和历史仍可查看。
+          暂无可用角色。请先在“AI 角色”创建 AI 角色；已有计划和历史仍可查看。
         </p>
       )}
       <div className="console-columns">

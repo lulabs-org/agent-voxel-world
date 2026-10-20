@@ -60,7 +60,7 @@ export function AgentDetail(
       <div className="agents-presence-bar">
         <p>
           {!agentPermissions(job).chat
-            ? '发送聊天已关闭，角色不会发送文字或语音回复。可在控制台安排任务和查看进展。'
+            ? '发送聊天已关闭，AI 角色不会发送文字或语音回复。可在控制台安排任务和查看进展。'
             : state.online
               ? '可在世界中私聊或 @ 交流。关闭控制台后仍保持在线。'
               : '上线后可交流；原任务会保留，由你决定是否继续。'}
@@ -71,14 +71,14 @@ export function AgentDetail(
             disabled={disabled || job.status === 'stopping'}
             onClick={() => setConfirmLeave(true)}
           >
-            离开世界
+            下线 AI 角色
           </button>
         ) : (
           <button
             disabled={disabled || capacityFull}
             onClick={() => void joinAgent(job)}
           >
-            加入世界待命
+            上线 AI 角色
           </button>
         )}
       </div>
@@ -90,8 +90,12 @@ export function AgentDetail(
         </p>
       )}
       {confirmLeave && (
-        <div className="agents-confirm" role="group" aria-label="确认离开世界">
-          <p>离开后将停止交流与任务执行，角色设置和任务进度保留。</p>
+        <div
+          className="agents-confirm"
+          role="group"
+          aria-label="确认下线 AI 角色"
+        >
+          <p>AI 角色下线后将停止交流与任务执行，AI 角色设置和任务进度保留。</p>
           <div className="agents-actions">
             <button
               disabled={disabled}
@@ -100,19 +104,19 @@ export function AgentDetail(
                 void stopAgent(job);
               }}
             >
-              确认离开
+              确认下线
             </button>
-            <button onClick={() => setConfirmLeave(false)}>留下</button>
+            <button onClick={() => setConfirmLeave(false)}>取消</button>
           </div>
         </div>
       )}
-      <nav className="agents-detail-nav" aria-label="角色工作区分类">
+      <nav className="agents-detail-nav" aria-label="AI 角色工作区分类">
         <button
           aria-pressed={editing}
           disabled={disabled}
           onClick={() => openAgentEditor(job)}
         >
-          角色设置
+          AI 角色设置
         </button>
         <button
           aria-pressed={!editing && view === 'activity'}
@@ -130,12 +134,13 @@ export function AgentDetail(
       {editing ? (
         <>
           <AgentForm {...props} disabled={disabled || !state.canEdit} />
-          <section className="agents-delete-section" aria-label="删除角色">
+          <section className="agents-delete-section" aria-label="删除 AI 角色">
             <div className="agents-delete-heading">
               <div>
-                <h4>删除角色</h4>
+                <h4>删除 AI 角色</h4>
                 <p>
-                  删除角色并取消未结束执行；计划和执行历史保留，相关计划等待重新指派。
+                  删除 AI
+                  角色并取消未结束执行；计划和执行历史保留，相关计划等待重新指派。
                 </p>
               </div>
               <button
@@ -147,7 +152,7 @@ export function AgentDetail(
                   setConfirmDelete(true);
                 }}
               >
-                删除 Agent
+                删除 AI 角色
               </button>
             </div>
             {confirmDelete && (

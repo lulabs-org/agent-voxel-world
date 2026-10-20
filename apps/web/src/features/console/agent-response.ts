@@ -6,8 +6,8 @@ export async function readAgentResponse<T>(response: Response): Promise<T> {
   } catch {
     throw Error(
       response.status === 404
-        ? 'Agent 接口不可用，请确认后端已更新并重启后重试。'
-        : `Agent 服务响应异常（HTTP ${response.status}），请稍后重试。`,
+        ? 'AI 角色接口不可用，请确认后端已更新并重启后重试。'
+        : `AI 角色服务响应异常（HTTP ${response.status}），请稍后重试。`,
     );
   }
   if (!response.ok) {

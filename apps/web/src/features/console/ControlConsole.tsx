@@ -94,7 +94,7 @@ export function ControlConsole({
                 {status === 'ready' ? '已连接' : '连接中断，正在重新同步…'}
               </span>
             </div>
-            <p>管理 AI 伙伴、连接模型服务，设置语音交流。</p>
+            <p>管理 AI 角色、连接模型服务，设置语音交流。</p>
           </div>
           <div className="console-heading-actions">
             <Button className="console-exit-btn" onClick={clearGatewayToken}>
@@ -120,7 +120,7 @@ export function ControlConsole({
               setNotice('');
             }}
           >
-            Agent 玩家
+            AI 角色
           </button>
           <button
             aria-pressed={tab === 'plans'}
@@ -143,10 +143,7 @@ export function ControlConsole({
           >
             文本转语音（TTS）
           </button>
-          <button
-            aria-pressed={tab === 'asr'}
-            onClick={() => setTab('asr')}
-          >
+          <button aria-pressed={tab === 'asr'} onClick={() => setTab('asr')}>
             语音识别（ASR）
           </button>
         </nav>

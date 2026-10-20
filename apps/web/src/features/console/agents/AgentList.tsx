@@ -37,16 +37,16 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
     );
   });
   return (
-    <section className="agents-workspace" aria-label="Agent 玩家管理">
+    <section className="agents-workspace" aria-label="AI 角色管理">
       {pollError && (
         <p role="alert" className="agent-error">
           {pollError} 当前显示上次同步的记录，恢复连接后可继续操作。
         </p>
       )}
       <div className="agents-layout console-columns">
-        <aside className="console-sidebar" aria-label="Agent 角色列表">
+        <aside className="console-sidebar" aria-label="AI 角色列表">
           <div className="console-sidebar-heading">
-            <h3>角色</h3>
+            <h3>AI 角色</h3>
             <span>{loadingJobs ? '同步中…' : `${onlineCount} / 4 在线`}</span>
           </div>
           <button
@@ -54,9 +54,13 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
             disabled={disabled}
             onClick={() => openAgentEditor()}
           >
-            ＋ 创建 Agent
+            ＋ 创建 AI 角色
           </button>
-          <div className="agents-filters" role="group" aria-label="筛选角色">
+          <div
+            className="agents-filters"
+            role="group"
+            aria-label="筛选 AI 角色"
+          >
             {(
               [
                 ['all', '全部'],
@@ -77,8 +81,8 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           {jobs.length > 4 && (
             <input
               className="agents-search"
-              aria-label="搜索角色"
-              placeholder="搜索角色名称"
+              aria-label="搜索 AI 角色"
+              placeholder="搜索 AI 角色名称"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -119,17 +123,17 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
             {!filtered.length && (
               <p className="agents-list-empty">
                 {loadingJobs
-                  ? '正在读取角色…'
+                  ? '正在读取 AI 角色…'
                   : jobs.length
-                    ? '没有符合条件的角色'
-                    : '创建后，角色会显示在这里。'}
+                    ? '没有符合条件的 AI 角色'
+                    : '创建后，AI 角色会显示在这里。'}
               </p>
             )}
           </div>
           <p className="console-sidebar-note">
             {onlineCount >= 4
-              ? '在线名额已满，仍可创建离线角色；上线前请先释放名额。'
-              : '角色离开世界后仍保留设置，下次可以再次加入。'}
+              ? '在线名额已满，仍可创建离线 AI 角色；上线前请先释放名额。'
+              : 'AI 角色离开世界后仍保留设置，下次可以再次加入。'}
           </p>
         </aside>
         <div
@@ -153,7 +157,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
               </span>
               <h4>{loadingJobs ? '正在连接你的世界' : '一起开始探索'}</h4>
               <p>
-                为伙伴选择一个模型，给它起个名字。
+                为 AI 角色选择一个模型，给它起个名字。
                 <br />
                 它可以先加入世界待命，也可以带着任务出发。
               </p>
@@ -162,7 +166,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
                 disabled={disabled}
                 onClick={() => openAgentEditor()}
               >
-                创建第一位 Agent
+                创建第一位 AI 角色
               </button>
               <div className="agents-welcome-capabilities">
                 <span>探索与交流</span>

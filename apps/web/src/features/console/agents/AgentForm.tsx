@@ -43,10 +43,10 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
     <section className="agents-profile">
       <div className="agents-form-heading">
         <div>
-          {!editingAgent && <h4>创建一位新伙伴</h4>}
+          {!editingAgent && <h4>创建 AI 角色</h4>}
           <p>
             {editingAgent
-              ? '设定伙伴的身份、职责与能力；具体任务在“任务计划”页单独安排。'
+              ? '设定 AI 角色的身份、职责与能力；具体任务在“任务计划”页单独安排。'
               : '先取个名字、选择已保存的模型服务，再决定它如何加入世界。'}
           </p>
         </div>
@@ -60,8 +60,8 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
         <div className="agents-confirm">
           <p>
             {agentPresentation(current).transitioning
-              ? '角色正在加入或离开世界，请等待状态更新。'
-              : '角色正在执行，暂时不能修改设置。计划执行请在“任务计划”中处理；聊天执行可通过聊天暂停。'}
+              ? 'AI 角色正在加入或离开世界，请等待状态更新。'
+              : 'AI 角色正在执行，暂时不能修改设置。计划执行请在“任务计划”中处理；聊天执行可通过聊天暂停。'}
           </p>
           {current.voiceServiceId &&
             agentPermissions(current).chat &&
@@ -87,13 +87,13 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
         <fieldset disabled={disabled}>
           <div className="agent-grid">
             <label>
-              角色昵称
+              AI 角色昵称
               <input
                 autoFocus={!editingAgent}
                 required
                 maxLength={24}
                 value={agent.name}
-                placeholder="给伙伴取个名字"
+                placeholder="给 AI 角色取个名字"
                 onChange={(event) =>
                   setAgent({ ...agent, name: event.target.value })
                 }
@@ -133,7 +133,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
             </p>
           )}
           <label>
-            角色设定（可选）
+            AI 角色设定（可选）
             <textarea
               rows={4}
               maxLength={AGENT_ROLE_DESCRIPTION_LIMIT}
@@ -155,7 +155,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
             </span>
           </p>
           <div className="agents-form-section">
-            <h4>角色技能</h4>
+            <h4>AI 角色技能</h4>
             <p className="agent-hint">
               可组合选择，为任务规划提供专业指导。选择技能不会自动开启权限或开始任务。
             </p>
@@ -251,7 +251,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
             <label className="agents-voice-toggle">
               <span>
                 <strong>语音回复</strong>
-                <small>使用已配置的 TTS 服务朗读角色回复</small>
+                <small>使用已配置的 TTS 服务朗读 AI 角色回复</small>
               </span>
               <input
                 type="checkbox"
@@ -317,7 +317,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
                 checked={joinOnCreate}
                 onChange={(e) => setJoinOnCreate(e.target.checked)}
               />
-              创建后加入世界待命
+              创建后让 AI 角色上线待命
             </label>
           )}
           <p className="agent-hint">
@@ -344,10 +344,10 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
               {busy
                 ? '正在保存…'
                 : editingAgent
-                  ? '保存角色设置'
+                  ? '保存 AI 角色设置'
                   : joinOnCreate
-                    ? '创建并加入世界'
-                    : '创建角色'}
+                    ? '创建 AI 角色并上线'
+                    : '创建 AI 角色'}
             </button>
           </div>
         </fieldset>

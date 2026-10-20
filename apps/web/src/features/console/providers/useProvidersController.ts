@@ -106,7 +106,7 @@ export function useProvidersController(
       setDraft((d) => ({ ...d, apiKey: '' }));
       onSaved(saved, editingProvider);
       setModels([]);
-      setNotice('模型服务已保存。可在 Agent 玩家中选择此服务。');
+      setNotice('模型服务已保存。可在“AI 角色”中选择此服务。');
     });
   };
 
