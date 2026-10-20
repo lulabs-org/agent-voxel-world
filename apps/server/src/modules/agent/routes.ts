@@ -3,11 +3,11 @@ import type { AgentManager } from './manager';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**
- * 安装 Agent 基础配置与生命周期控制相关 HTTP REST 路由
+ * 安装 AI 角色基础配置与生命周期控制相关 HTTP REST 路由
  */
 export function installAgentRoutes(app: Express, manager: AgentManager) {
   // ---------------------------------------------------------------------------
-  // Agent 基础与生命周期
+  // AI 角色基础与生命周期
   // ---------------------------------------------------------------------------
 
   /**
@@ -16,12 +16,12 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   get:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 获取所有 Agent 列表
+   *     summary: 获取所有 AI 角色列表
    *     tags:
-   *       - Agents
+   *       - AI Characters
    *     responses:
    *       200:
-   *         description: Agent 列表
+   *         description: AI 角色列表
    */
   app.get(
     '/agents',
@@ -36,10 +36,10 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   post:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 创建 Agent（默认上线待命）
-   *     description: 只保存角色配置并按 joinWorld 上线，不创建任务计划、执行记录或自动调用模型。任务请通过 Tasks 创建。
+   *     summary: 创建 AI 角色（默认上线待命）
+   *     description: 只保存 AI 角色配置并按 joinWorld 上线，不创建任务计划、执行记录或自动调用模型。任务请通过 Tasks 创建。
    *     tags:
-   *       - Agents
+   *       - AI Characters
    *     requestBody:
    *       required: true
    *       content:
@@ -48,7 +48,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *             $ref: '#/components/schemas/AgentCreate'
    *     responses:
    *       201:
-   *         description: 角色创建成功（上线待命或离线），无任务执行
+   *         description: AI 角色创建成功（上线待命或离线），无任务执行
    *       400:
    *         description: 参数无效或包含任务参数，请使用 Tasks
    */
@@ -67,10 +67,10 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   put:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 更新 Agent 角色配置
+   *     summary: 更新 AI 角色配置
    *     description: 不创建或替换任务，不修改任务目标；startTask、taskTimeZone 或非空 goal 返回 400，请使用 Tasks。
    *     tags:
-   *       - Agents
+   *       - AI Characters
    *     parameters:
    *       - in: path
    *         name: id
@@ -85,7 +85,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *             $ref: '#/components/schemas/AgentProfileUpdate'
    *     responses:
    *       200:
-   *         description: 角色配置更新成功，已有任务进度保留
+   *         description: AI 角色配置更新成功，已有任务进度保留
    *       400:
    *         description: 参数无效或包含任务参数，请使用 Tasks
    */
@@ -104,8 +104,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   delete:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 停止并删除 Agent，保留任务计划、运行历史、世界建筑和共享服务
-   *     tags: [Agents]
+   *     summary: 停止并删除 AI 角色，保留任务计划、运行历史、世界建筑和共享服务
+   *     tags: [AI Characters]
    *     parameters:
    *       - in: path
    *         name: id
@@ -116,9 +116,9 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *       204:
    *         description: 删除已持久化
    *       404:
-   *         description: Agent 不存在
+   *         description: AI 角色不存在
    *       409:
-   *         description: Agent 正在更新
+   *         description: AI 角色正在更新
    */
   app.delete(
     '/agents/:id',
@@ -135,9 +135,9 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   post:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 让 Agent 加入游戏世界房间
+   *     summary: 让 AI 角色加入游戏世界房间
    *     tags:
-   *       - Agents
+   *       - AI Characters
    *     parameters:
    *       - in: path
    *         name: id
@@ -164,9 +164,9 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   post:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 停止 Agent 并移出世界
+   *     summary: 停止 AI 角色并移出世界
    *     tags:
-   *       - Agents
+   *       - AI Characters
    *     parameters:
    *       - in: path
    *         name: id
@@ -193,9 +193,9 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   post:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 配置 Agent 音色与发音服务
+   *     summary: 配置 AI 角色音色与发音服务
    *     tags:
-   *       - Agents
+   *       - AI Characters
    *     parameters:
    *       - in: path
    *         name: id

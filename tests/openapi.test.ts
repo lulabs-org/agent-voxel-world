@@ -33,7 +33,7 @@ it('documents resource ownership, management and chat credentials, with no globa
   expect(spec.servers).toEqual([{ url: '/', description: '当前服务器' }]);
   expect(spec.security).toBeUndefined();
   const management = [
-    ['/agents', 'Agents'],
+    ['/agents', 'AI Characters'],
     ['/providers', 'Providers'],
     ['/tasks', 'Tasks'],
     ['/task-runs', 'Tasks'],
