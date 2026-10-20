@@ -113,3 +113,15 @@ it('provides path parameters, request bodies and successful responses, and resol
     ).schema.enum,
   ).toEqual(['pause', 'resume', 'cancel']);
 });
+
+it('exposes task controls only through plans and explicit run IDs', () => {
+  for (const operation of ['task', 'pause', 'resume', 'cancel'])
+    expect(spec.paths[`/agents/{id}/${operation}`]).toBeUndefined();
+  expect(spec.paths['/tasks'].post.description).toContain('无需再次调用 run');
+  expect(spec.paths['/tasks/{planId}/{operation}'].post.description).toContain(
+    '不影响当前执行',
+  );
+  expect(
+    spec.paths['/task-runs/{runId}/{operation}'].post.description,
+  ).toContain('不自动上线');
+});

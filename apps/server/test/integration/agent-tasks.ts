@@ -9,7 +9,7 @@ import { AgentManager } from '../../src/modules/agent';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { Session, until, delay } from '@voxel/agent-runtime';
 
-import type { ManagedAgentView } from '@voxel/shared';
+import type { ManagedAgentView, TaskRun } from '@voxel/shared';
 
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
@@ -217,8 +217,13 @@ try {
     url = server.httpUrl;
   const makeManager = () => new AgentManager(store, server!.url, dependencies);
   manager = server.agents;
-  const api = async (path: string, method = 'POST', body: unknown = {}) => {
-    const response = await fetch(`${url}/agents${path}`, {
+  const httpRequest = async <T>(
+    path: string,
+    method = 'POST',
+    body: unknown = {},
+    status = 200,
+  ): Promise<T> => {
+    const response = await fetch(`${url}${path}`, {
       method,
       headers: {
         Authorization: 'Bearer fixture-gateway-token-for-tests',
@@ -227,13 +232,16 @@ try {
       },
       body: method === 'GET' ? undefined : JSON.stringify(body),
     });
-    assert.equal(
-      response.status,
-      path === '' ? 201 : 200,
-      await response.clone().text(),
-    );
-    return (await response.json()) as ManagedAgentView;
+    assert.equal(response.status, status, await response.clone().text());
+    return (await response.json()) as T;
   };
+  const api = (path: string, method = 'POST', body: unknown = {}) =>
+    httpRequest<ManagedAgentView>(
+      `/agents${path}`,
+      method,
+      body,
+      path === '' ? 201 : 200,
+    );
   const job = await api('', 'POST', {
     providerId: 'deepseek',
     name: '任务测试员',
@@ -243,6 +251,30 @@ try {
     allowEdits: true,
   });
   const current = () => manager!.list().find((j) => j.id === job.id)!;
+  const controlRun = (operation: string, value: unknown = {}) =>
+    httpRequest<TaskRun>(
+      `/task-runs/${manager!.currentRunId(job.id)}/${operation}`,
+      'POST',
+      value,
+    );
+  const createTask = (goal: string) =>
+    httpRequest(
+      '/tasks',
+      'POST',
+      {
+        agentId: job.id,
+        name: goal,
+        goal,
+        timing: { kind: 'immediate' },
+        timeZone: 'UTC',
+        limits: {
+          maxTurns: current().maxTurns,
+          tokenBudget: current().tokenBudget,
+          taskTimeoutMs: current().taskTimeoutMs,
+        },
+      },
+      201,
+    );
   await until(() => current().task?.status === 'completed');
   const identity = current().sessionId;
   assert.equal(calls, 1);
@@ -344,18 +376,20 @@ try {
       ),
       'sender receives acknowledgement',
     );
-    await api(`/${job.id}/task`, 'POST', { goal: '等待附近方块变化' });
+    if (!['completed', 'cancelled'].includes(current().task?.status ?? ''))
+      await controlRun('pause');
+    await createTask('等待附近方块变化');
     await until(() => current().task?.status === 'waiting');
     const waitingCalls = calls;
     await delay(2200);
     assert.equal(calls, waitingCalls, 'unchanged world polls use no model');
-    await api(`/${job.id}/pause`);
+    await controlRun('pause');
     assert.equal(current().task?.status, 'paused');
-    await api(`/${job.id}/resume`);
+    await controlRun('resume');
     await until(
       () => calls === waitingCalls + 1 && current().task?.status === 'waiting',
     );
-    await api(`/${job.id}/cancel`);
+    await controlRun('cancel');
     assert.equal(current().task?.status, 'cancelled');
     assert.equal(current().sessionId, identity);
     await api(`/${job.id}`, 'PUT', {
@@ -365,7 +399,7 @@ try {
       maxTurns: 2,
     });
     const beforeLoop = calls;
-    await api(`/${job.id}/task`, 'POST', { goal: '循环检查' });
+    await createTask('循环检查');
     await until(() => current().task?.status === 'budget');
     assert.equal(
       calls,
@@ -373,7 +407,7 @@ try {
       'random polling performs one decision per interval and honors cap',
     );
     const tokensBeforeContinue = current().task!.tokens;
-    const continued = await api(`/${job.id}/resume`, 'POST', { maxTurns: 4 });
+    const continued = await controlRun('resume', { maxTurns: 4 });
     // A committed response can race the next model request; assert the command snapshot.
     assert.equal(
       continued.task!.calls,
@@ -386,9 +420,9 @@ try {
       'continuation retains consumed tokens',
     );
     await until(() => calls === beforeLoop + 3 && current().status === 'idle');
-    await api(`/${job.id}/pause`);
+    await controlRun('pause');
     const beforeSlow = calls;
-    await api(`/${job.id}/task`, 'POST', { goal: '慢请求测试' });
+    await createTask('慢请求测试');
     await until(() => calls === beforeSlow + 1);
     await say('暂停');
     await until(() => current().task?.status === 'paused');

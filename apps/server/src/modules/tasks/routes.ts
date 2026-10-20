@@ -189,7 +189,8 @@ export function installTaskRoutes(
    * @openapi
    * /tasks:
    *   post:
-   *     summary: 创建任务计划
+   *     summary: 创建任务计划（即时任务创建后立即执行）
+   *     description: timing.kind 为 immediate 时创建计划及首次执行，角色须已上线且无正在运行的任务，无需再次调用 run。
    *     tags:
    *     - Tasks
    *     security:
@@ -434,7 +435,8 @@ export function installTaskRoutes(
    * @openapi
    * /tasks/{planId}/{operation}:
    *   post:
-   *     summary: 控制任务计划状态
+   *     summary: 控制任务计划调度或发起新执行
+   *     description: pause 停止后续调度，不影响当前执行；resume 恢复定时调度；run 创建新的执行。暂停或继续已有执行请使用 task-runs。
    *     tags:
    *     - Tasks
    *     security:
@@ -492,7 +494,8 @@ export function installTaskRoutes(
    * @openapi
    * /task-runs/{runId}/{operation}:
    *   post:
-   *     summary: 控制特定任务运行状态
+   *     summary: 暂停、继续或取消指定任务执行
+   *     description: 按 runId 操作已有执行；resume 不新建任务也不自动上线角色，角色须先通过 join 上线。
    *     tags:
    *     - Task Runs
    *     security:

@@ -4,10 +4,10 @@ Gateway 与世界服务使用同一进程和端口。管理连接位于 `/agents
 
 ```mermaid
 flowchart TD
-  Web[Web 控制台] --> Client[GatewayClient]
-  CLI[agent:ctl] --> Client
+  Web[Web 控制台] --> HTTP[领域 HTTP 路由]
+  CLI[agent:ctl] --> Client[GatewayClient]
   Client --> RPC[WebSocket RPC /agents/gateway]
-  HTTP[领域 HTTP 路由] --> Registry
+  HTTP --> Registry
   RPC --> Router[CommandRouter]
   Router --> Registry[AgentRegistry]
   Scheduler[Agent 唤醒与跟随调度] --> Host[AgentHost]
@@ -72,18 +72,27 @@ JSON 文本帧，首帧：
 | gateway.status / subscribe / unsubscribe                           | 订阅 scope，可选 agentId、planId；取消订阅传 subscriptionId                                                                               |
 | commands.get                                                       | commandId                                                                                                                                 |
 | agents.list / get / create / update / join / stop / delete / voice | agentId、value；创建不要求 agentId                                                                                                        |
-| tasks.assign / pause / resume / cancel                             | agentId、expectedTask、value                                                                                                              |
 | plans.list / get / create / update / control / reassign            | list 支持 offset/search/state/timing/agentId；写入使用 planId、expectedPlanRevision，create 必须指定 agentId，reassign 指定 targetAgentId |
 | runs.list / control                                                | list 使用 planId、offset；control 使用 runId、expectedTask 和 pause/resume/cancel，执行角色由记录定位                                     |
 | providers.list / save / delete / models                            | providerId、value                                                                                                                         |
 
-value 使用现有 HTTP 的业务对象。tasks.\*、runs.control，以及 plans.control 的 run 要求 expectedTask（无当前任务时为 null），来自角色快照的 taskIdentity，字段为 id/revision/startedAt。旧任务修订返回 409。计划编辑、暂停、启用、追加额度和改派使用 expectedPlanRevision，独立于聊天任务修订。HTTP 适配绑定当前状态，不增加旧请求必填字段；旧角色路径访问已改派计划返回 409。
+value 使用现有 HTTP 的业务对象。runs.control，以及 plans.control 的 run 要求 expectedTask（无当前任务时为 null），来自角色快照的 taskIdentity，字段为 id/revision/startedAt。旧任务修订返回 409。计划编辑、暂停、启用、追加额度和改派使用 expectedPlanRevision，独立于聊天任务修订。HTTP 按 planId/runId 定位资源，可选 agentId 用于绑定一致性检查；RPC 的 expectedTask 和 expectedPlanRevision 不属于 HTTP 的必填参数。
 
 RPC 公开快照带资源版本和任务身份，不公开模型密钥、原始 Pi 上下文和 runtime。订阅支持 all、agents、agent、plans、runs、providers。先注册变化监听再读取快照，快照期间的更新暂存；每个订阅从 seq=1 开始连续发送。变化只包含资源标识和版本，详情按需读取。发送积压超过 1 MiB 关闭连接并要求重新同步。
 
 同 commandId、同业务内容的并发请求共享结果；不同内容冲突。进行中的记录不淘汰，已结束记录最多 1,024 条、保留 10 分钟。内部指纹使用摘要，不保留明文密钥。HTTP 校验可选 Idempotency-Key 的格式；该头不会自动提供 RPC 的命令去重语义。任务计划原有 requestId 持久去重继续有效。
 
 连接丢失时写请求显示“结果待确认”；重连先查 commands.get 并重取快照。网关重启或记录过期返回 unknown，不能自动重发。此协议不保证所有写操作跨重启 exactly-once。
+
+## 任务入口迁移
+
+Agent HTTP 只提供配置、加入世界、停止离线、删除与语音绑定。已删除 `/agents/:id/task`、`pause`、`resume`、`cancel`，不保留别名；Gateway 已删除 `tasks.assign/pause/resume/cancel`，握手 capabilities 不再包含它们。
+
+- 即时任务使用 `POST /tasks` 或 RPC `plans.create`，传入 agentId、name、goal、timing.kind=immediate、timeZone；创建成功即启动首次执行，无需再次调用 run。角色须先上线，忙碌时返回冲突，不隐式暂停或替换任务。
+- 后续新增执行使用 `POST /tasks/:planId/run` 或 RPC `plans.control` 的 run；已有执行的暂停、继续、取消使用 `/task-runs/:runId/:operation` 或 RPC `runs.control`。
+- `/tasks/:planId/pause` 只暂停未来调度，当前执行不受影响；resume 恢复定时调度。执行 resume 保留进度与用量，已结束执行应重新 run。
+
+创建角色携带 goal/startTask 的既有行为暂保留；内部执行器的暂停、取消能力供 Tasks 和世界生命周期调用，不作为另一套公开任务入口。
 
 ## CLI
 
@@ -93,14 +102,16 @@ pnpm agent:ctl list --json
 pnpm agent:ctl status <agentId>
 pnpm agent:ctl join <agentId>
 pnpm agent:ctl stop <agentId>
-pnpm agent:ctl task assign <agentId> --goal '到指定位置等待'
-pnpm agent:ctl task pause <agentId>
-pnpm agent:ctl task resume <agentId>
-pnpm agent:ctl task cancel <agentId>
+pnpm agent:ctl task create <agentId> --goal '到指定位置等待'
+pnpm agent:ctl run pause <runId> --agent <agentId>
+pnpm agent:ctl run resume <runId> --agent <agentId>
+pnpm agent:ctl run cancel <runId> --agent <agentId>
 pnpm agent:ctl plans [agentId]
 pnpm agent:ctl runs <agentId> <planId>
 pnpm agent:ctl watch <agentId>
 ```
+
+即时任务通过 `plans.create` 创建并启动一次执行；从返回的计划 ID 使用 `runs` 查询 runId。`run` 命令必须提供 runId 和 `--agent`，后者用于读取当前任务修订并校验执行角色，不能替代 runId。暂停计划只停止后续调度，暂停执行使用 `runs.control`；恢复执行不创建新任务，也不会自动上线角色，需先执行 `join`。
 
 所有管理命令支持 `--url`、`--token-file`、`--json`。默认地址 `ws://127.0.0.1:2567/agents/gateway`。令牌从环境变量或文件读取，不提供明文 token 命令行选项。auth show 是显式读取本地令牌文件供用户配置页面；不要将输出复制到日志。watch 的 Ctrl+C 只断开客户端。旧 pnpm agent / agent:ai / agent:mock 仍独立运行，Ctrl+C 会退出其自身角色。
 

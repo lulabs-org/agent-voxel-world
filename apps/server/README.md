@@ -69,7 +69,7 @@ UI 沙箱统一放在 `test/sandbox`。新增 `asr-services-fixture.ts` 提供�
 
 ## 独立任务计划存档
 
-任务计划、执行历史和调度规则由 `packages/agent-gateway/src/plans` 管理；`wake-scheduler.ts` 只推进 Agent 消息唤醒、等待检查和本地跟随。服务端保留文件和 HTTP/WebSocket 适配，不拥有第二套计划集合或调度器。
+任务计划、执行历史和调度规则由 `modules/tasks` 与 Agent 的计划协调器管理；`wake-scheduler.ts` 只推进 Agent 消息唤醒、等待检查和本地跟随。HTTP/WebSocket 共用同一份计划集合、执行历史和计划调度器。
 
 同一 Agent JSON 路径保存 Gateway v1 的 agents/plans/runs/requests 聚合对象，runtime 仍为 v2。升级前独占创建 `.before-task-plan-module-v1.bak`，迁移与保存成功后才能启动恢复。删除角色保留计划与执行历史；聊天执行没有 planId。部署与回滚流程见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。
 
@@ -77,6 +77,8 @@ UI 沙箱统一放在 `test/sandbox`。新增 `asr-services-fixture.ts` 提供�
 
 共享模型配置使用 `/providers`，全局计划使用 `/tasks`，运行控制使用 `/task-runs`，TTS 配置和试听使用 `/voice/tts/services`，Piper 模型目录与安装使用 `/voice/tts/piper`。它们与 `/agents`、`/voice/asr/services` 都需要管理员 Bearer 令牌。Agent 音色绑定继续为 `/agents/:id/voice`；聊天音频继续使用 `/chat` 下的玩家会话鉴权。
 
-这些路径替换旧的 `/agents/providers`、`/agents/tasks`、`/agents/task-runs`、`/agents/voice-services`；没有旧路径别名。浏览器、CLI 脚本和外部 HTTP 客户端需要同步升级。WebSocket RPC 方法与 `/agents/gateway` 不变。
+这些路径替换旧的 `/agents/providers`、`/agents/tasks`、`/agents/task-runs`、`/agents/voice-services`；没有旧路径别名。浏览器、CLI 脚本和外部 HTTP 客户端需要同步升级。WebSocket 连接地址仍为 `/agents/gateway`。
 
 Swagger 按领域分组，使用当前站点作为服务器地址；管理令牌与聊天会话令牌使用两个独立的授权入口。
+
+Agent 的 `/task`、`pause`、`resume`、`cancel` 四个 HTTP 接口及 Gateway 的 `tasks.assign/pause/resume/cancel` 已移除。即时任务使用 `/tasks` 或 RPC `plans.create` 创建即执行；执行控制使用 `/task-runs/:runId/:operation` 或 RPC `runs.control`。计划 pause/resume 只控制后续调度；执行 resume 需要先通过 join 上线，并保留原执行进度与用量。CLI 示例与迁移说明见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CommandRouter, AgentGateway } from '../apps/server/src/modules/gateway';
+import {
+  CommandRouter,
+  AgentGateway,
+} from '../apps/server/src/modules/gateway';
 import { AgentOrchestrator } from '../apps/server/src/modules/agent';
 import {
   parseConnect,
@@ -102,6 +105,38 @@ describe('gateway command boundary', () => {
         params: { agentId: 'a', planId: 'p', operation: 'destroy' },
       }),
     ).toThrow();
+  });
+  it.each(['tasks.assign', 'tasks.pause', 'tasks.resume', 'tasks.cancel'])(
+    'rejects removed agent-scoped task method %s',
+    (method) => {
+      expect(() =>
+        parseRequest({
+          type: 'req',
+          id: 'removed',
+          commandId: 'removed',
+          method,
+          params: {
+            agentId: 'agent',
+            expectedTask: null,
+            value: { goal: 'wrong' },
+          },
+        }),
+      ).toThrow('网关请求格式无效');
+    },
+  );
+  it('requires a run ID for execution control instead of inferring the current task', () => {
+    const request = {
+      type: 'req',
+      id: 'control',
+      commandId: 'control',
+      method: 'runs.control',
+      params: { agentId: 'agent', operation: 'pause', expectedTask: null },
+    };
+    expect(() => parseRequest(request)).toThrow('缺少执行标识');
+    expect(
+      parseRequest({ ...request, params: { ...request.params, runId: 'run' } })
+        .method,
+    ).toBe('runs.control');
   });
   it('generates private stable credentials and never treats wildcard Origin as authorization', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'gateway-auth-'));

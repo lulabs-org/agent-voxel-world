@@ -15,10 +15,6 @@ export const methods = [
   'agents.stop',
   'agents.delete',
   'agents.voice',
-  'tasks.assign',
-  'tasks.pause',
-  'tasks.resume',
-  'tasks.cancel',
   'plans.list',
   'plans.get',
   'plans.reassign',
@@ -200,7 +196,6 @@ export function parseRequest(value: unknown): RpcRequest {
   )
     throw new GatewayError('任务修订无效。');
   const requiredAgent =
-    /^tasks\./.test(r.method) ||
     r.method === 'plans.create' ||
     /^agents\.(get|update|join|stop|delete|voice)$/.test(r.method);
   if (requiredAgent && !p.agentId) throw new GatewayError('缺少 Agent 标识。');
