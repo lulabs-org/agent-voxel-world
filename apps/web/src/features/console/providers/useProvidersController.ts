@@ -15,13 +15,21 @@ export function useProvidersController(
   const [draft, setDraft] = useState(freshProvider());
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [modelFeedback, setModelFeedback] = useState<{
+    error?: string;
+    notice?: string;
+  }>({});
   const modelRequest = useRef<AbortController | null>(null);
   const editingProvider = providers.find((p) => p.id === editing);
   const resetModels = () => {
     modelRequest.current?.abort();
     setLoadingModels(false);
     setModels([]);
+    setModelFeedback({});
   };
+  useEffect(() => {
+    resetModels();
+  }, [draft.type, draft.baseUrl, draft.apiKey, editing]);
   useEffect(() => {
     if (tab !== 'providers') {
       modelRequest.current?.abort();
@@ -59,15 +67,17 @@ export function useProvidersController(
     setModels([]);
     setError('');
     setNotice('');
+    setModelFeedback({});
     try {
       const result = await providersApi.listModels(id, abort.signal);
       if (abort.signal.aborted) return;
       setModels(result.models);
-      setNotice(
-        `连接成功，发现 ${result.models.length} 个模型。可在默认模型 ID 中选择或填写，然后保存服务。`,
-      );
+      setModelFeedback({
+        notice: `连接成功，发现 ${result.models.length} 个模型。可在默认模型 ID 中选择或填写，然后保存服务。`,
+      });
     } catch (e) {
-      if (!abort.signal.aborted) setError((e as Error).message);
+      if (!abort.signal.aborted)
+        setModelFeedback({ error: (e as Error).message });
     } finally {
       if (!abort.signal.aborted) setLoadingModels(false);
     }
@@ -129,6 +139,7 @@ export function useProvidersController(
     setDraft,
     models,
     loadingModels,
+    modelFeedback,
     editingProvider,
     resetModels,
     readModels,

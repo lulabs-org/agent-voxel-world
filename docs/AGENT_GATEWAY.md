@@ -36,7 +36,7 @@ flowchart TD
 - `apps/server/src/modules/providers`：`provider-store.ts`（模型提供商配置持久化）、`provider-validation.ts`、`provider-port.ts`、`providers.routes.ts`。
 - `apps/server/src/modules/tasks`：`coordinator.ts`（TaskCoordinator：计划、运行控制与调度）、`execution.ts`（执行状态、预算、聊天运行与历史）、`restore.ts`（任务恢复、私聊失效、未知动作与错过调度处理）、`execution-port.ts`（TaskHostPort / TaskExecutionState）、`model.ts`、`service.ts`、`scheduler.ts`、`port.ts`（HTTP 适配服务）、`routes.ts`。
 - `apps/server/src/modules/ai-characters`：`orchestrator.ts`（Agent 核心编排调度器）、`manager.ts`（生产依赖注入）、`host.ts`（AICharacterHost 宿主执行器）、`execution-adapter.ts`（任务状态与宿主能力的窄接口适配）、`storage.ts`（存档文件适配）、`routes.ts`（HTTP 路由）。各类校验与实体紧密内聚在各自领域模块中。
-- `apps/server/src/modules/audio/session/agent-speech.ts`：世界内语音合成队列、空间听众筛选与音频缓存，由 `WorldRoom` 装配并管理生命周期。
+- `apps/server/src/modules/audio/tts/agent-speech.ts`：世界内语音合成队列、空间听众筛选与音频缓存，由 `WorldRoom` 装配并管理生命周期。
 - `apps/server/src/modules/audio/routes.ts`：音频 HTTP 装配入口，挂载管理鉴权并组合各路由。ASR 配置与转写路由归属 `audio/asr`，语音服务与 Piper 路由归属 `audio/tts`；跨模块能力查询保留在 `audio/capabilities.routes.ts`。跨领域删除操作通过回调注入。
 
 Gateway 按程序规则路由。消息意图仍由 ConversationRunner 判断；网关没有模型分类请求。每个角色的模型和动作串行，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。

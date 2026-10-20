@@ -19,6 +19,7 @@ type Props = Pick<
   | 'removeProvider'
   | 'models'
   | 'loadingModels'
+  | 'modelFeedback'
   | 'readModels'
 >;
 export function ProviderEditor({
@@ -33,6 +34,7 @@ export function ProviderEditor({
   removeProvider,
   models,
   loadingModels,
+  modelFeedback,
   readModels,
 }: Props) {
   const savedConnection =
@@ -164,12 +166,22 @@ export function ProviderEditor({
               disabled={!canReadModels}
               onClick={() => editing && void readModels(editing)}
             >
-              {loadingModels ? '正在连接…' : '检测连接并获取模型'}
+              {loadingModels ? '测试中…' : '测试连接'}
             </button>
           </div>
+          {modelFeedback.error && (
+            <p className="agent-error" role="alert">
+              {modelFeedback.error}
+            </p>
+          )}
+          {modelFeedback.notice && (
+            <p className="agent-notice" role="status">
+              {modelFeedback.notice}
+            </p>
+          )}
           {!canReadModels && (
             <p className="agent-hint">
-              配置并保存服务连接后，即可检测连接并获取模型列表。
+              配置并保存服务连接后，即可测试连接。
             </p>
           )}
           <section className="agents-form-section">
