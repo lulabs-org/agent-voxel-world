@@ -43,32 +43,38 @@ describe('read-only world presence stream', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     vi.unstubAllEnvs();
   });
-  it('streams current roster, movement and departures without creating players', async () => {
-    const controller = new AbortController();
-    const response = await fetch(`${url}/world/presence`, {
-      headers: { Origin: 'http://127.0.0.1:5187' },
-      signal: controller.signal,
-    });
-    expect(response.headers.get('content-type')).toContain('text/event-stream');
-    expect(response.headers.get('access-control-allow-origin')).toBe(
-      'http://127.0.0.1:5187',
-    );
-    const reader = response.body!.getReader();
-    const next = async () => {
-      const { value } = await reader.read();
-      return JSON.parse(
-        new TextDecoder().decode(value).trim().slice(6),
-      ) as WorldPresence;
-    };
-    expect((await next()).players).toEqual(state!.players);
-    state!.players[0].x = 4;
-    state!.players[0].connected = false;
-    expect((await next()).players[0]).toMatchObject({ x: 4, connected: false });
-    state!.players = [];
-    expect((await next()).players).toEqual([]);
-    controller.abort();
-    await reader.cancel().catch(() => {});
-  });
+  it.each(['http://127.0.0.1:5187', 'http://localhost:5187'])(
+    'streams current roster, movement and departures from %s without creating players',
+    async (origin) => {
+      const controller = new AbortController();
+      const response = await fetch(`${url}/world/presence`, {
+        headers: { Origin: origin },
+        signal: controller.signal,
+      });
+      expect(response.headers.get('content-type')).toContain(
+        'text/event-stream',
+      );
+      expect(response.headers.get('access-control-allow-origin')).toBe(origin);
+      const reader = response.body!.getReader();
+      const next = async () => {
+        const { value } = await reader.read();
+        return JSON.parse(
+          new TextDecoder().decode(value).trim().slice(6),
+        ) as WorldPresence;
+      };
+      expect((await next()).players).toEqual(state!.players);
+      state!.players[0].x = 4;
+      state!.players[0].connected = false;
+      expect((await next()).players[0]).toMatchObject({
+        x: 4,
+        connected: false,
+      });
+      state!.players = [];
+      expect((await next()).players).toEqual([]);
+      controller.abort();
+      await reader.cancel().catch(() => {});
+    },
+  );
   it('rejects unexpected origins and returns unavailable rather than an empty roster', async () => {
     const blocked = await fetch(`${url}/world/presence`, {
       headers: { Origin: 'https://example.com' },

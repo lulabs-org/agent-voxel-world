@@ -5,7 +5,13 @@ export const serverSocketUrl = () => {
   }
   if (typeof window !== 'undefined' && window.location) {
     if (window.location.port === '5173') {
-      return `ws://${window.location.hostname}:2567`;
+      // The local dev server binds to IPv4. Resolving localhost to ::1 can
+      // reach a different service (for example Docker) on the same port.
+      const hostname =
+        window.location.hostname === 'localhost'
+          ? '127.0.0.1'
+          : window.location.hostname;
+      return `ws://${hostname}:2567`;
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}`;
