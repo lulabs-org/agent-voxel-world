@@ -23,9 +23,6 @@ export type AgentArchive = {
   requests: Record<string, string>;
 };
 
-/** Backward-compatibility alias */
-export type GatewayArchive = AgentArchive;
-
 export interface ArchivePort {
   load(): Promise<RestoredAgentRecord[] | AgentArchive | undefined>;
   save(records: AgentArchive): Promise<void>;

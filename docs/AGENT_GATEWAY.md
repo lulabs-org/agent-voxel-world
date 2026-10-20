@@ -23,7 +23,7 @@ flowchart TD
   Conversation --> Rules[TaskService]
   Task --> World[世界动作和结果验证]
   Host --> Archive[注入的存档适配器]
-  Archive --> Events[保存后发布 GatewayEvents]
+  Archive --> Events[保存后发布 AgentEvents]
   Events --> RPC
 ```
 
