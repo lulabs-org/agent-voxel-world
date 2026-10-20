@@ -497,7 +497,7 @@ export function installTaskRoutes(
    *     summary: 暂停、继续或取消指定任务执行
    *     description: 按 runId 操作已有执行；resume 不新建任务也不自动上线角色，角色须先通过 join 上线。
    *     tags:
-   *     - Task Runs
+   *     - Tasks
    *     security:
    *     - ManagementBearer: []
    *     parameters:

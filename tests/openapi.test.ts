@@ -36,7 +36,7 @@ it('documents resource ownership, management and chat credentials, with no globa
     ['/agents', 'Agents'],
     ['/providers', 'Providers'],
     ['/tasks', 'Tasks'],
-    ['/task-runs', 'Task Runs'],
+    ['/task-runs', 'Tasks'],
     ['/voice/tts/services', 'TTS'],
     ['/voice/tts/piper', 'TTS Models'],
     ['/voice/asr/services', 'ASR'],
