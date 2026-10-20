@@ -5,7 +5,7 @@ import { listWhisperModels } from './asr/whisper-settings';
 import type { Express } from 'express';
 import { LocalSpeech } from './asr/local-speech';
 import { AppError } from '../../common/errors';
-import { createVoiceProvider } from './session/voice';
+import { createVoiceProvider } from './session';
 import { PiperModels } from './tts/piper-models';
 export function installCapabilitiesRoutes(
   app: Express,

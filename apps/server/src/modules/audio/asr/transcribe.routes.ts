@@ -5,7 +5,7 @@ import { AsrSettingsStore } from './asr-settings';
 import express, { type Express } from 'express';
 import { LocalSpeech, MAX_AUDIO_BYTES } from './local-speech';
 import { AppError } from '../../../common/errors';
-import { scheduleSpeech } from '../tts/speech-scheduler';
+import { scheduleSpeech } from './speech-scheduler';
 export function installTranscribeRoutes(
   app: Express,
   speech = new LocalSpeech(),

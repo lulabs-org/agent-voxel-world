@@ -2,14 +2,14 @@ import type { BailianConfig } from '../realtime/bailian-session';
 import { env } from '../../config/env';
 import { RealtimeHub } from '../realtime/hub';
 import { WorldChat } from '../chat/chat';
-import { AgentSpeech } from '../audio/tts/agent-speech';
+import { AgentSpeech } from '../audio/session/agent-speech';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
 import { PiperTts } from '../audio/tts/piper-tts';
 import {
   createVoiceProvider,
   type VoiceSession,
   type VoiceProvider,
-} from '../audio/session/voice';
+} from '../audio/session';
 import { WorldStore } from './store';
 import { Room, Client, ServerError } from '@colyseus/core';
 import { Avatar, WorldState } from './schema';

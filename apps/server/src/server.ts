@@ -12,7 +12,7 @@ import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { AsrSettingsStore } from './modules/audio/asr/asr-settings';
 import { LocalSpeech } from './modules/audio/asr/local-speech';
-import { createVoiceProvider } from './modules/audio/session/voice';
+import { createVoiceProvider } from './modules/audio/session';
 import { WorldRoom } from './modules/world/room';
 import { WorldStore } from './modules/world/store';
 import { AsrWebSocketTransport } from './transport/asr-websocket.transport';

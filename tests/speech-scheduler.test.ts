@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { SpeechScheduler } from '../apps/server/src/modules/audio/tts/speech-scheduler';
+import { SpeechScheduler } from '../apps/server/src/modules/audio/asr/speech-scheduler';
 import { LocalSpeech } from '../apps/server/src/modules/audio/asr/local-speech';
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve();
