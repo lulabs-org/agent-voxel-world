@@ -20,7 +20,7 @@ import { appendAgentLog } from './agent-logs';
 import type { VoiceServicePort as VoiceServiceStore } from './ports';
 import type { SavedProvider } from '../providers/provider-validation';
 import type { Job } from './types';
-import { captureTask, currentRun } from './task-operations';
+import { captureTask, currentRun } from './agent-task-execution';
 
 export type ExecutionContext = {
   serverUrl: string;

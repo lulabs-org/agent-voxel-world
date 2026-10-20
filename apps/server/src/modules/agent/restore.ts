@@ -18,7 +18,7 @@ import { validateAgent } from './agent-validation';
 import { AppError } from '../../common/errors';
 import type { ProviderPort, RestoredAgentRecord } from './ports';
 import type { Job } from './types';
-import { captureTask } from './task-operations';
+import { captureTask } from './agent-task-execution';
 
 export function restoreAgentJob(
   view: RestoredAgentRecord,

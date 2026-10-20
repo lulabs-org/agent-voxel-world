@@ -4,7 +4,13 @@ import {
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
-import { endedRun, newRun, runView } from '../tasks';
+import {
+  endedRun,
+  newRun,
+  runView,
+  settleTaskUsage,
+  syncPlanStateFromRun,
+} from '../tasks';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import { object } from '../../common/validation';
 import { taskLimits, validateAgent } from './agent-validation';
@@ -68,10 +74,7 @@ export function captureTask(job: Job) {
   }
   const plan = job.ledger.plans.find((p) => p.id === run!.planId);
   const task = job.memory.task;
-  const delta = Math.max(0, task.tokens - run.accountedTokens);
-  run.totalTokens += delta;
-  if (plan) plan.spentTokens += delta;
-  run.accountedTokens = task.tokens;
+  settleTaskUsage(run!, task.tokens, plan);
   const batch = job.memory.previous as
     | {
       batchId?: string;
@@ -125,34 +128,9 @@ export function captureTask(job: Job) {
       : task.reason;
   if (endedRun(run)) run.finishedAt ??= Date.now();
   // Historical results still contribute usage, but cannot overwrite newer plan controls.
-  if (
-    !plan ||
-    plan.agentId !== run.agentId ||
-    plan.revision !== run.planRevision
-  )
-    return;
-  const beforePlan = JSON.stringify(plan);
-  if (['failed', 'budget', 'needs_input', 'blocked'].includes(run.status)) {
-    plan.state = 'paused';
-    plan.reason = run.reason || '本次执行需要处理。';
-    delete plan.nextRunAt;
-  } else if (
-    endedRun(run) &&
-    !isRepeating(plan.timing) &&
-    plan.state === 'enabled' &&
-    !plan.nextRunAt
-  )
-    plan.state = 'completed';
-  if (
-    hasPlanTokenLimit(plan) &&
-    plan.spentTokens >= plan.totalTokenBudget &&
-    plan.state !== 'archived'
-  ) {
-    plan.state = 'paused';
-    plan.reason = '计划累计 token 额度已用尽，请追加额度后恢复。';
-    delete plan.nextRunAt;
+  if (plan && syncPlanStateFromRun(plan, run)) {
+    job.ledger.touch(plan);
   }
-  if (beforePlan !== JSON.stringify(plan)) job.ledger.touch(plan);
 }
 
 export async function commitExecution<T>(
