@@ -12,12 +12,7 @@ export {
   readAgentArchive,
   writeAgentArchive,
 } from './agent-storage';
-export {
-  AgentEvents,
-  GatewayEvents,
-  type AgentResourceChange,
-  type Change,
-} from './agent-events';
+export { AgentEvents, type AgentResourceChange } from './agent-events';
 export { AgentRegistry, type Job, type HostedAgent } from './agent-types';
 export { AgentWakeScheduler } from './agent-wake-scheduler';
 export { AgentHost } from './agent-host';
@@ -27,6 +22,5 @@ export type {
   VoiceServicePort,
   RestoredAgentRecord,
   AgentArchive,
-  GatewayArchive,
 } from './agent-ports';
 export { installAgentRoutes } from './agent.routes';

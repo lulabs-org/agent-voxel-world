@@ -8,7 +8,6 @@ export type AgentResourceChange = {
   version: number;
 };
 
-export type Change = AgentResourceChange;
 
 export class AgentEvents {
   private listeners = new Set<(change: AgentResourceChange) => void>();
@@ -84,5 +83,3 @@ export class AgentEvents {
   }
 }
 
-/** Backward-compatibility alias */
-export { AgentEvents as GatewayEvents };
