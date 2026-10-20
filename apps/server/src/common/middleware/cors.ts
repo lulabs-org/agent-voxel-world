@@ -4,7 +4,21 @@ export function originAllowed(
   allowed: string,
   required = true,
 ) {
-  return allowed === '*' || origin === allowed || (!required && !origin);
+  if (allowed === '*' || origin === allowed || (!required && !origin))
+    return true;
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    if (url.origin !== origin) return false;
+    // Local development uses both names for the same IPv4 loopback service.
+    // Keep the configured scheme and port boundary intact.
+    if (url.hostname === 'localhost') url.hostname = '127.0.0.1';
+    else if (url.hostname === '127.0.0.1') url.hostname = 'localhost';
+    else return false;
+    return url.origin === allowed;
+  } catch {
+    return false;
+  }
 }
 /** Share the mechanism while retaining each endpoint's origin/preflight policy. */
 export function createOriginGuard(options: {
@@ -28,10 +42,7 @@ export function createOriginGuard(options: {
       return;
     }
     if (origin || options.alwaysHeader)
-      res.header(
-        'Access-Control-Allow-Origin',
-        options.origin === '*' ? (origin ?? '*') : options.origin,
-      );
+      res.header('Access-Control-Allow-Origin', origin ?? options.origin);
     if (options.vary) res.header('Vary', 'Origin');
     if (options.cacheControl) res.header('Cache-Control', options.cacheControl);
     if (req.method === 'OPTIONS' && options.methods) {
