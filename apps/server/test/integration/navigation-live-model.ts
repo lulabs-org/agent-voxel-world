@@ -5,6 +5,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { AgentManager } from '../../src/modules/agent';
+import { reserveRun } from '../../src/modules/agent/task-execution';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import {
   AgentRunner,
@@ -111,7 +112,6 @@ try {
   const managed = manager.create({
     providerId: provider.id,
     name: 'AI',
-    startTask: false,
     intervalMs: 60000,
     maxTurns: 8,
     tokenBudget: 60000,
@@ -127,7 +127,14 @@ try {
     actions.clear();
     taskStates.clear();
     if (kind.startsWith('cancelled')) {
-      await manager.update(managed.id, { goal: `旧任务-${kind}` });
+      // Seed prior execution state without spending a real model call on fixture setup.
+      const prior = await manager.createTaskPlan(managed.id, {
+        name: `旧任务-${kind}`,
+        goal: `旧任务-${kind}`,
+        timing: { kind: 'once', at: Date.now() + 3600000 },
+        timeZone: 'UTC',
+      });
+      reserveRun(manager.jobs.get(managed.id)!, prior, 'manual', Date.now());
       await manager.controlTask(managed.id, 'cancel');
       assert.equal(view().task?.status, 'cancelled');
     }

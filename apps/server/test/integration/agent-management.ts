@@ -108,6 +108,23 @@ try {
   const missingAgent = await api('/task-runs/nonexistent/resume', 'POST', {});
   assert.equal(missingAgent.status, 404);
   assert.equal(typeof (await missingAgent.json()).error, 'string');
+  for (const value of [
+    { startTask: true },
+    { startTask: false },
+    { taskTimeZone: 'UTC' },
+    { goal: 'Hidden task' },
+  ]) {
+    const rejected = await api('/agents', 'POST', {
+      providerId: 'deepseek',
+      name: 'Rejected',
+      ...value,
+    });
+    assert.equal(rejected.status, 400);
+    assert.match((await rejected.json()).error, /Tasks/);
+  }
+  assert.equal(manager.list().length, 0);
+  assert.equal(manager.plans.plans.length, 0);
+  assert.equal(manager.plans.runs.length, 0);
   const publicProviders = await (await api('/providers')).text();
   assert(!publicProviders.includes('fixture-secret'));
   assert(publicProviders.includes('hasApiKey'));
@@ -116,7 +133,6 @@ try {
       await api('/agents', 'POST', {
         providerId: 'deepseek',
         name: 'AI',
-        goal: 'Hi',
         maxTurns: 201,
       })
     ).status,
@@ -148,7 +164,6 @@ try {
       providerId,
       name: 'Managed AI',
       roleDescription: '你是一名建筑师，负责规划房屋。',
-      goal: 'Say hello once',
       maxTurns: 1,
     });
     assert.equal(response.status, 201);
@@ -161,9 +176,42 @@ try {
       1,
       'completed rounds keep the player online',
     );
+    assert.equal(manager.list().find((j) => j.id === job.id)?.task, undefined);
+    const firstTask = await api('/tasks', 'POST', {
+      agentId: job.id,
+      name: 'Say hello once',
+      goal: 'Say hello once',
+      timing: { kind: 'immediate' },
+      timeZone: 'UTC',
+      limits: { maxTurns: 1 },
+    });
+    assert.equal(firstTask.status, 201);
+    await until(
+      () =>
+        manager!.list().find((j) => j.id === job.id)?.task?.status ===
+        'completed',
+    );
     const idle: ManagedAgentView = manager.list().find((j) => j.id === job.id)!;
     assert.equal(idle.roleDescription, '你是一名建筑师，负责规划房屋。');
     assert.equal(rolesInRequests.at(-1), idle.roleDescription);
+    const taskBeforeUpdate = structuredClone(idle.task);
+    const planCount: number = manager.plans.plans.length;
+    const runCount: number = manager.plans.runs.length;
+    for (const value of [
+      { goal: 'Replacement' },
+      { startTask: true },
+      { taskTimeZone: 'UTC' },
+    ]) {
+      const rejected = await api(`/agents/${job.id}`, 'PUT', value);
+      assert.equal(rejected.status, 400);
+      assert.match((await rejected.json()).error, /Tasks/);
+    }
+    assert.deepEqual(
+      manager.list().find((j) => j.id === job.id)?.task,
+      taskBeforeUpdate,
+    );
+    assert.equal(manager.plans.plans.length, planCount);
+    assert.equal(manager.plans.runs.length, runCount);
     const original = room.state.players.get(idle.sessionId!)!;
     const originalPosition = { x: original.x, y: original.y, z: original.z };
     assert.equal(
@@ -279,7 +327,6 @@ try {
     providerId: 'deepseek',
     name: 'Standby',
     goal: '',
-    startTask: false,
   });
   assert.equal(standbyResponse.status, 201);
   const standby = (await standbyResponse.json()) as ManagedAgentView;
@@ -331,7 +378,6 @@ try {
     const res = await api('/agents', 'POST', {
       providerId: 'deepseek',
       name: `Loop ${i}`,
-      goal: 'Observe',
       maxTurns: 1,
       continuous: true,
       intervalMode: 'random',
@@ -339,7 +385,24 @@ try {
       intervalMaxMs: 60000,
     });
     assert.equal(res.status, 201);
-    created.push(((await res.json()) as { id: string }).id);
+    const roleId = ((await res.json()) as { id: string }).id;
+    created.push(roleId);
+    await until(
+      () => manager!.list().find((j) => j.id === roleId)?.status === 'idle',
+    );
+    assert.equal(
+      (
+        await api('/tasks', 'POST', {
+          agentId: roleId,
+          name: 'Observe',
+          goal: 'Observe',
+          timing: { kind: 'immediate' },
+          timeZone: 'UTC',
+          limits: { maxTurns: 1 },
+        })
+      ).status,
+      201,
+    );
   }
   await until(() => room.state.players.size === 4);
   await until(() =>
@@ -375,7 +438,6 @@ try {
       await api('/agents', 'POST', {
         providerId: 'deepseek',
         name: 'Overflow',
-        goal: 'Observe',
       })
     ).status,
     409,
@@ -406,7 +468,6 @@ try {
   const capabilityResponse = await api('/agents', 'POST', {
     providerId: 'deepseek',
     name: 'Capability fixture',
-    startTask: false,
     roleDescription: 'capability fixture',
     skills: ['building', 'guide'],
     permissions,
@@ -603,8 +664,7 @@ try {
   );
   assert.equal(room.state.players.size, 4);
   assert.throws(
-    () =>
-      manager!.create({ providerId: 'deepseek', name: 'overflow', goal: 'Hi' }),
+    () => manager!.create({ providerId: 'deepseek', name: 'overflow' }),
     /最多同时在线/,
   );
   await manager.remove(stopped.id);

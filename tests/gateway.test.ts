@@ -311,7 +311,7 @@ it('does not acknowledge a failed creation, publish unsaved state or enter the w
       gateway.dispatch(
         'agents.create',
         {
-          value: { providerId: 'deepseek', name: 'Failure', startTask: false },
+          value: { providerId: 'deepseek', name: 'Failure' },
         },
         'fail-create',
       ),

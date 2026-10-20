@@ -36,7 +36,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   post:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 创建新 Agent
+   *     summary: 创建 Agent（默认上线待命）
+   *     description: 只保存角色配置并按 joinWorld 上线，不创建任务计划、执行记录或自动调用模型。任务请通过 Tasks 创建。
    *     tags:
    *       - Agents
    *     requestBody:
@@ -44,10 +45,12 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *       content:
    *         application/json:
    *           schema:
-   *             type: object
+   *             $ref: '#/components/schemas/AgentCreate'
    *     responses:
    *       201:
-   *         description: Agent 创建成功
+   *         description: 角色创建成功（上线待命或离线），无任务执行
+   *       400:
+   *         description: 参数无效或包含任务参数，请使用 Tasks
    */
   app.post(
     '/agents',
@@ -64,7 +67,8 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *   put:
    *     security:
    *       - ManagementBearer: []
-   *     summary: 更新 Agent 信息与配置
+   *     summary: 更新 Agent 角色配置
+   *     description: 不创建或替换任务，不修改任务目标；startTask、taskTimeZone 或非空 goal 返回 400，请使用 Tasks。
    *     tags:
    *       - Agents
    *     parameters:
@@ -78,10 +82,12 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *       content:
    *         application/json:
    *           schema:
-   *             type: object
+   *             $ref: '#/components/schemas/AgentProfileUpdate'
    *     responses:
    *       200:
-   *         description: 更新成功
+   *         description: 角色配置更新成功，已有任务进度保留
+   *       400:
+   *         description: 参数无效或包含任务参数，请使用 Tasks
    */
   app.put(
     '/agents/:id',

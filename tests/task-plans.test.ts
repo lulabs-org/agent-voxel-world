@@ -20,7 +20,10 @@ import {
   AgentRuntimeError,
   AgentRunner,
 } from '@voxel/agent-runtime';
-let dir: string, store: ProviderStore, manager: AgentManager, gateway: AgentGateway;
+let dir: string,
+  store: ProviderStore,
+  manager: AgentManager,
+  gateway: AgentGateway;
 let now: number;
 const response = (
   status: 'completed' | 'running' | 'waiting' = 'completed',
@@ -88,7 +91,6 @@ async function role() {
     providerId: 'deepseek',
     name: '隔离角色',
     goal: '',
-    startTask: false,
   });
   await idle();
   return j.id;
@@ -803,7 +805,7 @@ it('freezes each executor name at launch while showing the live role name on pla
   );
 });
 
-it('preserves plan execution when changing models and classifies legacy goal edits as manual plans', async () => {
+it('preserves plan execution when changing models and rejects implicit task replacement', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
   const plan = await manager.createTaskPlan(id, draft());
@@ -822,14 +824,13 @@ it('preserves plan execution when changing models and classifies legacy goal edi
   expect(manager.plans.plans).toHaveLength(1);
   expect(manager.plans.runs).toHaveLength(1);
   expect(decide).toHaveBeenCalledTimes(calls);
-  const updated = await manager.update(id, { goal: '兼容入口的新目标' });
-  expect(updated.task).toMatchObject({
-    goal: '兼容入口的新目标',
-    status: 'paused',
-    calls: 0,
-  });
-  expect(manager.plans.plans).toHaveLength(2);
-  expect(manager.plans.runs).toHaveLength(2);
+  const previous = structuredClone(manager.list());
+  await expect(
+    manager.update(id, { goal: '兼容入口的新目标' }),
+  ).rejects.toThrow('Tasks');
+  expect(manager.list()).toEqual(previous);
+  expect(manager.plans.plans).toHaveLength(1);
+  expect(manager.plans.runs).toHaveLength(1);
   expect(
     manager.plans.runs.every((run) => run.planId && run.source === 'manual'),
   ).toBe(true);

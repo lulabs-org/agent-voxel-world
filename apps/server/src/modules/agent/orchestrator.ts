@@ -13,7 +13,6 @@ import { AgentEvents } from './events';
 import type { RpcParams } from '@voxel/gateway-protocol';
 import {
   Session,
-  newTask,
   AgentAttention,
   AgentRunner,
   TaskService,
@@ -22,7 +21,7 @@ import {
 } from '@voxel/agent-runtime';
 
 import { object, text, boolean } from '../../common/validation';
-import { validateAgent, taskLimits } from './validation';
+import { validateAgent, taskLimits, agentProfileInput } from './validation';
 import type { SavedProvider } from '../providers/provider-validation';
 import { AppError } from '../../common/errors';
 
@@ -32,7 +31,7 @@ import { restoreAgentJob } from './restore';
 import { AgentHost, type ExecutionContext } from './host';
 import { AgentPersistence } from './persistence';
 import { AgentPlanCoordinator } from './plan-coordinator';
-import { endedRun, newPlan, newRun, validatePlan } from '../tasks';
+import { endedRun, newPlan, validatePlan } from '../tasks';
 
 export * from './validation';
 
@@ -313,28 +312,10 @@ export class AgentOrchestrator {
 
   create(value: unknown) {
     if (this.closing) throw new AppError('世界服务正在关闭。', 503);
-    const provider = this.providers.get(
-      text(object(value).providerId, '模型服务', 80),
-    );
-    const settings = validateAgent(value, provider);
-    const startTask = boolean(object(value).startTask, true);
-    const joinWorld = boolean(object(value).joinWorld, true);
-    if (startTask && !joinWorld) throw new AppError('立即任务需要加入世界。');
-    if (startTask && !settings.goal)
-      throw new AppError('请填写任务目标，或选择加入世界待命。');
-    const firstTask = startTask
-      ? validatePlan({
-          name: settings.goal.slice(0, 80),
-          goal: settings.goal,
-          timing: { kind: 'immediate' },
-          timeZone: object(value).taskTimeZone ?? 'UTC',
-          limits: {
-            maxTurns: settings.maxTurns,
-            tokenBudget: settings.tokenBudget,
-            taskTimeoutMs: settings.taskTimeoutMs,
-          },
-        })
-      : undefined;
+    const input = agentProfileInput(value);
+    const provider = this.providers.get(text(input.providerId, '模型服务', 80));
+    const settings = validateAgent({ ...input, goal: '' }, provider);
+    const joinWorld = boolean(input.joinWorld, true);
     this.checkVoice(settings);
     if (joinWorld && [...this.jobs.values()].filter(resident).length >= 4)
       throw new AppError(
@@ -356,28 +337,12 @@ export class AgentOrchestrator {
         logs: [],
       },
       abort: new AbortController(),
-      memory: startTask ? { task: newTask(settings.goal) } : {},
+      memory: {},
       ledger: this.plans,
       attention: new AgentAttention(),
     };
-    if (firstTask) {
-      const plan = {
-        ...newPlan(firstTask, job.view.createdAt),
-        agentId: job.view.id,
-        agentName: job.view.name,
-      };
-      const run = newRun(plan, job.view.createdAt, 'manual');
-      run.task = job.memory.task;
-      job.ledger.plans.push(plan);
-      job.ledger.runs.push(run);
-      job.currentRunId = run.id;
-    }
     this.jobs.set(job.view.id, job);
-    captureTask(job);
-    const createdRun = currentRun(job);
-    if (createdRun) createdRun.source = 'manual';
-    this.planScheduler.start();
-    if (joinWorld) job.done = this.execute(job, provider, startTask);
+    if (joinWorld) job.done = this.execute(job, provider, false);
     this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
   }
@@ -531,6 +496,7 @@ export class AgentOrchestrator {
     if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
     if (!job) throw new AppError('Agent 不存在。', 404);
+    const input = agentProfileInput(value);
     if (
       active(job.view.status) ||
       job.updating ||
@@ -538,7 +504,6 @@ export class AgentOrchestrator {
       job.taskMutating
     )
       throw new AppError('请等待 Agent 待命，或关闭后再修改参数。', 409);
-    const input = object(value);
     const provider = this.providers.get(
       text(input.providerId, '模型服务', 80, job.view.providerId),
     );
@@ -546,8 +511,8 @@ export class AgentOrchestrator {
     const settings = validateAgent(
       {
         ...job.view,
-        goal: currentGoal,
         ...input,
+        goal: currentGoal,
         permissions:
           input.permissions !== undefined
             ? input.permissions
@@ -558,16 +523,6 @@ export class AgentOrchestrator {
       provider,
     );
     this.checkVoice(settings);
-    const replacementDraft =
-      settings.goal !== currentGoal && settings.goal
-        ? validatePlan({
-            name: settings.goal.slice(0, 80),
-            goal: settings.goal,
-            timing: { kind: 'immediate' },
-            timeZone: 'UTC',
-            limits: settings,
-          })
-        : undefined;
     job.updating = true;
     try {
       const session = job.session;
@@ -587,40 +542,7 @@ export class AgentOrchestrator {
         if (!result.ok || job.session !== session || active(job.view.status))
           throw new AppError('角色状态已变化，未保存参数，请刷新后重试。', 409);
       }
-      if (settings.goal !== currentGoal) {
-        this.taskScheduler.cancel(job.view.id);
-        if (
-          job.memory.task &&
-          !['completed', 'cancelled'].includes(job.memory.task.status)
-        )
-          new TaskService(job.memory).command(
-            { type: 'pause' },
-            { kind: 'operator' },
-            { ...job.view, apiKey: '' },
-          );
-        captureTask(job);
-        delete job.currentRunId;
-        job.memory = { usage: job.memory.usage };
-        if (replacementDraft) {
-          const plan = {
-            ...newPlan(replacementDraft, Date.now()),
-            agentId: id,
-            agentName: settings.name,
-          };
-          plan.state = 'paused';
-          delete plan.nextRunAt;
-          this.plans.plans.push(plan);
-          reserveRun(job, plan, 'manual', Date.now());
-          currentRun(job)!.agentName = settings.name;
-          new TaskService(job.memory).command(
-            { type: 'pause' },
-            { kind: 'operator' },
-            { ...settings, apiKey: '' },
-          );
-          job.memory.task!.reason = '目标已修改，等待继续。';
-        }
-        job.attention.clear();
-      } else if (
+      if (
         settings.providerId !== job.view.providerId ||
         settings.model !== job.view.model
       ) {

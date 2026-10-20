@@ -79,7 +79,58 @@ const planProperties = {
   },
 };
 
+const agentProfileProperties = {
+  providerId: text,
+  name: { ...text, maxLength: 24 },
+  model: { ...text, maxLength: 128 },
+  roleDescription: { ...text, maxLength: 2000 },
+  permissions: {
+    type: 'object',
+    properties: Object.fromEntries(
+      ['move', 'chat', 'place', 'remove'].map((key) => [
+        key,
+        { type: 'boolean' },
+      ]),
+    ),
+  },
+  skills: { type: 'array', items: text },
+  voiceReplies: { type: 'boolean' },
+  voiceServiceId: text,
+  intervalMode: { ...text, enum: ['fixed', 'random'] },
+  intervalMs: { ...integer, minimum: 1000, maximum: 60000 },
+  intervalMinMs: { ...integer, minimum: 1000, maximum: 60000 },
+  intervalMaxMs: { ...integer, minimum: 1000, maximum: 60000 },
+  maxTurns: { ...integer, minimum: 1, maximum: 200 },
+  tokenBudget: { ...integer, minimum: 1000, maximum: 1000000 },
+  taskTimeoutMs: { ...integer, minimum: 1000, maximum: 7200000 },
+};
+const profileTaskExclusion = {
+  anyOf: [
+    { required: ['startTask'] },
+    { required: ['taskTimeZone'] },
+    { required: ['goal'], properties: { goal: { not: { enum: [''] } } } },
+  ],
+};
+
 export const apiSchemas = {
+  AgentCreate: {
+    type: 'object',
+    required: ['providerId', 'name'],
+    description:
+      '只创建角色配置，默认上线待命，不创建计划或执行。joinWorld=false 仅保存离线角色。startTask、taskTimeZone 和非空 goal 返回 400，请使用 Tasks；兼容空 goal。',
+    not: profileTaskExclusion,
+    properties: {
+      ...agentProfileProperties,
+      joinWorld: { type: 'boolean', default: true },
+    },
+  },
+  AgentProfileUpdate: {
+    type: 'object',
+    description:
+      '只更新角色配置，不创建或替换任务；省略字段沿用原值。startTask、taskTimeZone 和非空 goal 返回 400；空 goal 不会清空已有任务。',
+    not: profileTaskExclusion,
+    properties: agentProfileProperties,
+  },
   ApiError: {
     type: 'object',
     required: ['error'],

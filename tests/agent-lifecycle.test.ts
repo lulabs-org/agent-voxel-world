@@ -79,6 +79,23 @@ function setup(
   );
   return manager;
 }
+async function createWithTask(m: AgentManager, value: Record<string, unknown>) {
+  const { goal, ...profile } = value;
+  const created = m.create(profile);
+  await m.settled(created.id);
+  await m.createTaskPlan(created.id, {
+    name: String(goal).slice(0, 80),
+    goal,
+    timing: { kind: 'immediate' },
+    timeZone: 'UTC',
+    limits: {
+      maxTurns: value.maxTurns ?? 100,
+      tokenBudget: value.tokenBudget ?? 50000,
+      taskTimeoutMs: value.taskTimeoutMs ?? 900000,
+    },
+  });
+  return m.list().find((agent) => agent.id === created.id)!;
+}
 const settings = {
   voiceServiceId: 'local-default',
   providerId: 'deepseek',
@@ -92,7 +109,7 @@ it('saves task heartbeat independently without resetting or resuming progress', 
     task: { intent: 'continue', status: 'needs_input', summary: '地基已完成' },
   }));
   const m = setup(fakeSession(), decide);
-  const created = m.create({ ...settings, maxTurns: 30 });
+  const created = await createWithTask(m, { ...settings, maxTurns: 30 });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.controlTask(created.id, 'pause');
   const before = m.list()[0];
@@ -130,7 +147,7 @@ it('protects a new voice binding while an Agent update is waiting for the world'
   const next = await voices.save({ name: 'Next', type: 'piper' });
   const session = fakeSession();
   const m = setup(session, undefined, voices);
-  const job = m.create({ ...settings, voiceReplies: true });
+  const job = await createWithTask(m, { ...settings, voiceReplies: true });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   let release!: () => void;
   session.request.mockImplementationOnce(async () => {
@@ -155,7 +172,7 @@ it('restores a missing voice service as text-only without model calls', async ()
   const voices = new VoiceServiceStore(join(dir, 'voices.json'));
   await voices.load();
   const m = setup(fakeSession(), undefined, voices);
-  m.create({ ...settings, voiceReplies: true });
+  await createWithTask(m, { ...settings, voiceReplies: true });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.close();
   await voices.remove('local-default', () => false);
@@ -182,7 +199,7 @@ it('toggles voice during inference without restarting the agent or making anothe
     };
   });
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(1));
   await expect(m.setVoice(job.id, { enabled: 'yes' })).rejects.toThrow();
   expect((await m.setVoice(job.id, { enabled: true })).voiceReplies).toBe(true);
@@ -207,7 +224,7 @@ it('updates saved settings without inference, protects identity, validates input
       },
     }));
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await expect(
     m.update(job.id, {
@@ -256,7 +273,7 @@ it('task errors leave a joined character online until explicitly closed', async 
       .fn()
       .mockRejectedValue(new AgentRuntimeError('fixture failure', true));
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0]?.status).toBe('failed'));
   expect(s.close).not.toHaveBeenCalled();
   expect(m.list()[0]?.sessionId).toBe('player-1');
@@ -276,7 +293,7 @@ it('closing while join is pending cannot leave an orphan player or start inferen
       },
     }));
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = m.create({ ...settings, goal: '' });
   await vi.waitFor(() => expect(s.join).toHaveBeenCalled());
   m.stop(job.id);
   resolve();
@@ -288,7 +305,7 @@ it('closing while join is pending cannot leave an orphan player or start inferen
 it('unexpected disconnect releases identity and allows rejoining the same saved agent', async () => {
   const s = fakeSession(),
     m = setup(s),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0]?.status).toBe('idle'));
   await s.close();
   expect(m.list()[0]?.status).toBe('failed');
@@ -315,7 +332,7 @@ it('human mentions wake an idle agent once and queue during inference without co
     },
   }));
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   const mention = (seq: number, actorKind = 'human'): WorldEvent => ({
     seq,
@@ -373,7 +390,11 @@ it('pause, resume and cancel keep identity and retain task progress across resta
     },
   }));
   const m = setup(s, decide),
-    job = m.create({ ...settings, maxTurns: 30, intervalMs: 60000 });
+    job = await createWithTask(m, {
+      ...settings,
+      maxTurns: 30,
+      intervalMs: 60000,
+    });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.controlTask(job.id, 'pause');
   expect(m.list()[0]).toMatchObject({
@@ -419,7 +440,11 @@ it('pausing pending inference drops late edits and does not close the character'
     };
   });
   const m = setup(s, decide),
-    job = m.create({ ...settings, maxTurns: 30, allowEdits: true });
+    job = await createWithTask(m, {
+      ...settings,
+      maxTurns: 30,
+      allowEdits: true,
+    });
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(1));
   const paused = m.controlTask(job.id, 'pause');
   release();
@@ -442,7 +467,7 @@ it('expired private task audiences cannot be resumed after server restart', asyn
       },
     }));
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   decide.mockResolvedValueOnce({
     actions: [{ type: 'wait' }],
@@ -491,7 +516,7 @@ it('keeps the current chat-assigned goal consistent through editing, persistence
     },
   }));
   const m = setup(s, decide),
-    job = m.create(settings);
+    job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   decide.mockResolvedValueOnce({
     actions: [{ type: 'wait' }],
@@ -523,7 +548,6 @@ it('keeps the current chat-assigned goal consistent through editing, persistence
   const before = m.list()[0];
   expect(before.goal).toBe(before.task?.goal);
   const updated = await m.update(job.id, {
-    goal: before.goal,
     maxTokens: 1024,
   });
   expect(updated.task).toEqual(before.task);
@@ -540,11 +564,11 @@ it('keeps the current chat-assigned goal consistent through editing, persistence
     task: { goal: 'Build a new house' },
   });
   await vi.waitFor(() => expect(restored.list()[0].status).toBe('idle'));
-  const changed = await restored.update(job.id, { goal: 'Plant a garden' });
-  expect(changed).toMatchObject({
-    goal: 'Plant a garden',
-    task: { goal: 'Plant a garden', status: 'paused', calls: 0 },
-  });
+  const preserved = restored.list()[0];
+  await expect(
+    restored.update(job.id, { goal: 'Plant a garden' }),
+  ).rejects.toThrow('Tasks');
+  expect(restored.list()[0]).toEqual(preserved);
 });
 
 it('an online agent with a failed task still accepts a new human mention without automatic retries', async () => {
@@ -553,7 +577,7 @@ it('an online agent with a failed task still accepts a new human mention without
     .fn<Planner['decide']>()
     .mockRejectedValueOnce(new AgentRuntimeError('fixture failure', true));
   const m = setup(s, decide),
-    job = m.create({ ...settings, maxTurns: 30 });
+    job = await createWithTask(m, { ...settings, maxTurns: 30 });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('failed'));
   expect(decide).toHaveBeenCalledTimes(1);
   decide.mockResolvedValueOnce({
@@ -594,7 +618,7 @@ it('creates and restores a standby character with no task or automatic model cal
   const created = m.create({
     ...settings,
     goal: '',
-    startTask: false,
+
     roleDescription: '你是一名建筑师，负责建造房屋。',
   });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
@@ -638,7 +662,11 @@ it('keeps task progress and usage when only the role description changes', async
     task: { intent: 'continue', status: 'running', summary: '地基已完成' },
   }));
   const m = setup(fakeSession(), decide);
-  const created = m.create({ ...settings, maxTurns: 30, intervalMs: 60000 });
+  const created = await createWithTask(m, {
+    ...settings,
+    maxTurns: 30,
+    intervalMs: 60000,
+  });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.controlTask(created.id, 'pause');
   const task = structuredClone(m.list()[0].task);
@@ -658,7 +686,11 @@ it('joining a stopped character preserves the task without executing or resettin
     task: { intent: 'continue', status: 'running', summary: 'Half done' },
   }));
   const m = setup(session, decide);
-  const created = m.create({ ...settings, maxTurns: 30, intervalMs: 60000 });
+  const created = await createWithTask(m, {
+    ...settings,
+    maxTurns: 30,
+    intervalMs: 60000,
+  });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   m.stop(created.id);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('stopped'));
@@ -682,15 +714,18 @@ it('joining a stopped character preserves the task without executing or resettin
   expect(m.list()[0].task?.goal).toBe('A fresh task');
 });
 
-it('standby creation validates the launch choice and still enforces online capacity', async () => {
+it('standby creation rejects task input and still enforces online capacity', async () => {
   const m = setup(fakeSession(), vi.fn());
-  expect(() => m.create({ ...settings, goal: '' })).toThrow('任务目标');
-  expect(() => m.create({ ...settings, startTask: 'no' })).toThrow('开关');
-  for (let i = 0; i < 4; i++)
-    m.create({ ...settings, name: `Standby ${i}`, goal: '', startTask: false });
-  expect(() => m.create({ ...settings, startTask: false })).toThrow(
-    '最多同时在线',
+  expect(() => m.create(settings)).toThrow('Tasks');
+  expect(() => m.create({ ...settings, goal: '', startTask: true })).toThrow(
+    'Tasks',
   );
+  expect(() => m.create({ ...settings, goal: '', joinWorld: 'no' })).toThrow(
+    '开关',
+  );
+  for (let i = 0; i < 4; i++)
+    m.create({ ...settings, name: `Standby ${i}`, goal: '' });
+  expect(() => m.create({ ...settings, goal: '' })).toThrow('最多同时在线');
 });
 
 it('retains capability settings and construction progress across edits, reload and resume', async () => {
@@ -705,7 +740,7 @@ it('retains capability settings and construction progress across edits, reload a
     },
   }));
   const m = setup(s, decide);
-  const created = m.create({
+  const created = await createWithTask(m, {
     ...settings,
     maxTurns: 30,
     allowEdits: true,
@@ -795,7 +830,7 @@ it.each(['completed', 'cancelled'] as const)(
         summary: 'test',
       },
     }));
-    const job = m.create(settings);
+    const job = await createWithTask(m, settings);
     await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
     if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
     expect(m.list()[0].task?.status).toBe(status);
@@ -818,7 +853,11 @@ it('suppresses voice bindings and direct pause receipts while retaining the save
     task: { intent: 'continue', status: 'needs_input', summary: '等待确认' },
   }));
   const m = setup(s, decide, voices);
-  const job = m.create({ ...settings, maxTurns: 30, voiceReplies: true });
+  const job = await createWithTask(m, {
+    ...settings,
+    maxTurns: 30,
+    voiceReplies: true,
+  });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.update(job.id, {
     skills: ['guide'],
@@ -865,7 +904,7 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
     },
   }));
   const m = setup(s, decide);
-  const job = m.create({ ...settings, goal: '', startTask: false });
+  const job = m.create({ ...settings, goal: '' });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.assignTask(job.id, {
     goal: '测试任务',
@@ -916,7 +955,7 @@ it('uses newly saved provider inference settings on the next decision without re
       };
     }),
   });
-  const job = manager.create({ ...settings, startTask: false, maxTokens: 777 });
+  const job = manager.create({ ...settings, goal: '', maxTokens: 777 });
   await vi.waitFor(() => expect(manager!.list()[0].status).toBe('idle'));
   const inference = {
     timeoutMs: 30000,
@@ -926,7 +965,12 @@ it('uses newly saved provider inference settings on the next decision without re
   };
   await store.save({ ...store.get('deepseek'), inference }, 'deepseek');
   expect(configs).toHaveLength(0);
-  manager.resume(job.id);
+  await manager.createTaskPlan(job.id, {
+    name: 'Wait',
+    goal: 'Wait',
+    timing: { kind: 'immediate' },
+    timeZone: 'UTC',
+  });
   await vi.waitFor(() =>
     expect(manager!.list()[0].task?.status).toBe('completed'),
   );
@@ -936,7 +980,7 @@ it('uses newly saved provider inference settings on the next decision without re
 it('persists and reloads 500 timestamped activity records without truncating to the old limit', async () => {
   const { readFile, writeFile } = await import('node:fs/promises');
   const m = setup(fakeSession());
-  const created = m.create({ ...settings, goal: '', startTask: false });
+  const created = m.create({ ...settings, goal: '' });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   const logged = m.list()[0];
   expect(logged.logs.length).toBeGreaterThan(0);
@@ -965,7 +1009,7 @@ it('persists and reloads 500 timestamped activity records without truncating to 
 it('deletes a resident character and its tasks durably, preserving shared services', async () => {
   const session = fakeSession();
   const m = setup(session);
-  const job = m.create(settings);
+  const job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   expect(m.taskPlans(job.id).length).toBeGreaterThan(0);
   await m.remove(job.id);
@@ -995,7 +1039,7 @@ it('aborts an active decision and blocks concurrent join/delete before removal c
   });
   const session = fakeSession();
   const m = setup(session, decide);
-  const job = m.create(settings);
+  const job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(decide).toHaveBeenCalled());
   const removing = m.remove(job.id);
   expect(signal?.aborted).toBe(true);
@@ -1012,7 +1056,7 @@ it('aborts an active decision and blocks concurrent join/delete before removal c
 it('keeps a stopped character recoverable when deletion cannot be persisted', async () => {
   const { mkdir } = await import('node:fs/promises');
   const m = setup(fakeSession());
-  const job = m.create(settings);
+  const job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   await m.controlTask(job.id, 'pause');
   const blocked = `${store.path}.agents.json.tmp`;
@@ -1036,7 +1080,7 @@ it.each(['completed', 'cancelled'] as const)(
         summary: '保留结果',
       },
     }));
-    const job = m.create(settings);
+    const job = await createWithTask(m, settings);
     await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
     if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
     const before = m.list()[0];
@@ -1086,7 +1130,7 @@ it.each(['cancel', 'pause'] as const)(
         },
       }),
     });
-    const job = manager.create(settings);
+    const job = await createWithTask(manager, settings);
     await vi.waitFor(() => expect(entered).toBe(true));
     await manager.controlTask(job.id, operation);
     expect(manager.list()[0].task).toMatchObject({
@@ -1096,3 +1140,76 @@ it.each(['cancel', 'pause'] as const)(
     expect(manager.taskPlans(job.id)[0].latestRun?.status).toBe('completed');
   },
 );
+
+it.each([
+  { startTask: true },
+  { startTask: false },
+  { taskTimeZone: 'UTC' },
+  { goal: 'A new task' },
+  { goal: 'Wait' },
+])(
+  'rejects task fields %j on create/update without changing task state or history',
+  async (input) => {
+    const decide = vi.fn<Planner['decide']>(async () => ({
+      actions: [{ type: 'wait' }],
+      task: {
+        intent: 'continue',
+        status: 'needs_input',
+        summary: 'Keep progress',
+      },
+    }));
+    const m = setup(fakeSession(), decide);
+    const job = await createWithTask(m, { ...settings, maxTurns: 30 });
+    await m.settled(job.id);
+    const before = structuredClone(m.list());
+    const plans = structuredClone(m.plans.plans),
+      runs = structuredClone(m.plans.runs);
+    const calls = decide.mock.calls.length;
+    expect(() =>
+      m.create({ providerId: 'deepseek', name: 'Rejected', ...input }),
+    ).toThrow('Tasks');
+    await expect(
+      m.update(job.id, { name: 'Rejected rename', ...input }),
+    ).rejects.toThrow('Tasks');
+    expect(m.list()).toEqual(before);
+    expect(m.plans.plans).toEqual(plans);
+    expect(m.plans.runs).toEqual(runs);
+    expect(decide).toHaveBeenCalledTimes(calls);
+    await m.update(job.id, { goal: '', roleDescription: 'Updated profile' });
+    expect(m.list()[0].task).toEqual(before[0].task);
+    expect(m.list()[0].usage).toEqual(before[0].usage);
+    expect(m.plans.plans).toEqual(plans);
+    expect(m.plans.runs.map((run) => run.id)).toEqual(
+      runs.map((run) => run.id),
+    );
+  },
+);
+
+it('creates an offline profile without joining or allocating a plan, then joins and restores in standby', async () => {
+  const session = fakeSession(),
+    decide = vi.fn();
+  const m = setup(session, decide);
+  const job = m.create({
+    providerId: 'deepseek',
+    name: 'Offline',
+    joinWorld: false,
+  });
+  await m.flush();
+  expect(job.status).toBe('stopped');
+  expect(session.join).not.toHaveBeenCalled();
+  expect(m.plans.plans).toHaveLength(0);
+  expect(m.plans.runs).toHaveLength(0);
+  expect(m.taskIdentity(job.id)).toBeUndefined();
+  await m.close();
+  const restored = setup(session, decide);
+  await restored.load();
+  expect(restored.list()[0].status).toBe('stopped');
+  expect(session.join).not.toHaveBeenCalled();
+  restored.join(job.id);
+  await restored.settled(job.id);
+  expect(restored.list()[0].status).toBe('idle');
+  expect(restored.list()[0].task).toBeUndefined();
+  expect(restored.plans.plans).toHaveLength(0);
+  expect(restored.plans.runs).toHaveLength(0);
+  expect(decide).not.toHaveBeenCalled();
+});

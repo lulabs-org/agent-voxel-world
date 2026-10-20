@@ -82,3 +82,5 @@ UI 沙箱统一放在 `test/sandbox`。新增 `asr-services-fixture.ts` 提供�
 Swagger 按领域分组，使用当前站点作为服务器地址；管理令牌与聊天会话令牌使用两个独立的授权入口。
 
 Agent 的 `/task`、`pause`、`resume`、`cancel` 四个 HTTP 接口及 Gateway 的 `tasks.assign/pause/resume/cancel` 已移除。即时任务使用 `/tasks` 或 RPC `plans.create` 创建即执行；执行控制使用 `/task-runs/:runId/:operation` 或 RPC `runs.control`。计划 pause/resume 只控制后续调度；执行 resume 需要先通过 join 上线，并保留原执行进度与用量。CLI 示例与迁移说明见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。
+
+`POST /agents` 只创建角色，默认上线待命；`joinWorld: false` 仅保存离线角色。`PUT /agents/:id` 只修改角色配置，不通过目标变化隐式创建或替换任务。两者均拒绝 `startTask`、`taskTimeZone` 和非空 `goal`，返回 400 并提示使用 Tasks；空 `goal` 不会清空任务。原有存档、进度、用量与执行历史保留。
