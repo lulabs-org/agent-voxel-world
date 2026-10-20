@@ -25,5 +25,3 @@ export class AgentWakeScheduler {
   }
 }
 
-/** Backward-compatibility alias */
-export { AgentWakeScheduler as GatewayScheduler };

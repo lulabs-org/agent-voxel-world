@@ -988,5 +988,4 @@ export type AgentDependencies = {
   ) => Pick<AgentRunner, 'run'>;
   models: (provider: SavedProvider) => Promise<string[]>;
 };
-export type OrchestratorDependencies = AgentDependencies;
-export type GatewayDependencies = AgentDependencies;
+
