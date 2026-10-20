@@ -325,12 +325,113 @@ describe('Pi world tool runtime', () => {
 });
 
 describe('Pi provider and recovery boundaries', () => {
+  const nativeResponse = (
+    tools: { name: string; arguments: unknown }[] = [],
+    content = '',
+  ) =>
+    new Response(
+      JSON.stringify({
+        done: true,
+        done_reason: 'stop',
+        message: {
+          role: 'assistant',
+          content,
+          tool_calls: tools.map((tool) => ({ function: tool })),
+        },
+        prompt_eval_count: 90,
+        eval_count: 10,
+      }),
+    );
+  const localEndpoint = {
+    type: 'ollama' as const,
+    baseUrl: 'http://localhost:11434/v1',
+    jsonMode: false,
+    tokenField: 'max_tokens' as const,
+  };
+  it('corrects one prose completion without replaying an acknowledged edit', async () => {
+    const f = fixture([]);
+    const responses = [
+      nativeResponse([
+        { name: 'edit', arguments: { x: 2, y: 3, z: 0, material: 'wood' } },
+      ]),
+      nativeResponse([], 'done'),
+      nativeResponse([complete()]),
+    ];
+    const request = vi.fn<typeof fetch>(async () => responses.shift()!);
+    await new AgentRunner(localEndpoint, request).run({
+      session: f.session,
+      config: f.config,
+      signal: f.abort.signal,
+      memory: f.memory,
+    });
+    expect(f.memory.task?.status).toBe('completed');
+    expect(f.memory.task?.calls).toBe(3);
+    expect(
+      f.session.request.mock.calls.filter(([name]) => name === 'edit'),
+    ).toHaveLength(1);
+    const lastBody = JSON.parse(String(request.mock.calls[2][1]?.body));
+    expect(lastBody.messages.at(-1).content).toContain(
+      'Do not repeat successful world actions',
+    );
+  });
+  it('stops after one local protocol correction and never executes prose', async () => {
+    const f = fixture([]);
+    const request = vi.fn<typeof fetch>(async () =>
+      nativeResponse([], 'edit x=2'),
+    );
+    await new AgentRunner(localEndpoint, request).run({
+      session: f.session,
+      config: f.config,
+      signal: f.abort.signal,
+      memory: f.memory,
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(f.memory.task?.status).toBe('blocked');
+    expect(f.memory.task?.calls).toBe(2);
+    expect(f.session.request.mock.calls.some(([name]) => name === 'edit')).toBe(
+      false,
+    );
+  });
+  it('does not bypass the request budget for protocol correction', async () => {
+    const f = fixture([]);
+    const request = vi.fn<typeof fetch>(async () => nativeResponse([], 'done'));
+    await new AgentRunner(localEndpoint, request).run({
+      session: f.session,
+      config: { ...f.config, maxTurns: 1 },
+      signal: f.abort.signal,
+      memory: f.memory,
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(f.memory.task?.calls).toBe(1);
+    expect(f.memory.task?.status).toBe('budget');
+  });
   it.each(['ollama', 'compatible', 'deepseek'] as const)(
     'uses %s configuration without hidden JSON mode or environment credentials',
     async (type) => {
       const f = fixture([]);
       const request = vi.fn<typeof fetch>(async () =>
-        toolResponse([complete()]),
+        type === 'ollama'
+          ? new Response(
+              JSON.stringify({
+                done: true,
+                done_reason: 'stop',
+                message: {
+                  role: 'assistant',
+                  content: '',
+                  tool_calls: [
+                    {
+                      function: {
+                        name: 'complete_task',
+                        arguments: { summary: '进展' },
+                      },
+                    },
+                  ],
+                },
+                prompt_eval_count: 90,
+                eval_count: 10,
+              }),
+            )
+          : toolResponse([complete()]),
       );
       await new AgentRunner(
         {
@@ -347,16 +448,28 @@ describe('Pi provider and recovery boundaries', () => {
         memory: f.memory,
       });
       const [url, init] = request.mock.calls[0];
-      expect(url).toBe('http://localhost:11434/v1/chat/completions');
+      expect(String(url)).toBe(
+        type === 'ollama'
+          ? 'http://localhost:11434/api/chat'
+          : 'http://localhost:11434/v1/chat/completions',
+      );
       expect(init?.redirect).toBe('error');
       expect(new Headers(init?.headers).get('Authorization')).toBe(
         'Bearer test-secret',
       );
       const body = JSON.parse(init!.body as string);
       expect(body.response_format).toBeUndefined();
-      expect(body.stream).toBe(true);
-      expect(body.tool_choice).toBe('required');
-      expect(body.max_completion_tokens).toBe(f.config.maxTokens);
+      expect(body.stream).toBe(type !== 'ollama');
+      if (type === 'ollama') {
+        expect(body.think).toBe(false);
+        expect(body.options).toMatchObject({
+          num_ctx: 32768,
+          num_predict: f.config.maxTokens,
+        });
+      } else {
+        expect(body.tool_choice).toBe('required');
+        expect(body.max_completion_tokens).toBe(f.config.maxTokens);
+      }
       if (type === 'deepseek')
         expect(body.thinking).toEqual({ type: 'disabled' });
       else expect(body.thinking).toBeUndefined();
@@ -454,6 +567,23 @@ it('an explicitly classified greeting completes in one request without changing 
     'chat',
     expect.objectContaining({ scope: 'private', recipients: ['human'] }),
   );
+});
+it('routes the current message without terrain or an obsolete completion receipt', async () => {
+  const f = fixture([[reply()]]);
+  f.memory.task!.status = 'completed';
+  f.memory.task!.summary = 'obsolete-completion-marker';
+  f.message('private', 'new-sender', '请到我这里来');
+  await f.run();
+  const body = JSON.parse(String(f.request.mock.calls[0][1]?.body));
+  const input = JSON.parse(body.messages[1].content[0].text);
+  expect(input.currentRequest).toEqual({
+    actor: 'new-sender',
+    text: '请到我这里来',
+  });
+  expect(input.observation.blocks).toEqual([]);
+  expect(input.task).toBeUndefined();
+  expect(JSON.stringify(body)).not.toContain('obsolete-completion-marker');
+  expect(f.memory.task?.status).toBe('completed');
 });
 it('explicit unlimited task settings do not create an invalid deadline', async () => {
   const f = fixture([[move], [complete()]]);

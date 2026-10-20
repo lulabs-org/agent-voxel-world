@@ -11,6 +11,7 @@ import type {
   RequestAccounting,
 } from '../contracts';
 import { AgentRuntimeError } from '../errors';
+import { ollamaCompletion } from './ollama';
 
 export const defaultEndpoint: ModelEndpoint = {
   type: 'deepseek',
@@ -101,7 +102,16 @@ export function piStream(
           timeoutMs: config.timeoutMs,
           cacheRetention: 'none',
           fetch: async (url, init) => {
-            const response = await request(url, { ...init, redirect: 'error' });
+            const response =
+              endpoint.type === 'ollama'
+                ? await ollamaCompletion(
+                    url,
+                    init ?? {},
+                    request,
+                    model.contextWindow,
+                    config.thinking === 'enabled',
+                  )
+                : await request(url, { ...init, redirect: 'error' });
             status = response.status;
             return response;
           },

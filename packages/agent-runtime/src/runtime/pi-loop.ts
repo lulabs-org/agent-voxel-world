@@ -33,6 +33,8 @@ export async function runPiLoop(o: {
   transcript?: (messages: Message[]) => Promise<void>;
 }) {
   const { state } = o;
+  let correctedToolProtocol = false;
+  let requestToolCorrection = false;
   const agent = new Agent({
     initialState: {
       model: piModel(o.config, o.endpoint),
@@ -51,9 +53,23 @@ export async function runPiLoop(o: {
     transformContext: async (messages) => {
       const retained = new Set(recentTurns(messages as Message[]));
       const input = messages.filter((m) => m.role === 'user').at(-1);
-      return messages.filter(
+      const context = messages.filter(
         (m) => m.role === 'system' || m === input || retained.has(m as Message),
       );
+      if (requestToolCorrection) {
+        requestToolCorrection = false;
+        context.push({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Protocol correction: ordinary assistant text is not delivered or executed. Respond using the provided native function tools. Do not repeat successful world actions. Use the prior tool results to choose the next required step; if they verify the entire task, call complete_task. For a conversation response, call reply.',
+            },
+          ],
+          timestamp: Date.now(),
+        });
+      }
+      return context;
     },
     beforeToolCall: async ({ assistantMessage }) => {
       if (assistantMessage.stopReason === 'length') {
@@ -90,10 +106,25 @@ export async function runPiLoop(o: {
       if (
         message.stopReason === 'stop' &&
         !message.content.some((p) => p.type === 'toolCall')
-      )
+      ) {
+        // One accounted correction for local models that answer in prose after
+        // a tool result. Never parse prose as an action or replay a prior call.
+        if (
+          o.endpoint.type === 'ollama' &&
+          !correctedToolProtocol &&
+          !state.terminal &&
+          !state.persistenceFailed &&
+          !o.shouldYield() &&
+          !o.signal.aborted
+        ) {
+          correctedToolProtocol = true;
+          requestToolCorrection = true;
+          return { action: 'continue' };
+        }
         throw new AgentRuntimeError(
           '模型未返回工具调用；请使用支持原生工具调用的模型，本次运行已停止。',
         );
+      }
       o.afterTurn?.();
       await o.transcript?.(agent.state.messages as Message[]);
       if (

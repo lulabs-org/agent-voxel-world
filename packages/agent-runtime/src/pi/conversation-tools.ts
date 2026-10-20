@@ -13,8 +13,10 @@ export function conversationTools(
     parameters,
     description:
       name === 'reply'
-        ? 'Reply to the current message and finish.'
-        : 'Submit one task command; the task executor will perform world actions.',
+        ? 'Answer a greeting, question or clarification. Does not move or change the world. Never use this to claim a newly requested world action is done.'
+        : name === 'start_task'
+          ? 'Start a NEW world action requested in currentRequest, including moving to the sender, building, or removing blocks. Use the current sender actor ID in the goal. A separate executor performs and verifies the action.'
+          : 'Submit one task command; the task executor will perform world actions.',
     execute: async (_id, value) => {
       const args = value as { text?: string; goal?: string; reply?: string };
       if (name === 'reply') await reply(args.text!);

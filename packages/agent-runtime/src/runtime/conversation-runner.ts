@@ -132,23 +132,32 @@ export class ConversationRunner {
         save,
         shouldYield: () => false,
         input: JSON.stringify({
+          currentRequest: {
+            actor: message.actor,
+            text: (message.data as ChatData).text,
+          },
           character: {
             roleDescription: config.roleDescription ?? '',
             skills: config.skills ?? [],
           },
           observation: worldView({
             ...raw,
+            // Conversation only routes messages to task commands; terrain is
+            // observed by the task executor. Sending it here can crowd the
+            // system prompt and tool definitions out of a local model's context.
+            blocks: [],
             events: [message],
             attention: message,
           }),
-          task: visible
-            ? {
-                goal: task.goal,
-                status: task.status,
-                summary: task.summary,
-                owner: task.owner,
-              }
-            : undefined,
+          task:
+            visible && !['completed', 'cancelled'].includes(task.status)
+              ? {
+                  goal: task.goal,
+                  status: task.status,
+                  summary: task.summary,
+                  owner: task.owner,
+                }
+              : undefined,
         }),
       });
     } catch (error) {
