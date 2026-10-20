@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
+  hasPlanTokenLimit,
+  isRepeating,
   nextOccurrence,
   type TaskPlanDraft,
   type TaskPlan,
@@ -107,4 +109,52 @@ export function duePlans(book: Pick<TaskBook, 'plans'>, now: number): TaskPlan[]
         p.nextRunAt <= now,
     )
     .sort((a, b) => a.nextRunAt! - b.nextRunAt! || a.createdAt - b.createdAt);
+}
+
+/**
+ * 增量结算任务执行产生的 Token，并累加到关联的任务计划中
+ */
+export function settleTaskUsage(
+  run: StoredRun,
+  taskTokens: number,
+  plan?: TaskPlan,
+): number {
+  const delta = Math.max(0, taskTokens - run.accountedTokens);
+  run.totalTokens += delta;
+  if (plan) plan.spentTokens += delta;
+  run.accountedTokens = taskTokens;
+  return delta;
+}
+
+/**
+ * 根据单次运行状态同步计划生命周期状态（额度熔断、异常暂停、一次性完成）
+ * @returns 计划状态是否发生了改变
+ */
+export function syncPlanStateFromRun(plan: TaskPlan, run: StoredRun): boolean {
+  if (plan.agentId !== run.agentId || plan.revision !== run.planRevision) {
+    return false;
+  }
+  const before = JSON.stringify(plan);
+  if (['failed', 'budget', 'needs_input', 'blocked'].includes(run.status)) {
+    plan.state = 'paused';
+    plan.reason = run.reason || '本次执行需要处理。';
+    delete plan.nextRunAt;
+  } else if (
+    endedRun(run) &&
+    !isRepeating(plan.timing) &&
+    plan.state === 'enabled' &&
+    !plan.nextRunAt
+  ) {
+    plan.state = 'completed';
+  }
+  if (
+    hasPlanTokenLimit(plan) &&
+    plan.spentTokens >= plan.totalTokenBudget &&
+    plan.state !== 'archived'
+  ) {
+    plan.state = 'paused';
+    plan.reason = '计划累计 token 额度已用尽，请追加额度后恢复。';
+    delete plan.nextRunAt;
+  }
+  return before !== JSON.stringify(plan);
 }

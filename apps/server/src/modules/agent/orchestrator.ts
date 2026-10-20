@@ -55,7 +55,7 @@ import {
   taskBusy,
   executeTaskPlanControl,
   executeTaskRunControl,
-} from './task-operations';
+} from './agent-task-execution';
 import { restoreAgentJob } from './restore';
 import { AgentHost, type ExecutionContext } from './executor';
 

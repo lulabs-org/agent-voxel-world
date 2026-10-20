@@ -28,6 +28,8 @@ export {
   duePlans,
   wallClockInstant,
   nextOccurrence,
+  settleTaskUsage,
+  syncPlanStateFromRun,
 } from './task-model';
 
 // 6. 输入校验
