@@ -16,17 +16,14 @@ export function installSpeechRoutes(
   origin = env.webOrigin(),
 ) {
   app.use(
-    '/voice',
+    ['/voice/capabilities', '/voice/transcribe'],
     createOriginGuard({
       origin,
       required: false,
       crossSite: true,
       message: '不允许此页面访问服务器语音服务。',
       cacheControl: 'no-store',
-      methods: (path) =>
-        path.startsWith('/asr/')
-          ? 'GET, POST, PUT, DELETE, OPTIONS'
-          : 'GET, POST, OPTIONS',
+      methods: 'GET, POST, OPTIONS',
     }),
   );
 
@@ -86,8 +83,7 @@ export function installSpeechRoutes(
       });
     } catch (error) {
       res.status(error instanceof AppError ? error.status : 500).json({
-        error:
-          error instanceof AppError ? error.message : '无法检查识别服务。',
+        error: error instanceof AppError ? error.message : '无法检查识别服务。',
       });
     }
   });
@@ -181,7 +177,7 @@ export function installSpeechRoutes(
     },
   );
   app.use(
-    '/voice',
+    '/voice/transcribe',
     errorHandler((error) => ({
       status: error.type === 'entity.too.large' ? 413 : 400,
       body: { error: '无法读取音频，请使用不超过 5 MiB 的文件。' },

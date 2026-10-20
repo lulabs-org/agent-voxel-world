@@ -1,12 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import express from 'express';
-import { createServer } from 'node:http';
 import { PiperModels } from './piper-models';
 import { PiperTts } from './piper-tts';
 import { speechEndpoint } from '../speech-endpoint';
 import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '@voxel/shared';
-import { installGatewayRoutes } from '../../gateway/http.routes';
-import type { AgentManager } from '../../agent';
+import { createTestServer } from '../../../../test/helpers/test-server';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -180,13 +177,14 @@ it('keeps Piper management under the configured origin boundary and returns 202 
     'http://speech/v1',
     vi.fn<typeof fetch>(async () => catalog(true)),
   );
-  const app = express();
-  installGatewayRoutes(app, {
-    voiceServices: { piperModels: models },
-  } as unknown as AgentManager);
-  const server = createServer(app);
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/agents/voice-services/piper`;
+  const server = await createTestServer({ origin: 'http://world.test' });
+  vi.spyOn(server.voiceServices.piperModels, 'list').mockImplementation(() =>
+    models.list(),
+  );
+  vi.spyOn(server.voiceServices.piperModels, 'start').mockImplementation((id) =>
+    models.start(id),
+  );
+  const url = `${server.httpUrl}/voice/tts/piper`;
   try {
     expect(
       (
@@ -197,6 +195,7 @@ it('keeps Piper management under the configured origin boundary and returns 202 
     ).toBe(403);
     const headers = {
       Origin: 'http://world.test',
+      Authorization: 'Bearer fixture-gateway-token-for-tests',
       'Content-Type': 'application/json',
     };
     expect((await fetch(`${url}/models`, { headers })).status).toBe(200);
@@ -219,7 +218,6 @@ it('keeps Piper management under the configured origin boundary and returns 202 
       ).status,
     ).toBe(400);
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.close();
   }
 });

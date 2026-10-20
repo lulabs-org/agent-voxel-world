@@ -15,7 +15,7 @@ export async function consoleFetch<T>(
 ): Promise<T> {
   const { method = 'GET', body, signal, headers } = options;
   const normalizedPath = path ? (path.startsWith('/') ? path : `/${path}`) : '';
-  const url = `${serverHttpUrl()}/agents${normalizedPath}`;
+  const url = `${serverHttpUrl()}${normalizedPath}`;
   const response = await fetch(url, {
     method,
     signal,
@@ -41,6 +41,6 @@ export async function request<T>(
   return consoleFetch<T>(path, { method, body, signal });
 }
 
-export const agentPath = (id: string) => `/${encodeURIComponent(id)}`;
+export const agentPath = (id: string) => `/agents/${encodeURIComponent(id)}`;
 export const providerPath = (id: string) =>
   `/providers/${encodeURIComponent(id)}`;

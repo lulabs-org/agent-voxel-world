@@ -1,36 +1,50 @@
 import type { Express } from 'express';
-import type { AgentManager } from '../agent';
+import type { ProviderPort } from './provider-port';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**
  * 安装 Provider（模型提供商）相关 HTTP REST 路由
  */
-export function installProviderRoutes(app: Express, manager: AgentManager) {
+export type ProviderRouteDependencies = {
+  store: Pick<ProviderPort, 'list' | 'save'>;
+  models: (id: string) => Promise<string[]>;
+  remove: (id: string) => Promise<void>;
+  changed: () => void;
+};
+
+export function installProviderRoutes(
+  app: Express,
+  providers: ProviderRouteDependencies,
+) {
   /**
    * @openapi
-   * /agents/providers:
+   * /providers:
    *   get:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 获取 LLM 模型提供商配置列表
    *     tags:
-   *       - Agents Provider
+   *       - Providers
    *     responses:
    *       200:
    *         description: 提供商配置列表
    */
   app.get(
-    '/agents/providers',
+    '/providers',
     route((_req, res) => {
-      res.json(manager.providers.list());
+      res.json(providers.store.list());
     }),
   );
 
   /**
    * @openapi
-   * /agents/providers:
+   * /providers:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 添加 LLM 模型提供商配置
    *     tags:
-   *       - Agents Provider
+   *       - Providers
    *     requestBody:
    *       required: true
    *       content:
@@ -42,21 +56,23 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
    *         description: 创建成功
    */
   app.post(
-    '/agents/providers',
+    '/providers',
     route(async (req, res) => {
-      const result = await manager.providers.save(req.body);
-      manager.events.publish('providers');
+      const result = await providers.store.save(req.body);
+      providers.changed();
       res.status(201).json(result);
     }),
   );
 
   /**
    * @openapi
-   * /agents/providers/{id}:
+   * /providers/{id}:
    *   put:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 更新 LLM 模型提供商配置
    *     tags:
-   *       - Agents Provider
+   *       - Providers
    *     parameters:
    *       - in: path
    *         name: id
@@ -74,24 +90,26 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
    *         description: 更新成功
    */
   app.put(
-    '/agents/providers/:id',
+    '/providers/:id',
     route(async (req, res) => {
-      const result = await manager.providers.save(
+      const result = await providers.store.save(
         req.body,
         String(req.params.id),
       );
-      manager.events.publish('providers');
+      providers.changed();
       res.json(result);
     }),
   );
 
   /**
    * @openapi
-   * /agents/providers/{id}:
+   * /providers/{id}:
    *   delete:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 删除 LLM 模型提供商配置
    *     tags:
-   *       - Agents Provider
+   *       - Providers
    *     parameters:
    *       - in: path
    *         name: id
@@ -103,21 +121,23 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
    *         description: 删除成功
    */
   app.delete(
-    '/agents/providers/:id',
+    '/providers/:id',
     route(async (req, res) => {
-      await manager.removeProvider(String(req.params.id));
-      manager.events.publish('providers');
+      await providers.remove(String(req.params.id));
+      providers.changed();
       res.sendStatus(204);
     }),
   );
 
   /**
    * @openapi
-   * /agents/providers/{id}/models:
+   * /providers/{id}/models:
    *   get:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 获取指定提供商下的可用模型列表
    *     tags:
-   *       - Agents Provider
+   *       - Providers
    *     parameters:
    *       - in: path
    *         name: id
@@ -129,9 +149,9 @@ export function installProviderRoutes(app: Express, manager: AgentManager) {
    *         description: 可用模型列表
    */
   app.get(
-    '/agents/providers/:id/models',
+    '/providers/:id/models',
     route(async (req, res) => {
-      const models = await manager.models(String(req.params.id));
+      const models = await providers.models(String(req.params.id));
       res.json({ models });
     }),
   );

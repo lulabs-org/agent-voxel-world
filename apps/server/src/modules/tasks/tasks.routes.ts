@@ -16,15 +16,11 @@ export function installTaskRoutes(
       : new TasksService(managerOrService);
 
   // ---------------------------------------------------------------------------
-  // 辅助处理函数（消除全局路由与 Agent 作用域路由的重复实现）
+  // 任务计划与执行运行的 HTTP 适配
   // ---------------------------------------------------------------------------
 
   const resolveAgentId = (req: Request): string | undefined =>
-    req.params.id
-      ? String(req.params.id)
-      : req.body?.agentId
-        ? String(req.body.agentId)
-        : undefined;
+    req.body?.agentId ? String(req.body.agentId) : undefined;
 
   const handleGetPlan = (req: Request, res: Response) => {
     res.json(service.getPlan(String(req.params.planId)));
@@ -61,7 +57,7 @@ export function installTaskRoutes(
   };
 
   const handleControlRun = async (req: Request, res: Response) => {
-    const agentId = resolveAgentId(req) ?? '';
+    const agentId = resolveAgentId(req);
     const result = await service.controlRun(
       agentId,
       String(req.params.runId),
@@ -77,14 +73,61 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/tasks:
+   * /tasks:
    *   get:
    *     summary: 获取全局任务计划列表
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: query
+   *       name: state
+   *       schema:
+   *         type: string
+   *         enum:
+   *         - unassigned
+   *         - enabled
+   *         - paused
+   *         - completed
+   *         - archived
+   *     - in: query
+   *       name: agentId
+   *       schema:
+   *         type: string
+   *     - in: query
+   *       name: search
+   *       schema:
+   *         type: string
+   *     - in: query
+   *       name: offset
+   *       schema:
+   *         type: integer
+   *         minimum: 0
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TaskPlanPage'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
   app.get(
-    '/agents/tasks',
+    '/tasks',
     route((req, res) => {
       const page = service.listGlobalPlans({
         state: (req.query.state
@@ -101,13 +144,42 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/tasks/{planId}:
+   * /tasks/{planId}:
    *   get:
    *     summary: 获取指定任务计划详情
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: planId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TaskPlan'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
-  app.get('/agents/tasks/:planId', route(handleGetPlan));
+  app.get('/tasks/:planId', route(handleGetPlan));
 
   // ---------------------------------------------------------------------------
   // 2. 创建与更新任务计划
@@ -115,23 +187,87 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/tasks:
+   * /tasks:
    *   post:
    *     summary: 创建任务计划
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/TaskPlanCreate'
+   *     responses:
+   *       '201':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TaskPlan'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
-  app.post('/agents/tasks', route(handleCreatePlan));
+  app.post('/tasks', route(handleCreatePlan));
 
   /**
    * @openapi
-   * /agents/tasks/{planId}:
+   * /tasks/{planId}:
    *   put:
    *     summary: 更新指定任务计划
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: planId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/TaskPlanUpdate'
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TaskPlan'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
-  app.put('/agents/tasks/:planId', route(handleUpdatePlan));
+  app.put('/tasks/:planId', route(handleUpdatePlan));
 
   // ---------------------------------------------------------------------------
   // 3. 删除与重新指派
@@ -139,24 +275,89 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/tasks/{planId}:
+   * /tasks/{planId}:
    *   delete:
    *     summary: 删除指定任务计划
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: planId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     responses:
+   *       '204':
+   *         description: 操作成功
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
-  app.delete('/agents/tasks/:planId', route(handleDeletePlan));
+  app.delete('/tasks/:planId', route(handleDeletePlan));
 
   /**
    * @openapi
-   * /agents/tasks/{planId}/reassign:
+   * /tasks/{planId}/reassign:
    *   post:
    *     summary: 重新指派任务计划所属 Agent
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: planId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *             - targetAgentId
+   *             properties:
+   *               targetAgentId:
+   *                 type: string
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TaskPlan'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
   app.post(
-    '/agents/tasks/:planId/reassign',
+    '/tasks/:planId/reassign',
     route(async (req, res) => {
       const result = await service.reassignPlan(
         String(req.params.planId),
@@ -172,14 +373,48 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/tasks/{planId}/runs:
+   * /tasks/{planId}/runs:
    *   get:
    *     summary: 获取任务计划的执行运行历史（含元数据）
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: planId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     - in: query
+   *       name: offset
+   *       schema:
+   *         type: integer
+   *         minimum: 0
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TaskRunPage'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
   app.get(
-    '/agents/tasks/:planId/runs',
+    '/tasks/:planId/runs',
     route((req, res) => {
       const result = service.listRuns(
         undefined,
@@ -197,21 +432,115 @@ export function installTaskRoutes(
 
   /**
    * @openapi
-   * /agents/tasks/{planId}/{operation}:
+   * /tasks/{planId}/{operation}:
    *   post:
    *     summary: 控制任务计划状态
    *     tags:
-   *       - Agents Task
+   *     - Tasks
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: planId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     - in: path
+   *       name: operation
+   *       required: true
+   *       schema:
+   *         type: string
+   *         enum:
+   *         - run
+   *         - pause
+   *         - resume
+   *         - archive
+   *         - extend
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/TaskControl'
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               oneOf:
+   *               - $ref: '#/components/schemas/TaskPlan'
+   *               - $ref: '#/components/schemas/TaskRun'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
-  app.post('/agents/tasks/:planId/:operation', route(handleControlPlan));
+  app.post('/tasks/:planId/:operation', route(handleControlPlan));
 
   /**
    * @openapi
-   * /agents/task-runs/{runId}/{operation}:
+   * /task-runs/{runId}/{operation}:
    *   post:
    *     summary: 控制特定任务运行状态
    *     tags:
-   *       - Agents Task
+   *     - Task Runs
+   *     security:
+   *     - ManagementBearer: []
+   *     parameters:
+   *     - in: path
+   *       name: runId
+   *       required: true
+   *       schema:
+   *         type: string
+   *     - in: path
+   *       name: operation
+   *       required: true
+   *       schema:
+   *         type: string
+   *         enum:
+   *         - pause
+   *         - resume
+   *         - cancel
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/TaskControl'
+   *     responses:
+   *       '200':
+   *         description: 操作成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               oneOf:
+   *               - $ref: '#/components/schemas/TaskRun'
+   *               - $ref: '#/components/schemas/AgentView'
+   *       '400':
+   *         $ref: '#/components/responses/Management400'
+   *       '401':
+   *         $ref: '#/components/responses/Management401'
+   *       '403':
+   *         $ref: '#/components/responses/Management403'
+   *       '404':
+   *         $ref: '#/components/responses/Management404'
+   *       '409':
+   *         $ref: '#/components/responses/Management409'
+   *       '413':
+   *         $ref: '#/components/responses/Management413'
+   *       '415':
+   *         $ref: '#/components/responses/Management415'
    */
-  app.post('/agents/task-runs/:runId/:operation', route(handleControlRun));
+  app.post('/task-runs/:runId/:operation', route(handleControlRun));
 }

@@ -125,12 +125,12 @@ pnpm voice:setup
 
 语音管理接口复用 `/agents` 的 Origin 检查与 JSON 请求约束：
 
-- `GET /agents/voice-services`：读取不含密钥的服务列表。
-- `POST /agents/voice-services` / `PUT /agents/voice-services/:id`：创建和更新配置。
-- `DELETE /agents/voice-services/:id`：删除未被引用的配置。
-- `POST /agents/voice-services/:id/preview`：`{ text }`，返回 `audio/wav`，断开请求取消合成。
-- `GET /agents/voice-services/piper/models`：固定模型目录与安装状态。
-- `POST /agents/voice-services/piper/install`：`{ model }`，返回 `202`；同模型复用任务，不同模型同时安装返回 `409`。
+- `GET /voice/tts/services`：读取不含密钥的服务列表。
+- `POST /voice/tts/services` / `PUT /voice/tts/services/:id`：创建和更新配置。
+- `DELETE /voice/tts/services/:id`：删除未被引用的配置。
+- `POST /voice/tts/services/:id/preview`：`{ text }`，返回 `audio/wav`，断开请求取消合成。
+- `GET /voice/tts/piper/models`：固定模型目录与安装状态。
+- `POST /voice/tts/piper/install`：`{ model }`，返回 `202`；同模型复用任务，不同模型同时安装返回 `409`。
 - Agent 创建/更新支持 `voiceServiceId`，`voiceReplies` 仍控制是否发声。
 
 ```sh

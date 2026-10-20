@@ -12,76 +12,34 @@ export function installVoiceServiceRoutes(
     if (!value) throw new AppError('语音服务未就绪。', 503);
     return value;
   };
-  /**
-   * @openapi
-   * /agents/voice-services/piper/models:
-   *   get:
-   *     summary: 查询 Piper 模型目录与安装状态
-   *     tags: [Agents]
-   *     responses:
-   *       200:
-   *         description: 固定中英文模型目录，状态为 missing、installing、installed 或 failed
-   *       503:
-   *         description: 无法连接共享语音服务
-   * /agents/voice-services/piper/install:
-   *   post:
-   *     summary: 后台安装 Piper 模型
-   *     tags: [Agents]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required: [model]
-   *             properties:
-   *               model:
-   *                 type: string
-   *     responses:
-   *       202:
-   *         description: 安装已开始或复用已有任务，通过模型目录查询结果
-   *       400:
-   *         description: 不支持的模型
-   *       409:
-   *         description: 另一个模型正在安装
-   */
-  // Fixed catalog and server-owned downloads; never accept an upstream URL.
-  app.get(
-    '/agents/voice-services/piper/models',
-    route(async (_req, res) => {
-      res.json(await voices().piperModels.list());
-    }),
-  );
-  app.post(
-    '/agents/voice-services/piper/install',
-    route(async (req, res) => {
-      res.status(202).json(voices().piperModels.start(req.body?.model));
-    }),
-  );
 
   /**
    * @openapi
-   * /agents/voice-services:
+   * /voice/tts/services:
    *   get:
-   *     summary: 获取 Agent 语音合成服务配置列表
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 获取语音合成服务配置列表
    *     tags:
-   *       - Agents Voice
+   *       - TTS
    *     responses:
    *       200:
    *         description: 语音服务配置列表
    */
   app.get(
-    '/agents/voice-services',
+    '/voice/tts/services',
     route((_req, res) => res.json(voices().list())),
   );
 
   /**
    * @openapi
-   * /agents/voice-services:
+   * /voice/tts/services:
    *   post:
-   *     summary: 添加新的 Agent 语音合成服务配置
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 添加新的语音合成服务配置
    *     tags:
-   *       - Agents Voice
+   *       - TTS
    *     requestBody:
    *       required: true
    *       content:
@@ -93,7 +51,7 @@ export function installVoiceServiceRoutes(
    *         description: 创建成功
    */
   app.post(
-    '/agents/voice-services',
+    '/voice/tts/services',
     route(async (req, res) =>
       res.status(201).json(await voices().save(req.body)),
     ),
@@ -101,11 +59,13 @@ export function installVoiceServiceRoutes(
 
   /**
    * @openapi
-   * /agents/voice-services/{id}:
+   * /voice/tts/services/{id}:
    *   put:
-   *     summary: 更新 Agent 语音合成服务配置
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 更新语音合成服务配置
    *     tags:
-   *       - Agents Voice
+   *       - TTS
    *     parameters:
    *       - in: path
    *         name: id
@@ -123,7 +83,7 @@ export function installVoiceServiceRoutes(
    *         description: 更新成功
    */
   app.put(
-    '/agents/voice-services/:id',
+    '/voice/tts/services/:id',
     route(async (req, res) =>
       res.json(await voices().save(req.body, String(req.params.id))),
     ),
@@ -131,11 +91,13 @@ export function installVoiceServiceRoutes(
 
   /**
    * @openapi
-   * /agents/voice-services/{id}:
+   * /voice/tts/services/{id}:
    *   delete:
-   *     summary: 删除 Agent 语音合成服务配置
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 删除语音合成服务配置
    *     tags:
-   *       - Agents Voice
+   *       - TTS
    *     parameters:
    *       - in: path
    *         name: id
@@ -147,7 +109,7 @@ export function installVoiceServiceRoutes(
    *         description: 删除成功
    */
   app.delete(
-    '/agents/voice-services/:id',
+    '/voice/tts/services/:id',
     route(async (req, res) => {
       await removeVoice(String(req.params.id));
       res.sendStatus(204);
@@ -156,11 +118,13 @@ export function installVoiceServiceRoutes(
 
   /**
    * @openapi
-   * /agents/voice-services/{id}/preview:
+   * /voice/tts/services/{id}/preview:
    *   post:
-   *     summary: 试听 Agent 语音合成效果
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 试听语音合成效果
    *     tags:
-   *       - Agents Voice
+   *       - TTS
    *     parameters:
    *       - in: path
    *         name: id
@@ -187,7 +151,7 @@ export function installVoiceServiceRoutes(
    *               format: binary
    */
   app.post(
-    '/agents/voice-services/:id/preview',
+    '/voice/tts/services/:id/preview',
     route(async (req, res) => {
       const abort = new AbortController();
       const cancel = () => {

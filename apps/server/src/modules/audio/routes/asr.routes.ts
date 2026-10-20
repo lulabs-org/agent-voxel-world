@@ -17,6 +17,7 @@ export function installAsrRoutes(
     origin,
     message: '仅允许配置的游戏页面管理语音识别。',
     cacheControl: 'no-store',
+    methods: 'GET, POST, PUT, DELETE, OPTIONS',
   });
   app.use('/voice/asr', (req, res, next) => {
     if (
@@ -40,6 +41,8 @@ export function installAsrRoutes(
    * @openapi
    * /voice/asr/services:
    *   get:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 获取 ASR 语音识别服务配置列表
    *     tags:
    *       - ASR
@@ -59,6 +62,8 @@ export function installAsrRoutes(
    * @openapi
    * /voice/asr/services:
    *   post:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 添加新的 ASR 语音识别服务配置
    *     tags:
    *       - ASR
@@ -85,6 +90,8 @@ export function installAsrRoutes(
    * @openapi
    * /voice/asr/services/{id}:
    *   put:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 更新 ASR 语音识别服务配置
    *     tags:
    *       - ASR
@@ -118,6 +125,8 @@ export function installAsrRoutes(
    * @openapi
    * /voice/asr/services/{id}:
    *   delete:
+   *     security:
+   *       - ManagementBearer: []
    *     summary: 删除 ASR 语音识别服务配置
    *     tags:
    *       - ASR

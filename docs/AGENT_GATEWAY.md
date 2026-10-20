@@ -7,8 +7,8 @@ flowchart TD
   Web[Web 控制台] --> Client[GatewayClient]
   CLI[agent:ctl] --> Client
   Client --> RPC[WebSocket RPC /agents/gateway]
-  HTTP[兼容 HTTP /agents] --> Router[CommandRouter]
-  RPC --> Router
+  HTTP[领域 HTTP 路由] --> Registry
+  RPC --> Router[CommandRouter]
   Router --> Registry[AgentRegistry]
   Scheduler[Agent 唤醒与跟随调度] --> Host[AgentHost]
   Router --> Plans[PlanService 全局计划与执行]
@@ -31,7 +31,7 @@ flowchart TD
 
 - `packages/gateway-protocol`：浏览器安全的 RPC v1 类型、公开视图和参数校验，仅依赖共享业务类型。
 - `packages/gateway-client`：宿主注入 socket；处理握手、请求关联、超时、订阅序号、重连和未确认命令查询。不会自动重发写请求。
-- `apps/server/src/modules/gateway`：令牌、HTTP 网关路由装配及其 OpenAPI 契约、socket 适配。
+- `apps/server/src/modules/gateway`：令牌、RPC 命令分发与 socket 适配；HTTP 路由由各领域维护并在 app.ts 装配。
 - `apps/server/src/modules/providers`：`provider-store.ts`（模型提供商配置持久化）、`provider-validation.ts`、`provider-port.ts`、`providers.routes.ts`。
 - `apps/server/src/modules/tasks`：`plans/`（TaskPlan 核心状态机、计划调度与历史）、`tasks-service.ts`（任务领域服务封装）、`tasks.routes.ts`。
 - `apps/server/src/modules/agent`：`agent-orchestrator.ts`（Agent 核心编排调度器）、`agent-manager.ts`（生产依赖注入）、`agent-host.ts`（AgentHost 宿主执行器）、`agent-storage.ts`（存档文件适配）、`agent.routes.ts`。各类校验与实体紧密内聚在各自领域模块中。
@@ -49,7 +49,7 @@ Gateway 按程序规则路由。消息意图仍由 ConversationRunner 判断；�
 
 Web 首次进入控制台输入令牌，按服务地址保存在当前标签页的 sessionStorage，可以清除；认证失败停止重连。每个控制台共享一个 socket，切换分类不会创建新管理连接。断线保留最后数据、禁用写操作，重连重新订阅快照。Agent/任务不再通过两秒轮询刷新。
 
-HTTP `/agents` 与 `/voice/asr/services` 管理接口要求 `Authorization: Bearer <token>`。ASR/TTS 配置仍用 HTTP；实际音频和游戏通道保持原有玩家会话授权。原 HTTP URL、业务参数和响应结构保留。
+HTTP `/agents`、`/providers`、`/tasks`、`/task-runs`、`/voice/tts/**` 与 `/voice/asr/services` 管理接口要求 `Authorization: Bearer <token>`。ASR/TTS 配置仍用 HTTP；实际音频和游戏通道保持原有玩家会话授权。全局资源已从 `/agents` 前缀迁出；前端与 HTTP 客户端须同步升级，业务参数和响应结构保持原样。
 
 ## RPC v1
 
@@ -81,7 +81,7 @@ value 使用现有 HTTP 的业务对象。tasks.\*、runs.control，以及 plans
 
 RPC 公开快照带资源版本和任务身份，不公开模型密钥、原始 Pi 上下文和 runtime。订阅支持 all、agents、agent、plans、runs、providers。先注册变化监听再读取快照，快照期间的更新暂存；每个订阅从 seq=1 开始连续发送。变化只包含资源标识和版本，详情按需读取。发送积压超过 1 MiB 关闭连接并要求重新同步。
 
-同 commandId、同业务内容的并发请求共享结果；不同内容冲突。进行中的记录不淘汰，已结束记录最多 1,024 条、保留 10 分钟。内部指纹使用摘要，不保留明文密钥。HTTP 可选 Idempotency-Key 使用同一命令入口。任务计划原有 requestId 持久去重继续有效。
+同 commandId、同业务内容的并发请求共享结果；不同内容冲突。进行中的记录不淘汰，已结束记录最多 1,024 条、保留 10 分钟。内部指纹使用摘要，不保留明文密钥。HTTP 校验可选 Idempotency-Key 的格式；该头不会自动提供 RPC 的命令去重语义。任务计划原有 requestId 持久去重继续有效。
 
 连接丢失时写请求显示“结果待确认”；重连先查 commands.get 并重取快照。网关重启或记录过期返回 unknown，不能自动重发。此协议不保证所有写操作跨重启 exactly-once。
 
@@ -114,7 +114,7 @@ pnpm agent:ctl watch <agentId>
 
 存档失败会中断受影响 Agent 并停止其后续世界动作，命令不会返回提交成功；修复存储后重启。查询使用已提交快照。正常关闭停止接收写命令和调度，取消执行、等待退出、保存暂停状态、关闭连接；保留原上线意愿以便下次上线待命。
 
-现有 Nginx `/agents` 路由已支持 Upgrade，覆盖 `/agents/gateway`；同一分发器区分 Gateway、实时 ASR 和 Colyseus。Dockerfile 已包含新增工作区依赖，未增加部署端口或容器。升级切换现用服务属于单独部署步骤。
+Nginx 代理覆盖 `/agents`、`/providers`、`/tasks`、`/task-runs`、`/voice`；`/agents/gateway` 保留 Upgrade；同一分发器区分 Gateway、实时 ASR 和 Colyseus。Dockerfile 已包含新增工作区依赖，未增加部署端口或容器。升级切换现用服务属于单独部署步骤。
 
 ## 验证入口
 

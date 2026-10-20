@@ -35,7 +35,7 @@ const connect = (secret = token) => {
   return c;
 };
 const http = (path: string, method = 'GET', body?: unknown, key?: string) =>
-  fetch(server.httpUrl + '/agents' + path, {
+  fetch(server.httpUrl + path, {
     method,
     headers: {
       Origin: origin,
@@ -100,7 +100,7 @@ try {
     { value },
     { commandId: 'create-stable' },
   );
-  const response = await http('', 'POST', value, 'create-stable');
+  const response = await http('/agents', 'POST', value, 'create-stable');
   assert.equal(response.status, 201);
   assert.equal((await response.json()).id, first.id);
   assert.equal((await c.request<any[]>('agents.list')).length, 1);
@@ -124,7 +124,7 @@ try {
   );
   await until(() => server.agents.list()[0].task?.status === 'waiting');
   const duplicateTask = await http(
-    `/${first.id}/task`,
+    `/agents/${first.id}/task`,
     'POST',
     { goal: '等待' },
     'assign',
@@ -166,7 +166,7 @@ try {
   c.close();
   assert.equal(server.agents.list()[0].task?.status, 'waiting');
   assert(server.agents.list()[0].sessionId);
-  const read = await http('');
+  const read = await http('/agents');
   assert.equal(read.status, 200);
   assert.equal((await read.json())[0].id, first.id);
   await until(() => events.some((e) => e.event === 'changed'));

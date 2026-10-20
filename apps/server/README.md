@@ -22,7 +22,7 @@
 | `modules/agent`         | 生产依赖注入、Agent 生命周期编排与配置文件适配               |
 | `modules/providers`     | 模型提供商持久化存储与模型列表服务                           |
 | `modules/tasks`         | 任务计划、运行历史与执行控制领域服务                         |
-| `modules/gateway`       | 管理令牌、WebSocket RPC、HTTP 兼容路由与 OpenAPI 契约        |
+| `modules/gateway`       | 管理令牌、WebSocket RPC 与命令分发        |
 | `modules/audio/asr`     | 本地 Whisper、百炼识别及 ASR 配置                            |
 | `modules/audio/tts`     | Piper、本地/远程合成、音色服务、合成队列与世界内语音投递     |
 | `modules/audio/session` | mock/browser/Ollama 语音会话状态                             |
@@ -30,11 +30,11 @@
 | `modules/realtime`      | 百炼实时会话、工具确认与离线协议模拟器                       |
 | `modules/world`         | 权威物理房间、Schema、世界持久化与在线状态 SSE               |
 
-`local-speech.ts` 属于识别流程，保留在 `asr`。Piper 模型和声音服务的管理路由归 `audio`，HTTP 地址继续为 `/agents/voice-services`；Agent 音色绑定由 Agent 管理器处理，删除服务通过注入回调检查绑定，音频模块不反向依赖 Agent。`agent-storage.ts`、`orchestrator.ts` 留在 `agent` 模块，`provider-store.ts` 归属 `providers` 模块，`task-port.ts`、`task-service.ts`、`task-model.ts` 与 `task-scheduler.ts` 归属 `tasks` 模块。
+`local-speech.ts` 属于识别流程，保留在 `asr`。Piper 模型和声音服务的管理路由归 `audio`，HTTP 地址为 `/voice/tts/services`；Agent 音色绑定由 Agent 管理器处理，删除服务通过注入回调检查绑定，音频模块不反向依赖 Agent。`agent-storage.ts`、`orchestrator.ts` 留在 `agent` 模块，`provider-store.ts` 归属 `providers` 模块，`task-port.ts`、`task-service.ts`、`task-model.ts` 与 `task-scheduler.ts` 归属 `tasks` 模块。
 
 业务错误与通用异常统一使用 `common/errors.ts` 中的 `AppError`。复用 Origin 判断和异常处理机制不意味着统一所有端点的策略：保留语音接口允许无 Origin、管理接口的 Origin 校验、原有预检方法、JSON/原始音频限制以及错误状态和文案。Swagger 递归扫描 `routes` 和 `modules` 下的 `*.routes.ts`。
 
-Agent 托管集合、调度、任务操作和日志完整内聚在 `modules/agent`，计划调度归入 `modules/tasks`，模型提供商归入 `modules/providers`。各模块高内聚低耦合，不再依赖外部编排包。HTTP 装配、接口注释与命令分发统一放在 `modules/gateway/http.routes.ts`。
+Agent 托管集合、调度、任务操作和日志完整内聚在 `modules/agent`，计划调度归入 `modules/tasks`，模型提供商归入 `modules/providers`。各模块高内聚低耦合，不再依赖外部编排包。HTTP 路由和 OpenAPI 注释由各领域维护，`app.ts` 显式装配依赖；Provider 路由仅接收存储、模型查询、删除和变更通知接口。管理端共享 Bearer 鉴权、32 KiB JSON 限制和异常映射，ASR 配置继续使用 8 KiB 限制。
 
 Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端。服务端与 CLI 都通过 `AgentRunner.run()` 进入统一协调器；对话、任务服务和任务执行使用独立职责，CLI 的 `runAgent` 保留自身调度循环。
 
@@ -72,3 +72,11 @@ UI 沙箱统一放在 `test/sandbox`。新增 `asr-services-fixture.ts` 提供�
 任务计划、执行历史和调度规则由 `packages/agent-gateway/src/plans` 管理；`wake-scheduler.ts` 只推进 Agent 消息唤醒、等待检查和本地跟随。服务端保留文件和 HTTP/WebSocket 适配，不拥有第二套计划集合或调度器。
 
 同一 Agent JSON 路径保存 Gateway v1 的 agents/plans/runs/requests 聚合对象，runtime 仍为 v2。升级前独占创建 `.before-task-plan-module-v1.bak`，迁移与保存成功后才能启动恢复。删除角色保留计划与执行历史；聊天执行没有 planId。部署与回滚流程见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。
+
+## HTTP 领域路径
+
+共享模型配置使用 `/providers`，全局计划使用 `/tasks`，运行控制使用 `/task-runs`，TTS 配置和试听使用 `/voice/tts/services`，Piper 模型目录与安装使用 `/voice/tts/piper`。它们与 `/agents`、`/voice/asr/services` 都需要管理员 Bearer 令牌。Agent 音色绑定继续为 `/agents/:id/voice`；聊天音频继续使用 `/chat` 下的玩家会话鉴权。
+
+这些路径替换旧的 `/agents/providers`、`/agents/tasks`、`/agents/task-runs`、`/agents/voice-services`；没有旧路径别名。浏览器、CLI 脚本和外部 HTTP 客户端需要同步升级。WebSocket RPC 方法与 `/agents/gateway` 不变。
+
+Swagger 按领域分组，使用当前站点作为服务器地址；管理令牌与聊天会话令牌使用两个独立的授权入口。

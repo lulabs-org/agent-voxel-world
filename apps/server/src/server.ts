@@ -61,7 +61,7 @@ export async function createServer(options: ServerOptions = {}) {
     config,
     gatewayAuth,
     agents,
-    gateway,
+    voiceServices,
     asrSettings,
     speech: options.speech ?? new LocalSpeech(),
     world: () => world,
