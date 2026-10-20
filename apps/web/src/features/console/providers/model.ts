@@ -10,7 +10,7 @@ export const presets = {
     defaultModel: 'deepseek-flash',
   },
   ollama: {
-    name: '本机 Ollama',
+    name: 'Ollama',
     baseUrl: 'http://127.0.0.1:11434/v1',
     defaultModel: '',
   },

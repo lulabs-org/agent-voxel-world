@@ -1,6 +1,7 @@
 import { AppError } from '../../common/errors';
 import { object, text, integer, boolean } from '../../common/validation';
 import { randomUUID } from 'node:crypto';
+import { isIP } from 'node:net';
 import {
   type AICharacterSettings,
   type ProviderInference,
@@ -33,22 +34,35 @@ export function validateProvider(
     throw new AppError('请输入有效的 API Base URL。');
   }
   const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const hostname = url.hostname.replace(/^\[|\]$/g, '');
+  const [first, second] = hostname.split('.').map(Number);
+  const privateAddress =
+    (isIP(hostname) === 4 &&
+      (first === 10 ||
+        (first === 172 && second >= 16 && second <= 31) ||
+        (first === 192 && second === 168))) ||
+    (isIP(hostname) === 6 &&
+      (parseInt(hostname.split(':')[0], 16) & 0xfe00) === 0xfc00);
+  const ollamaAddress = loopback || privateAddress;
+  const allowHttp = loopback || (type === 'ollama' && ollamaAddress);
   if (
     url.username ||
     url.password ||
     url.search ||
     url.hash ||
-    (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
+    (url.protocol !== 'https:' && !(url.protocol === 'http:' && allowHttp))
   )
     throw new AppError(
-      '接口须为 HTTPS 或本机 HTTP 地址，不能包含密码、查询参数或锚点。',
+      type === 'ollama'
+        ? 'Ollama 接口须使用本机或局域网私有 IP 地址，且为 HTTP 或 HTTPS，不能包含密码、查询参数或锚点。'
+        : '接口须为 HTTPS 或本机 HTTP 地址，不能包含密码、查询参数或锚点。',
     );
   if (type === 'deepseek' && url.origin !== 'https://api.deepseek.com')
     throw new AppError(
       'DeepSeek 使用官方地址；第三方网关请选择 OpenAI 兼容服务。',
     );
-  if (type === 'ollama' && !loopback)
-    throw new AppError('本机 Ollama 仅支持本机地址。');
+  if (type === 'ollama' && !ollamaAddress)
+    throw new AppError('Ollama 仅支持本机或局域网私有 IP 地址。');
   const baseUrl = url.href.replace(/\/$/, '');
   const apiKey = text(input.apiKey, 'API Key', 4096);
   if (

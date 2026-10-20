@@ -61,6 +61,43 @@ describe('provider configuration boundary', () => {
       validateProvider({ name: 'Test', type: 'compatible', baseUrl }),
     ).toThrow();
   });
+  it.each([
+    'http://192.168.31.1:11434/v1',
+    'http://10.0.0.2:11434/v1',
+    'http://172.16.0.1:11434/v1',
+    'http://172.31.255.254:11434/v1',
+    'https://192.168.1.10/v1',
+    'http://[fd12:3456::1]:11434/v1',
+  ])('accepts private-network Ollama endpoint %s', (baseUrl) => {
+    expect(
+      validateProvider({ name: 'LAN', type: 'ollama', baseUrl }).baseUrl,
+    ).toBe(baseUrl);
+  });
+  it.each([
+    'http://8.8.8.8:11434/v1',
+    'https://public.example/v1',
+    'http://172.15.0.1:11434/v1',
+    'http://172.32.0.1:11434/v1',
+    'http://192.169.1.1:11434/v1',
+    'http://169.254.169.254/v1',
+    'http://192.168.31.1.evil.example:11434/v1',
+    'http://user:password@192.168.31.1:11434/v1',
+    'http://192.168.31.1:11434/v1?key=secret',
+    'http://192.168.31.1:11434/v1#key',
+  ])('rejects unsupported Ollama endpoint %s', (baseUrl) => {
+    expect(() =>
+      validateProvider({ name: 'LAN', type: 'ollama', baseUrl }),
+    ).toThrow();
+  });
+  it('keeps private HTTP limited to Ollama', () => {
+    expect(() =>
+      validateProvider({
+        name: 'Test',
+        type: 'compatible',
+        baseUrl: 'http://192.168.31.1/v1',
+      }),
+    ).toThrow();
+  });
   it('does not forward saved credentials when changing origin or provider type', () => {
     const previous = provider();
     expect(() =>

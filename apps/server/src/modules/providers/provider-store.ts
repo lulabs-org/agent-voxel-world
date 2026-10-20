@@ -40,7 +40,7 @@ export class ProviderStore {
         },
         {
           ...validateProvider({
-            name: '本机 Ollama',
+            name: 'Ollama',
             type: 'ollama',
             defaultModel: defaults.ollamaModel,
           }),

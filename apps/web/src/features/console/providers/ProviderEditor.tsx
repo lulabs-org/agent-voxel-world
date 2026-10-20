@@ -71,7 +71,7 @@ export function ProviderEditor({
                 <strong title={p.name}>{p.name}</strong>
                 <small>
                   {p.type === 'ollama'
-                    ? '本机 · 无需密钥'
+                    ? 'Ollama · 无需密钥'
                     : p.hasApiKey
                       ? '密钥已配置'
                       : '尚未配置密钥'}{' '}
@@ -113,7 +113,7 @@ export function ProviderEditor({
               }
             >
               <option value="deepseek">DeepSeek</option>
-              <option value="ollama">本机 Ollama</option>
+              <option value="ollama">Ollama（本机／局域网）</option>
               <option value="compatible">OpenAI 兼容服务</option>
             </select>
           </label>
@@ -127,6 +127,13 @@ export function ProviderEditor({
               onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
             />
           </label>
+          {draft.type === 'ollama' && (
+            <p className="agent-hint">
+              支持本机或局域网私有 IP，例如
+              http://192.168.31.1:11434/v1。地址须能从游戏服务器访问，模型须已安装在目标
+              Ollama 服务上。
+            </p>
+          )}
           {draft.type !== 'ollama' && (
             <label>
               API Key
@@ -180,9 +187,7 @@ export function ProviderEditor({
             </p>
           )}
           {!canReadModels && (
-            <p className="agent-hint">
-              配置并保存服务连接后，即可测试连接。
-            </p>
+            <p className="agent-hint">配置并保存服务连接后，即可测试连接。</p>
           )}
           <section className="agents-form-section">
             <h4>推理设置</h4>
