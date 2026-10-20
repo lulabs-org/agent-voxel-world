@@ -1,5 +1,5 @@
 import type {
-  AgentSettings,
+  AICharacterSettings,
   Material,
   ChatRoute,
   ProviderType,
@@ -127,7 +127,7 @@ export type BatchResult = {
     | 'movement_stalled';
 };
 
-export type AgentConfig = Omit<AgentSettings, 'providerId'> & {
+export type AgentConfig = Omit<AICharacterSettings, 'providerId'> & {
   apiKey: string;
 };
 

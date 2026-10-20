@@ -5,29 +5,29 @@ import type { PlanQueryFilter } from './types';
  */
 export interface TaskPort {
   planPage(params: PlanQueryFilter): unknown;
-  publicPlans(agentId?: string, metadata?: boolean): unknown;
+  publicPlans(characterId?: string, metadata?: boolean): unknown;
   publicPlan(planId: string): unknown;
-  createTaskPlan(agentId: string, value: unknown): Promise<unknown>;
+  createTaskPlan(characterId: string, value: unknown): Promise<unknown>;
   updateTaskPlan(
-    agentId: string | undefined,
+    characterId: string | undefined,
     planId: string,
     value: unknown,
   ): Promise<unknown>;
   controlTaskPlan(
-    agentId: string | undefined,
+    characterId: string | undefined,
     planId: string,
     operation: string,
     value: unknown,
   ): Promise<unknown>;
-  reassignPlan(planId: string, targetAgentId: string): Promise<unknown>;
+  reassignPlan(planId: string, targetCharacterId: string): Promise<unknown>;
   publicRuns(
-    agentId: string | undefined,
+    characterId: string | undefined,
     planId: string,
     offset?: number,
     metadata?: boolean,
   ): unknown;
   controlTaskRun(
-    agentId: string | undefined,
+    characterId: string | undefined,
     runId: string,
     operation: string,
     value: unknown,
@@ -46,54 +46,54 @@ export class TasksService {
     return this.tasks.planPage(params);
   }
 
-  listAgentPlans(agentId: string) {
-    return this.tasks.publicPlans(agentId);
+  listAgentPlans(characterId: string) {
+    return this.tasks.publicPlans(characterId);
   }
 
   getPlan(planId: string) {
     return this.tasks.publicPlan(planId);
   }
 
-  createPlan(agentId: string, value: unknown) {
-    return this.tasks.createTaskPlan(agentId, value);
+  createPlan(characterId: string, value: unknown) {
+    return this.tasks.createTaskPlan(characterId, value);
   }
 
-  updatePlan(agentId: string | undefined, planId: string, value: unknown) {
-    return this.tasks.updateTaskPlan(agentId, planId, value);
+  updatePlan(characterId: string | undefined, planId: string, value: unknown) {
+    return this.tasks.updateTaskPlan(characterId, planId, value);
   }
 
-  deletePlan(agentId: string | undefined, planId: string) {
-    return this.tasks.controlTaskPlan(agentId, planId, 'delete', {});
+  deletePlan(characterId: string | undefined, planId: string) {
+    return this.tasks.controlTaskPlan(characterId, planId, 'delete', {});
   }
 
-  reassignPlan(planId: string, targetAgentId: string) {
-    return this.tasks.reassignPlan(planId, targetAgentId);
+  reassignPlan(planId: string, targetCharacterId: string) {
+    return this.tasks.reassignPlan(planId, targetCharacterId);
   }
 
   listRuns(
-    agentId: string | undefined,
+    characterId: string | undefined,
     planId: string,
     offset = 0,
     metadata = true,
   ) {
-    return this.tasks.publicRuns(agentId, planId, offset, metadata);
+    return this.tasks.publicRuns(characterId, planId, offset, metadata);
   }
 
   controlPlan(
-    agentId: string | undefined,
+    characterId: string | undefined,
     planId: string,
     operation: string,
     value: unknown,
   ) {
-    return this.tasks.controlTaskPlan(agentId, planId, operation, value);
+    return this.tasks.controlTaskPlan(characterId, planId, operation, value);
   }
 
   controlRun(
-    agentId: string | undefined,
+    characterId: string | undefined,
     runId: string,
     operation: string,
     value: unknown,
   ) {
-    return this.tasks.controlTaskRun(agentId, runId, operation, value);
+    return this.tasks.controlTaskRun(characterId, runId, operation, value);
   }
 }

@@ -1,11 +1,11 @@
 import type {
-  ManagedAgentView,
+  AICharacterView,
   TaskPlan,
   TaskPlanDraft,
   TaskRunPage,
 } from '@voxel/shared';
 import type {
-  PublicAgentView,
+  PublicAICharacterView,
   PublicPlanView,
   RpcParams,
   TaskIdentity,
@@ -13,9 +13,9 @@ import type {
 import { consoleFetch } from '../request';
 
 export const displayedTaskIdentity = (
-  view?: ManagedAgentView,
+  view?: AICharacterView,
 ): TaskIdentity | null =>
-  (view as PublicAgentView | undefined)?.taskIdentity ?? null;
+  (view as PublicAICharacterView | undefined)?.taskIdentity ?? null;
 
 export type PlanPage = {
   items: PublicPlanView[];
@@ -28,8 +28,10 @@ export const tasksApi = {
     const params = new URLSearchParams();
     if (filters.state) params.set('state', String(filters.state));
     if (filters.search) params.set('search', String(filters.search));
-    if (filters.offset !== undefined) params.set('offset', String(filters.offset));
-    if (filters.agentId) params.set('agentId', String(filters.agentId));
+    if (filters.offset !== undefined)
+      params.set('offset', String(filters.offset));
+    if (filters.characterId)
+      params.set('characterId', String(filters.characterId));
     const qs = params.toString();
     const path = `/tasks${qs ? `?${qs}` : ''}`;
     return consoleFetch<PlanPage>(path, { signal });
@@ -41,18 +43,21 @@ export const tasksApi = {
     }),
 
   save: (
-    agentId: string,
+    characterId: string,
     draft: TaskPlanDraft,
     previous?: TaskPlan,
     requestId?: string,
   ) => {
-    const targetAgentId = previous?.agentId ?? agentId;
-    const body = { ...draft, requestId, agentId: targetAgentId };
+    const targetCharacterId = previous?.characterId ?? characterId;
+    const body = { ...draft, requestId, characterId: targetCharacterId };
     if (previous?.id) {
-      return consoleFetch<TaskPlan>(`/tasks/${encodeURIComponent(previous.id)}`, {
-        method: 'PUT',
-        body,
-      });
+      return consoleFetch<TaskPlan>(
+        `/tasks/${encodeURIComponent(previous.id)}`,
+        {
+          method: 'PUT',
+          body,
+        },
+      );
     }
     return consoleFetch<TaskPlan>('/tasks', {
       method: 'POST',
@@ -60,11 +65,10 @@ export const tasksApi = {
     });
   },
 
-  delete: (planId: string, agentId?: string) =>
-    consoleFetch<void>(
-      `/tasks/${encodeURIComponent(planId)}`,
-      { method: 'DELETE' },
-    ),
+  delete: (planId: string, characterId?: string) =>
+    consoleFetch<void>(`/tasks/${encodeURIComponent(planId)}`, {
+      method: 'DELETE',
+    }),
 
   control: (
     plan: TaskPlan,
@@ -77,17 +81,17 @@ export const tasksApi = {
       method: 'POST',
       body: {
         ...value,
-        agentId: plan.agentId,
+        characterId: plan.characterId,
         expectedPlanRevision: plan.revision,
         expectedTask,
       },
     });
   },
 
-  reassign: (plan: TaskPlan, targetAgentId: string) =>
+  reassign: (plan: TaskPlan, targetCharacterId: string) =>
     consoleFetch(`/tasks/${encodeURIComponent(plan.id)}/reassign`, {
       method: 'POST',
-      body: { targetAgentId },
+      body: { targetCharacterId },
     }),
 
   runs: (planId: string, offset = 0, signal?: AbortSignal) => {

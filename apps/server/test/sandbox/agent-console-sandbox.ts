@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Session, until, AgentRunner } from '@voxel/agent-runtime';
-import { AgentManager } from '../../src/modules/agent';
+import { AICharacterManager } from '../../src/modules/ai-characters';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 process.env.DATABASE_URL = '';
@@ -13,7 +13,7 @@ process.env.VOICE_PROVIDER = 'mock';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5189';
 const dir = await mkdtemp(join(tmpdir(), 'agent-console-'));
 let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
-let manager: AgentManager | undefined;
+let manager: AICharacterManager | undefined;
 let calls = 0;
 try {
   const providers = new ProviderStore(join(dir, 'providers.json'));
@@ -64,10 +64,10 @@ try {
         }),
     },
   });
-  manager = server.agents;
+  manager = server.characters;
   const app = server.app;
   app.get('/fixture-status', (_req, res) =>
-    res.json({ calls, agents: manager!.list() }),
+    res.json({ calls, characters: manager!.list() }),
   );
   const a = manager.create({
     providerId: 'deepseek',

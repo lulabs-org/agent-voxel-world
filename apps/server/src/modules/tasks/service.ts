@@ -24,8 +24,8 @@ export class TaskPlanService {
     if (!r) throw new AppError('执行不存在。', 404);
     return r;
   }
-  assertBinding(planId: string, agentId: string) {
-    if (this.get(planId).agentId !== agentId)
+  assertBinding(planId: string, characterId: string) {
+    if (this.get(planId).characterId !== characterId)
       throw new AppError('计划执行角色已改变，请刷新后重试。', 409);
   }
   assertRevision(id: string, revision: number | undefined) {
@@ -46,8 +46,8 @@ export class TaskPlanService {
     if (p.state === 'archived') throw new AppError('已归档计划不能改派。', 409);
     if (this.unfinished(id))
       throw new AppError('请先结束该计划所有未结束的执行。', 409);
-    p.agentId = agent.id;
-    p.agentName = agent.name;
+    p.characterId = agent.id;
+    p.characterName = agent.name;
     p.state = 'paused';
     p.reason = '执行角色已改变，请明确启用或立即执行。';
     delete p.nextRunAt;
@@ -57,7 +57,7 @@ export class TaskPlanService {
   control(id: string, operation: string, value: unknown) {
     const plan = this.get(id);
     if (plan.state === 'archived') throw new AppError('计划已归档。');
-    if (operation === 'resume' && !plan.agentId)
+    if (operation === 'resume' && !plan.characterId)
       throw new AppError('请先指派执行角色。', 409);
     if (operation === 'pause') {
       plan.state = 'paused';
@@ -102,10 +102,10 @@ export class TaskPlanService {
     this.touch(plan);
     return structuredClone(plan);
   }
-  detach(agentId: string, name?: string) {
-    for (const p of this.plans.filter((p) => p.agentId === agentId)) {
-      if (name) p.agentName = name;
-      delete p.agentId;
+  detach(characterId: string, name?: string) {
+    for (const p of this.plans.filter((p) => p.characterId === characterId)) {
+      if (name) p.characterName = name;
+      delete p.characterId;
       if (!['completed', 'archived'].includes(p.state)) {
         p.state = 'paused';
         p.reason = '执行角色已删除，请重新指派。';
@@ -114,9 +114,9 @@ export class TaskPlanService {
       this.touch(p);
     }
   }
-  views(agentId?: string) {
+  views(characterId?: string) {
     return this.plans
-      .filter((p) => !agentId || p.agentId === agentId)
+      .filter((p) => !characterId || p.characterId === characterId)
       .map((p) => {
         const latest = this.runs
           .filter((r) => r.planId === p.id && r.source !== 'chat')

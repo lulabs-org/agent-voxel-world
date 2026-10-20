@@ -113,7 +113,7 @@ const profileTaskExclusion = {
 };
 
 export const apiSchemas = {
-  AgentCreate: {
+  AICharacterCreate: {
     type: 'object',
     required: ['providerId', 'name'],
     description:
@@ -124,7 +124,7 @@ export const apiSchemas = {
       joinWorld: { type: 'boolean', default: true },
     },
   },
-  AgentProfileUpdate: {
+  AICharacterProfileUpdate: {
     type: 'object',
     description:
       '只更新角色配置，不创建或替换任务；省略字段沿用原值。startTask、taskTimeZone 和非空 goal 返回 400；空 goal 不会清空已有任务。',
@@ -138,16 +138,16 @@ export const apiSchemas = {
   },
   TaskPlanCreate: {
     type: 'object',
-    required: ['agentId', 'name', 'goal', 'timeZone', 'timing'],
+    required: ['characterId', 'name', 'goal', 'timeZone', 'timing'],
     properties: {
       ...planProperties,
-      agentId: text,
+      characterId: text,
       requestId: { ...text, description: '重试创建时复用的请求标识' },
     },
   },
   TaskPlanUpdate: {
     type: 'object',
-    properties: { ...planProperties, agentId: text },
+    properties: { ...planProperties, characterId: text },
     description: '省略的字段沿用已有计划值',
   },
   TaskPlan: {
@@ -156,8 +156,8 @@ export const apiSchemas = {
     properties: {
       ...planProperties,
       id: text,
-      agentId: text,
-      agentName: text,
+      characterId: text,
+      characterName: text,
       revision: integer,
       state: { ...text, enum: ['enabled', 'paused', 'completed', 'archived'] },
       reason: text,
@@ -174,8 +174,8 @@ export const apiSchemas = {
     properties: {
       id: text,
       planId: text,
-      agentId: text,
-      agentName: text,
+      characterId: text,
+      characterName: text,
       source: { ...text, enum: ['scheduled', 'manual', 'chat', 'legacy'] },
       status: text,
       reason: text,
@@ -207,7 +207,7 @@ export const apiSchemas = {
       nextOffset: integer,
     },
   },
-  AgentView: {
+  AICharacterView: {
     type: 'object',
     required: ['id', 'name', 'status'],
     properties: { id: text, name: text, status: text, task: object },
@@ -216,7 +216,7 @@ export const apiSchemas = {
   TaskControl: {
     type: 'object',
     properties: {
-      agentId: text,
+      characterId: text,
       tokens: {
         ...integer,
         minimum: 1000,

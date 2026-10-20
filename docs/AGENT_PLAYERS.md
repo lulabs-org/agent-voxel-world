@@ -110,16 +110,16 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 通用服务必须兼容 OpenAI **Chat Completions** 的 SSE 流式响应、工具调用及 `tool_choice=required`；不支持时明确报错，不降级到 JSON 文本解析。原生 Anthropic/Responses 等接口本期未接入。可在兼容设置中选择 `max_tokens` 或 `max_completion_tokens`。旧 `jsonMode` 字段可读取但不再生效，控制台已移除该选项。DeepSeek 专用思考字段不会发给其他服务商。本机 Ollama 使用 `http://127.0.0.1:11434/v1`，先在 Ollama 下载模型，再获取列表；配置 Ollama 失败不影响使用 DeepSeek。[Ollama 官方兼容接口说明](https://docs.ollama.com/api/openai-compatibility)。
 
-管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /providers` 返回脱敏配置，`POST/PUT/DELETE /providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /providers/:id/models` 查询模型，`GET/POST /agents` 查看/创建玩家（默认创建后上线待命，`joinWorld: false` 仅保存离线角色；不创建任务、不调用模型），`DELETE /agents/:id` 停止并删除角色，保留计划及历史，`PUT /agents/:id` 保存已有 Agent 参数（不创建或替换任务），`POST /agents/:id/join` 仅加入世界待命，`POST /agents/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
+管理 API 仅接受 `WEB_ORIGIN` 指定页面的 Origin，世界服务仍只绑定本机。`GET /providers` 返回脱敏配置，`POST/PUT/DELETE /providers[/id]` 管理服务商，已有可复用 Agent 关联的服务商不能删除。`GET /providers/:id/models` 查询模型，`GET/POST /ai-characters` 查看/创建玩家（默认创建后上线待命，`joinWorld: false` 仅保存离线角色；不创建任务、不调用模型），`DELETE /ai-characters/:id` 停止并删除角色，保留计划及历史，`PUT /ai-characters/:id` 保存已有 Agent 参数（不创建或替换任务），`POST /ai-characters/:id/join` 仅加入世界待命，`POST /ai-characters/:id/stop` 离开世界并暂停执行中的任务。写请求使用 JSON。它是本机原型的管理接口，不应直接暴露到公网。
 
 创建和更新 Agent 不再接受 `startTask`（包括 false）、`taskTimeZone` 或非空 `goal`，返回 400 并提示使用 Tasks；空 `goal` 兼容旧请求，但不会清空或替换当前任务。任务目标从任务 API 写入，查询角色时仍可展示当前任务摘要。已有存档、执行进度、用量和历史保持不变。
 
 ### 任务管理 API
 
-以下接口沿用 `/agents` 的 Origin 与 JSON 校验。Web 使用 `features/console/tasks/api.ts` 调用任务领域 HTTP；CLI 使用 Gateway 的 plans/runs RPC。两者都按计划或执行 ID 定位资源，不隐式操作角色当前任务。
+以下接口沿用 `/ai-characters` 的 Origin 与 JSON 校验。Web 使用 `features/console/tasks/api.ts` 调用任务领域 HTTP；CLI 使用 Gateway 的 plans/runs RPC。两者都按计划或执行 ID 定位资源，不隐式操作角色当前任务。
 
-| 接口                                                          | 用途                                |
-| ------------------------------------------------------------- | ----------------------------------- |
+| 接口                                               | 用途                                |
+| -------------------------------------------------- | ----------------------------------- |
 | `GET/POST /tasks`                                  | 安排摘要列表 / 创建                 |
 | `PUT /tasks/:planId`                               | 修改未来安排                        |
 | `POST /tasks/:planId/run`                          | 手动新增执行，必须提供 `requestId`  |

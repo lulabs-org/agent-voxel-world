@@ -1,15 +1,15 @@
-import type { ManagedAgentView } from '@voxel/shared';
-import { agentPermissions } from '@voxel/shared';
+import type { AICharacterView } from '@voxel/shared';
+import { aiCharacterPermissions } from '@voxel/shared';
 import { useEffect, useState } from 'react';
 import type { ConsoleController } from '../useConsoleController';
-import { AgentForm } from './AgentForm';
-import { AgentLogViewer } from './AgentLogViewer';
-import { DeleteAgentDialog } from './DeleteAgentDialog';
-import { agentPresentation } from './presentation/agent-presentation';
+import { AICharacterForm } from './AICharacterForm';
+import { AICharacterLogViewer } from './AICharacterLogViewer';
+import { DeleteAICharacterDialog } from './DeleteAICharacterDialog';
+import { aiCharacterPresentation } from './presentation/agent-presentation';
 
-export function AgentDetail(
+export function AICharacterDetail(
   props: ConsoleController & {
-    job: ManagedAgentView;
+    job: AICharacterView;
     active: boolean;
     disabled: boolean;
     capacityFull: boolean;
@@ -36,7 +36,7 @@ export function AgentDetail(
   }, [job.id]);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const state = agentPresentation(job);
+  const state = aiCharacterPresentation(job);
   const editing = showAgentForm && editingAgent === job.id;
   return (
     <article className="agents-detail" aria-label={`${job.name}的工作区`}>
@@ -59,7 +59,7 @@ export function AgentDetail(
       </div>
       <div className="agents-presence-bar">
         <p>
-          {!agentPermissions(job).chat
+          {!aiCharacterPermissions(job).chat
             ? '发送聊天已关闭，AI 角色不会发送文字或语音回复。可在控制台安排任务和查看进展。'
             : state.online
               ? '可在世界中私聊或 @ 交流。关闭控制台后仍保持在线。'
@@ -133,7 +133,7 @@ export function AgentDetail(
       </nav>
       {editing ? (
         <>
-          <AgentForm {...props} disabled={disabled || !state.canEdit} />
+          <AICharacterForm {...props} disabled={disabled || !state.canEdit} />
           <section className="agents-delete-section" aria-label="删除 AI 角色">
             <div className="agents-delete-heading">
               <div>
@@ -156,7 +156,7 @@ export function AgentDetail(
               </button>
             </div>
             {confirmDelete && (
-              <DeleteAgentDialog
+              <DeleteAICharacterDialog
                 name={job.name}
                 busy={props.busy}
                 disabled={disabled || job.status === 'stopping'}
@@ -168,7 +168,7 @@ export function AgentDetail(
           </section>
         </>
       ) : (
-        <AgentLogViewer job={job} />
+        <AICharacterLogViewer job={job} />
       )}
     </article>
   );

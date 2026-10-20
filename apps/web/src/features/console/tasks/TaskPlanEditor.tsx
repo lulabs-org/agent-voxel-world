@@ -4,7 +4,7 @@ import {
   wallClockInstant,
   type TaskPlan,
   type TaskPlanDraft,
-  type ManagedAgentView,
+  type AICharacterView,
 } from '@voxel/shared';
 import { useState } from 'react';
 import { TaskLimitSettings } from './TaskLimitSettings';
@@ -28,20 +28,20 @@ export function TaskPlanEditor({
   blocked,
   onSave,
   onCancel,
-  agents,
+  characters,
 }: {
   plan?: TaskPlan;
   busy: boolean;
   blocked: string;
-  agents: ManagedAgentView[];
+  characters: AICharacterView[];
   onSave: (
     draft: TaskPlanDraft,
     requestId: string,
-    agentId: string,
+    characterId: string,
   ) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [agentId, setAgentId] = useState(plan?.agentId ?? '');
+  const [characterId, setCharacterId] = useState(plan?.characterId ?? '');
   const [requestId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<TaskPlanDraft>(
     () =>
@@ -67,7 +67,7 @@ export function TaskPlanEditor({
   );
   const [error, setError] = useState('');
   const repeating = isRepeating(draft.timing);
-  const target = agents.find((a) => a.id === agentId);
+  const target = characters.find((a) => a.id === characterId);
   blocked = !target
     ? '请选择执行角色'
     : !target.sessionId
@@ -101,7 +101,7 @@ export function TaskPlanEditor({
           }
           timing = { kind: 'once', at: instant };
         }
-        await onSave({ ...draft, timing }, requestId, agentId);
+        await onSave({ ...draft, timing }, requestId, characterId);
       }}
     >
       <div className="console-panel-heading plans-editor-heading">
@@ -116,7 +116,10 @@ export function TaskPlanEditor({
         </div>
       </div>
       <fieldset disabled={busy}>
-        <div className="agents-form-section" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+        <div
+          className="characters-form-section"
+          style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}
+        >
           <h4>基本目标</h4>
           <div className="agent-grid">
             <label>
@@ -124,11 +127,11 @@ export function TaskPlanEditor({
               <select
                 required={!plan}
                 disabled={!!plan}
-                value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
+                value={characterId}
+                onChange={(e) => setCharacterId(e.target.value)}
               >
                 <option value="">{plan ? '待指派' : '请选择执行角色'}</option>
-                {agents.map((a) => (
+                {characters.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
                     {!a.sessionId ? ' · 离线' : ''}
@@ -162,152 +165,157 @@ export function TaskPlanEditor({
             />
           </label>
         </div>
-        <div className="agents-form-section">
+        <div className="characters-form-section">
           <h4>调度与触发</h4>
           <label>
             执行方式
-          <select
-            value={draft.timing.kind}
-            onChange={(e) => {
-              const kind = e.target.value as TaskPlanDraft['timing']['kind'];
-              setDraft({
-                ...draft,
-                timing:
-                  kind === 'once'
-                    ? { kind, at: Date.now() + 3600000 }
-                    : kind === 'interval'
-                      ? { kind, everyMs: 3600000 }
-                      : kind === 'daily'
-                        ? { kind, time: '09:00' }
-                        : kind === 'weekly'
-                          ? { kind, time: '09:00', weekdays: [1] }
-                          : { kind: 'immediate' },
-              });
-              if (kind === 'interval') setIntervalUnit(3600000);
-            }}
-          >
-            <option value="immediate">立即执行一次</option>
-            <option value="once">指定时间执行一次</option>
-            <option value="interval">重复 · 固定间隔</option>
-            <option value="daily">重复 · 每天</option>
-            <option value="weekly">重复 · 每周</option>
-          </select>
-        </label>
-        {draft.timing.kind === 'once' && (
-          <label>
-            执行日期和时间
-            <input
-              type="datetime-local"
-              name="executeAt"
-              required
-              defaultValue={at}
-              onChange={(e) => setAt(e.target.value)}
-            />
+            <select
+              value={draft.timing.kind}
+              onChange={(e) => {
+                const kind = e.target.value as TaskPlanDraft['timing']['kind'];
+                setDraft({
+                  ...draft,
+                  timing:
+                    kind === 'once'
+                      ? { kind, at: Date.now() + 3600000 }
+                      : kind === 'interval'
+                        ? { kind, everyMs: 3600000 }
+                        : kind === 'daily'
+                          ? { kind, time: '09:00' }
+                          : kind === 'weekly'
+                            ? { kind, time: '09:00', weekdays: [1] }
+                            : { kind: 'immediate' },
+                });
+                if (kind === 'interval') setIntervalUnit(3600000);
+              }}
+            >
+              <option value="immediate">立即执行一次</option>
+              <option value="once">指定时间执行一次</option>
+              <option value="interval">重复 · 固定间隔</option>
+              <option value="daily">重复 · 每天</option>
+              <option value="weekly">重复 · 每周</option>
+            </select>
           </label>
-        )}
-        {draft.timing.kind === 'interval' && (
-          <div className="agent-grid">
+          {draft.timing.kind === 'once' && (
             <label>
-              每隔
+              执行日期和时间
               <input
-                type="number"
-                min={1}
-                max={(31 * 86400000) / intervalUnit}
+                type="datetime-local"
+                name="executeAt"
                 required
-                value={draft.timing.everyMs / intervalUnit}
+                defaultValue={at}
+                onChange={(e) => setAt(e.target.value)}
+              />
+            </label>
+          )}
+          {draft.timing.kind === 'interval' && (
+            <div className="agent-grid">
+              <label>
+                每隔
+                <input
+                  type="number"
+                  min={1}
+                  max={(31 * 86400000) / intervalUnit}
+                  required
+                  value={draft.timing.everyMs / intervalUnit}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      timing: {
+                        kind: 'interval',
+                        everyMs: e.target.valueAsNumber * intervalUnit,
+                      },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                间隔单位
+                <select
+                  value={intervalUnit}
+                  onChange={(e) => {
+                    const unit = Number(e.target.value);
+                    setIntervalUnit(unit);
+                    setDraft({
+                      ...draft,
+                      timing: {
+                        kind: 'interval',
+                        everyMs:
+                          (draft.timing.kind === 'interval'
+                            ? draft.timing.everyMs / intervalUnit
+                            : 1) * unit,
+                      },
+                    });
+                  }}
+                >
+                  <option value={60000}>分钟</option>
+                  <option value={3600000}>小时</option>
+                </select>
+              </label>
+            </div>
+          )}
+          {(draft.timing.kind === 'daily' ||
+            draft.timing.kind === 'weekly') && (
+            <label>
+              执行时间
+              <input
+                type="time"
+                name="calendarTime"
+                required
+                defaultValue={draft.timing.time}
                 onChange={(e) =>
                   setDraft({
                     ...draft,
                     timing: {
-                      kind: 'interval',
-                      everyMs: e.target.valueAsNumber * intervalUnit,
-                    },
+                      ...draft.timing,
+                      ...{ time: e.target.value },
+                    } as TaskPlanDraft['timing'],
                   })
                 }
               />
             </label>
-            <label>
-              间隔单位
-              <select
-                value={intervalUnit}
-                onChange={(e) => {
-                  const unit = Number(e.target.value);
-                  setIntervalUnit(unit);
-                  setDraft({
-                    ...draft,
-                    timing: {
-                      kind: 'interval',
-                      everyMs:
-                        (draft.timing.kind === 'interval'
-                          ? draft.timing.everyMs / intervalUnit
-                          : 1) * unit,
-                    },
-                  });
-                }}
-              >
-                <option value={60000}>分钟</option>
-                <option value={3600000}>小时</option>
-              </select>
-            </label>
-          </div>
-        )}
-        {(draft.timing.kind === 'daily' || draft.timing.kind === 'weekly') && (
-          <label>
-            执行时间
-            <input
-              type="time"
-              name="calendarTime"
-              required
-              defaultValue={draft.timing.time}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  timing: {
-                    ...draft.timing,
-                    ...{ time: e.target.value },
-                  } as TaskPlanDraft['timing'],
-                })
-              }
-            />
-          </label>
-        )}
-        {draft.timing.kind === 'weekly' && (
-          <div className="plans-weekday-chips task-weekdays" role="group" aria-label="执行星期">
-            {[1, 2, 3, 4, 5, 6, 0].map((day) => (
-              <label key={day}>
-                <input
-                  type="checkbox"
-                  checked={
-                    draft.timing.kind === 'weekly' &&
-                    draft.timing.weekdays.includes(day)
-                  }
-                  onChange={(e) => {
-                    if (draft.timing.kind === 'weekly')
-                      setDraft({
-                        ...draft,
-                        timing: {
-                          ...draft.timing,
-                          weekdays: e.target.checked
-                            ? [...draft.timing.weekdays, day]
-                            : draft.timing.weekdays.filter((d) => d !== day),
-                        },
-                      });
-                  }}
-                />
-                周{'日一二三四五六'[day]}
-              </label>
-            ))}
-          </div>
-        )}
-        <p className="agent-hint">
-          时区：{draft.timeZone}
-          {draft.timing.kind === 'interval'
-            ? ' · 以创建时刻为起点，首次在一个间隔后执行。'
-            : ''}
-          {repeating ? ' 每次独立执行，忙碌或离线时跳过，不补跑。' : ''}
-        </p>
+          )}
+          {draft.timing.kind === 'weekly' && (
+            <div
+              className="plans-weekday-chips task-weekdays"
+              role="group"
+              aria-label="执行星期"
+            >
+              {[1, 2, 3, 4, 5, 6, 0].map((day) => (
+                <label key={day}>
+                  <input
+                    type="checkbox"
+                    checked={
+                      draft.timing.kind === 'weekly' &&
+                      draft.timing.weekdays.includes(day)
+                    }
+                    onChange={(e) => {
+                      if (draft.timing.kind === 'weekly')
+                        setDraft({
+                          ...draft,
+                          timing: {
+                            ...draft.timing,
+                            weekdays: e.target.checked
+                              ? [...draft.timing.weekdays, day]
+                              : draft.timing.weekdays.filter((d) => d !== day),
+                          },
+                        });
+                    }}
+                  />
+                  周{'日一二三四五六'[day]}
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="agent-hint">
+            时区：{draft.timeZone}
+            {draft.timing.kind === 'interval'
+              ? ' · 以创建时刻为起点，首次在一个间隔后执行。'
+              : ''}
+            {repeating ? ' 每次独立执行，忙碌或离线时跳过，不补跑。' : ''}
+          </p>
         </div>
-        <div className="agents-form-section">
+        <div className="characters-form-section">
           <h4>执行限制与资源预算</h4>
           <TaskLimitSettings
             value={draft.limits}
@@ -317,39 +325,41 @@ export function TaskPlanEditor({
               <label style={{ marginTop: 14 }}>
                 计划累计 token 额度
                 <input
-                type="number"
-                required
-                min={Math.max(1000, plan?.spentTokens ?? 0)}
-                max={1000000000}
-                value={draft.totalTokenBudget}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    totalTokenBudget: e.target.valueAsNumber,
-                  })
-                }
-              />
-              <small>所有执行（含手动执行）共用此额度，用尽后暂停计划。</small>
-            </label>
+                  type="number"
+                  required
+                  min={Math.max(1000, plan?.spentTokens ?? 0)}
+                  max={1000000000}
+                  value={draft.totalTokenBudget}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      totalTokenBudget: e.target.valueAsNumber,
+                    })
+                  }
+                />
+                <small>
+                  所有执行（含手动执行）共用此额度，用尽后暂停计划。
+                </small>
+              </label>
+            )}
+          </TaskLimitSettings>
+          {plan && (
+            <p className="agent-hint">
+              仅影响未来执行。已有执行的目标、进度和额度保持原样。
+            </p>
           )}
-        </TaskLimitSettings>
-        {plan && (
-          <p className="agent-hint">
-            仅影响未来执行。已有执行的目标、进度和额度保持原样。
-          </p>
-        )}
-        {!plan && draft.timing.kind === 'immediate' && blocked && (
-          <p role="status" className="agent-hint">
-            {blocked}，可以先保存一个定时安排。
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="agent-error">
-            {error}
-          </p>
-        )}
+          {!plan && draft.timing.kind === 'immediate' && blocked && (
+            <p role="status" className="agent-hint">
+              {blocked}，可以先保存一个定时安排。
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="agent-error">
+              {error}
+            </p>
+          )}
         </div>
-        <div className="agents-form-footer">
+        <div className="characters-form-footer">
           <button
             className="primary"
             disabled={!plan && draft.timing.kind === 'immediate' && !!blocked}

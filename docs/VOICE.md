@@ -123,7 +123,7 @@ pnpm voice:setup
 
 ## 接口与验证
 
-语音管理接口复用 `/agents` 的 Origin 检查与 JSON 请求约束：
+语音管理接口复用 `/ai-characters` 的 Origin 检查与 JSON 请求约束：
 
 - `GET /voice/tts/services`：读取不含密钥的服务列表。
 - `POST /voice/tts/services` / `PUT /voice/tts/services/:id`：创建和更新配置。

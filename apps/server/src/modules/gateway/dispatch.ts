@@ -28,17 +28,23 @@ export async function invokeGateway(
       )
     ) {
       const plan = g.plans.get(p.planId!);
-      if (originalParams.agentId && plan.agentId !== originalParams.agentId)
+      if (
+        originalParams.characterId &&
+        plan.characterId !== originalParams.characterId
+      )
         throw new GatewayError('计划执行角色已改变。', 'CONFLICT', 409);
-      p.agentId = plan.agentId;
+      p.characterId = plan.characterId;
       if (['plans.update', 'plans.control', 'plans.reassign'].includes(method))
         g.plans.assertRevision(plan.id, p.expectedPlanRevision);
     }
     if (method === 'runs.control') {
       const run = g.plans.run(p.runId!);
-      if (originalParams.agentId && run.agentId !== originalParams.agentId)
+      if (
+        originalParams.characterId &&
+        run.characterId !== originalParams.characterId
+      )
         throw new GatewayError('执行角色不匹配。', 'CONFLICT', 409);
-      p.agentId = run.agentId;
+      p.characterId = run.characterId;
     }
   };
   const view = () =>
@@ -59,7 +65,7 @@ export async function invokeGateway(
           'CONFLICT',
           409,
         );
-      const current = g.taskIdentity(p.agentId!) ?? null;
+      const current = g.taskIdentity(p.characterId!) ?? null;
       if (
         p.expectedTask === null
           ? current !== null
@@ -76,62 +82,62 @@ export async function invokeGateway(
     const since = g.storageRevision;
     if (isWrite(method))
       g.assertWritable(
-        ['agents.stop', 'agents.delete'].includes(method)
+        ['characters.stop', 'characters.delete'].includes(method)
           ? undefined
-          : p.agentId,
+          : p.characterId,
       );
     const value = p.value ?? {};
     let result: unknown;
     switch (method) {
       case 'gateway.status':
-        return { version: 1, resourceVersion: g.events.version };
+        return { version: 2, resourceVersion: g.events.version };
       case 'commands.get':
         return g.commands.get(p.commandId ?? '');
-      case 'agents.list':
+      case 'characters.list':
         return view();
-      case 'agents.get': {
-        const a = view().find((a) => a.id === p.agentId);
+      case 'characters.get': {
+        const a = view().find((a) => a.id === p.characterId);
         if (!a) throw new GatewayError('Agent 不存在。', 'NOT_FOUND', 404);
         return a;
       }
-      case 'agents.create':
+      case 'characters.create':
         result = g.create(value);
         break;
-      case 'agents.update':
-        result = await g.update(p.agentId!, value);
+      case 'characters.update':
+        result = await g.update(p.characterId!, value);
         break;
-      case 'agents.join':
-        result = g.join(p.agentId!);
+      case 'characters.join':
+        result = g.join(p.characterId!);
         break;
-      case 'agents.stop':
-        result = g.stop(p.agentId!);
-        await g.settled(p.agentId!);
+      case 'characters.stop':
+        result = g.stop(p.characterId!);
+        await g.settled(p.characterId!);
         break;
-      case 'agents.delete':
-        result = await g.remove(p.agentId!);
+      case 'characters.delete':
+        result = await g.remove(p.characterId!);
         break;
-      case 'agents.voice':
-        result = await g.setVoice(p.agentId!, value);
+      case 'characters.voice':
+        result = await g.setVoice(p.characterId!, value);
         break;
       case 'plans.list':
         return g.tasks.planPage(p);
       case 'plans.get':
         return g.tasks.publicPlan(p.planId!);
       case 'plans.reassign':
-        result = await g.tasks.reassignPlan(p.planId!, p.targetAgentId!);
+        result = await g.tasks.reassignPlan(p.planId!, p.targetCharacterId!);
         break;
       case 'plans.create':
-        result = await g.tasks.createTaskPlan(p.agentId!, {
+        result = await g.tasks.createTaskPlan(p.characterId!, {
           ...value,
           requestId: value.requestId ?? id,
         });
         break;
       case 'plans.update':
-        result = await g.tasks.updateTaskPlan(p.agentId, p.planId!, value);
+        result = await g.tasks.updateTaskPlan(p.characterId, p.planId!, value);
         break;
       case 'plans.control':
         result = await g.tasks.controlTaskPlan(
-          p.agentId,
+          p.characterId,
           p.planId!,
           p.operation!,
           {
@@ -141,10 +147,10 @@ export async function invokeGateway(
         );
         break;
       case 'runs.list':
-        return g.tasks.publicRuns(p.agentId!, p.planId!, p.offset, true);
+        return g.tasks.publicRuns(p.characterId!, p.planId!, p.offset, true);
       case 'runs.control':
         result = await g.tasks.controlTaskRun(
-          p.agentId!,
+          p.characterId!,
           p.runId!,
           p.operation!,
           value,
@@ -170,7 +176,7 @@ export async function invokeGateway(
       result &&
       typeof result === 'object' &&
       'id' in result &&
-      method.startsWith('agents.')
+      method.startsWith('characters.')
     ) {
       return {
         ...result,
@@ -194,24 +200,24 @@ export async function invokeGateway(
       'runs.control',
     ].includes(method)
   )
-    delete commandParams.agentId;
+    delete commandParams.characterId;
   return g.commands.run(
     id ?? randomUUID(),
     { method, params: commandParams },
-    method.startsWith('plans.') || method === 'agents.delete'
+    method.startsWith('plans.') || method === 'characters.delete'
       ? 'plans'
-      : (p.agentId ?? 'registry'),
+      : (p.characterId ?? 'registry'),
     execute,
     () => {
       validateRevision();
       if (
-        p.agentId &&
-        (['agents.stop', 'agents.delete'].includes(method) ||
+        p.characterId &&
+        (['characters.stop', 'characters.delete'].includes(method) ||
           (method === 'runs.control' &&
             ['pause', 'cancel'].includes(p.operation ?? '') &&
-            g.currentRunId(p.agentId) === p.runId))
+            g.currentRunId(p.characterId) === p.runId))
       )
-        g.interrupt(p.agentId);
+        g.interrupt(p.characterId);
     },
   );
 }

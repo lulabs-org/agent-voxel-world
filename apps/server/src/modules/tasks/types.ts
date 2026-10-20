@@ -30,7 +30,7 @@ export interface PlanQueryFilter {
   state?: RpcParams['state'];
   offset?: number;
   search?: string;
-  agentId?: string;
+  characterId?: string;
 }
 
 /**

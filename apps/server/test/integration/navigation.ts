@@ -3,7 +3,7 @@ import { createTestServer } from '../helpers/test-server';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager } from '../../src/modules/agent';
+import { AICharacterManager } from '../../src/modules/ai-characters';
 import assert from 'node:assert/strict';
 import {
   Session,
@@ -23,7 +23,7 @@ process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 const dir = await mkdtemp(join(tmpdir(), 'voxel-navigation-'));
-let manager: AgentManager | undefined;
+let manager: AICharacterManager | undefined;
 let agent: Session | undefined, human: Session | undefined;
 try {
   server = await createTestServer({
@@ -187,7 +187,7 @@ try {
     'being near target never completes a continuous task',
   );
   await reset();
-  manager = server.agents;
+  manager = server.characters;
   const managed = manager.create({
     providerId: 'deepseek',
     name: 'Managed navigator',

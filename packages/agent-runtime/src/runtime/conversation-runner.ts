@@ -1,7 +1,7 @@
 import { paceChat } from './chat-pacing';
 import { cancellable } from '../client/cancellable';
 import {
-  agentPermissions,
+  aiCharacterPermissions,
   type WorldEvent,
   type ChatData,
 } from '@voxel/shared';
@@ -54,7 +54,7 @@ export class ConversationRunner {
     const send = async (text: string) => {
       active.throwIfAborted();
       memory.lastResponse = text;
-      if (!agentPermissions(config).chat) {
+      if (!aiCharacterPermissions(config).chat) {
         o.log?.(text);
         await save();
         return;

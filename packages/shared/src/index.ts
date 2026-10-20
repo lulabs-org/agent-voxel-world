@@ -2,20 +2,23 @@ export * from './chat';
 export * from './player-name';
 export * from './voice-services';
 export * from './asr';
-export * from './agent-capabilities';
+export * from './ai-character-capabilities';
 export type { LocalCollisionMap } from './navigation';
 export const WORLD_ID = 'meadow';
-export { AGENT_ROLE_DESCRIPTION_LIMIT, AGENT_LOG_LIMIT } from './agents';
+export {
+  AI_CHARACTER_ROLE_DESCRIPTION_LIMIT,
+  AI_CHARACTER_LOG_LIMIT,
+} from './ai-characters';
 export type {
   ProviderType,
   ProviderView,
   ProviderInference,
-  AgentSettings,
-  AgentTask,
-  AgentTaskStatus,
-  AgentUsage,
-  ManagedAgentView,
-} from './agents';
+  AICharacterSettings,
+  AICharacterTask,
+  AICharacterTaskStatus,
+  AICharacterUsage,
+  AICharacterView,
+} from './ai-characters';
 export const PROTOCOL_VERSION = 1;
 export const LIMIT = 12;
 export const MAX_Y = 15;

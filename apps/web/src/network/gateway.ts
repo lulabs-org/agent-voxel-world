@@ -9,8 +9,8 @@ let client: GatewayClient | undefined;
 let state = 'closed';
 let failure = '';
 type Change = {
-  resource?: 'agents' | 'providers' | 'plans' | 'runs';
-  agentIds?: string[];
+  resource?: 'characters' | 'providers' | 'plans' | 'runs';
+  characterIds?: string[];
 };
 const listeners = new Set<() => void>(),
   changes = new Set<(change: Change) => void>();
@@ -116,17 +116,17 @@ export async function gatewayRequest<T>(
       method === 'runs.control' ||
       (method === 'plans.control' && params.operation === 'run'))
   ) {
-    if (!identities.has(params.agentId!)) {
+    if (!identities.has(params.characterId!)) {
       const view = await client.request<any>(
-        'agents.get',
-        { agentId: params.agentId },
+        'characters.get',
+        { characterId: params.characterId },
         { signal },
       );
       identities.set(view.id, view.taskIdentity);
     }
     params = {
       ...params,
-      expectedTask: identities.get(params.agentId!) ?? null,
+      expectedTask: identities.get(params.characterId!) ?? null,
     };
   }
   try {
@@ -134,10 +134,10 @@ export async function gatewayRequest<T>(
       signal,
       commandId,
     });
-    if (method === 'agents.list')
+    if (method === 'characters.list')
       for (const a of value as any[])
         identities.set(a.id, a.taskIdentity ?? null);
-    if (method === 'agents.get') {
+    if (method === 'characters.get') {
       const a = value as any;
       identities.set(a.id, a.taskIdentity ?? null);
     }
@@ -154,10 +154,10 @@ export async function gatewayRequest<T>(
 export function refreshOnGatewayChange(
   read: () => Promise<void>,
   filter: {
-    resource: 'agents' | 'providers' | 'plans' | 'runs';
-    agentId?: string;
+    resource: 'characters' | 'providers' | 'plans' | 'runs';
+    characterId?: string;
   } = {
-    resource: 'agents',
+    resource: 'characters',
   },
 ) {
   let active = true,
@@ -182,14 +182,14 @@ export function refreshOnGatewayChange(
       change.resource !== filter.resource &&
       !(
         filter.resource === 'plans' &&
-        ['runs', 'agents'].includes(change.resource)
+        ['runs', 'characters'].includes(change.resource)
       )
     )
       return;
     if (
-      filter.agentId &&
-      change.agentIds &&
-      !change.agentIds.includes(filter.agentId)
+      filter.characterId &&
+      change.characterIds &&
+      !change.characterIds.includes(filter.characterId)
     )
       return;
     void refresh();

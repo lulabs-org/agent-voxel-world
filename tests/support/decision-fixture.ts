@@ -1,6 +1,6 @@
 import type { AgentDecision } from './decision-contracts';
 /** Legacy JSON response fixtures drive the current task policy without a real model/network. */
-import { agentPermissions } from '../../packages/shared/src/index';
+import { aiCharacterPermissions } from '../../packages/shared/src/index';
 import type {
   AgentConfig,
   ModelEndpoint,
@@ -106,7 +106,7 @@ export class DecisionFixture implements Planner {
         throw new AgentRuntimeError('模型返回的 JSON 无法解析，本轮跳过。');
       }
       try {
-        return parseDecision(value, agentPermissions(this.config));
+        return parseDecision(value, aiCharacterPermissions(this.config));
       } catch (e) {
         throw new AgentRuntimeError(
           `模型返回格式无效：${(e as Error).message}`,

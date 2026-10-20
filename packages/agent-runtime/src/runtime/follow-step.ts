@@ -1,5 +1,5 @@
 import { TaskService } from '../task/service';
-import { agentPermissions } from '@voxel/shared';
+import { aiCharacterPermissions } from '@voxel/shared';
 import { navigate, observeNavigation } from '../actions/navigation/controller';
 import { parseAction } from '../actions/parse';
 import type { AgentConfig, AgentSession } from '../contracts';
@@ -34,7 +34,7 @@ export async function runFollowStep(options: FollowOptions) {
   const active = AbortSignal.any([signal, controller.signal]);
   try {
     // Revalidate persisted intent and current permission before every slice.
-    parseAction(follow.action, agentPermissions(config));
+    parseAction(follow.action, aiCharacterPermissions(config));
     await options.checkpoint?.();
     const observation = await observeNavigation(session, active);
     active.throwIfAborted();

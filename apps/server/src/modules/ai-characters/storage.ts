@@ -1,12 +1,16 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { isRepeating, DEFAULT_TASK_LIMITS } from '@voxel/shared';
 import { AppError } from '../../common/errors';
-import type { RestoredAgentRecord, AgentArchive } from './ports';
+import type {
+  RestoredAICharacterRecord,
+  AICharacterArchive,
+  LegacyAgentArchive,
+} from './ports';
 import { newPlan, newRun } from '../tasks';
 
-export async function writeAgentArchive(
+export async function writeAICharacterArchive(
   archivePath: string,
-  records: AgentArchive,
+  records: AICharacterArchive,
 ): Promise<void> {
   const data = JSON.stringify(records, null, 2);
   const temp = `${archivePath}.tmp`;
@@ -14,10 +18,13 @@ export async function writeAgentArchive(
   await rename(temp, archivePath);
 }
 
-export async function readAgentArchive(
+export async function readAICharacterArchive(
   archivePath: string,
-): Promise<AgentArchive | undefined> {
-  let saved: RestoredAgentRecord[] | AgentArchive;
+): Promise<AICharacterArchive | undefined> {
+  let saved:
+    | RestoredAICharacterRecord[]
+    | LegacyAgentArchive
+    | AICharacterArchive;
   try {
     saved = JSON.parse(await readFile(archivePath, 'utf8'));
   } catch (error) {
@@ -26,37 +33,62 @@ export async function readAgentArchive(
     }
     throw new AppError('无法读取 Agent 记录。', 500);
   }
-  if (!Array.isArray(saved)) return migrateArchive(saved);
+  const migrated = migrateArchive(saved);
+  if (Array.isArray(saved) || saved.version === 1) {
+    await writeFile(
+      `${archivePath}.before-ai-characters-v2.bak`,
+      await readFile(archivePath),
+      { mode: 0o600, flag: 'wx' },
+    ).catch((error) => {
+      if (error.code !== 'EEXIST') throw error;
+    });
+  }
+  if (!Array.isArray(saved)) return migrated;
 
   if (saved.length > 50) {
     throw new AppError('Agent 记录格式无效。', 500);
   }
 
   await createHistoricalBackups(archivePath, saved);
-  return migrateArchive(saved);
+  return migrated;
 }
 
 /** Pure, repeatable migration; disk backup and atomic replacement belong to the host. */
 export function migrateArchive(
-  saved: RestoredAgentRecord[] | AgentArchive,
-): AgentArchive {
+  saved: RestoredAICharacterRecord[] | LegacyAgentArchive | AICharacterArchive,
+): AICharacterArchive {
   if (!Array.isArray(saved)) {
     if (
-      saved.version !== 1 ||
-      !Array.isArray(saved.agents) ||
+      !saved ||
+      ![1, 2].includes(saved.version) ||
+      !Array.isArray(saved.version === 1 ? saved.agents : saved.characters) ||
       !Array.isArray(saved.plans) ||
       !Array.isArray(saved.runs) ||
       !saved.requests ||
       typeof saved.requests !== 'object'
     )
       throw new AppError('网关存档格式无效。', 500);
-    const copy = structuredClone(saved);
+    const copy: AICharacterArchive =
+      saved.version === 1
+        ? {
+            version: 2,
+            characters: structuredClone(saved.agents),
+            plans: saved.plans.map((plan) => {
+              const converted = migrateBinding(plan);
+              if (converted.latestRun)
+                converted.latestRun = migrateBinding(converted.latestRun);
+              return converted;
+            }),
+            runs: saved.runs.map(migrateBinding),
+            requests: structuredClone(saved.requests),
+          }
+        : structuredClone(saved);
     validateArchive(copy);
     return copy;
   }
-  const result: AgentArchive = {
-    version: 1,
-    agents: [],
+  const result: AICharacterArchive = {
+    version: 2,
+    characters: [],
     plans: [],
     runs: [],
     requests: {},
@@ -82,9 +114,10 @@ export function migrateArchive(
           for (const r of runs) delete r.planId;
         } else
           result.plans.push({
-            ...p,
-            agentId: a.id,
-            agentName: a.name,
+            ...migrateBinding(p),
+            ...(p.latestRun ? { latestRun: migrateBinding(p.latestRun) } : {}),
+            characterId: a.id,
+            characterName: a.name,
             revision: p.revision ?? 1,
             imported:
               !isRepeating(p.timing) &&
@@ -93,9 +126,9 @@ export function migrateArchive(
       }
       for (const r of book.runs)
         result.runs.push({
-          ...r,
-          agentId: a.id,
-          agentName: a.name,
+          ...migrateBinding(r),
+          characterId: a.id,
+          characterName: a.name,
           planRevision: r.planId ? (r.planRevision ?? 1) : undefined,
         });
       for (const [key, id] of Object.entries(book.requests ?? {}))
@@ -116,8 +149,8 @@ export function migrateArchive(
           },
           task.startedAt,
         ),
-        agentId: a.id,
-        agentName: a.name,
+        characterId: a.id,
+        characterName: a.name,
         imported: true,
       };
       const r = newRun(p, task.startedAt, 'legacy');
@@ -134,14 +167,27 @@ export function migrateArchive(
       a.currentRunId = r.id;
     }
     delete a.taskBook;
-    result.agents.push(a);
+    result.characters.push(a);
   }
   validateArchive(result);
   return result;
 }
 
-function validateArchive(s: AgentArchive) {
-  for (const list of [s.agents, s.plans, s.runs]) {
+/** Rename only ownership fields; runtime checkpoints and opaque request keys are untouched. */
+function migrateBinding<T extends object>(value: T) {
+  const { agentId, agentName, ...rest } = structuredClone(value) as T & {
+    agentId?: string;
+    agentName?: string;
+  };
+  return {
+    ...rest,
+    ...(agentId === undefined ? {} : { characterId: agentId }),
+    ...(agentName === undefined ? {} : { characterName: agentName }),
+  };
+}
+
+function validateArchive(s: AICharacterArchive) {
+  for (const list of [s.characters, s.plans, s.runs]) {
     const ids = list.map((x) => x.id);
     if (
       ids.some((id) => typeof id !== 'string' || !id) ||
@@ -150,15 +196,15 @@ function validateArchive(s: AgentArchive) {
       throw new AppError('存档资源标识重复或无效。', 500);
   }
   for (const p of s.plans)
-    if (p.agentId && !s.agents.some((a) => a.id === p.agentId))
+    if (p.characterId && !s.characters.some((a) => a.id === p.characterId))
       throw new AppError('计划关联角色不存在。', 500);
   for (const r of s.runs)
     if (r.planId && !s.plans.some((p) => p.id === r.planId))
       throw new AppError('执行关联计划不存在。', 500);
-  for (const a of s.agents)
+  for (const a of s.characters)
     if (
       a.currentRunId &&
-      !s.runs.some((r) => r.id === a.currentRunId && r.agentId === a.id)
+      !s.runs.some((r) => r.id === a.currentRunId && r.characterId === a.id)
     )
       throw new AppError('当前执行关联无效。', 500);
 }
@@ -168,7 +214,7 @@ function validateArchive(s: AgentArchive) {
  */
 async function createHistoricalBackups(
   archivePath: string,
-  saved: RestoredAgentRecord[],
+  saved: RestoredAICharacterRecord[],
 ): Promise<void> {
   const content = await readFile(archivePath);
   const safeWrite = async (suffix: string) => {

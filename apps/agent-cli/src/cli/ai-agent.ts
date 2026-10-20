@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  agentPermissions,
+  aiCharacterPermissions,
   Session,
   AgentRunner,
   AgentRuntimeError,
@@ -23,7 +23,7 @@ process.once('SIGTERM', stop);
 try {
   const config = agentConfig();
   console.log(
-    `AI 玩家 · ${config.model} · 任务驱动 · 保护上限 ${config.maxTurns} 次调用 · 放置${agentPermissions(config).place ? '开启' : '关闭'} · 拆除${agentPermissions(config).remove ? '开启' : '关闭'}`,
+    `AI 玩家 · ${config.model} · 任务驱动 · 保护上限 ${config.maxTurns} 次调用 · 放置${aiCharacterPermissions(config).place ? '开启' : '关闭'} · 拆除${aiCharacterPermissions(config).remove ? '开启' : '关闭'}`,
   );
   console.log(
     '附近方块、玩家昵称、聊天事件及 Agent 目标将发送至模型 API。Ctrl+C 退出。',
@@ -40,7 +40,7 @@ try {
     );
   if (!abort.signal.aborted)
     await session.request('agent.voice', {
-      enabled: !!config.voiceReplies && agentPermissions(config).chat,
+      enabled: !!config.voiceReplies && aiCharacterPermissions(config).chat,
     });
   await runAgent(session, new AgentRunner(), config, abort.signal);
 } catch (error) {

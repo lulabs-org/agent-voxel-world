@@ -5,15 +5,15 @@ export interface GatewayTarget {
   readonly events: {
     readonly version: number;
     publish(
-      resource: 'agents' | 'providers' | 'plans' | 'runs',
-      agentIds?: string[],
+      resource: 'characters' | 'providers' | 'plans' | 'runs',
+      characterIds?: string[],
       detail?: { planIds?: string[]; runIds?: string[] },
     ): void;
     on(listener: (change: any) => void): () => void;
   };
   readonly plans: {
-    get(id: string): { id: string; agentId?: string };
-    run(id: string): { id: string; agentId?: string };
+    get(id: string): { id: string; characterId?: string };
+    run(id: string): { id: string; characterId?: string };
     assertRevision(id: string, expectedRevision?: number): void;
   };
   publicList(): any[];

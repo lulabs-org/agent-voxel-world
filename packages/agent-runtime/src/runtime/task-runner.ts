@@ -1,4 +1,4 @@
-import { agentPermissions } from '@voxel/shared';
+import { aiCharacterPermissions } from '@voxel/shared';
 import type { ModelEndpoint } from '../contracts';
 import { AgentRuntimeError } from '../errors';
 import { RequestBudget, cap } from '../task/budget';
@@ -70,7 +70,7 @@ export class TaskRunner {
         lease,
         prepared: () => prepared,
         observe,
-        canChat: agentPermissions(config).chat,
+        canChat: aiCharacterPermissions(config).chat,
         signal: active,
         save,
         shouldYield: () => !!attention?.pending,

@@ -1,11 +1,11 @@
 import type { GatewayAuth } from './modules/gateway/auth';
 import express from 'express';
 import type { ServerConfig } from './config';
-import type { AgentManager } from './modules/agent';
+import type { AICharacterManager } from './modules/ai-characters';
 import type { AsrSettingsStore } from './modules/audio/asr/asr-settings';
 import type { LocalSpeech } from './modules/audio/asr/local-speech';
 import type { WorldRoom } from './modules/world/room';
-import { installAgentRoutes } from './modules/agent';
+import { installAICharacterRoutes } from './modules/ai-characters';
 import { installProviderRoutes } from './modules/providers/providers.routes';
 import { installTaskRoutes } from './modules/tasks';
 import type { VoiceServiceStore } from './modules/audio/tts/voice-services';
@@ -28,7 +28,7 @@ import { errorHandler } from './common/middleware/error-handler';
 export function createApp(deps: {
   config: ServerConfig;
   gatewayAuth: GatewayAuth;
-  agents: AgentManager;
+  characters: AICharacterManager;
   voiceServices: VoiceServiceStore;
   speech: LocalSpeech;
   asrSettings: AsrSettingsStore;
@@ -44,7 +44,12 @@ export function createApp(deps: {
   });
   installDocsRoutes(app);
   installHealthRoutes(app, deps.config);
-  const managementPaths = ['/agents', '/providers', '/tasks', '/task-runs'];
+  const managementPaths = [
+    '/ai-characters',
+    '/providers',
+    '/tasks',
+    '/task-runs',
+  ];
   app.use(managementPaths, deps.gatewayAuth.middleware, ...managementBody);
   installAudioRoutes(app, {
     origin,
@@ -52,16 +57,16 @@ export function createApp(deps: {
     speech: deps.speech,
     asrSettings: deps.asrSettings,
     voiceServices: deps.voiceServices,
-    removeVoiceService: (id) => deps.agents.removeVoiceService(id),
+    removeVoiceService: (id) => deps.characters.removeVoiceService(id),
   });
-  installAgentRoutes(app, deps.agents);
+  installAICharacterRoutes(app, deps.characters);
   installProviderRoutes(app, {
-    store: deps.agents.providers,
-    models: (id) => deps.agents.models(id),
-    remove: (id) => deps.agents.removeProvider(id),
-    changed: () => deps.agents.events.publish('providers'),
+    store: deps.characters.providers,
+    models: (id) => deps.characters.models(id),
+    remove: (id) => deps.characters.removeProvider(id),
+    changed: () => deps.characters.events.publish('providers'),
   });
-  installTaskRoutes(app, deps.agents.tasks);
+  installTaskRoutes(app, deps.characters.tasks);
   installWorldRoutes(app, () => deps.world()?.roomId ?? '');
   installChatRoutes(
     app,

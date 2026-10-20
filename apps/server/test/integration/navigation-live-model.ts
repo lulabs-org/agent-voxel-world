@@ -1,13 +1,13 @@
 import { controlRun } from '../../../../tests/support/managed-tasks';
 import { createTestServer } from '../helpers/test-server';
-/** Opt-in paid-model acceptance test. Uses real AgentManager, chat, WebSocket and physics. */
+/** Opt-in paid-model acceptance test. Uses real AICharacterManager, chat, WebSocket and physics. */
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
-import { AgentManager } from '../../src/modules/agent';
+import { AICharacterManager } from '../../src/modules/ai-characters';
 import { reserveRun } from '../../src/modules/tasks/execution';
-import { executionState } from '../../src/modules/agent/execution-adapter';
+import { executionState } from '../../src/modules/ai-characters/execution-adapter';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import {
   AgentRunner,
@@ -36,7 +36,7 @@ process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 const dir = await mkdtemp(join(tmpdir(), 'voxel-navigation-live-'));
 let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
-let manager: AgentManager | undefined,
+let manager: AICharacterManager | undefined,
   human: Session | undefined,
   observer: Session | undefined;
 const results: unknown[] = [];
@@ -45,7 +45,7 @@ const evidence = {
   provider: provider.type,
   inference: 'real provider; no response fixtures or intent injection',
   world:
-    'isolated real Colyseus/WebSocket/physics; production AgentManager chat wake and persistence',
+    'isolated real Colyseus/WebSocket/physics; production AICharacterManager chat wake and persistence',
   results,
 };
 const record = async () => {
@@ -106,7 +106,7 @@ try {
       }),
     },
   });
-  manager = server.agents;
+  manager = server.characters;
   const room = server.world,
     url = server.url;
   human = await new Session(url).join('Explorer4', 'human');
@@ -229,11 +229,11 @@ try {
       const archive = JSON.parse(
         await readFile(`${providerPath}.agents.json`, 'utf8'),
       );
-      const saved = archive.agents.find(
+      const saved = archive.characters.find(
         (a: { id: string }) => a.id === managed.id,
       );
       assert.equal(saved.runtime.task.status, 'completed');
-      assert(!archive.plans.some((p: any) => p.agentId === managed.id));
+      assert(!archive.plans.some((p: any) => p.characterId === managed.id));
       assert(
         archive.runs
           .filter((r: any) => r.source === 'chat')

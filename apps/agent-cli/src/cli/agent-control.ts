@@ -14,7 +14,7 @@ function option(name: string) {
 }
 let client: GatewayClient | undefined;
 try {
-  const url = option('--url') ?? 'ws://127.0.0.1:2567/agents/gateway';
+  const url = option('--url') ?? 'ws://127.0.0.1:2567/ai-characters/gateway';
   const tokenFile =
     option('--token-file') ??
     process.env.AGENT_GATEWAY_TOKEN_FILE ??
@@ -22,13 +22,13 @@ try {
       new URL('../../../../.data/agent-gateway-token', import.meta.url),
     );
   const goal = option('--goal');
-  const agentId = option('--agent');
+  const characterId = option('--character');
   const json = args.includes('--json');
   if (json) args.splice(args.indexOf('--json'), 1);
   const [command, id, third] = args;
   if (!command || command === 'help' || command === '--help') {
     console.log(
-      '用法：agent:ctl list | status/join/stop <agentId> | plans [agentId] | watch [agentId] | runs <agentId> <planId> | task create <agentId> --goal ... | run pause/resume/cancel <runId> --agent <agentId> | auth show；选项 --url --token-file --json',
+      '用法：agent:ctl list | status/join/stop <characterId> | plans [characterId] | watch [characterId] | runs <characterId> <planId> | task create <characterId> --goal ... | run pause/resume/cancel <runId> --character <characterId> | auth show；选项 --url --token-file --json',
     );
   } else if (command === 'auth' && id === 'show') {
     console.log((await readFile(tokenFile, 'utf8')).trim());
@@ -57,8 +57,8 @@ try {
           while (active && dirty) {
             dirty = false;
             const snapshot = await client!.request(
-              id ? 'agents.get' : 'agents.list',
-              id ? { agentId: id } : {},
+              id ? 'characters.get' : 'characters.list',
+              id ? { characterId: id } : {},
             );
             if (active) print({ type: 'snapshot', data: snapshot });
           }
@@ -95,7 +95,7 @@ try {
       process.once('SIGTERM', stop);
       try {
         await client.subscribe(
-          id ? { scope: 'agent', agentId: id } : { scope: 'all' },
+          id ? { scope: 'character', characterId: id } : { scope: 'all' },
         );
         await ended;
       } catch (error) {
@@ -106,25 +106,25 @@ try {
     } else {
       let method: RpcMethod,
         params: RpcParams = {};
-      if (command === 'list') method = 'agents.list';
+      if (command === 'list') method = 'characters.list';
       else if (['status', 'join', 'stop'].includes(command)) {
         method =
           command === 'status'
-            ? 'agents.get'
-            : (`agents.${command}` as RpcMethod);
-        params.agentId = id;
+            ? 'characters.get'
+            : (`characters.${command}` as RpcMethod);
+        params.characterId = id;
       } else if (command === 'plans') {
         method = 'plans.list';
-        params.agentId = id;
+        params.characterId = id;
       } else if (command === 'runs') {
         method = 'runs.list';
-        params = { agentId: id, planId: third, offset: 0 };
+        params = { characterId: id, planId: third, offset: 0 };
       } else if (command === 'task' && id === 'create') {
         if (!goal) throw Error('请通过 --goal 提供任务目标。');
         if (!third) throw Error('请提供执行角色标识。');
         method = 'plans.create';
         params = {
-          agentId: third,
+          characterId: third,
           value: {
             name: goal.slice(0, 80),
             goal,
@@ -136,12 +136,14 @@ try {
         command === 'run' &&
         ['pause', 'resume', 'cancel'].includes(id)
       ) {
-        if (!third || !agentId)
-          throw Error('请提供 runId 和 --agent 执行角色标识。');
+        if (!third || !characterId)
+          throw Error('请提供 runId 和 --character 执行角色标识。');
         method = 'runs.control';
-        const view = await client.request<any>('agents.get', { agentId });
+        const view = await client.request<any>('characters.get', {
+          characterId,
+        });
         params = {
-          agentId,
+          characterId,
           runId: third,
           operation: id,
           expectedTask: view.taskIdentity ?? null,

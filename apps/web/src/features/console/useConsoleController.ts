@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useAgentsController } from './agents/useAgentsController';
+import { useAICharactersController } from './ai-characters/useAICharactersController';
 import { useProvidersController } from './providers/useProvidersController';
 import { useConsoleFeedback } from './useConsoleFeedback';
 import { useVoiceServices } from './voice/useVoiceServices';
-export function useConsoleController(open: boolean, initialTab?: 'agents') {
+export function useConsoleController(open: boolean, initialTab?: 'characters') {
   const [tab, setTab] = useState<
-    'agents' | 'plans' | 'providers' | 'voice' | 'asr'
-  >('agents');
+    'characters' | 'plans' | 'providers' | 'voice' | 'asr'
+  >('characters');
   const body = useRef<HTMLDivElement>(null);
   const feedback = useConsoleFeedback();
   const providers = useProvidersController(open, tab, feedback);
-  const agents = useAgentsController(
+  const characters = useAICharactersController(
     open,
     initialTab,
     providers.providers,
@@ -23,18 +23,18 @@ export function useConsoleController(open: boolean, initialTab?: 'agents') {
   }, [open, initialTab]);
   useEffect(() => {
     if (body.current) body.current.scrollTop = 0;
-  }, [agents.showAgentForm, tab]);
+  }, [characters.showAgentForm, tab]);
   return {
     ...feedback,
     ...providers,
-    ...agents,
+    ...characters,
     ...voices,
     tab,
     setTab,
     body,
     saveProvider: (event: FormEvent) =>
-      providers.saveProvider(event, agents.providerSaved),
-    removeProvider: () => providers.removeProvider(agents.providerRemoved),
+      providers.saveProvider(event, characters.providerSaved),
+    removeProvider: () => providers.removeProvider(characters.providerRemoved),
   };
 }
 export type ConsoleController = ReturnType<typeof useConsoleController>;

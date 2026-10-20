@@ -10,7 +10,7 @@ import {
 } from '@voxel/agent-runtime';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import { RequestBudget } from '../packages/agent-runtime/src/task/budget';
-import { readAgentArchive } from '../apps/server/src/modules/agent';
+import { readAICharacterArchive } from '../apps/server/src/modules/ai-characters';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 const config = agentConfig({ DEEPSEEK_API_KEY: 'fixture' });
 const operator = { kind: 'operator' as const };
@@ -142,12 +142,12 @@ it('backs up and migrates current and historical runtimes while preserving uncer
     const path = join(dir, 'archive.json');
     const original = JSON.stringify([record]);
     await writeFile(path, original);
-    const saved = await readAgentArchive(path);
+    const saved = await readAICharacterArchive(path);
     expect(
       await readFile(`${path}.before-conversation-tasks-v2.bak`, 'utf8'),
     ).toBe(original);
     // The archive reader is deliberately lossless; migration belongs to restoration.
-    const migrated = saved!.agents[0];
+    const migrated = saved!.characters[0];
     restorePiCheckpoint(migrated.runtime!);
     for (const run of saved!.runs) restorePiCheckpoint(run.runtime!);
     expect(migrated.runtime).toMatchObject({

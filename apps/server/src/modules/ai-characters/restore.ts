@@ -1,22 +1,22 @@
-import type { AgentSettings } from '@voxel/shared';
+import type { AICharacterSettings } from '@voxel/shared';
 import { AgentAttention } from '@voxel/agent-runtime';
 import type { PlanService } from '../tasks/service';
-import { restoreAgentLogs } from './logs';
-import { validateAgent } from './validation';
+import { restoreAICharacterLogs } from './logs';
+import { validateAICharacter } from './validation';
 import { AppError } from '../../common/errors';
-import type { ProviderPort, RestoredAgentRecord } from './ports';
+import type { ProviderPort, RestoredAICharacterRecord } from './ports';
 import type { Job } from './types';
 import { restoreTaskExecution, restoreTaskMemory } from '../tasks/restore';
 import { executionState } from './execution-adapter';
 
-export function restoreAgentJob(
-  view: RestoredAgentRecord,
+export function restoreAICharacterJob(
+  view: RestoredAICharacterRecord,
   providers: ProviderPort,
-  checkVoice: (settings: AgentSettings) => void,
+  checkVoice: (settings: AICharacterSettings) => void,
   ledger: PlanService,
 ): { job: Job; voiceWarning?: string; shouldAutoJoin: boolean } {
   const provider = providers.get(view.providerId);
-  const settings = validateAgent(view, provider);
+  const settings = validateAICharacter(view, provider);
   let voiceWarning = '';
   try {
     checkVoice(settings);
@@ -35,7 +35,7 @@ export function restoreAgentJob(
       createdAt: view.createdAt,
       providerName: provider.name,
       status: 'stopped',
-      ...restoreAgentLogs(view.logs, view.logTimes),
+      ...restoreAICharacterLogs(view.logs, view.logTimes),
     },
     abort: new AbortController(),
     memory: restoreTaskMemory(view.runtime, view.task, settings.goal),

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AgentTask, WorldEvent, ChatData } from '@voxel/shared';
+import type { AICharacterTask, WorldEvent, ChatData } from '@voxel/shared';
 import type { AgentConfig } from '../contracts';
 import { AgentRuntimeError } from '../errors';
 import { cap, type RequestBudget } from './budget';
@@ -79,7 +79,7 @@ export class TaskService {
     command: TaskCommand,
     authority: TaskAuthority,
     config: AgentConfig,
-  ): AgentTask {
+  ): AICharacterTask {
     this.authorize(authority);
     const memory = this.memory;
     let task = memory.task;
@@ -159,7 +159,10 @@ export class TaskService {
     config: AgentConfig,
     save: () => Promise<void>,
     budget?: RequestBudget,
-    beforeNewTask?: (task: AgentTask, previous: AgentRunState) => Promise<void>,
+    beforeNewTask?: (
+      task: AICharacterTask,
+      previous: AgentRunState,
+    ) => Promise<void>,
   ) {
     const before = structuredClone(this.memory);
     // Policy errors leave state unchanged and may be explained by the conversation.

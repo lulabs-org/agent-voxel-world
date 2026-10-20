@@ -22,4 +22,4 @@ export const serverSocketUrl = () => {
 export const serverHttpUrl = () => serverSocketUrl().replace(/^ws/, 'http');
 
 export const gatewaySocketUrl = () =>
-  serverSocketUrl().replace(/\/$/, '') + '/agents/gateway';
+  serverSocketUrl().replace(/\/$/, '') + '/ai-characters/gateway';

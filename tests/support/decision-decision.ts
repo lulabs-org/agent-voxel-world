@@ -1,4 +1,4 @@
-import type { AgentPermissions } from '../../packages/shared/src/index';
+import type { AICharacterPermissions } from '../../packages/shared/src/index';
 import type { AgentDecision } from './decision-contracts';
 import { parseActions } from '../../packages/agent-runtime/src/actions/parse';
 import { parseTaskDirective } from './decision-directive';
@@ -6,7 +6,7 @@ import { parseTaskDirective } from './decision-directive';
 /** Strict model and runtime boundary: validate the complete actions/task object before effects. */
 export function parseDecision(
   value: unknown,
-  allowEdits: boolean | AgentPermissions,
+  allowEdits: boolean | AICharacterPermissions,
 ): AgentDecision {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw Error('模型决策格式无效。');

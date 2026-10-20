@@ -1,4 +1,4 @@
-import type { AgentPermissions } from '@voxel/shared';
+import type { AICharacterPermissions } from '@voxel/shared';
 import type { ChatData } from '@voxel/shared';
 import { setTimeout as pause } from 'node:timers/promises';
 import type {
@@ -16,7 +16,7 @@ export async function executeAction(
   session: Pick<AgentSession, 'move' | 'request'>,
   action: AgentAction,
   observation: Observation,
-  allowEdits: boolean | AgentPermissions,
+  allowEdits: boolean | AICharacterPermissions,
   signal: AbortSignal,
   progress: (message: string) => void = () => {},
   checkpoint: (result: BuildResult) => void | Promise<void> = () => {},

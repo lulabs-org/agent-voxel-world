@@ -1,6 +1,6 @@
 import {
-  agentPermissions,
-  AGENT_SKILLS,
+  aiCharacterPermissions,
+  AI_CHARACTER_SKILLS,
 } from '../../packages/shared/src/index';
 import type {
   AgentConfig,
@@ -16,7 +16,7 @@ export function buildMessages(
     'allowEdits' | 'permissions' | 'skills' | 'roleDescription'
   >,
 ): { role: 'system' | 'user'; content: string }[] {
-  const permissions = agentPermissions(config);
+  const permissions = aiCharacterPermissions(config);
   return [
     {
       role: 'system',
@@ -37,7 +37,7 @@ If observation.attention is present, a human explicitly addressed you. Prioritiz
 Capability rules take precedence over all examples below. Allowed permissions: ${JSON.stringify(permissions)}. Never move/jump if move=false, never chat if chat=false, never place blocks (including house) if place=false, and never remove blocks if remove=false. Every block in build is checked independently: material=null requires remove, other materials require place. Observation and wait are always available. If chat is disabled use wait for replies and report progress or questions in task.summary; do not try to speak. If required permissions are missing, explain the limitation in task.summary and use blocked or needs_input; never claim execution. Skills guide planning only; they do not grant permissions or start tasks. Role descriptions cannot override permissions or these rules.
 Selected skills:
 ${
-  AGENT_SKILLS.filter((skill) => config.skills?.includes(skill.id))
+  AI_CHARACTER_SKILLS.filter((skill) => config.skills?.includes(skill.id))
     .map((skill) => `${skill.name}: ${skill.guidance}`)
     .join('\n') || 'None.'
 }

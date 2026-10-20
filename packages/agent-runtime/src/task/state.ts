@@ -1,4 +1,4 @@
-import type { AgentTask, AgentUsage } from '@voxel/shared';
+import type { AICharacterTask, AICharacterUsage } from '@voxel/shared';
 import type { BuildAction, BuildResult, BatchResult } from '../contracts';
 
 export type AgentRunState = {
@@ -15,8 +15,8 @@ export type AgentRunState = {
     lastResult?: import('../contracts').NavigationResult;
   };
   pi?: PiCheckpoint;
-  task?: AgentTask;
-  usage?: AgentUsage;
+  task?: AICharacterTask;
+  usage?: AICharacterUsage;
   previous?: unknown;
   pendingEffects?: BatchResult;
   lastReply?: BatchResult;
@@ -34,7 +34,7 @@ export function newTask(
   goal: string,
   owner?: string,
   privateTo?: string,
-): AgentTask {
+): AICharacterTask {
   return {
     goal,
     owner,

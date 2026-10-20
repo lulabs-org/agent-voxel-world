@@ -1,5 +1,5 @@
-import type { AgentTaskStatus } from '@voxel/shared';
-export const taskStatusNames: Record<AgentTaskStatus, string> = {
+import type { AICharacterTaskStatus } from '@voxel/shared';
+export const taskStatusNames: Record<AICharacterTaskStatus, string> = {
   running: '执行任务',
   waiting: '等待环境变化',
   needs_input: '等待你的答复',

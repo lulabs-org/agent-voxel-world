@@ -1,8 +1,8 @@
-import type { ManagedAgentView } from '@voxel/shared';
+import type { AICharacterView } from '@voxel/shared';
 import { taskStatusNames } from '../../execution-status';
 
 /** Presence and task execution are separate: an idle process can have a running task. */
-export function agentPresentation(job: ManagedAgentView) {
+export function aiCharacterPresentation(job: AICharacterView) {
   const transitioning = ['joining', 'stopping'].includes(job.status);
   const online = !!job.sessionId;
   const occupiesSlot = online || transitioning || job.status === 'running';

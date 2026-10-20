@@ -1,5 +1,6 @@
 import {
   GatewayError,
+  PROTOCOL_VERSION,
   isWrite,
   type RpcMethod,
   type RpcParams,
@@ -115,7 +116,7 @@ export class GatewayClient {
         socket.send(
           JSON.stringify({
             type: 'connect',
-            version: 1,
+            version: PROTOCOL_VERSION,
             client: this.options.client ?? 'web',
             token: this.options.token(),
           }),
@@ -132,6 +133,13 @@ export class GatewayClient {
       }
       if (frame.type === 'connected') {
         clearTimeout(handshake);
+        if (frame.version !== PROTOCOL_VERSION) {
+          this.rejectConnect?.(
+            new Error('管理协议版本不兼容，请同步更新客户端和服务器。'),
+          );
+          this.close();
+          return;
+        }
         this.epoch = frame.gatewayEpoch;
         this.retry = 0;
         this.setState('connected');

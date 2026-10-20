@@ -23,7 +23,7 @@ import { useViewportAdjust } from './hooks/useViewportAdjust';
 import type { Connection } from './network/connection';
 export function App({ connection }: { connection: Connection }) {
   const [consoleEntry, setConsoleEntry] = useState<{
-    initialTab?: 'agents';
+    initialTab?: 'characters';
   } | null>(null);
   const { narrow, shortViewport, mainRef } = useViewportAdjust();
   const hud = useHudController(narrow);
@@ -44,7 +44,7 @@ export function App({ connection }: { connection: Connection }) {
   const session = useWorldSession(connection, leaveWorldScene);
   const { name, setName, joined } = session;
   useGameShortcuts(joined, hud, setMaterial);
-  const openConsole = (initialTab?: 'agents') => {
+  const openConsole = (initialTab?: 'characters') => {
     releasePointerLock();
     setActivePanel(null);
     setConsoleEntry({ initialTab });
@@ -94,7 +94,7 @@ export function App({ connection }: { connection: Connection }) {
             }}
             error={connection.joinError}
             onJoin={joinWorld}
-            onCreateAgent={() => openConsole('agents')}
+            onCreateAgent={() => openConsole('characters')}
           />
         )}
         <WorldPanel

@@ -1,8 +1,11 @@
-import type { AgentPermissions, AgentSkillId } from './agent-capabilities';
+import type {
+  AICharacterPermissions,
+  AICharacterSkillId,
+} from './ai-character-capabilities';
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
-export const AGENT_ROLE_DESCRIPTION_LIMIT = 2000;
+export const AI_CHARACTER_ROLE_DESCRIPTION_LIMIT = 2000;
 export type ProviderInference = Pick<
-  AgentSettings,
+  AICharacterSettings,
   'timeoutMs' | 'maxTokens' | 'thinking' | 'reasoningEffort'
 >;
 export type ProviderView = {
@@ -17,7 +20,7 @@ export type ProviderView = {
   jsonMode: boolean;
   tokenField: 'max_tokens' | 'max_completion_tokens';
 };
-export type AgentSettings = {
+export type AICharacterSettings = {
   providerId: string;
   model: string;
   name: string;
@@ -39,14 +42,14 @@ export type AgentSettings = {
   /** @deprecated Legacy input; use permissions for independent action control. */
   allowEdits?: boolean;
   /** Canonical permissions; absent only in legacy configurations. */
-  permissions?: AgentPermissions;
-  skills?: AgentSkillId[];
+  permissions?: AICharacterPermissions;
+  skills?: AICharacterSkillId[];
   voiceReplies?: boolean;
   voiceServiceId?: string;
   thinking: 'enabled' | 'disabled';
   reasoningEffort: 'none' | 'low' | 'high' | 'max';
 };
-export type AgentTaskStatus =
+export type AICharacterTaskStatus =
   | 'running'
   | 'waiting'
   | 'needs_input'
@@ -55,9 +58,9 @@ export type AgentTaskStatus =
   | 'completed'
   | 'cancelled'
   | 'budget';
-export type AgentTask = {
+export type AICharacterTask = {
   goal: string;
-  status: AgentTaskStatus;
+  status: AICharacterTaskStatus;
   summary: string;
   reason: string;
   owner?: string;
@@ -69,10 +72,14 @@ export type AgentTask = {
   elapsedMs: number;
   waitFor?: 'world' | 'players';
 };
-export const AGENT_LOG_LIMIT = 500;
+export const AI_CHARACTER_LOG_LIMIT = 500;
 
-export type AgentUsage = { calls: number; tokens: number; estimated: boolean };
-export type ManagedAgentView = AgentSettings & {
+export type AICharacterUsage = {
+  calls: number;
+  tokens: number;
+  estimated: boolean;
+};
+export type AICharacterView = AICharacterSettings & {
   voiceServiceName?: string;
   id: string;
   providerName: string;
@@ -89,8 +96,8 @@ export type ManagedAgentView = AgentSettings & {
   logs: string[];
   /** UTC epoch milliseconds aligned with logs; null means legacy time is unknown. */
   logTimes?: (number | null)[];
-  task?: AgentTask;
-  usage?: AgentUsage;
+  task?: AICharacterTask;
+  usage?: AICharacterUsage;
   lastResponse?: string;
   /** The original private recipient no longer exists; the task must be reassigned. */
   taskRequiresReassignment?: boolean;

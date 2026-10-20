@@ -2,7 +2,7 @@ import { AppError } from '../../common/errors';
 import { object, text, integer, boolean } from '../../common/validation';
 import { randomUUID } from 'node:crypto';
 import {
-  type AgentSettings,
+  type AICharacterSettings,
   type ProviderInference,
   type ProviderView,
 } from '@voxel/shared';
@@ -93,7 +93,7 @@ export function validateInference(
     throw new AppError('此模型服务暂不提供 DeepSeek 思考参数。');
   return {
     thinking,
-    reasoningEffort: reasoningEffort as AgentSettings['reasoningEffort'],
+    reasoningEffort: reasoningEffort as AICharacterSettings['reasoningEffort'],
     timeoutMs: integer(input.timeoutMs, '推理超时', 60000, 1000, 120000),
     maxTokens: integer(
       input.maxTokens,

@@ -10,10 +10,10 @@ import { join } from 'node:path';
 import { Session, until, delay } from '@voxel/agent-runtime';
 import type {
   AgentSpeechEvent,
-  ManagedAgentView,
+  AICharacterView,
   VoiceServiceView,
 } from '@voxel/shared';
-import { AgentManager } from '../../src/modules/agent';
+import { AICharacterManager } from '../../src/modules/ai-characters';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 import { validatePcmWav } from '../../src/modules/audio/asr/local-speech';
@@ -56,7 +56,7 @@ await providers.load({ DEEPSEEK_API_KEY: 'fixture-model-key' });
 let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
 const humans: Session[] = [],
   bots: Session[] = [];
-let manager: AgentManager | undefined;
+let manager: AICharacterManager | undefined;
 let calls = 0;
 try {
   const dependencies = {
@@ -91,7 +91,7 @@ try {
     agentDependencies: dependencies,
   });
   const url = server.httpUrl;
-  manager = server.agents;
+  manager = server.characters;
   const api = (path: string, method = 'GET', body?: unknown) =>
     fetch(`${url}${path}`, {
       method,
@@ -140,7 +140,7 @@ try {
   );
   await until(() => humans.every((s) => !!s.chatToken));
   const create = async (serviceId: string, name: string) => {
-    const response = await api('/agents', 'POST', {
+    const response = await api('/ai-characters', 'POST', {
       providerId: 'deepseek',
       name,
       maxTurns: 1,
@@ -148,14 +148,14 @@ try {
       voiceServiceId: serviceId,
     });
     assert.equal(response.status, 201);
-    const job = (await response.json()) as ManagedAgentView;
+    const job = (await response.json()) as AICharacterView;
     await until(
       () => manager!.list().find((j) => j.id === job.id)?.status === 'idle',
     );
     assert.equal(
       (
         await api('/tasks', 'POST', {
-          agentId: job.id,
+          characterId: job.id,
           name: 'Say hello once',
           goal: 'Say hello once.',
           timing: { kind: 'immediate' },
@@ -190,7 +190,8 @@ try {
   );
   // Editing an idle Agent changes its actual next utterance without restarting the task.
   assert.equal(
-    (await api(`/agents/${first.id}`, 'PUT', { voiceServiceId: b.id })).status,
+    (await api(`/ai-characters/${first.id}`, 'PUT', { voiceServiceId: b.id }))
+      .status,
     200,
   );
   const before = events[1].length;
@@ -253,7 +254,7 @@ try {
   await restoredVoices.load();
   assert.equal(restoredVoices.get(b.id).voice, 'beta');
   await voices.load();
-  const restored = new AgentManager(
+  const restored = new AICharacterManager(
     providers,
     url.replace('http', 'ws'),
     dependencies,

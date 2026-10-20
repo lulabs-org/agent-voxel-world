@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import '../agents.css';
 import type { ConsoleController } from '../useConsoleController';
-import { AgentDetail } from './AgentDetail';
-import { AgentForm } from './AgentForm';
-import { agentPresentation } from './presentation/agent-presentation';
+import { AICharacterDetail } from './AICharacterDetail';
+import { AICharacterForm } from './AICharacterForm';
+import { aiCharacterPresentation } from './presentation/agent-presentation';
 
 type Filter = 'all' | 'online' | 'attention' | 'offline';
-export function AgentList(props: ConsoleController & { active: boolean }) {
+export function AICharacterList(
+  props: ConsoleController & { active: boolean },
+) {
   const {
     jobs,
     busy,
@@ -23,11 +25,11 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
   const creating = showAgentForm && !editingAgent;
   const current = jobs.find((job) => job.id === selectedAgentId) ?? jobs[0];
   const onlineCount = jobs.filter(
-    (job) => agentPresentation(job).occupiesSlot,
+    (job) => aiCharacterPresentation(job).occupiesSlot,
   ).length;
   const disabled = busy || loadingJobs || !!pollError;
   const filtered = jobs.filter((job) => {
-    const state = agentPresentation(job);
+    const state = aiCharacterPresentation(job);
     return (
       job.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()) &&
       (filter === 'all' ||
@@ -89,7 +91,7 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           )}
           <div className="console-sidebar-items">
             {filtered.map((job) => {
-              const state = agentPresentation(job);
+              const state = aiCharacterPresentation(job);
               return (
                 <button
                   className="console-sidebar-item"
@@ -141,9 +143,9 @@ export function AgentList(props: ConsoleController & { active: boolean }) {
           aria-busy={busy || loadingJobs}
         >
           {creating ? (
-            <AgentForm {...props} disabled={disabled} />
+            <AICharacterForm {...props} disabled={disabled} />
           ) : current ? (
-            <AgentDetail
+            <AICharacterDetail
               key={current.id}
               {...props}
               job={current}

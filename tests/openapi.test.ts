@@ -17,8 +17,8 @@ const operations = Object.entries(spec.paths).flatMap(
 
 it('includes agent and task endpoints from domain routes.ts files', () => {
   for (const [path, methods] of [
-    ['/agents', ['get', 'post']],
-    ['/agents/{id}', ['put', 'delete']],
+    ['/ai-characters', ['get', 'post']],
+    ['/ai-characters/{id}', ['put', 'delete']],
     ['/tasks', ['get', 'post']],
     ['/tasks/{planId}', ['get', 'put', 'delete']],
     ['/task-runs/{runId}/{operation}', ['post']],
@@ -33,7 +33,7 @@ it('documents resource ownership, management and chat credentials, with no globa
   expect(spec.servers).toEqual([{ url: '/', description: '当前服务器' }]);
   expect(spec.security).toBeUndefined();
   const management = [
-    ['/agents', 'AI Characters'],
+    ['/ai-characters', 'AI Characters'],
     ['/providers', 'Providers'],
     ['/tasks', 'Tasks'],
     ['/task-runs', 'Tasks'],
@@ -52,7 +52,7 @@ it('documents resource ownership, management and chat credentials, with no globa
       expect(operation.security, path).toEqual([{ ChatBearer: [] }]);
     } else expect(operation.security, path).toBeUndefined();
     expect(path).not.toMatch(
-      /^\/agents\/(providers|tasks|task-runs|voice-services)(\/|$)/,
+      /^\/ai-characters\/(providers|tasks|task-runs|voice-services)(\/|$)/,
     );
   }
   expect(spec.components.securitySchemes.ManagementBearer.scheme).toBe(
@@ -116,7 +116,7 @@ it('provides path parameters, request bodies and successful responses, and resol
 
 it('exposes task controls only through plans and explicit run IDs', () => {
   for (const operation of ['task', 'pause', 'resume', 'cancel'])
-    expect(spec.paths[`/agents/{id}/${operation}`]).toBeUndefined();
+    expect(spec.paths[`/ai-characters/{id}/${operation}`]).toBeUndefined();
   expect(spec.paths['/tasks'].post.description).toContain('无需再次调用 run');
   expect(spec.paths['/tasks/{planId}/{operation}'].post.description).toContain(
     '不影响当前执行',
@@ -128,18 +128,21 @@ it('exposes task controls only through plans and explicit run IDs', () => {
 
 it('documents profile-only Agent writes and default standby with optional offline creation', () => {
   expect(
-    spec.paths['/agents'].post.requestBody.content['application/json'].schema
-      .$ref,
-  ).toBe('#/components/schemas/AgentCreate');
-  expect(
-    spec.paths['/agents/{id}'].put.requestBody.content['application/json']
+    spec.paths['/ai-characters'].post.requestBody.content['application/json']
       .schema.$ref,
-  ).toBe('#/components/schemas/AgentProfileUpdate');
-  expect(spec.components.schemas.AgentCreate.properties.joinWorld).toEqual({
+  ).toBe('#/components/schemas/AICharacterCreate');
+  expect(
+    spec.paths['/ai-characters/{id}'].put.requestBody.content[
+      'application/json'
+    ].schema.$ref,
+  ).toBe('#/components/schemas/AICharacterProfileUpdate');
+  expect(
+    spec.components.schemas.AICharacterCreate.properties.joinWorld,
+  ).toEqual({
     type: 'boolean',
     default: true,
   });
-  for (const name of ['AgentCreate', 'AgentProfileUpdate']) {
+  for (const name of ['AICharacterCreate', 'AICharacterProfileUpdate']) {
     const schema = spec.components.schemas[name];
     expect(schema.properties.goal).toBeUndefined();
     expect(schema.properties.startTask).toBeUndefined();

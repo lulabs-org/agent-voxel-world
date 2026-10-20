@@ -1,6 +1,6 @@
 # 协议与扩展边界
 
-Agent 管理协议独立于世界协议，使用 `/agents/gateway` WebSocket RPC；管理 HTTP 兼容接口需要 Bearer 令牌。详见 [Agent Gateway](AGENT_GATEWAY.md)。
+Agent 管理协议独立于世界协议，使用 `/ai-characters/gateway` WebSocket RPC；管理 HTTP 兼容接口需要 Bearer 令牌。详见 [Agent Gateway](AGENT_GATEWAY.md)。
 
 客户端先 GET `/world` 获取唯一 `roomId`，再用 Colyseus JS 0.16 `joinById(roomId, {name, kind})` 入房。`kind: scripted-agent` 和 `kind: ai-agent` 分别显示脚本代理和 AI 代理身份，不授予额外权限。其他值按 human 处理。这个原型不提供身份认证；只监听本机。
 
@@ -63,7 +63,7 @@ GET `/world/presence` 是独立的只读 SSE 订阅，连接后立即发送完�
 
 ## Agent 空间语音回复
 
-Agent 专用动作 `agent.voice: {enabled:boolean}` 设置 Avatar 的 `voiceReplies`；真人调用拒绝。托管控制台 POST `/agents/:id/voice` 可即时更新并保存开关，创建/编辑配置也支持 `voiceReplies`。已有配置默认为 false，独立 DeepSeek 进程通过 `AGENT_VOICE_REPLIES=true` 开启。
+Agent 专用动作 `agent.voice: {enabled:boolean}` 设置 Avatar 的 `voiceReplies`；真人调用拒绝。托管控制台 POST `/ai-characters/:id/voice` 可即时更新并保存开关，创建/编辑配置也支持 `voiceReplies`。已有配置默认为 false，独立 DeepSeek 进程通过 `AGENT_VOICE_REPLIES=true` 开启。
 
 Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照常即时投递。合成后仅授权听者收到 `agent.speech: {id,actor,text,scope,durationMs,expiresAt}`，使用当前会话凭证 GET `/chat/agent-speech/:id` 获取 WAV。听者必须在发言和合成完成时都开启收听、在线且 spatialMix.gain >= 0.03；private 还必须在原接收者列表。下载时再次核验身份、双方状态和可听范围；失效/越权返回 404。音频不放入观察历史，防止 Agent 互相重复消费自己的朗读。
 
@@ -73,8 +73,8 @@ Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照
 
 同一角色只有一个模型与动作执行槽，单次唤醒可包含多轮工具调用。聊天经过 ConversationRunner，不创建任务计划；控制台工作创建独立计划，再以启动快照交给现有运行时。详细管理协议见 [Agent Gateway](AGENT_GATEWAY.md)。
 
-`ManagedAgentView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 agentId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
+`AICharacterView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 characterId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
 
-HTTP 任务入口统一为 `/tasks` 与 `/task-runs`，管理 HTTP 与 RPC 共用管理员令牌和 Origin 校验。`/agents/:id/task`、`pause`、`resume`、`cancel` 及 RPC `tasks.assign/pause/resume/cancel` 已移除。即时任务通过 `/tasks` 或 `plans.create` 创建即执行；计划的 pause/resume 管理调度，执行的 pause/resume/cancel 必须使用 runId。恢复执行前须先通过 join 上线，join 本身不恢复任务。Agent 创建默认上线待命，joinWorld=false 仅保存离线角色，不生成计划或执行。创建/更新中的 startTask、taskTimeZone 或非空 goal 返回 400；空 goal 兼容接受但不修改已有任务。任务统一通过 Tasks 创建与控制，已有历史和进度保留。
+HTTP 任务入口统一为 `/tasks` 与 `/task-runs`，管理 HTTP 与 RPC 共用管理员令牌和 Origin 校验。`/ai-characters/:id/task`、`pause`、`resume`、`cancel` 及 RPC `tasks.assign/pause/resume/cancel` 已移除。即时任务通过 `/tasks` 或 `plans.create` 创建即执行；计划的 pause/resume 管理调度，执行的 pause/resume/cancel 必须使用 runId。恢复执行前须先通过 join 上线，join 本身不恢复任务。Agent 创建默认上线待命，joinWorld=false 仅保存离线角色，不生成计划或执行。创建/更新中的 startTask、taskTimeZone 或非空 goal 返回 400；空 goal 兼容接受但不修改已有任务。任务统一通过 Tasks 创建与控制，已有历史和进度保留。
 
 模型使用独立对话/任务工具集，不再返回 intent/update_task 协议。任务身份、权限、取消、预算及检查点由程序控制。私聊保留原接收会话，公开问题不获得私聊执行上下文；重启后失效私聊需重新通过聊天发起。

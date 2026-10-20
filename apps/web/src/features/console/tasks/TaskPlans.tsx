@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
-  ManagedAgentView,
+  AICharacterView,
   TaskPlan,
   TaskLimits,
   TaskRun,
@@ -34,11 +34,11 @@ const timingIcon = (kind: TaskPlan['timing']['kind']) => {
 };
 
 export function TaskPlans({
-  agents,
+  characters,
   active,
   disabled,
 }: {
-  agents: ManagedAgentView[];
+  characters: AICharacterView[];
   active: boolean;
   disabled: boolean;
 }) {
@@ -125,15 +125,15 @@ export function TaskPlans({
   };
 
   const bindingName = (p: TaskPlan) =>
-    p.agentId
-      ? (agents.find((a) => a.id === p.agentId)?.name ??
-        p.agentName ??
+    p.characterId
+      ? (characters.find((a) => a.id === p.characterId)?.name ??
+        p.characterName ??
         '未知角色')
-      : p.agentName
-        ? `${['completed', 'archived'].includes(p.state) ? '' : '待指派 · '}${p.agentName}（已删除）`
+      : p.characterName
+        ? `${['completed', 'archived'].includes(p.state) ? '' : '待指派 · '}${p.characterName}（已删除）`
         : '待指派';
 
-  const job = agents.find((a) => a.id === plan?.agentId);
+  const job = characters.find((a) => a.id === plan?.characterId);
   const blocked = !job
     ? '请先指派执行角色'
     : !job.sessionId
@@ -168,7 +168,7 @@ export function TaskPlans({
     operation: 'pause' | 'resume' | 'cancel',
     limits?: TaskLimits,
   ) => {
-    const owner = agents.find((a) => a.id === run.agentId);
+    const owner = characters.find((a) => a.id === run.characterId);
     try {
       await mutate(() =>
         tasksApi.controlRun(
@@ -201,7 +201,7 @@ export function TaskPlans({
           {error || readError}
         </p>
       )}
-      {!agents.length && (
+      {!characters.length && (
         <p className="agent-notice">
           暂无可用角色。请先在“AI 角色”创建 AI 角色；已有计划和历史仍可查看。
         </p>
@@ -214,7 +214,7 @@ export function TaskPlans({
           </div>
           <button
             className="primary console-sidebar-add"
-            disabled={locked || !agents.length || !!editor}
+            disabled={locked || !characters.length || !!editor}
             onClick={() => setEditor({})}
           >
             ＋ 新建计划
@@ -275,7 +275,7 @@ export function TaskPlans({
               </button>
             ))}
             {!page.items.length && (
-              <p className="agents-list-empty">
+              <p className="characters-list-empty">
                 {loading ? '正在读取计划…' : '没有符合条件的计划'}
               </p>
             )}
@@ -295,7 +295,8 @@ export function TaskPlans({
               </button>
               <span className="plans-sidebar-pagination-info">
                 {(filters.offset ?? 0) + 1} -{' '}
-                {Math.min((filters.offset ?? 0) + 20, page.total)} / {page.total}
+                {Math.min((filters.offset ?? 0) + 20, page.total)} /{' '}
+                {page.total}
               </span>
               <button
                 disabled={page.nextOffset === undefined}
@@ -316,16 +317,16 @@ export function TaskPlans({
             <TaskPlanEditor
               key={editor.plan?.id ?? 'new'}
               plan={editor.plan}
-              agents={agents}
+              characters={characters}
               busy={locked}
               blocked=""
               onCancel={() => setEditor(null)}
-              onSave={async (draft, requestId, agentId) => {
+              onSave={async (draft, requestId, characterId) => {
                 try {
                   let saved: TaskPlan | undefined;
                   await mutate(async () => {
                     saved = await tasksApi.save(
-                      agentId,
+                      characterId,
                       draft,
                       editor.plan,
                       requestId,
@@ -387,7 +388,8 @@ export function TaskPlans({
                   plan.state !== 'archived' && (
                     <button
                       disabled={
-                        locked || (!plan.agentId && plan.state !== 'enabled')
+                        locked ||
+                        (!plan.characterId && plan.state !== 'enabled')
                       }
                       onClick={() =>
                         void control(
@@ -564,8 +566,8 @@ export function TaskPlans({
                       onChange={(e) => setTarget(e.target.value)}
                     >
                       <option value="">请选择角色</option>
-                      {agents
-                        .filter((a) => a.id !== plan.agentId)
+                      {characters
+                        .filter((a) => a.id !== plan.characterId)
                         .map((a) => (
                           <option key={a.id} value={a.id}>
                             {a.name}
@@ -631,8 +633,8 @@ export function TaskPlans({
                         r.startedAt ?? r.scheduledAt,
                         r.snapshot.timeZone,
                       )}{' '}
-                      · {r.agentName}
-                      {!agents.some((a) => a.id === r.agentId)
+                      · {r.characterName}
+                      {!characters.some((a) => a.id === r.characterId)
                         ? '（已删除）'
                         : ''}
                     </span>
@@ -670,8 +672,8 @@ export function TaskPlans({
               )}
             </article>
           ) : (
-            <div className="agents-welcome">
-              <span className="agents-welcome-symbol" aria-hidden="true">
+            <div className="characters-welcome">
+              <span className="characters-welcome-symbol" aria-hidden="true">
                 ⏱
               </span>
               <h4>{loading ? '正在同步计划…' : '安排下一项任务'}</h4>
@@ -680,7 +682,7 @@ export function TaskPlans({
                 <br />
                 选择左侧计划查看执行进展，或直接新建计划。
               </p>
-              {!loading && agents.length > 0 && !editor && (
+              {!loading && characters.length > 0 && !editor && (
                 <button
                   className="primary"
                   disabled={locked}

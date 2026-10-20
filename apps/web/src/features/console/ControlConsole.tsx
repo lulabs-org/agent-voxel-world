@@ -14,7 +14,7 @@ import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import type { Connection } from '../../network/connection';
 import { SpeechRecognitionPanel } from '../voice';
-import { AgentList } from './agents/AgentList';
+import { AICharacterList } from './ai-characters/AICharacterList';
 import { ConsoleHelp } from './ConsoleHelp';
 import { ProviderEditor } from './providers/ProviderEditor';
 import { useConsoleController } from './useConsoleController';
@@ -22,7 +22,7 @@ import { VoiceServices } from './voice/VoiceServices';
 type ConsoleProps = {
   connection: Connection;
   open: boolean;
-  initialTab?: 'agents';
+  initialTab?: 'characters';
   onClose: () => void;
 };
 export function ControlConsole({
@@ -113,9 +113,9 @@ export function ControlConsole({
         )}
         <nav className="agent-tabs" aria-label="控制台分类">
           <button
-            aria-pressed={tab === 'agents'}
+            aria-pressed={tab === 'characters'}
             onClick={() => {
-              setTab('agents');
+              setTab('characters');
               setError('');
               setNotice('');
             }}
@@ -155,7 +155,7 @@ export function ControlConsole({
         >
           <div hidden={tab !== 'plans'}>
             <TaskPlans
-              agents={controller.jobs}
+              characters={controller.jobs}
               active={open && status === 'ready' && tab === 'plans'}
               disabled={status !== 'ready'}
             />
@@ -192,9 +192,9 @@ export function ControlConsole({
             {tab === 'providers' ? (
               <ProviderEditor {...controller} />
             ) : (
-              <AgentList
+              <AICharacterList
                 {...controller}
-                active={open && status === 'ready' && tab === 'agents'}
+                active={open && status === 'ready' && tab === 'characters'}
               />
             )}
           </div>

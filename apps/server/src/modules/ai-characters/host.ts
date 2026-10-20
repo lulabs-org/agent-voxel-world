@@ -1,6 +1,6 @@
 import {
-  agentPermissions,
-  type ManagedAgentView,
+  aiCharacterPermissions,
+  type AICharacterView,
   type ChatData,
   type WorldEvent,
 } from '@voxel/shared';
@@ -13,7 +13,7 @@ import {
   type Session,
 } from '@voxel/agent-runtime';
 import type { TaskLease } from '@voxel/agent-runtime';
-import { appendAgentLog } from './logs';
+import { appendAICharacterLog } from './logs';
 
 import type { VoiceServicePort as VoiceServiceStore } from './ports';
 import type { SavedProvider } from '../providers/provider-validation';
@@ -52,7 +52,7 @@ export type ExecutionContext = {
 };
 
 /** One host owns the world connection and one runtime execution slot for its Agent. */
-export class AgentHost {
+export class AICharacterHost {
   constructor(
     private job: Job,
     private ctx: ExecutionContext,
@@ -63,13 +63,13 @@ export class AgentHost {
       const safe = provider.apiKey
         ? message.split(provider.apiKey).join('[已隐藏]')
         : message;
-      appendAgentLog(job.view, safe);
+      appendAICharacterLog(job.view, safe);
       const record = currentRun(executionState(job));
       if (record) record.logs = [...record.logs, safe].slice(-40);
       ctx.persist();
     };
 
-    let finalStatus: ManagedAgentView['status'] = 'idle';
+    let finalStatus: AICharacterView['status'] = 'idle';
 
     try {
       captureTask(executionState(job));
@@ -132,7 +132,7 @@ export class AgentHost {
                 event,
               )
               .then(() =>
-                agentPermissions(job.view).chat
+                aiCharacterPermissions(job.view).chat
                   ? session.request('chat', {
                       text: command.startsWith('取消')
                         ? '任务已取消，我会留在这里待命。'
@@ -178,7 +178,8 @@ export class AgentHost {
       }
 
       const voiceResult = await job.session.request('agent.voice', {
-        enabled: !!job.view.voiceReplies && agentPermissions(job.view).chat,
+        enabled:
+          !!job.view.voiceReplies && aiCharacterPermissions(job.view).chat,
       });
       ctx.bindVoice(job);
       if (!voiceResult.ok) log('语音回复开关未生效，请检查服务器版本。');

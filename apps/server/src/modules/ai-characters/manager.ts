@@ -1,17 +1,20 @@
-import { AgentOrchestrator, type AgentDependencies } from './orchestrator';
+import {
+  AICharacterOrchestrator,
+  type AICharacterDependencies,
+} from './orchestrator';
 import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
 import { ProviderStore } from '../providers/provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
-import { readAgentArchive, writeAgentArchive } from './storage';
+import { readAICharacterArchive, writeAICharacterArchive } from './storage';
 
-/** AgentManager is the concrete orchestrator in the server with file-based persistence defaults. */
-export class AgentManager extends AgentOrchestrator {
+/** AICharacterManager is the concrete orchestrator in the server with file-based persistence defaults. */
+export class AICharacterManager extends AICharacterOrchestrator {
   declare readonly voiceServices: VoiceServiceStore | undefined;
 
   constructor(
     providers: ProviderStore,
     serverUrl: string | (() => string),
-    dependencies: AgentDependencies = {
+    dependencies: AICharacterDependencies = {
       session: (url) => new Session(url),
       runner: (_config, provider) => new AgentRunner(provider),
       models: (provider) => listModels(provider, provider.apiKey),
@@ -20,8 +23,8 @@ export class AgentManager extends AgentOrchestrator {
   ) {
     const path = `${providers.path}.agents.json`;
     super(providers, serverUrl, dependencies, voiceServices, {
-      load: () => readAgentArchive(path),
-      save: (records) => writeAgentArchive(path, records),
+      load: () => readAICharacterArchive(path),
+      save: (records) => writeAICharacterArchive(path, records),
     });
   }
 }

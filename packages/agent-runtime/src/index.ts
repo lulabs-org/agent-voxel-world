@@ -1,4 +1,4 @@
-export { agentPermissions } from '@voxel/shared';
+export { aiCharacterPermissions } from '@voxel/shared';
 export type {
   Observation,
   Result,

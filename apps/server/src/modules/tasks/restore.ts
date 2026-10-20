@@ -4,7 +4,7 @@ import {
   restorePiCheckpoint,
   type AgentRunState,
 } from '@voxel/agent-runtime';
-import { isRepeating, type AgentTask } from '@voxel/shared';
+import { isRepeating, type AICharacterTask } from '@voxel/shared';
 import { duePlans, endedRun, newRun, nextOccurrence } from './model';
 import { captureTask } from './execution';
 import type { TaskExecutionState } from './execution-port';
@@ -12,7 +12,7 @@ import type { TaskExecutionState } from './execution-port';
 /** Read compatibility only. New task creation must use the task service. */
 export function restoreTaskMemory(
   runtime: AgentRunState | undefined,
-  task: AgentTask | undefined,
+  task: AICharacterTask | undefined,
   goal: string,
 ): AgentRunState {
   return (
@@ -52,7 +52,7 @@ export function restoreTaskExecution(
   }
   const interruptedRuns = new Set(
     job.ledger.runs
-      .filter((r) => r.agentId === job.view.id)
+      .filter((r) => r.characterId === job.view.id)
       .filter((r) =>
         [
           'running',
@@ -67,7 +67,9 @@ export function restoreTaskExecution(
   );
   captureTask(job);
 
-  for (const run of job.ledger.runs.filter((r) => r.agentId === job.view.id)) {
+  for (const run of job.ledger.runs.filter(
+    (r) => r.characterId === job.view.id,
+  )) {
     if (run.runtime) restorePiCheckpoint(run.runtime);
     for (const action of run.actions ?? [])
       if (action.status === 'executing') action.status = 'unknown';
@@ -103,10 +105,10 @@ export function restoreTaskExecution(
   }
 
   for (const plan of duePlans(job.ledger, Date.now()).filter(
-    (p) => p.agentId === job.view.id,
+    (p) => p.characterId === job.view.id,
   )) {
     const run = newRun(
-      { ...plan, agentName: job.view.name },
+      { ...plan, characterName: job.view.name },
       plan.nextRunAt!,
       'scheduled',
     );

@@ -1,7 +1,10 @@
 // Deterministic decision adapter for existing domain-policy fixtures. No production inference.
 import type { Planner } from './decision-fixture';
-import { agentPermissions } from '../../packages/shared/src/index';
-import type { AgentTask, ChatData } from '../../packages/shared/src/index';
+import { aiCharacterPermissions } from '../../packages/shared/src/index';
+import type {
+  AICharacterTask,
+  ChatData,
+} from '../../packages/shared/src/index';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   AgentSession,
@@ -42,7 +45,10 @@ export async function runTaskStep(
   log: (message: string) => void = () => {},
   checkpoint: () => any = () => {},
   hooks?: {
-    beforeNewTask?: (task: AgentTask, previous: AgentRunState) => Promise<void>;
+    beforeNewTask?: (
+      task: AICharacterTask,
+      previous: AgentRunState,
+    ) => Promise<void>;
   },
 ) {
   const addressed = attention?.take();
@@ -75,7 +81,8 @@ export async function runTaskStep(
     : undefined;
   const decisionSignal = AbortSignal.any([signal, deadline.signal]);
   const notifySender = async (text: string) => {
-    if (!addressed || signal.aborted || !agentPermissions(config).chat) return;
+    if (!addressed || signal.aborted || !aiCharacterPermissions(config).chat)
+      return;
     try {
       const payload = {
         text: text.slice(0, 240),

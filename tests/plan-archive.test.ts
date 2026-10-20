@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   migrateArchive,
-  readAgentArchive,
-  writeAgentArchive,
-} from '../apps/server/src/modules/agent';
+  readAICharacterArchive,
+  writeAICharacterArchive,
+} from '../apps/server/src/modules/ai-characters';
 import { newPlan, newRun } from '../apps/server/src/modules/tasks';
 import { DEFAULT_TASK_LIMITS } from '../packages/shared/src/index';
 
@@ -27,6 +27,8 @@ it('migrates pure chat independently, preserves mixed/manual plans, IDs, request
   const c = newRun(chat, 100, 'chat'),
     m = newRun(mixed, 101, 'manual'),
     mc = newRun(mixed, 102, 'chat');
+  Object.assign(mixed, { agentId: 'a', agentName: 'A' });
+  Object.assign(m, { agentId: 'a', agentName: 'A' });
   const records: any[] = [
     {
       id: 'a',
@@ -53,35 +55,39 @@ it('migrates pure chat independently, preserves mixed/manual plans, IDs, request
   const result = migrateArchive(records);
   expect(result.plans.map((p) => p.id)).toEqual([mixed.id, legacy.id]);
   expect(result.plans[0]).toMatchObject({
-    agentId: 'a',
+    characterId: 'a',
     revision: 1,
     spentTokens: 30,
   });
   expect(result.plans[1].imported).toBe(true);
+  expect(result.plans[0]).not.toHaveProperty('agentId');
+  expect(result.runs.find((r) => r.id === m.id)).not.toHaveProperty(
+    'agentName',
+  );
   expect(result.runs.find((r) => r.id === c.id)).toMatchObject({
-    agentId: 'a',
+    characterId: 'a',
     source: 'chat',
   });
   expect(result.runs.find((r) => r.id === c.id)?.planId).toBeUndefined();
   expect(result.runs.find((r) => r.id === mc.id)?.planId).toBe(mixed.id);
-  expect(result.agents[0]).toMatchObject({ currentRunId: c.id });
-  expect(result.agents[0].taskBook).toBeUndefined();
+  expect(result.characters[0]).toMatchObject({ currentRunId: c.id });
+  expect(result.characters[0].taskBook).toBeUndefined();
   expect(result.requests).toEqual({ 'a:same': mixed.id, 'b:same': legacy.id });
   expect(migrateArchive(result)).toEqual(result);
   expect(records[0].taskBook.plans).toHaveLength(3);
 });
 it('backs up the old archive once and atomically writes the independent envelope', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'plans-upgrade-'));
-  const path = join(dir, 'agents.json');
+  const path = join(dir, 'characters.json');
   try {
     const old = JSON.stringify([{ id: 'a', name: 'A' }]);
     await writeFile(path, old);
-    const archive = await readAgentArchive(path);
+    const archive = await readAICharacterArchive(path);
     expect(
       await readFile(path + '.before-task-plan-module-v1.bak', 'utf8'),
     ).toBe(old);
-    await writeAgentArchive(path, archive!);
-    expect(await readAgentArchive(path)).toEqual(archive);
+    await writeAICharacterArchive(path, archive!);
+    expect(await readAICharacterArchive(path)).toEqual(archive);
     expect(
       await readFile(path + '.before-task-plan-module-v1.bak', 'utf8'),
     ).toBe(old);
@@ -95,8 +101,8 @@ it('rejects duplicate identities, dangling current runs and unsupported envelope
   );
   expect(() =>
     migrateArchive({
-      version: 2,
-      agents: [],
+      version: 99,
+      characters: [],
       plans: [],
       runs: [],
       requests: {},
@@ -104,11 +110,100 @@ it('rejects duplicate identities, dangling current runs and unsupported envelope
   ).toThrow('格式');
   expect(() =>
     migrateArchive({
-      version: 1,
-      agents: [{ id: 'a', currentRunId: 'missing' }],
+      version: 2,
+      characters: [{ id: 'a', currentRunId: 'missing' }],
       plans: [],
       runs: [],
       requests: {},
     } as any),
   ).toThrow('当前执行');
+});
+
+it('migrates v1 ownership without losing execution checkpoints, history or request identities', async () => {
+  const plan = newPlan(draft, 100);
+  plan.spentTokens = 1234;
+  const run = newRun(plan, 100, 'manual');
+  const runtime = {
+    version: 2,
+    identity: { id: 'task-identity', revision: 7, startedAt: 100 },
+    marker: { agentId: 'opaque-runtime-data' },
+  };
+  const legacy = {
+    version: 1,
+    agents: [{ id: 'a', name: '角色', currentRunId: run.id, runtime }],
+    plans: [
+      {
+        ...plan,
+        agentId: 'a',
+        agentName: '角色',
+        latestRun: {
+          ...run,
+          agentId: 'a',
+          agentName: '角色',
+        },
+      },
+    ],
+    runs: [
+      { ...run, agentId: 'a', agentName: '角色', runtime },
+      {
+        ...run,
+        id: 'deleted-character-history',
+        agentId: 'deleted',
+        agentName: '旧角色',
+      },
+    ],
+    requests: { 'a:original-request': plan.id },
+  };
+  const original = JSON.stringify(legacy);
+  const dir = await mkdtemp(join(tmpdir(), 'characters-upgrade-'));
+  const path = join(dir, 'providers.json.agents.json');
+  try {
+    await writeFile(path, original);
+    const migrated = (await readAICharacterArchive(path))!;
+    expect(migrated.version).toBe(2);
+    expect(migrated).not.toHaveProperty('agents');
+    expect(migrated.characters[0]).toMatchObject({
+      id: 'a',
+      currentRunId: run.id,
+      runtime,
+    });
+    expect(migrated.plans[0]).toMatchObject({
+      id: plan.id,
+      characterId: 'a',
+      characterName: '角色',
+      spentTokens: 1234,
+      latestRun: { characterId: 'a', characterName: '角色' },
+    });
+    expect(migrated.runs[0]).toMatchObject({
+      id: run.id,
+      characterId: 'a',
+      characterName: '角色',
+      runtime,
+    });
+    expect(migrated.runs[1]).toMatchObject({
+      characterId: 'deleted',
+      characterName: '旧角色',
+    });
+    for (const resource of [
+      ...migrated.plans,
+      ...migrated.runs,
+      migrated.plans[0].latestRun!,
+    ]) {
+      expect(resource).not.toHaveProperty('agentId');
+      expect(resource).not.toHaveProperty('agentName');
+    }
+    expect(migrated.requests).toEqual(legacy.requests);
+    expect(await readFile(path + '.before-ai-characters-v2.bak', 'utf8')).toBe(
+      original,
+    );
+    await writeAICharacterArchive(path, migrated);
+    expect(await readAICharacterArchive(path)).toEqual(migrated);
+    expect(migrateArchive(migrated)).toEqual(migrated);
+    expect(await readFile(path + '.before-ai-characters-v2.bak', 'utf8')).toBe(
+      original,
+    );
+    expect(JSON.stringify(legacy)).toBe(original);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

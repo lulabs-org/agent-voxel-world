@@ -1,9 +1,9 @@
-import type { ManagedAgentView } from '@voxel/shared';
+import type { AICharacterView } from '@voxel/shared';
 import { expect, it } from 'vitest';
-import { initialAgent } from '../model';
-import { agentPresentation } from './agent-presentation';
-const job = (extra: Partial<ManagedAgentView> = {}): ManagedAgentView => ({
-  ...initialAgent,
+import { initialAICharacter } from '../model';
+import { aiCharacterPresentation } from './agent-presentation';
+const job = (extra: Partial<AICharacterView> = {}): AICharacterView => ({
+  ...initialAICharacter,
   id: 'agent',
   name: 'Test',
   providerName: 'Local',
@@ -24,24 +24,24 @@ const job = (extra: Partial<ManagedAgentView> = {}): ManagedAgentView => ({
   ...extra,
 });
 it('separates a scheduled task from the idle process between model calls', () => {
-  expect(agentPresentation(job({ sessionId: 'player' }))).toMatchObject({
+  expect(aiCharacterPresentation(job({ sessionId: 'player' }))).toMatchObject({
     online: true,
     executing: true,
     canEdit: false,
   });
 });
 it('makes offline, failed-but-online and transitioning characters distinct', () => {
-  expect(agentPresentation(job({ status: 'stopped' }))).toMatchObject({
+  expect(aiCharacterPresentation(job({ status: 'stopped' }))).toMatchObject({
     online: false,
     presence: '未在世界中',
   });
   expect(
-    agentPresentation(
+    aiCharacterPresentation(
       job({ status: 'failed', sessionId: 'player', task: undefined }),
     ),
   ).toMatchObject({ online: true, presence: '在世界中', attention: true });
   for (const status of ['joining', 'stopping'] as const) {
-    expect(agentPresentation(job({ status }))).toMatchObject({
+    expect(aiCharacterPresentation(job({ status }))).toMatchObject({
       transitioning: true,
       occupiesSlot: true,
       canEdit: false,
@@ -58,7 +58,7 @@ it('preserves edit availability and status for paused and terminal tasks', () =>
     'blocked',
   ] as const) {
     const original = job();
-    const state = agentPresentation({
+    const state = aiCharacterPresentation({
       ...original,
       sessionId: 'player',
       task: { ...original.task!, status },
@@ -69,7 +69,7 @@ it('preserves edit availability and status for paused and terminal tasks', () =>
 });
 it('keeps a new standby character free of phantom task actions', () => {
   expect(
-    agentPresentation(job({ sessionId: 'player', task: undefined })),
+    aiCharacterPresentation(job({ sessionId: 'player', task: undefined })),
   ).toMatchObject({
     online: true,
     executing: false,

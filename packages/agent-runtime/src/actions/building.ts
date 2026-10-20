@@ -1,4 +1,4 @@
-import { resolvePermissions, type AgentPermissions } from '@voxel/shared';
+import { resolvePermissions, type AICharacterPermissions } from '@voxel/shared';
 import { inBounds, key, distance } from '@voxel/shared';
 import { setTimeout as pause } from 'node:timers/promises';
 import type {
@@ -29,7 +29,7 @@ export function parsePlannedEdit(value: unknown): PlannedEdit {
 
 export function parseBuildAction(
   a: Record<string, unknown>,
-  allowEdits: boolean | AgentPermissions,
+  allowEdits: boolean | AICharacterPermissions,
 ): BuildAction {
   const permissions = resolvePermissions(allowEdits);
   if (a.type === 'build') {

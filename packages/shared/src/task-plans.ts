@@ -1,4 +1,4 @@
-import type { AgentTask, AgentTaskStatus } from './agents';
+import type { AICharacterTask, AICharacterTaskStatus } from './ai-characters';
 
 export type TaskTiming =
   | { kind: 'immediate' }
@@ -22,8 +22,8 @@ export type TaskPlanDraft = {
   totalTokenBudget: number;
 };
 export type TaskPlan = TaskPlanDraft & {
-  agentId?: string;
-  agentName?: string;
+  characterId?: string;
+  characterName?: string;
   revision?: number;
   imported?: boolean;
   id: string;
@@ -39,16 +39,16 @@ export type TaskRun = {
   id: string;
   planId?: string;
   planRevision?: number;
-  agentId?: string;
-  agentName?: string;
+  characterId?: string;
+  characterName?: string;
   source: 'scheduled' | 'manual' | 'chat' | 'legacy';
   scheduledAt: number;
   startedAt?: number;
   finishedAt?: number;
   snapshot: TaskPlanDraft;
-  status: AgentTaskStatus | 'failed' | 'missed' | 'skipped';
+  status: AICharacterTaskStatus | 'failed' | 'missed' | 'skipped';
   reason: string;
-  task?: AgentTask;
+  task?: AICharacterTask;
   totalTokens: number;
   logs: string[];
   actions?: {

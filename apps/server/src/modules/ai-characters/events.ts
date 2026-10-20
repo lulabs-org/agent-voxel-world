@@ -1,34 +1,34 @@
-import type { RestoredAgentRecord, AgentArchive } from './ports';
+import type { RestoredAICharacterRecord, AICharacterArchive } from './ports';
 
-export type AgentResourceChange = {
-  resource: 'agents' | 'providers' | 'plans' | 'runs';
+export type AICharacterResourceChange = {
+  resource: 'characters' | 'providers' | 'plans' | 'runs';
   planIds?: string[];
   runIds?: string[];
-  agentIds: string[];
+  characterIds: string[];
   version: number;
 };
 
-export class AgentEvents {
-  private listeners = new Set<(change: AgentResourceChange) => void>();
+export class AICharacterEvents {
+  private listeners = new Set<(change: AICharacterResourceChange) => void>();
   private previous = new Map<string, string>();
   private planState = new Map<string, string>();
   private runState = new Map<string, string>();
   version = 0;
 
-  on(listener: (change: AgentResourceChange) => void) {
+  on(listener: (change: AICharacterResourceChange) => void) {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
   }
 
-  commit(records: RestoredAgentRecord[], archive?: AgentArchive) {
+  commit(records: RestoredAICharacterRecord[], archive?: AICharacterArchive) {
     const next = new Map(records.map((r) => [r.id, JSON.stringify(r)]));
     const ids = [...new Set([...next.keys(), ...this.previous.keys()])].filter(
       (id) => next.get(id) !== this.previous.get(id),
     );
     this.previous = next;
-    if (ids.length) this.publish('agents', ids);
+    if (ids.length) this.publish('characters', ids);
     if (archive) {
       const diff = (
         values: { id: string }[],
@@ -63,13 +63,13 @@ export class AgentEvents {
   }
 
   publish(
-    resource: AgentResourceChange['resource'],
-    agentIds: string[] = [],
+    resource: AICharacterResourceChange['resource'],
+    characterIds: string[] = [],
     details: { planIds?: string[]; runIds?: string[] } = {},
   ) {
-    const c: AgentResourceChange = {
+    const c: AICharacterResourceChange = {
       resource,
-      agentIds,
+      characterIds,
       ...details,
       version: ++this.version,
     };

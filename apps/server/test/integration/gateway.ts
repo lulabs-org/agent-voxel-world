@@ -26,7 +26,7 @@ const server = await createTestServer({
 const clients: GatewayClient[] = [];
 const connect = (secret = token) => {
   const c = new GatewayClient({
-    url: server.url + '/agents/gateway',
+    url: server.url + '/ai-characters/gateway',
     token: () => secret,
     socket: (u) => new WebSocket(u, { origin }) as unknown as SocketLike,
     reconnect: false,
@@ -60,7 +60,7 @@ const cli = (...args: string[]) =>
         ),
         ...args,
         '--url',
-        server.url + '/agents/gateway',
+        server.url + '/ai-characters/gateway',
         '--json',
       ],
       {
@@ -86,13 +86,16 @@ const cli = (...args: string[]) =>
   });
 try {
   assert.equal(
-    (await fetch(server.httpUrl + '/agents', { headers: { Origin: origin } }))
-      .status,
+    (
+      await fetch(server.httpUrl + '/ai-characters', {
+        headers: { Origin: origin },
+      })
+    ).status,
     401,
   );
   assert.equal(
     (
-      await fetch(server.httpUrl + '/agents', {
+      await fetch(server.httpUrl + '/ai-characters', {
         headers: { Origin: 'https://wrong', Authorization: `Bearer ${token}` },
       })
     ).status,
@@ -100,7 +103,7 @@ try {
   );
   assert.equal(
     (
-      await fetch(server.httpUrl + '/agents', {
+      await fetch(server.httpUrl + '/ai-characters', {
         headers: { Authorization: token },
       })
     ).status,
@@ -134,27 +137,29 @@ try {
     goal: '',
   };
   const first = await c.request<any>(
-    'agents.create',
+    'characters.create',
     { value },
     { commandId: 'create-stable' },
   );
   const duplicateAgent = await c.request<any>(
-    'agents.create',
+    'characters.create',
     { value },
     { commandId: 'create-stable' },
   );
   assert.equal(duplicateAgent.id, first.id);
-  assert.equal((await http('/agents')).status, 200);
-  assert.equal((await c.request<any[]>('agents.list')).length, 1);
+  assert.equal((await http('/ai-characters')).status, 200);
+  assert.equal((await c.request<any[]>('characters.list')).length, 1);
   await assert.rejects(
     c.request(
-      'agents.create',
+      'characters.create',
       { value: { ...value, name: 'different' } },
       { commandId: 'create-stable' },
     ),
   );
-  await until(() => server.agents.list()[0].status === 'idle');
-  const standby = await c.request<any>('agents.get', { agentId: first.id });
+  await until(() => server.characters.list()[0].status === 'idle');
+  const standby = await c.request<any>('characters.get', {
+    characterId: first.id,
+  });
   assert.equal(standby.taskIdentity, null);
   assert.equal(standby.task, undefined);
   assert.equal((await c.request<any>('plans.list')).total, 0);
@@ -166,7 +171,7 @@ try {
   ].entries()) {
     await assert.rejects(
       c.request(
-        'agents.create',
+        'characters.create',
         { value: { providerId: 'deepseek', name: 'Rejected', ...value } },
         { commandId: `invalid-create-${i}` },
       ),
@@ -174,14 +179,14 @@ try {
     );
     await assert.rejects(
       c.request(
-        'agents.update',
-        { agentId: first.id, value },
+        'characters.update',
+        { characterId: first.id, value },
         { commandId: `invalid-update-${i}` },
       ),
       /Tasks/,
     );
   }
-  assert.equal((await c.request<any[]>('agents.list')).length, 1);
+  assert.equal((await c.request<any[]>('characters.list')).length, 1);
   assert.equal((await c.request<any>('plans.list')).total, 0);
   const immediate = {
     name: 'Immediate fixture',
@@ -191,35 +196,37 @@ try {
   };
   const plan = await c.request<any>(
     'plans.create',
-    { agentId: first.id, value: immediate },
+    { characterId: first.id, value: immediate },
     { commandId: 'assign' },
   );
-  await until(() => server.agents.list()[0].task?.status === 'waiting');
+  await until(() => server.characters.list()[0].task?.status === 'waiting');
   const duplicatePlanCreate = await c.request<any>(
     'plans.create',
-    { agentId: first.id, value: immediate },
+    { characterId: first.id, value: immediate },
     { commandId: 'assign' },
   );
   assert.equal(duplicatePlanCreate.id, plan.id);
   const history = await c.request<any>('runs.list', { planId: plan.id });
   assert.equal(history.total, 1, 'immediate creation starts exactly one run');
   const runId = history.items[0].id;
-  await server.agents.settled(first.id);
-  const beforeUpdate = await c.request<any>('agents.get', {
-    agentId: first.id,
+  await server.characters.settled(first.id);
+  const beforeUpdate = await c.request<any>('characters.get', {
+    characterId: first.id,
   });
   await assert.rejects(
     c.request(
-      'agents.update',
+      'characters.update',
       {
-        agentId: first.id,
+        characterId: first.id,
         value: { goal: 'Replacement', name: 'Must not rename' },
       },
       { commandId: 'reject-replacement' },
     ),
     /Tasks/,
   );
-  const afterUpdate = await c.request<any>('agents.get', { agentId: first.id });
+  const afterUpdate = await c.request<any>('characters.get', {
+    characterId: first.id,
+  });
   assert.deepEqual(afterUpdate.task, beforeUpdate.task);
   assert.equal(afterUpdate.name, beforeUpdate.name);
   assert.equal(
@@ -229,7 +236,7 @@ try {
   for (const operation of ['task', 'pause', 'resume', 'cancel']) {
     assert.equal(
       (
-        await http(`/agents/${first.id}/${operation}`, 'POST', {
+        await http(`/ai-characters/${first.id}/${operation}`, 'POST', {
           goal: 'wrong',
         })
       ).status,
@@ -245,12 +252,12 @@ try {
     await assert.rejects(
       c.request(
         method as any,
-        { agentId: first.id },
+        { characterId: first.id },
         { commandId: `removed-${method.replace('.', '-')}` },
       ),
     );
   }
-  assert.equal(server.agents.list()[0].task?.status, 'waiting');
+  assert.equal(server.characters.list()[0].task?.status, 'waiting');
 
   await assert.rejects(
     c.request(
@@ -258,7 +265,7 @@ try {
       {
         runId,
         operation: 'cancel',
-        agentId: first.id,
+        characterId: first.id,
         expectedTask: { id: 'old', revision: 0, startedAt: 0 },
       },
       { commandId: 'stale' },
@@ -268,7 +275,9 @@ try {
     (await c.request<any>('commands.get', { commandId: 'stale' })).state,
     'rejected',
   );
-  const task = await c.request<any>('agents.get', { agentId: first.id });
+  const task = await c.request<any>('characters.get', {
+    characterId: first.id,
+  });
   const paused = await c.request<any>(
     'runs.control',
     { runId, operation: 'pause', expectedTask: task.taskIdentity },
@@ -277,21 +286,26 @@ try {
   assert.equal(paused.id, runId);
   assert.equal(paused.planId, plan.id);
   assert.equal(paused.status, 'paused');
-  assert.equal(server.agents.list()[0].task?.status, 'paused');
+  assert.equal(server.characters.list()[0].task?.status, 'paused');
   const concurrentPlan = await c.request<any>(
     'plans.create',
-    { agentId: first.id, value: { ...immediate, name: 'Second execution' } },
+    {
+      characterId: first.id,
+      value: { ...immediate, name: 'Second execution' },
+    },
     { commandId: 'second-execution' },
   );
-  await until(() => server.agents.list()[0].task?.status === 'waiting');
-  const newer = await c.request<any>('agents.get', { agentId: first.id });
+  await until(() => server.characters.list()[0].task?.status === 'waiting');
+  const newer = await c.request<any>('characters.get', {
+    characterId: first.id,
+  });
   await c.request(
     'runs.control',
     { runId, operation: 'pause', expectedTask: newer.taskIdentity },
     { commandId: 'pause-old-run' },
   );
   assert.equal(
-    server.agents.list()[0].task?.status,
+    server.characters.list()[0].task?.status,
     'waiting',
     'controlling an older run must not pause the current run',
   );
@@ -307,17 +321,19 @@ try {
     },
     { commandId: 'cancel-second-execution' },
   );
-  const updated = await c.request<any>('agents.get', { agentId: first.id });
+  const updated = await c.request<any>('characters.get', {
+    characterId: first.id,
+  });
   await c.request(
     'runs.control',
     { runId, operation: 'resume', expectedTask: updated.taskIdentity },
     { commandId: 'resume' },
   );
-  await until(() => server.agents.list()[0].task?.status === 'waiting');
+  await until(() => server.characters.list()[0].task?.status === 'waiting');
   c.close();
-  assert.equal(server.agents.list()[0].task?.status, 'waiting');
-  assert(server.agents.list()[0].sessionId);
-  const read = await http('/agents');
+  assert.equal(server.characters.list()[0].task?.status, 'waiting');
+  assert(server.characters.list()[0].sessionId);
+  const read = await http('/ai-characters');
   assert.equal(read.status, 200);
   assert.equal((await read.json())[0].id, first.id);
   await until(() => events.some((e) => e.event === 'changed'));
@@ -339,7 +355,7 @@ try {
         'status',
         first.id,
         '--url',
-        server.url + '/agents/gateway',
+        server.url + '/ai-characters/gateway',
         '--json',
       ],
       {
@@ -358,7 +374,7 @@ try {
   });
   assert.equal(JSON.parse(output).id, first.id);
   assert(
-    server.agents.list()[0].sessionId,
+    server.characters.list()[0].sessionId,
     'CLI exit must not stop hosted agent',
   );
   await new Promise<void>((resolve, reject) => {
@@ -376,7 +392,7 @@ try {
         'watch',
         first.id,
         '--url',
-        server.url + '/agents/gateway',
+        server.url + '/ai-characters/gateway',
         '--json',
       ],
       {
@@ -405,16 +421,18 @@ try {
     });
   });
   assert(
-    server.agents.list()[0].sessionId,
+    server.characters.list()[0].sessionId,
     'watch Ctrl+C must not stop the hosted Agent',
   );
-  const latest = await other.request<any>('agents.get', { agentId: first.id });
+  const latest = await other.request<any>('characters.get', {
+    characterId: first.id,
+  });
   await other.request(
     'runs.control',
     { runId, operation: 'cancel', expectedTask: latest.taskIdentity },
     { commandId: 'cancel' },
   );
-  assert.equal(server.agents.list()[0].task?.status, 'cancelled');
+  assert.equal(server.characters.list()[0].task?.status, 'cancelled');
   const cliPlan = await cli(
     'task',
     'create',
@@ -422,40 +440,40 @@ try {
     '--goal',
     'CLI immediate task',
   );
-  await until(() => server.agents.list()[0].task?.status === 'waiting');
+  await until(() => server.characters.list()[0].task?.status === 'waiting');
   const cliRuns = await other.request<any>('runs.list', { planId: cliPlan.id });
   assert.equal(cliRuns.total, 1);
   const cliRunId = cliRuns.items[0].id;
-  await cli('run', 'pause', cliRunId, '--agent', first.id);
-  assert.equal(server.agents.list()[0].task?.status, 'paused');
-  await other.request('agents.stop', { agentId: first.id });
+  await cli('run', 'pause', cliRunId, '--character', first.id);
+  assert.equal(server.characters.list()[0].task?.status, 'paused');
+  await other.request('characters.stop', { characterId: first.id });
   await assert.rejects(
-    cli('run', 'resume', cliRunId, '--agent', first.id),
+    cli('run', 'resume', cliRunId, '--character', first.id),
     /离线/,
   );
   assert.equal(
-    server.agents.list()[0].status,
+    server.characters.list()[0].status,
     'stopped',
     'resume cannot implicitly join the world',
   );
-  await other.request('agents.join', { agentId: first.id });
-  await until(() => server.agents.list()[0].status === 'idle');
+  await other.request('characters.join', { characterId: first.id });
+  await until(() => server.characters.list()[0].status === 'idle');
   assert.equal(
-    server.agents.list()[0].task?.status,
+    server.characters.list()[0].task?.status,
     'paused',
     'join must not resume task execution',
   );
-  await cli('run', 'resume', cliRunId, '--agent', first.id);
-  await until(() => server.agents.list()[0].task?.status === 'waiting');
-  await cli('run', 'cancel', cliRunId, '--agent', first.id);
-  assert.equal(server.agents.list()[0].task?.status, 'cancelled');
+  await cli('run', 'resume', cliRunId, '--character', first.id);
+  await until(() => server.characters.list()[0].task?.status === 'waiting');
+  await cli('run', 'cancel', cliRunId, '--character', first.id);
+  assert.equal(server.characters.list()[0].task?.status, 'cancelled');
   assert.equal(
     (await other.request<any>('runs.list', { planId: cliPlan.id })).total,
     1,
     'resume continues the same run',
   );
   const second = await other.request<any>(
-    'agents.create',
+    'characters.create',
     { value: { ...value, name: 'Second', joinWorld: false } },
     { commandId: 'second' },
   );
@@ -469,13 +487,13 @@ try {
   };
   const planned = await other.request<any>(
     'plans.create',
-    { agentId: first.id, value: draft },
+    { characterId: first.id, value: draft },
     { commandId: 'global-plan' },
   );
   const duplicatePlan = await http(
     `/tasks`,
     'POST',
-    { ...draft, agentId: first.id, requestId: 'global-plan' },
+    { ...draft, characterId: first.id, requestId: 'global-plan' },
     'global-plan',
   );
   assert.equal(duplicatePlan.status, 201);
@@ -489,12 +507,12 @@ try {
     'plans.reassign',
     {
       planId: planned.id,
-      targetAgentId: second.id,
+      targetCharacterId: second.id,
       expectedPlanRevision: planned.revision,
     },
     { commandId: 'reassign-plan' },
   );
-  assert.equal(assigned.agentId, second.id);
+  assert.equal(assigned.characterId, second.id);
   assert.equal(assigned.state, 'paused');
   await assert.rejects(
     other.request(
@@ -510,22 +528,22 @@ try {
   assert.equal(
     (
       await http(`/tasks/${planned.id}/pause`, 'POST', {
-        agentId: first.id,
+        characterId: first.id,
       })
     ).status,
     409,
   );
   await other.request(
-    'agents.delete',
-    { agentId: second.id },
+    'characters.delete',
+    { characterId: second.id },
     { commandId: 'delete-second' },
   );
   const retained = await other.request<any>('plans.get', {
     planId: planned.id,
   });
-  assert.equal(retained.agentId, undefined);
+  assert.equal(retained.characterId, undefined);
   assert.equal(retained.state, 'paused');
-  assert.equal(retained.agentName, 'Second');
+  assert.equal(retained.characterName, 'Second');
   assert.equal(
     (await other.request<any>('plans.list', { state: 'unassigned' })).total,
     1,

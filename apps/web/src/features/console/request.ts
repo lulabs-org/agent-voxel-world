@@ -30,7 +30,7 @@ export async function consoleFetch<T>(
 }
 
 /**
- * @deprecated 建议直接使用具体的子 API（providersApi, agentsApi, tasksApi, voiceApi）或 consoleFetch
+ * @deprecated 建议直接使用具体的子 API（providersApi, aiCharactersApi, tasksApi, voiceApi）或 consoleFetch
  */
 export async function request<T>(
   path: string,
@@ -41,6 +41,7 @@ export async function request<T>(
   return consoleFetch<T>(path, { method, body, signal });
 }
 
-export const agentPath = (id: string) => `/agents/${encodeURIComponent(id)}`;
+export const aiCharacterPath = (id: string) =>
+  `/ai-characters/${encodeURIComponent(id)}`;
 export const providerPath = (id: string) =>
   `/providers/${encodeURIComponent(id)}`;

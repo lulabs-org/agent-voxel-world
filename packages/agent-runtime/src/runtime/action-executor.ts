@@ -1,5 +1,5 @@
 import { paceChat } from './chat-pacing';
-import { agentPermissions, key } from '@voxel/shared';
+import { aiCharacterPermissions, key } from '@voxel/shared';
 import type {
   AgentAction,
   AgentSession,
@@ -65,7 +65,7 @@ export async function executeTaskActions(
       guardedSession,
       routed,
       observation,
-      agentPermissions(config),
+      aiCharacterPermissions(config),
       AbortSignal.any([signal, actionLimit.signal]),
       {
         navigation: { follow: followControl },

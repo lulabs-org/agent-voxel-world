@@ -1,5 +1,5 @@
-import { AGENT_LOG_LIMIT, type ManagedAgentView } from '@voxel/shared';
-export function AgentLogViewer({ job }: { job: ManagedAgentView }) {
+import { AI_CHARACTER_LOG_LIMIT, type AICharacterView } from '@voxel/shared';
+export function AICharacterLogViewer({ job }: { job: AICharacterView }) {
   return (
     <section className="agents-activity" aria-label="运行记录与用量">
       <div className="agents-usage">
@@ -27,7 +27,7 @@ export function AgentLogViewer({ job }: { job: ManagedAgentView }) {
       <div className="agents-task-heading">
         <h4>最近运行记录</h4>
         <span className="agent-hint">
-          最多保留 {AGENT_LOG_LIMIT} 条 · 最新在上 · 本地时间
+          最多保留 {AI_CHARACTER_LOG_LIMIT} 条 · 最新在上 · 本地时间
         </span>
       </div>
       {job.logs.length ? (

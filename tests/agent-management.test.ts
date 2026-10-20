@@ -4,8 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProviderStore, validateProvider } from '../apps/server/src/modules/providers';
-import { validateAgent } from '../apps/server/src/modules/agent';
+import {
+  ProviderStore,
+  validateProvider,
+} from '../apps/server/src/modules/providers';
+import { validateAICharacter } from '../apps/server/src/modules/ai-characters';
 import { listModels, type Observation } from '@voxel/agent-runtime';
 
 const folders: string[] = [];
@@ -86,7 +89,7 @@ describe('provider configuration boundary', () => {
   it('bounds runtime settings and defaults to no block edits', () => {
     const p = provider();
     const input = { name: 'AI', goal: 'Observe' };
-    expect(validateAgent(input, p)).toMatchObject({
+    expect(validateAICharacter(input, p)).toMatchObject({
       maxTurns: 100,
       allowEdits: false,
       model: 'deepseek-flash',
@@ -99,24 +102,26 @@ describe('provider configuration boundary', () => {
       { model: 'bad model' },
       { maxTokens: Infinity },
     ])
-      expect(() => validateAgent({ ...input, ...invalid }, p)).toThrow();
-    expect(() => validateAgent(input, { ...p, apiKey: '' })).toThrow('API Key');
+      expect(() => validateAICharacter({ ...input, ...invalid }, p)).toThrow();
+    expect(() => validateAICharacter(input, { ...p, apiKey: '' })).toThrow(
+      'API Key',
+    );
     const local = validateProvider({
       name: 'Local',
       type: 'ollama',
       defaultModel: 'qwen3:8b',
     });
-    expect(validateAgent(input, local).model).toBe('qwen3:8b');
+    expect(validateAICharacter(input, local).model).toBe('qwen3:8b');
     expect(() =>
-      validateAgent({ ...input, thinking: 'enabled' }, local),
+      validateAICharacter({ ...input, thinking: 'enabled' }, local),
     ).toThrow();
   });
   it('accepts optional role guidance without treating it as a task or permission', () => {
     const p = provider();
     const input = { name: '建筑师', goal: '' };
-    expect(validateAgent(input, p).roleDescription).toBe('');
+    expect(validateAICharacter(input, p).roleDescription).toBe('');
     expect(
-      validateAgent(
+      validateAICharacter(
         { ...input, roleDescription: '  负责规划和建造房屋。\n先确认需求。  ' },
         p,
       ),
@@ -126,13 +131,13 @@ describe('provider configuration boundary', () => {
       allowEdits: false,
     });
     expect(
-      validateAgent({ ...input, roleDescription: '建'.repeat(2000) }, p)
+      validateAICharacter({ ...input, roleDescription: '建'.repeat(2000) }, p)
         .roleDescription,
     ).toHaveLength(2000);
     for (const roleDescription of ['建'.repeat(2001), {}, null, 42]) {
-      expect(() => validateAgent({ ...input, roleDescription }, p)).toThrow(
-        '角色设定',
-      );
+      expect(() =>
+        validateAICharacter({ ...input, roleDescription }, p),
+      ).toThrow('角色设定');
     }
   });
 });
@@ -221,13 +226,13 @@ describe('multi-provider SDK requests', () => {
 describe('managed scheduling validation', () => {
   it('accepts continuous random scheduling and keeps old requests finite', () => {
     const base = { name: 'AI', goal: 'Observe' };
-    expect(validateAgent(base, provider())).toMatchObject({
+    expect(validateAICharacter(base, provider())).toMatchObject({
       continuous: false,
       intervalMode: 'fixed',
       maxTurns: 100,
     });
     expect(
-      validateAgent(
+      validateAICharacter(
         {
           ...base,
           continuous: true,
@@ -252,7 +257,7 @@ describe('managed scheduling validation', () => {
       { intervalMinMs: 4000.5 },
     ])
       expect(() =>
-        validateAgent({ ...base, ...invalid }, provider()),
+        validateAICharacter({ ...base, ...invalid }, provider()),
       ).toThrow();
   });
 });
@@ -260,11 +265,13 @@ describe('managed scheduling validation', () => {
 it('migrates legacy permissions and validates canonical capability settings', () => {
   const p = provider();
   const input = { name: 'Capabilities' };
-  expect(validateAgent(input, p)).toMatchObject({
+  expect(validateAICharacter(input, p)).toMatchObject({
     skills: [],
     permissions: { move: true, chat: true, place: false, remove: false },
   });
-  expect(validateAgent({ ...input, allowEdits: true }, p).permissions).toEqual({
+  expect(
+    validateAICharacter({ ...input, allowEdits: true }, p).permissions,
+  ).toEqual({
     move: true,
     chat: true,
     place: true,
@@ -272,7 +279,7 @@ it('migrates legacy permissions and validates canonical capability settings', ()
   });
   const permissions = { move: false, chat: false, place: true, remove: false };
   expect(
-    validateAgent(
+    validateAICharacter(
       {
         ...input,
         allowEdits: true,
@@ -297,7 +304,7 @@ it('migrates legacy permissions and validates canonical capability settings', ()
     { skills: ['shell'] },
     { skills: null },
   ])
-    expect(() => validateAgent({ ...input, ...invalid }, p)).toThrow();
+    expect(() => validateAICharacter({ ...input, ...invalid }, p)).toThrow();
 });
 
 it('persists service inference settings and keeps legacy roles until the service is configured', async () => {
@@ -312,7 +319,9 @@ it('persists service inference settings and keeps legacy roles until the service
       timeoutMs: 45000,
       thinking: 'enabled',
     };
-    expect(validateAgent(role, store.get('deepseek'))).toMatchObject(role);
+    expect(validateAICharacter(role, store.get('deepseek'))).toMatchObject(
+      role,
+    );
     const inference = {
       maxTokens: 8192,
       timeoutMs: 90000,
@@ -325,7 +334,7 @@ it('persists service inference settings and keeps legacy roles until the service
     expect(restored.list().find((p) => p.id === 'deepseek')?.inference).toEqual(
       inference,
     );
-    expect(validateAgent(role, restored.get('deepseek'))).toMatchObject(
+    expect(validateAICharacter(role, restored.get('deepseek'))).toMatchObject(
       inference,
     );
     for (const invalid of [

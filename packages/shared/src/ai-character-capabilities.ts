@@ -1,12 +1,12 @@
-export type AgentPermissions = {
+export type AICharacterPermissions = {
   move: boolean;
   chat: boolean;
   place: boolean;
   remove: boolean;
 };
-export type AgentSkillId = 'building' | 'exploration' | 'guide';
+export type AICharacterSkillId = 'building' | 'exploration' | 'guide';
 
-export const AGENT_PERMISSIONS = [
+export const AI_CHARACTER_PERMISSIONS = [
   {
     id: 'move',
     name: '移动与跳跃',
@@ -29,11 +29,11 @@ export const AGENT_PERMISSIONS = [
   },
 ] as const;
 
-export const AGENT_SKILLS: ReadonlyArray<{
-  id: AgentSkillId;
+export const AI_CHARACTER_SKILLS: ReadonlyArray<{
+  id: AICharacterSkillId;
   name: string;
   description: string;
-  requires: readonly (keyof AgentPermissions)[];
+  requires: readonly (keyof AICharacterPermissions)[];
   guidance: string;
 }> = [
   {
@@ -64,8 +64,8 @@ export const AGENT_SKILLS: ReadonlyArray<{
 
 /** Legacy callers grant movement/chat and use allowEdits for both block operations. */
 export function resolvePermissions(
-  value: boolean | AgentPermissions,
-): AgentPermissions {
+  value: boolean | AICharacterPermissions,
+): AICharacterPermissions {
   return typeof value === 'boolean'
     ? { move: true, chat: true, place: value, remove: value }
     : {
@@ -76,10 +76,10 @@ export function resolvePermissions(
       };
 }
 
-export function agentPermissions(settings: {
-  permissions?: AgentPermissions;
+export function aiCharacterPermissions(settings: {
+  permissions?: AICharacterPermissions;
   allowEdits?: boolean;
-}): AgentPermissions {
+}): AICharacterPermissions {
   return resolvePermissions(
     settings.permissions ?? settings.allowEdits === true,
   );
@@ -89,8 +89,8 @@ export function validateCapabilities(input: {
   permissions?: unknown;
   skills?: unknown;
   allowEdits?: unknown;
-}): { permissions: AgentPermissions; skills: AgentSkillId[] } {
-  let permissions: AgentPermissions;
+}): { permissions: AICharacterPermissions; skills: AICharacterSkillId[] } {
+  let permissions: AICharacterPermissions;
   if (input.permissions === undefined) {
     if (input.allowEdits !== undefined && typeof input.allowEdits !== 'boolean')
       throw Error('建造权限格式无效。');
@@ -102,25 +102,25 @@ export function validateCapabilities(input: {
       typeof value !== 'object' ||
       Array.isArray(value) ||
       Object.keys(value).some(
-        (key) => !AGENT_PERMISSIONS.some((p) => p.id === key),
+        (key) => !AI_CHARACTER_PERMISSIONS.some((p) => p.id === key),
       ) ||
-      AGENT_PERMISSIONS.some(
+      AI_CHARACTER_PERMISSIONS.some(
         ({ id }) => typeof (value as Record<string, unknown>)[id] !== 'boolean',
       )
     ) {
       throw Error('动作权限格式无效，请完整配置四项权限。');
     }
-    permissions = resolvePermissions(value as AgentPermissions);
+    permissions = resolvePermissions(value as AICharacterPermissions);
   }
   const skills = input.skills === undefined ? [] : input.skills;
   if (
     !Array.isArray(skills) ||
-    skills.some((id) => !AGENT_SKILLS.some((skill) => skill.id === id))
+    skills.some((id) => !AI_CHARACTER_SKILLS.some((skill) => skill.id === id))
   )
     throw Error('角色技能无效。');
   return {
     permissions,
-    skills: AGENT_SKILLS.filter(({ id }) => skills.includes(id)).map(
+    skills: AI_CHARACTER_SKILLS.filter(({ id }) => skills.includes(id)).map(
       ({ id }) => id,
     ),
   };

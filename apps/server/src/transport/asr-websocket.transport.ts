@@ -25,7 +25,7 @@ export class AsrWebSocketTransport extends WebSocketTransport {
     this.wss.on('connection', (socket, req) => {
       const url = new URL(req.url ?? '/', 'http://localhost');
       const client = Object.assign(socket, { pingCount: 0 });
-      if (url.pathname === '/agents/gateway' && gateway) {
+      if (url.pathname === '/ai-characters/gateway' && gateway) {
         client.on('pong', () => {
           client.pingCount = 0;
         });

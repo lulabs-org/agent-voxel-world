@@ -24,7 +24,7 @@ import { object } from '../../common/validation';
 import { taskLimits } from './validation';
 import { AppError } from '../../common/errors';
 import type { TaskExecutionState } from './execution-port';
-import type { AgentSettings } from '@voxel/shared';
+import type { AICharacterSettings } from '@voxel/shared';
 const active = (status: TaskExecutionState['view']['status']) =>
   ['joining', 'running', 'stopping'].includes(status);
 
@@ -76,8 +76,8 @@ export function captureTask(job: TaskExecutionState) {
       'chat',
     );
     delete run.planId;
-    run.agentId = job.view.id;
-    run.agentName = job.view.name;
+    run.characterId = job.view.id;
+    run.characterName = job.view.name;
     run.logs = [...job.view.logs];
     job.ledger.runs.push(run);
     job.currentRunId = run.id;
@@ -155,10 +155,10 @@ export async function commitExecution<T>(
   captureTask(job);
   const before = {
     plans: structuredClone(
-      job.ledger.plans.filter((p) => p.agentId === job.view.id),
+      job.ledger.plans.filter((p) => p.characterId === job.view.id),
     ),
     runs: structuredClone(
-      job.ledger.runs.filter((r) => r.agentId === job.view.id),
+      job.ledger.runs.filter((r) => r.characterId === job.view.id),
     ),
     currentRunId: job.currentRunId,
     requests: Object.fromEntries(
@@ -176,11 +176,11 @@ export async function commitExecution<T>(
     return result;
   } catch (error) {
     job.ledger.plans = [
-      ...job.ledger.plans.filter((p) => p.agentId !== job.view.id),
+      ...job.ledger.plans.filter((p) => p.characterId !== job.view.id),
       ...before.plans,
     ];
     job.ledger.runs = [
-      ...job.ledger.runs.filter((r) => r.agentId !== job.view.id),
+      ...job.ledger.runs.filter((r) => r.characterId !== job.view.id),
       ...before.runs,
     ];
     job.ledger.requests = {
@@ -236,7 +236,7 @@ export function reserveRun(
   )
     return undefined;
   captureTask(job);
-  const run = newRun({ ...plan, agentName: job.view.name }, at, source);
+  const run = newRun({ ...plan, characterName: job.view.name }, at, source);
   job.ledger.runs.push(run);
   if (skip) {
     run.status = isRepeating(plan.timing) ? 'skipped' : 'missed';
@@ -315,7 +315,7 @@ export async function executeTaskRunControl(
   runId: string,
   operation: string,
   value: unknown,
-  validate: (settings: Partial<AgentSettings>) => AgentSettings,
+  validate: (settings: Partial<AICharacterSettings>) => AICharacterSettings,
   save: () => Promise<void>,
   schedule: (job: TaskExecutionState) => void,
   launch: (job: TaskExecutionState) => void,
@@ -323,7 +323,7 @@ export async function executeTaskRunControl(
 ) {
   captureTask(job);
   const run = job.ledger.runs.find((r) => r.id === runId);
-  if (!run || run.agentId !== job.view.id || !run.runtime?.task)
+  if (!run || run.characterId !== job.view.id || !run.runtime?.task)
     throw new AppError('执行记录不存在或不可继续。', 404);
   if (endedRun(run)) throw new AppError('执行已结束，请重新执行任务。');
   if (operation === 'pause' || operation === 'cancel') {

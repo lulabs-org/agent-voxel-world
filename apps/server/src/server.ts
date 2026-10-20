@@ -6,7 +6,7 @@ import type { AddressInfo, Socket } from 'node:net';
 import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
 import { env, type ServerConfig } from './config';
-import { AgentManager } from './modules/agent';
+import { AICharacterManager } from './modules/ai-characters';
 import { AgentGateway } from './modules/gateway/gateway';
 import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
@@ -25,7 +25,7 @@ export type ServerOptions = {
   asrSettings?: AsrSettingsStore;
   speech?: LocalSpeech;
   worldStore?: WorldStore;
-  agentDependencies?: ConstructorParameters<typeof AgentManager>[2];
+  agentDependencies?: ConstructorParameters<typeof AICharacterManager>[2];
   databaseCheck?: (url: string) => Promise<void>;
   asrBridge?: ConstructorParameters<typeof AsrWebSocketTransport>[2];
 };
@@ -50,17 +50,17 @@ export async function createServer(options: ServerOptions = {}) {
   const store = options.worldStore ?? new WorldStore(config.databaseUrl);
   let world: WorldRoom | undefined;
   let url = '';
-  const agents = new AgentManager(
+  const characters = new AICharacterManager(
     providers,
     () => url,
     options.agentDependencies,
     voiceServices,
   );
-  const gateway = new AgentGateway(agents);
+  const gateway = new AgentGateway(characters);
   const app = createApp({
     config,
     gatewayAuth,
-    agents,
+    characters,
     voiceServices,
     asrSettings,
     speech: options.speech ?? new LocalSpeech(),
@@ -91,7 +91,7 @@ export async function createServer(options: ServerOptions = {}) {
     voiceProvider,
     realtimeConfig: () => config.realtime,
   });
-  server.onBeforeShutdown(() => agents.close());
+  server.onBeforeShutdown(() => characters.close());
   let closing: Promise<void> | undefined;
   let listening = false;
   const close = () =>
@@ -115,7 +115,7 @@ export async function createServer(options: ServerOptions = {}) {
     app,
     http,
     server,
-    agents,
+    characters,
     providers,
     voiceServices,
     asrSettings,
@@ -138,7 +138,7 @@ export async function createServer(options: ServerOptions = {}) {
         url = `ws://${host.includes(':') ? `[${host}]` : host}:${(http.address() as AddressInfo).port}`;
         const listing = await matchMaker.createRoom('world', {});
         world = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
-        await agents.load();
+        await characters.load();
         return url;
       } catch (error) {
         await close();

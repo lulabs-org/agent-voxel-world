@@ -1,4 +1,8 @@
-import type { AgentSettings, ProviderType, ProviderView } from '@voxel/shared';
+import type {
+  AICharacterSettings,
+  ProviderType,
+  ProviderView,
+} from '@voxel/shared';
 import type { ConsoleController } from '../useConsoleController';
 import { freshProvider } from './model';
 
@@ -230,7 +234,8 @@ export function ProviderEditor({
                         ...draft,
                         inference: {
                           ...draft.inference,
-                          thinking: e.target.value as AgentSettings['thinking'],
+                          thinking: e.target
+                            .value as AICharacterSettings['thinking'],
                           maxTokens: e.target.value === 'enabled' ? 4096 : 512,
                         },
                       })
@@ -251,7 +256,7 @@ export function ProviderEditor({
                         inference: {
                           ...draft.inference,
                           reasoningEffort: e.target
-                            .value as AgentSettings['reasoningEffort'],
+                            .value as AICharacterSettings['reasoningEffort'],
                         },
                       })
                     }

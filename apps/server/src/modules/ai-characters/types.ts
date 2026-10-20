@@ -1,4 +1,4 @@
-import type { ManagedAgentView } from '@voxel/shared';
+import type { AICharacterView } from '@voxel/shared';
 import type {
   AgentAttention,
   AgentRunState,
@@ -7,13 +7,13 @@ import type {
 import type { PlanService } from '../tasks';
 import type { SavedProvider } from '../providers/provider-validation';
 
-export interface HostedAgent {
+export interface HostedAICharacter {
   run(provider: SavedProvider, run?: boolean): Promise<void>;
 }
 
 export type Job = {
-  view: ManagedAgentView;
-  host?: HostedAgent;
+  view: AICharacterView;
+  host?: HostedAICharacter;
   abort: AbortController;
   session?: Session;
   done?: Promise<void>;
@@ -27,10 +27,10 @@ export type Job = {
   storageFailed?: boolean;
 };
 
-export const active = (status: ManagedAgentView['status']) =>
+export const active = (status: AICharacterView['status']) =>
   ['joining', 'running', 'stopping'].includes(status);
 
 export const resident = (job: Job) => !!job.session || active(job.view.status);
 
 /** The sole owner of hosted Agent instances. Never shared with standalone CLI instances. */
-export class AgentRegistry extends Map<string, Job> {}
+export class AICharacterRegistry extends Map<string, Job> {}

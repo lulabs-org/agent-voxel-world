@@ -1,26 +1,26 @@
 import { refreshOnGatewayChange } from '../../../network/gateway';
 import {
-  agentPermissions,
-  type ManagedAgentView,
+  aiCharacterPermissions,
+  type AICharacterView,
   type ProviderView,
 } from '@voxel/shared';
 import { useEffect, useState } from 'react';
 import type { ConsoleFeedback } from '../useConsoleFeedback';
-import { agentsApi } from './api';
-import { initialAgent } from './model';
-export function useAgentsController(
+import { aiCharactersApi } from './api';
+import { initialAICharacter } from './model';
+export function useAICharactersController(
   open: boolean,
-  initialTab: 'agents' | undefined,
+  initialTab: 'characters' | undefined,
   providers: ProviderView[],
   resetModels: () => void,
   feedback: ConsoleFeedback,
 ) {
   const { setError, setNotice, perform, mutation, jobsRevision } = feedback;
-  const [jobs, setJobs] = useState<ManagedAgentView[]>([]);
+  const [jobs, setJobs] = useState<AICharacterView[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
   const [joinOnCreate, setJoinOnCreate] = useState(true);
-  const [agent, setAgent] = useState(initialAgent);
+  const [agent, setAgent] = useState(initialAICharacter);
   const [editingAgent, setEditingAgent] = useState<string>();
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [pollError, setPollError] = useState('');
@@ -40,7 +40,7 @@ export function useAgentsController(
     const poll = async () => {
       const revision = jobsRevision.current;
       try {
-        const list = await agentsApi.listAgents(abort.signal);
+        const list = await aiCharactersApi.listAgents(abort.signal);
         if (abort.signal.aborted) return;
         if (!mutation.current && revision === jobsRevision.current) {
           setJobs(list);
@@ -60,7 +60,7 @@ export function useAgentsController(
       stop();
     };
   }, [open, initialTab]);
-  const openAgentEditor = (job?: ManagedAgentView) => {
+  const openAgentEditor = (job?: AICharacterView) => {
     resetModels();
     setEditingAgent(job?.id);
     if (job) setSelectedAgentId(job.id);
@@ -75,7 +75,7 @@ export function useAgentsController(
             goal: job.task?.goal ?? job.goal,
           }
         : {
-            ...initialAgent,
+            ...initialAICharacter,
             providerId: providers[0]?.id ?? '',
             model: providers[0]?.defaultModel ?? '',
           },
@@ -121,7 +121,7 @@ export function useAgentsController(
         intervalMaxMs,
         ...profile
       } = agent;
-      const saved = await agentsApi.saveAgent(
+      const saved = await aiCharactersApi.saveAgent(
         {
           ...profile,
           model: selected.defaultModel,
@@ -140,7 +140,7 @@ export function useAgentsController(
         },
         editingAgent,
       );
-      setJobs(await agentsApi.listAgents());
+      setJobs(await aiCharactersApi.listAgents());
       setSelectedAgentId(saved.id);
       if (editingAgent) setAgent(saved);
       setShowAgentForm(false);
@@ -149,37 +149,40 @@ export function useAgentsController(
           ? 'AI 角色设置已保存。'
           : !joinOnCreate
             ? 'AI 角色已创建，可在“AI 角色”页上线。'
-            : agentPermissions(agent).chat
+            : aiCharacterPermissions(agent).chat
               ? 'AI 角色正在加入世界待命，可通过私聊或 @ 交流。'
               : 'AI 角色正在加入世界待命。发送聊天已关闭，可在控制台安排任务和查看进展。',
       );
     });
-  const joinAgent = (job: ManagedAgentView) =>
+  const joinAgent = (job: AICharacterView) =>
     perform(async () => {
-      await agentsApi.joinAgent(job.id);
-      setJobs(await agentsApi.listAgents());
+      await aiCharactersApi.joinAgent(job.id);
+      setJobs(await aiCharactersApi.listAgents());
       setNotice('AI 角色正在上线待命，原任务不会自动执行。');
     });
-  const stopAgent = (job: ManagedAgentView) =>
+  const stopAgent = (job: AICharacterView) =>
     perform(async () => {
-      await agentsApi.stopAgent(job.id);
-      setJobs(await agentsApi.listAgents());
+      await aiCharactersApi.stopAgent(job.id);
+      setJobs(await aiCharactersApi.listAgents());
     });
-  const deleteAgent = (job: ManagedAgentView) =>
+  const deleteAgent = (job: AICharacterView) =>
     perform(async () => {
-      await agentsApi.deleteAgent(job.id);
+      await aiCharactersApi.deleteAgent(job.id);
       setJobs((list) => list.filter((item) => item.id !== job.id));
       setSelectedAgentId(undefined);
       setEditingAgent(undefined);
       setShowAgentForm(false);
       setNotice(`已删除 AI 角色“${job.name}”。`);
     });
-  const toggleVoiceReplies = (job: ManagedAgentView) =>
+  const toggleVoiceReplies = (job: AICharacterView) =>
     perform(async () => {
-      const saved = await agentsApi.setVoiceReplies(job.id, !job.voiceReplies);
+      const saved = await aiCharactersApi.setVoiceReplies(
+        job.id,
+        !job.voiceReplies,
+      );
       if (editingAgent === job.id)
         setAgent((draft) => ({ ...draft, voiceReplies: saved.voiceReplies }));
-      setJobs(await agentsApi.listAgents());
+      setJobs(await aiCharactersApi.listAgents());
     });
   const providerSaved = (saved: ProviderView, previous?: ProviderView) =>
     setAgent((a) =>

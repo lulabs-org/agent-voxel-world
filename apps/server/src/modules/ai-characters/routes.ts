@@ -1,18 +1,21 @@
 import type { Express } from 'express';
-import type { AgentManager } from './manager';
+import type { AICharacterManager } from './manager';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**
  * 安装 AI 角色基础配置与生命周期控制相关 HTTP REST 路由
  */
-export function installAgentRoutes(app: Express, manager: AgentManager) {
+export function installAICharacterRoutes(
+  app: Express,
+  manager: AICharacterManager,
+) {
   // ---------------------------------------------------------------------------
   // AI 角色基础与生命周期
   // ---------------------------------------------------------------------------
 
   /**
    * @openapi
-   * /agents:
+   * /ai-characters:
    *   get:
    *     security:
    *       - ManagementBearer: []
@@ -24,7 +27,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: AI 角色列表
    */
   app.get(
-    '/agents',
+    '/ai-characters',
     route((_req, res) => {
       res.json(manager.publicList());
     }),
@@ -32,7 +35,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
 
   /**
    * @openapi
-   * /agents:
+   * /ai-characters:
    *   post:
    *     security:
    *       - ManagementBearer: []
@@ -45,7 +48,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *       content:
    *         application/json:
    *           schema:
-   *             $ref: '#/components/schemas/AgentCreate'
+   *             $ref: '#/components/schemas/AICharacterCreate'
    *     responses:
    *       201:
    *         description: AI 角色创建成功（上线待命或离线），无任务执行
@@ -53,17 +56,17 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 参数无效或包含任务参数，请使用 Tasks
    */
   app.post(
-    '/agents',
+    '/ai-characters',
     route(async (req, res) => {
       const result = await manager.create(req.body);
-      manager.events.publish('agents');
+      manager.events.publish('characters');
       res.status(201).json(result);
     }),
   );
 
   /**
    * @openapi
-   * /agents/{id}:
+   * /ai-characters/{id}:
    *   put:
    *     security:
    *       - ManagementBearer: []
@@ -82,7 +85,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *       content:
    *         application/json:
    *           schema:
-   *             $ref: '#/components/schemas/AgentProfileUpdate'
+   *             $ref: '#/components/schemas/AICharacterProfileUpdate'
    *     responses:
    *       200:
    *         description: AI 角色配置更新成功，已有任务进度保留
@@ -90,17 +93,17 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 参数无效或包含任务参数，请使用 Tasks
    */
   app.put(
-    '/agents/:id',
+    '/ai-characters/:id',
     route(async (req, res) => {
       const result = await manager.update(String(req.params.id), req.body);
-      manager.events.publish('agents');
+      manager.events.publish('characters');
       res.json(result);
     }),
   );
 
   /**
    * @openapi
-   * /agents/{id}:
+   * /ai-characters/{id}:
    *   delete:
    *     security:
    *       - ManagementBearer: []
@@ -121,17 +124,17 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: AI 角色正在更新
    */
   app.delete(
-    '/agents/:id',
+    '/ai-characters/:id',
     route(async (req, res) => {
       await manager.remove(String(req.params.id));
-      manager.events.publish('agents');
+      manager.events.publish('characters');
       res.sendStatus(204);
     }),
   );
 
   /**
    * @openapi
-   * /agents/{id}/join:
+   * /ai-characters/{id}/join:
    *   post:
    *     security:
    *       - ManagementBearer: []
@@ -149,7 +152,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 加入成功
    */
   app.post(
-    '/agents/:id/join',
+    '/ai-characters/:id/join',
     route(async (req, res) => {
       const id = String(req.params.id);
       const result = manager.join(id);
@@ -160,7 +163,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
 
   /**
    * @openapi
-   * /agents/{id}/stop:
+   * /ai-characters/{id}/stop:
    *   post:
    *     security:
    *       - ManagementBearer: []
@@ -178,7 +181,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 停止成功
    */
   app.post(
-    '/agents/:id/stop',
+    '/ai-characters/:id/stop',
     route(async (req, res) => {
       const id = String(req.params.id);
       const result = manager.stop(id);
@@ -189,7 +192,7 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
 
   /**
    * @openapi
-   * /agents/{id}/voice:
+   * /ai-characters/{id}/voice:
    *   post:
    *     security:
    *       - ManagementBearer: []
@@ -213,10 +216,10 @@ export function installAgentRoutes(app: Express, manager: AgentManager) {
    *         description: 音色设置成功
    */
   app.post(
-    '/agents/:id/voice',
+    '/ai-characters/:id/voice',
     route(async (req, res) => {
       const result = await manager.setVoice(String(req.params.id), req.body);
-      manager.events.publish('agents');
+      manager.events.publish('characters');
       res.json(result);
     }),
   );

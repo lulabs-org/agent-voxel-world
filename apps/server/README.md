@@ -19,10 +19,10 @@
 | `config`                | 类型化配置、部署变量校验、`.env` 加载与数据路径              |
 | `common`                | `AppError`、异步路由、请求体、Origin 机制、异常响应、Swagger |
 | `transport`             | Gateway、ASR 与 Colyseus WebSocket 路径分发和关闭            |
-| `modules/agent`         | 生产依赖注入、Agent 生命周期编排与配置文件适配               |
+| `modules/ai-characters` | 生产依赖注入、Agent 生命周期编排与配置文件适配               |
 | `modules/providers`     | 模型提供商持久化存储与模型列表服务                           |
 | `modules/tasks`         | 任务计划、运行历史与执行控制领域服务                         |
-| `modules/gateway`       | 管理令牌、WebSocket RPC 与命令分发        |
+| `modules/gateway`       | 管理令牌、WebSocket RPC 与命令分发                           |
 | `modules/audio/asr`     | 本地 Whisper、百炼识别及 ASR 配置                            |
 | `modules/audio/tts`     | Piper、本地/远程合成、音色服务、合成队列与世界内语音投递     |
 | `modules/audio/session` | mock/browser/Ollama 语音会话状态                             |
@@ -34,11 +34,11 @@
 
 业务错误与通用异常统一使用 `common/errors.ts` 中的 `AppError`。复用 Origin 判断和异常处理机制不意味着统一所有端点的策略：保留语音接口允许无 Origin、管理接口的 Origin 校验、原有预检方法、JSON/原始音频限制以及错误状态和文案。Swagger 递归扫描 `routes` 和 `modules` 下的 `*.routes.ts`，以及 `modules` 下的 `routes.ts`。
 
-Agent 托管集合、调度、任务操作和日志完整内聚在 `modules/agent`，计划调度归入 `modules/tasks`，模型提供商归入 `modules/providers`。各模块高内聚低耦合，不再依赖外部编排包。HTTP 路由和 OpenAPI 注释由各领域维护，`app.ts` 显式装配依赖；Provider 路由仅接收存储、模型查询、删除和变更通知接口。管理端共享 Bearer 鉴权、32 KiB JSON 限制和异常映射，ASR 配置继续使用 8 KiB 限制。
+Agent 托管集合、调度、任务操作和日志完整内聚在 `modules/ai-characters`，计划调度归入 `modules/tasks`，模型提供商归入 `modules/providers`。各模块高内聚低耦合，不再依赖外部编排包。HTTP 路由和 OpenAPI 注释由各领域维护，`app.ts` 显式装配依赖；Provider 路由仅接收存储、模型查询、删除和变更通知接口。管理端共享 Bearer 鉴权、32 KiB JSON 限制和异常映射，ASR 配置继续使用 8 KiB 限制。
 
 Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端。服务端与 CLI 都通过 `AgentRunner.run()` 进入统一协调器；对话、任务服务和任务执行使用独立职责，CLI 的 `runAgent` 保留自身调度循环。
 
-`AgentSpeech` 位于 `modules/audio/session/agent-speech.ts`，负责语音合成队列、空间听众筛选和音频缓存访问。`WorldRoom` 装配它，在聊天消息送达后入队，在关闭语音、离线、音色服务变更或房间销毁时取消或清理；聊天路由直接引用音频模块读取音频。Agent 核心调度不依赖该服务，`modules/agent` 不重导出它。
+`AgentSpeech` 位于 `modules/audio/session/agent-speech.ts`，负责语音合成队列、空间听众筛选和音频缓存访问。`WorldRoom` 装配它，在聊天消息送达后入队，在关闭语音、离线、音色服务变更或房间销毁时取消或清理；聊天路由直接引用音频模块读取音频。Agent 核心调度不依赖该服务，`modules/ai-characters` 不重导出它。
 
 ## 状态与测试
 
@@ -75,14 +75,14 @@ UI 沙箱统一放在 `test/sandbox`。新增 `asr-services-fixture.ts` 提供�
 
 ## HTTP 领域路径
 
-共享模型配置使用 `/providers`，全局计划使用 `/tasks`，运行控制使用 `/task-runs`，TTS 配置和试听使用 `/voice/tts/services`，Piper 模型目录与安装使用 `/voice/tts/piper`。它们与 `/agents`、`/voice/asr/services` 都需要管理员 Bearer 令牌。Agent 音色绑定继续为 `/agents/:id/voice`；聊天音频继续使用 `/chat` 下的玩家会话鉴权。
+共享模型配置使用 `/providers`，全局计划使用 `/tasks`，运行控制使用 `/task-runs`，TTS 配置和试听使用 `/voice/tts/services`，Piper 模型目录与安装使用 `/voice/tts/piper`。它们与 `/ai-characters`、`/voice/asr/services` 都需要管理员 Bearer 令牌。Agent 音色绑定继续为 `/ai-characters/:id/voice`；聊天音频继续使用 `/chat` 下的玩家会话鉴权。
 
-这些路径替换旧的 `/agents/providers`、`/agents/tasks`、`/agents/task-runs`、`/agents/voice-services`；没有旧路径别名。浏览器、CLI 脚本和外部 HTTP 客户端需要同步升级。WebSocket 连接地址仍为 `/agents/gateway`。
+这些路径替换旧的 `/ai-characters/providers`、`/ai-characters/tasks`、`/ai-characters/task-runs`、`/ai-characters/voice-services`；没有旧路径别名。浏览器、CLI 脚本和外部 HTTP 客户端需要同步升级。WebSocket 连接地址仍为 `/ai-characters/gateway`。
 
 Swagger 按领域分组，使用当前站点作为服务器地址；管理令牌与聊天会话令牌使用两个独立的授权入口。
 
 Agent 的 `/task`、`pause`、`resume`、`cancel` 四个 HTTP 接口及 Gateway 的 `tasks.assign/pause/resume/cancel` 已移除。即时任务使用 `/tasks` 或 RPC `plans.create` 创建即执行；执行控制使用 `/task-runs/:runId/:operation` 或 RPC `runs.control`。计划 pause/resume 只控制后续调度；执行 resume 需要先通过 join 上线，并保留原执行进度与用量。CLI 示例与迁移说明见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。
 
-`POST /agents` 只创建角色，默认上线待命；`joinWorld: false` 仅保存离线角色。`PUT /agents/:id` 只修改角色配置，不通过目标变化隐式创建或替换任务。两者均拒绝 `startTask`、`taskTimeZone` 和非空 `goal`，返回 400 并提示使用 Tasks；空 `goal` 不会清空任务。原有存档、进度、用量与执行历史保留。
+`POST /ai-characters` 只创建角色，默认上线待命；`joinWorld: false` 仅保存离线角色。`PUT /ai-characters/:id` 只修改角色配置，不通过目标变化隐式创建或替换任务。两者均拒绝 `startTask`、`taskTimeZone` 和非空 `goal`，返回 400 并提示使用 Tasks；空 `goal` 不会清空任务。原有存档、进度、用量与执行历史保留。
 
-Agent 内部旧的 `resume`、`assignTask`、`controlTask` 已删除。Tasks 通过 `TaskHostPort` 操作窄化的执行状态，Agent 负责启动、中断、退出与世界连接；HTTP/Gateway 直接调用 Tasks，内部任务调用使用 `agents.tasks`。聊天暂停/取消同时校验任务身份和玩家权限，并按命令 ID 去重；任务在中断等待期间完成时保留完成结果。职责与事务说明见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。
+Agent 内部旧的 `resume`、`assignTask`、`controlTask` 已删除。Tasks 通过 `TaskHostPort` 操作窄化的执行状态，Agent 负责启动、中断、退出与世界连接；HTTP/Gateway 直接调用 Tasks，内部任务调用使用 `characters.tasks`。聊天暂停/取消同时校验任务身份和玩家权限，并按命令 ID 去重；任务在中断等待期间完成时保留完成结果。职责与事务说明见 [Agent Gateway](../../docs/AGENT_GATEWAY.md)。

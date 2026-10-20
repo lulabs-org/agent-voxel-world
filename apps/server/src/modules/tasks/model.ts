@@ -84,8 +84,8 @@ export function newRun(
     id: randomUUID(),
     planId: plan.id,
     planRevision: plan.revision ?? 1,
-    agentId: plan.agentId,
-    agentName: plan.agentName,
+    characterId: plan.characterId,
+    characterName: plan.characterName,
     source,
     scheduledAt: at,
     snapshot: planDraft(plan),
@@ -134,7 +134,10 @@ export function settleTaskUsage(
  * @returns 计划状态是否发生了改变
  */
 export function syncPlanStateFromRun(plan: TaskPlan, run: StoredRun): boolean {
-  if (plan.agentId !== run.agentId || plan.revision !== run.planRevision) {
+  if (
+    plan.characterId !== run.characterId ||
+    plan.revision !== run.planRevision
+  ) {
     return false;
   }
   const before = JSON.stringify(plan);

@@ -70,7 +70,7 @@ export function gatewaySocket(
           clearTimeout(timer);
           send({
             type: 'connected',
-            version: 1,
+            version: 2,
             gatewayEpoch: epoch,
             capabilities: methods,
           });
@@ -100,7 +100,7 @@ export function gatewaySocket(
             const stop = gateway.events.on((change) => {
               if (
                 p.scope === 'plans' &&
-                !['plans', 'runs', 'agents'].includes(change.resource)
+                !['plans', 'runs', 'characters'].includes(change.resource)
               )
                 return;
               if (
@@ -112,9 +112,9 @@ export function gatewaySocket(
               if (p.scope === 'providers' && change.resource !== 'providers')
                 return;
               if (
-                p.agentId &&
-                change.resource === 'agents' &&
-                !change.agentIds.includes(p.agentId)
+                p.characterId &&
+                change.resource === 'characters' &&
+                !change.characterIds.includes(p.characterId)
               )
                 return;
               if (!ready) {
@@ -187,18 +187,18 @@ export function gatewaySocket(
 }
 async function readSnapshot(g: AgentGateway, p: RpcParams) {
   if (p.scope === 'providers') return g.dispatch('providers.list', {});
-  if (p.scope === 'agent')
-    return g.dispatch('agents.get', { agentId: p.agentId });
+  if (p.scope === 'character')
+    return g.dispatch('characters.get', { characterId: p.characterId });
   if (p.scope === 'plans')
-    return g.dispatch('plans.list', { agentId: p.agentId });
+    return g.dispatch('plans.list', { characterId: p.characterId });
   if (p.scope === 'runs')
     return g.dispatch('runs.list', {
-      agentId: p.agentId,
+      characterId: p.characterId,
       planId: p.planId,
       offset: p.offset,
     });
   return {
-    agents: await g.dispatch('agents.list', {}),
+    characters: await g.dispatch('characters.list', {}),
     providers: await g.dispatch('providers.list', {}),
   };
 }

@@ -1,5 +1,5 @@
-import type { AgentSettings } from '@voxel/shared';
+import type { AICharacterSettings } from '@voxel/shared';
 export type TaskBudget = Pick<
-  AgentSettings,
+  AICharacterSettings,
   'maxTurns' | 'tokenBudget' | 'taskTimeoutMs'
 >;

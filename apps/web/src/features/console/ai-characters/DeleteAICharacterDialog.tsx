@@ -2,7 +2,7 @@ import { useId, useRef } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { Dialog } from '../../../components/ui/Dialog';
 
-export function DeleteAgentDialog({
+export function DeleteAICharacterDialog({
   name,
   busy,
   disabled,

@@ -1,19 +1,19 @@
 import { AppError } from '../../common/errors';
 import { object, text, integer, boolean } from '../../common/validation';
 import {
-  AGENT_ROLE_DESCRIPTION_LIMIT,
+  AI_CHARACTER_ROLE_DESCRIPTION_LIMIT,
   validateCapabilities,
-  type AgentSettings,
+  type AICharacterSettings,
 } from '@voxel/shared';
 import {
   validateInference,
   type SavedProvider,
 } from '../providers/provider-validation';
 
-export function validateAgent(
+export function validateAICharacter(
   value: unknown,
   provider: SavedProvider,
-): AgentSettings {
+): AICharacterSettings {
   const input: Record<string, unknown> = {
     ...object(value),
     ...provider.inference,
@@ -69,7 +69,7 @@ export function validateAgent(
     roleDescription: text(
       input.roleDescription,
       '角色设定',
-      AGENT_ROLE_DESCRIPTION_LIMIT,
+      AI_CHARACTER_ROLE_DESCRIPTION_LIMIT,
     ),
     ...inference,
     maxTurns: integer(input.maxTurns, '任务调用上限', 100, 1, 200),
@@ -101,7 +101,7 @@ export function validateAgent(
 }
 
 /** Public profile writes cannot create or replace task execution. Empty legacy goals are harmless. */
-export function agentProfileInput(value: unknown) {
+export function aiCharacterProfileInput(value: unknown) {
   const input = object(value);
   if (
     input.startTask !== undefined ||

@@ -72,7 +72,7 @@ it('protects each management domain and retains transport policies after path mi
   const server = await createTestServer({ origin });
   try {
     const paths = [
-      '/agents',
+      '/ai-characters',
       '/providers',
       '/tasks',
       '/task-runs/missing/pause',
@@ -130,7 +130,7 @@ it('protects each management domain and retains transport policies after path mi
       }
     }
     for (const path of [
-      '/agents',
+      '/ai-characters',
       '/providers',
       '/voice/tts/services',
       '/voice/asr/services',
@@ -178,7 +178,7 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     expect(createProvider.status).toBe(201);
     const provider = await createProvider.json();
     const models = vi
-      .spyOn(server.agents, 'models')
+      .spyOn(server.characters, 'models')
       .mockResolvedValue(['fixture-model']);
     expect(
       await (
@@ -209,12 +209,12 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
         })
       ).status,
     ).toBe(204);
-    expect('assignTask' in server.agents).toBe(false);
-    expect('controlTask' in server.agents).toBe(false);
-    expect('resume' in server.agents).toBe(false);
+    expect('assignTask' in server.characters).toBe(false);
+    expect('controlTask' in server.characters).toBe(false);
+    expect('resume' in server.characters).toBe(false);
     for (const operation of ['task', 'pause', 'resume', 'cancel']) {
       const removed = await fetch(
-        `${server.httpUrl}/agents/agent-123/${operation}`,
+        `${server.httpUrl}/ai-characters/agent-123/${operation}`,
         {
           method: 'POST',
           headers,
@@ -224,10 +224,10 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
       expect(removed.status).toBe(404);
     }
     const createPlan = vi
-      .spyOn(server.agents.tasks, 'createTaskPlan')
+      .spyOn(server.characters.tasks, 'createTaskPlan')
       .mockResolvedValue({ id: 'plan-123' } as any);
     const draft = {
-      agentId: 'agent-123',
+      characterId: 'agent-123',
       name: 'Plan',
       goal: 'test',
       timing: { kind: 'immediate' },
@@ -244,7 +244,7 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     ).toBe(201);
     expect(createPlan).toHaveBeenCalledWith('agent-123', draft);
     const run = vi
-      .spyOn(server.agents.tasks, 'controlTaskRun')
+      .spyOn(server.characters.tasks, 'controlTaskRun')
       .mockResolvedValue({ id: 'run-123' } as any);
     for (const operation of ['pause', 'resume', 'cancel']) {
       expect(
@@ -259,14 +259,14 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
       expect(run).toHaveBeenCalledWith(undefined, 'run-123', operation, {});
     }
     const reassign = vi
-      .spyOn(server.agents.tasks, 'reassignPlan')
+      .spyOn(server.characters.tasks, 'reassignPlan')
       .mockResolvedValue({ id: 'plan-123' } as any);
     expect(
       (
         await fetch(server.httpUrl + '/tasks/plan-123/reassign', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ targetAgentId: 'agent-456' }),
+          body: JSON.stringify({ targetCharacterId: 'agent-456' }),
         })
       ).status,
     ).toBe(200);
@@ -292,11 +292,13 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
       ).status,
     ).toBe(204);
     for (const path of [
-      '/agents/providers',
-      '/agents/tasks',
-      '/agents/task-runs/missing/pause',
-      '/agents/voice-services',
-      '/agents/voice-services/piper/models',
+      '/agents',
+      '/agents/missing',
+      '/ai-characters/providers',
+      '/ai-characters/tasks',
+      '/ai-characters/task-runs/missing/pause',
+      '/ai-characters/voice-services',
+      '/ai-characters/voice-services/piper/models',
     ]) {
       expect(
         (await fetch(server.httpUrl + path, { headers })).status,

@@ -1,6 +1,6 @@
 /** Test DSL adapter: exercise task policy and world execution without a provider. */
-import { agentPermissions } from '../../packages/shared/src/index';
-import type { AgentTask } from '../../packages/shared/src/index';
+import { aiCharacterPermissions } from '../../packages/shared/src/index';
+import type { AICharacterTask } from '../../packages/shared/src/index';
 import type {
   AgentSession,
   AgentConfig,
@@ -34,12 +34,15 @@ export async function applyTaskDecision(
   log: (message: string) => void = () => {},
   checkpoint: () => void | Promise<void> = () => {},
   hooks?: {
-    beforeNewTask?: (task: AgentTask, previous: AgentRunState) => Promise<void>;
+    beforeNewTask?: (
+      task: AICharacterTask,
+      previous: AgentRunState,
+    ) => Promise<void>;
   },
 ) {
   let parsed;
   try {
-    parsed = parseDecision(input, agentPermissions(config));
+    parsed = parseDecision(input, aiCharacterPermissions(config));
   } catch (error) {
     throw new AgentRuntimeError((error as Error).message);
   }
@@ -50,7 +53,7 @@ export async function applyTaskDecision(
     await checkpoint();
   };
   const notify = async (text: string) => {
-    if (addressed && agentPermissions(config).chat)
+    if (addressed && aiCharacterPermissions(config).chat)
       await session.request('chat', {
         text: text.slice(0, 240),
         scope: 'private',
@@ -75,7 +78,7 @@ export async function applyTaskDecision(
       session,
       actions,
       prepared.observation,
-      agentPermissions(config),
+      aiCharacterPermissions(config),
       signal,
       {
         checkpoint: async (b) => {

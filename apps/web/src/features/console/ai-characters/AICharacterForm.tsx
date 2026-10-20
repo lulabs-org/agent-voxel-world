@@ -1,13 +1,15 @@
 import {
-  AGENT_PERMISSIONS,
-  AGENT_ROLE_DESCRIPTION_LIMIT,
-  AGENT_SKILLS,
-  agentPermissions,
+  AI_CHARACTER_PERMISSIONS,
+  AI_CHARACTER_ROLE_DESCRIPTION_LIMIT,
+  AI_CHARACTER_SKILLS,
+  aiCharacterPermissions,
 } from '@voxel/shared';
 import type { ConsoleController } from '../useConsoleController';
-import { agentPresentation } from './presentation/agent-presentation';
+import { aiCharacterPresentation } from './presentation/agent-presentation';
 
-export function AgentForm(props: ConsoleController & { disabled: boolean }) {
+export function AICharacterForm(
+  props: ConsoleController & { disabled: boolean },
+) {
   const {
     providers,
     voiceServices,
@@ -27,9 +29,9 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
     jobs,
     toggleVoiceReplies,
   } = props;
-  const permissions = agentPermissions(agent);
+  const permissions = aiCharacterPermissions(agent);
   const current = jobs.find((job) => job.id === editingAgent);
-  const running = current && !agentPresentation(current).canEdit;
+  const running = current && !aiCharacterPresentation(current).canEdit;
   const cancel = () => {
     setShowAgentForm(false);
     setError('');
@@ -59,13 +61,13 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
       {running && (
         <div className="agents-confirm">
           <p>
-            {agentPresentation(current).transitioning
+            {aiCharacterPresentation(current).transitioning
               ? 'AI 角色正在加入或离开世界，请等待状态更新。'
               : 'AI 角色正在执行，暂时不能修改设置。计划执行请在“任务计划”中处理；聊天执行可通过聊天暂停。'}
           </p>
           {current.voiceServiceId &&
-            agentPermissions(current).chat &&
-            !agentPresentation(current).transitioning && (
+            aiCharacterPermissions(current).chat &&
+            !aiCharacterPresentation(current).transitioning && (
               <button
                 disabled={busy || !!props.pollError}
                 onClick={() => {
@@ -136,7 +138,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
             AI 角色设定（可选）
             <textarea
               rows={4}
-              maxLength={AGENT_ROLE_DESCRIPTION_LIMIT}
+              maxLength={AI_CHARACTER_ROLE_DESCRIPTION_LIMIT}
               value={agent.roleDescription ?? ''}
               placeholder="例如：你是一名建筑师，负责规划和建造房屋。施工前先确认位置、尺寸和风格，遇到障碍先说明情况，用简洁的中文汇报进度。"
               aria-describedby="agent-role-hint"
@@ -151,7 +153,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
             </span>
             <span className="agents-role-count">
               {(agent.roleDescription ?? '').length} /{' '}
-              {AGENT_ROLE_DESCRIPTION_LIMIT}
+              {AI_CHARACTER_ROLE_DESCRIPTION_LIMIT}
             </span>
           </p>
           <div className="agents-form-section">
@@ -160,7 +162,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
               可组合选择，为任务规划提供专业指导。选择技能不会自动开启权限或开始任务。
             </p>
             <div className="agents-capability-grid">
-              {AGENT_SKILLS.map((skill) => {
+              {AI_CHARACTER_SKILLS.map((skill) => {
                 const checked = agent.skills?.includes(skill.id) ?? false;
                 const missing = skill.requires.filter((id) => !permissions[id]);
                 return (
@@ -190,7 +192,8 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
                         {skill.requires
                           .map(
                             (id) =>
-                              AGENT_PERMISSIONS.find((p) => p.id === id)!.name,
+                              AI_CHARACTER_PERMISSIONS.find((p) => p.id === id)!
+                                .name,
                           )
                           .join('、')}
                       </small>
@@ -200,8 +203,9 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
                           {missing
                             .map(
                               (id) =>
-                                AGENT_PERMISSIONS.find((p) => p.id === id)!
-                                  .name,
+                                AI_CHARACTER_PERMISSIONS.find(
+                                  (p) => p.id === id,
+                                )!.name,
                             )
                             .join('、')}
                           。技能仍可用于规划，不能执行未授权操作。
@@ -219,7 +223,7 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
               观察和等待始终可用。以下权限可独立开启或关闭。
             </p>
             <div className="agents-capability-grid">
-              {AGENT_PERMISSIONS.map((permission) => (
+              {AI_CHARACTER_PERMISSIONS.map((permission) => (
                 <label
                   key={permission.id}
                   className="agent-check agents-permission agents-capability-card"
@@ -337,8 +341,9 @@ export function AgentForm(props: ConsoleController & { disabled: boolean }) {
                 !agent.name.trim() ||
                 (!editingAgent &&
                   joinOnCreate &&
-                  props.jobs.filter((j) => agentPresentation(j).occupiesSlot)
-                    .length >= 4)
+                  props.jobs.filter(
+                    (j) => aiCharacterPresentation(j).occupiesSlot,
+                  ).length >= 4)
               }
             >
               {busy

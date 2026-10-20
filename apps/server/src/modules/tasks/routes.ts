@@ -19,22 +19,22 @@ export function installTaskRoutes(
   // 任务计划与执行运行的 HTTP 适配
   // ---------------------------------------------------------------------------
 
-  const resolveAgentId = (req: Request): string | undefined =>
-    req.body?.agentId ? String(req.body.agentId) : undefined;
+  const resolveCharacterId = (req: Request): string | undefined =>
+    req.body?.characterId ? String(req.body.characterId) : undefined;
 
   const handleGetPlan = (req: Request, res: Response) => {
     res.json(service.getPlan(String(req.params.planId)));
   };
 
   const handleCreatePlan = async (req: Request, res: Response) => {
-    const agentId = resolveAgentId(req) ?? '';
-    const result = await service.createPlan(agentId, req.body ?? {});
+    const characterId = resolveCharacterId(req) ?? '';
+    const result = await service.createPlan(characterId, req.body ?? {});
     res.status(201).json(result);
   };
 
   const handleUpdatePlan = async (req: Request, res: Response) => {
     const result = await service.updatePlan(
-      resolveAgentId(req),
+      resolveCharacterId(req),
       String(req.params.planId),
       req.body ?? {},
     );
@@ -42,13 +42,16 @@ export function installTaskRoutes(
   };
 
   const handleDeletePlan = async (req: Request, res: Response) => {
-    await service.deletePlan(resolveAgentId(req), String(req.params.planId));
+    await service.deletePlan(
+      resolveCharacterId(req),
+      String(req.params.planId),
+    );
     res.sendStatus(204);
   };
 
   const handleControlPlan = async (req: Request, res: Response) => {
     const result = await service.controlPlan(
-      resolveAgentId(req),
+      resolveCharacterId(req),
       String(req.params.planId),
       String(req.params.operation),
       req.body ?? {},
@@ -57,9 +60,9 @@ export function installTaskRoutes(
   };
 
   const handleControlRun = async (req: Request, res: Response) => {
-    const agentId = resolveAgentId(req);
+    const characterId = resolveCharacterId(req);
     const result = await service.controlRun(
-      agentId,
+      characterId,
       String(req.params.runId),
       String(req.params.operation),
       req.body ?? {},
@@ -92,7 +95,7 @@ export function installTaskRoutes(
    *         - completed
    *         - archived
    *     - in: query
-   *       name: agentId
+   *       name: characterId
    *       schema:
    *         type: string
    *     - in: query
@@ -136,7 +139,9 @@ export function installTaskRoutes(
         offset:
           req.query.offset !== undefined ? Number(req.query.offset) : undefined,
         search: req.query.search ? String(req.query.search) : undefined,
-        agentId: req.query.agentId ? String(req.query.agentId) : undefined,
+        characterId: req.query.characterId
+          ? String(req.query.characterId)
+          : undefined,
       });
       res.json(page);
     }),
@@ -331,9 +336,9 @@ export function installTaskRoutes(
    *           schema:
    *             type: object
    *             required:
-   *             - targetAgentId
+   *             - targetCharacterId
    *             properties:
-   *               targetAgentId:
+   *               targetCharacterId:
    *                 type: string
    *     responses:
    *       '200':
@@ -362,7 +367,7 @@ export function installTaskRoutes(
     route(async (req, res) => {
       const result = await service.reassignPlan(
         String(req.params.planId),
-        String(req.body?.targetAgentId ?? ''),
+        String(req.body?.targetCharacterId ?? ''),
       );
       res.json(result);
     }),
@@ -529,7 +534,7 @@ export function installTaskRoutes(
    *             schema:
    *               oneOf:
    *               - $ref: '#/components/schemas/TaskRun'
-   *               - $ref: '#/components/schemas/AgentView'
+   *               - $ref: '#/components/schemas/AICharacterView'
    *       '400':
    *         $ref: '#/components/responses/Management400'
    *       '401':

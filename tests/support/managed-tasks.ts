@@ -1,8 +1,8 @@
-import type { AgentManager } from '../../apps/server/src/modules/agent';
+import type { AICharacterManager } from '../../apps/server/src/modules/ai-characters';
 
 /** Test setup names every new task explicitly; it never pauses or replaces an existing execution. */
 export async function startTask(
-  manager: AgentManager,
+  manager: AICharacterManager,
   id: string,
   value: {
     goal: string;
@@ -27,7 +27,7 @@ export async function startTask(
 
 /** Resolve the ID as test setup; the production command always targets the specified run. */
 export function controlRun(
-  manager: AgentManager,
+  manager: AICharacterManager,
   id: string,
   operation: 'pause' | 'cancel' | 'resume',
   value: Record<string, unknown> = {},

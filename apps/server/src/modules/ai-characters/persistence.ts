@@ -1,23 +1,27 @@
-import type { ManagedAgentView } from '@voxel/shared';
+import type { AICharacterView } from '@voxel/shared';
 import { AppError } from '../../common/errors';
-import type { ArchivePort, RestoredAgentRecord, AgentArchive } from './ports';
-import type { AgentEvents } from './events';
-import type { AgentRegistry } from './types';
-import type { AgentWakeScheduler } from './wake-scheduler';
+import type {
+  ArchivePort,
+  RestoredAICharacterRecord,
+  AICharacterArchive,
+} from './ports';
+import type { AICharacterEvents } from './events';
+import type { AICharacterRegistry } from './types';
+import type { AICharacterWakeScheduler } from './wake-scheduler';
 import type { PlanService } from '../tasks';
 import { captureTask } from '../tasks/execution';
 import { executionState } from './execution-adapter';
 
-export class AgentPersistence {
+export class AICharacterPersistence {
   private saving: Promise<void> = Promise.resolve();
-  private committed = new Map<string, RestoredAgentRecord>();
-  private committedViews: ManagedAgentView[] = [];
+  private committed = new Map<string, RestoredAICharacterRecord>();
+  private committedViews: AICharacterView[] = [];
   storageRevision = 0;
   planStorageFailed = false;
 
   constructor(
     private readonly archive: ArchivePort,
-    private readonly events: AgentEvents,
+    private readonly events: AICharacterEvents,
   ) {}
 
   assertWritable(closing: boolean, jobStorageFailed?: boolean) {
@@ -29,7 +33,7 @@ export class AgentPersistence {
       );
   }
 
-  publicList(): ManagedAgentView[] {
+  publicList(): AICharacterView[] {
     return structuredClone(this.committedViews);
   }
 
@@ -37,15 +41,18 @@ export class AgentPersistence {
     return structuredClone(this.committed.get(id)?.runtime?.identity);
   }
 
-  committedAgentName(id: string): string | undefined {
+  committedCharacterName(id: string): string | undefined {
     return this.committed.get(id)?.name;
   }
 
-  getCommittedRecord(id: string): RestoredAgentRecord | undefined {
+  getCommittedRecord(id: string): RestoredAICharacterRecord | undefined {
     return this.committed.get(id);
   }
 
-  initCommitted(records: RestoredAgentRecord[], views: ManagedAgentView[]) {
+  initCommitted(
+    records: RestoredAICharacterRecord[],
+    views: AICharacterView[],
+  ) {
     this.committed = new Map(records.map((record) => [record.id, record]));
     this.committedViews = views;
   }
@@ -57,12 +64,12 @@ export class AgentPersistence {
   }
 
   persist(
-    jobs: AgentRegistry,
+    jobs: AICharacterRegistry,
     plans: PlanService,
     committedPlans: PlanService,
-    taskScheduler: AgentWakeScheduler,
-    listFn: () => ManagedAgentView[],
-    shutdownPresence: Map<string, ManagedAgentView['status']>,
+    taskScheduler: AICharacterWakeScheduler,
+    listFn: () => AICharacterView[],
+    shutdownPresence: Map<string, AICharacterView['status']>,
   ): Promise<void> {
     for (const job of jobs.values()) captureTask(executionState(job));
     const views = listFn();
@@ -73,9 +80,9 @@ export class AgentPersistence {
       runtime: structuredClone(jobs.get(view.id)?.memory),
       currentRunId: jobs.get(view.id)?.currentRunId,
     }));
-    const snapshot: AgentArchive = {
-      version: 1,
-      agents: records,
+    const snapshot: AICharacterArchive = {
+      version: 2,
+      characters: records,
       plans: structuredClone(plans.plans),
       runs: structuredClone(plans.runs),
       requests: { ...plans.requests },
@@ -105,7 +112,7 @@ export class AgentPersistence {
           if (changedPlans.length || changedRuns.length)
             this.planStorageFailed = true;
           const affected = new Set(
-            [...changedPlans, ...changedRuns].map((x) => x.agentId),
+            [...changedPlans, ...changedRuns].map((x) => x.characterId),
           );
           for (const record of records) {
             if (

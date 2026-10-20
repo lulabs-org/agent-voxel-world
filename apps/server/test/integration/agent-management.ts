@@ -5,17 +5,17 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager } from '../../src/modules/agent';
+import { AICharacterManager } from '../../src/modules/ai-characters';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { Session, until, type Observation } from '@voxel/agent-runtime';
 
-import type { ManagedAgentView } from '@voxel/shared';
+import type { AICharacterView } from '@voxel/shared';
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5187';
 const dir = await mkdtemp(join(tmpdir(), 'voxel-manager-'));
 let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
-let manager: AgentManager | undefined;
+let manager: AICharacterManager | undefined;
 let calls = 0;
 const observations: Observation[] = [];
 let speaker: Session | undefined;
@@ -77,7 +77,7 @@ try {
       models: async () => ['fixture-model'],
     },
   });
-  manager = server.agents;
+  manager = server.characters;
   const room = server.world,
     url = server.httpUrl;
   const api = async (
@@ -102,7 +102,7 @@ try {
   );
   assert.equal((await fetch(`${url}/providers`)).status, 401);
   assert.equal((await api('/providers', 'OPTIONS')).status, 204);
-  const missingRoute = await api('/agents/missing/endpoint', 'POST', {});
+  const missingRoute = await api('/ai-characters/missing/endpoint', 'POST', {});
   assert.equal(missingRoute.status, 404);
   assert.equal(typeof (await missingRoute.json()).error, 'string');
   const missingAgent = await api('/task-runs/nonexistent/resume', 'POST', {});
@@ -114,7 +114,7 @@ try {
     { taskTimeZone: 'UTC' },
     { goal: 'Hidden task' },
   ]) {
-    const rejected = await api('/agents', 'POST', {
+    const rejected = await api('/ai-characters', 'POST', {
       providerId: 'deepseek',
       name: 'Rejected',
       ...value,
@@ -130,7 +130,7 @@ try {
   assert(publicProviders.includes('hasApiKey'));
   assert.equal(
     (
-      await api('/agents', 'POST', {
+      await api('/ai-characters', 'POST', {
         providerId: 'deepseek',
         name: 'AI',
         maxTurns: 201,
@@ -139,7 +139,7 @@ try {
     400,
   );
   assert.equal(
-    (await api('/agents', 'POST', { providerId: 'missing' })).status,
+    (await api('/ai-characters', 'POST', { providerId: 'missing' })).status,
     404,
   );
   assert.equal(
@@ -160,7 +160,7 @@ try {
   assert.equal(customResponse.status, 201);
   const custom = (await customResponse.json()) as { id: string };
   for (const providerId of ['deepseek', custom.id]) {
-    const response = await api('/agents', 'POST', {
+    const response = await api('/ai-characters', 'POST', {
       providerId,
       name: 'Managed AI',
       roleDescription: '你是一名建筑师，负责规划房屋。',
@@ -178,7 +178,7 @@ try {
     );
     assert.equal(manager.list().find((j) => j.id === job.id)?.task, undefined);
     const firstTask = await api('/tasks', 'POST', {
-      agentId: job.id,
+      characterId: job.id,
       name: 'Say hello once',
       goal: 'Say hello once',
       timing: { kind: 'immediate' },
@@ -191,7 +191,7 @@ try {
         manager!.list().find((j) => j.id === job.id)?.task?.status ===
         'completed',
     );
-    const idle: ManagedAgentView = manager.list().find((j) => j.id === job.id)!;
+    const idle: AICharacterView = manager.list().find((j) => j.id === job.id)!;
     assert.equal(idle.roleDescription, '你是一名建筑师，负责规划房屋。');
     assert.equal(rolesInRequests.at(-1), idle.roleDescription);
     const taskBeforeUpdate = structuredClone(idle.task);
@@ -202,7 +202,7 @@ try {
       { startTask: true },
       { taskTimeZone: 'UTC' },
     ]) {
-      const rejected = await api(`/agents/${job.id}`, 'PUT', value);
+      const rejected = await api(`/ai-characters/${job.id}`, 'PUT', value);
       assert.equal(rejected.status, 400);
       assert.match((await rejected.json()).error, /Tasks/);
     }
@@ -217,7 +217,7 @@ try {
     assert.equal(
       (
         await api('/tasks', 'POST', {
-          agentId: job.id,
+          characterId: job.id,
           name: 'A different task',
           goal: 'A different task',
           timing: { kind: 'immediate' },
@@ -230,7 +230,7 @@ try {
     await until(
       () => manager!.list().find((j) => j.id === job.id)?.status === 'idle',
     );
-    const resumed: ManagedAgentView = manager
+    const resumed: AICharacterView = manager
       .list()
       .find((j) => j.id === job.id)!;
     assert.equal(resumed.sessionId, idle.sessionId);
@@ -249,7 +249,7 @@ try {
     const callsWhenIdle: number = calls;
     await new Promise((resolve) => setTimeout(resolve, 100));
     assert.equal(calls, callsWhenIdle, 'idle does not invoke the model');
-    const edited = await api(`/agents/${job.id}`, 'PUT', {
+    const edited = await api(`/ai-characters/${job.id}`, 'PUT', {
       name: 'Renamed AI',
       roleDescription: '你是一名建筑师，先确认位置和尺寸，再规划施工。',
       intervalMode: 'random',
@@ -313,7 +313,10 @@ try {
     );
     await speaker.close();
     speaker = undefined;
-    assert.equal((await api(`/agents/${job.id}/stop`, 'POST', {})).status, 200);
+    assert.equal(
+      (await api(`/ai-characters/${job.id}/stop`, 'POST', {})).status,
+      200,
+    );
     await until(
       () => manager!.list().find((j) => j.id === job.id)?.status === 'stopped',
     );
@@ -323,13 +326,13 @@ try {
       'closing retains reusable config',
     );
   }
-  const standbyResponse = await api('/agents', 'POST', {
+  const standbyResponse = await api('/ai-characters', 'POST', {
     providerId: 'deepseek',
     name: 'Standby',
     goal: '',
   });
   assert.equal(standbyResponse.status, 201);
-  const standby = (await standbyResponse.json()) as ManagedAgentView;
+  const standby = (await standbyResponse.json()) as AICharacterView;
   await until(
     () => manager!.list().find((j) => j.id === standby.id)?.status === 'idle',
   );
@@ -341,7 +344,7 @@ try {
   assert.equal(
     (
       await api('/tasks', 'POST', {
-        agentId: standby.id,
+        characterId: standby.id,
         name: 'Empty task',
         goal: '',
         timing: { kind: 'immediate' },
@@ -350,13 +353,13 @@ try {
     ).status,
     400,
   );
-  await api(`/agents/${standby.id}/stop`, 'POST', {});
+  await api(`/ai-characters/${standby.id}/stop`, 'POST', {});
   await until(
     () =>
       manager!.list().find((j) => j.id === standby.id)?.status === 'stopped',
   );
   assert.equal(
-    (await api(`/agents/${standby.id}/join`, 'POST', {})).status,
+    (await api(`/ai-characters/${standby.id}/join`, 'POST', {})).status,
     200,
   );
   await until(
@@ -364,10 +367,10 @@ try {
   );
   assert.equal(calls, 8, 'joining also does not call a model');
   assert.equal(
-    (await api(`/agents/${standby.id}/join`, 'POST', {})).status,
+    (await api(`/ai-characters/${standby.id}/join`, 'POST', {})).status,
     409,
   );
-  await api(`/agents/${standby.id}/stop`, 'POST', {});
+  await api(`/ai-characters/${standby.id}/stop`, 'POST', {});
   await until(
     () =>
       manager!.list().find((j) => j.id === standby.id)?.status === 'stopped',
@@ -375,7 +378,7 @@ try {
   assert.equal(calls, 8);
   const created = [] as string[];
   for (let i = 0; i < 4; i++) {
-    const res = await api('/agents', 'POST', {
+    const res = await api('/ai-characters', 'POST', {
       providerId: 'deepseek',
       name: `Loop ${i}`,
       maxTurns: 1,
@@ -393,7 +396,7 @@ try {
     assert.equal(
       (
         await api('/tasks', 'POST', {
-          agentId: roleId,
+          characterId: roleId,
           name: 'Observe',
           goal: 'Observe',
           timing: { kind: 'immediate' },
@@ -417,7 +420,7 @@ try {
   const sleeping = manager.list().find((j) => j.id === created[0])!;
   const beforeWake = calls;
   assert.equal(
-    (await api(`/agents/${created[0]}`, 'PUT', { maxTurns: 9 })).status,
+    (await api(`/ai-characters/${created[0]}`, 'PUT', { maxTurns: 9 })).status,
     200,
   );
   await speaker.request('chat', {
@@ -435,7 +438,7 @@ try {
   speaker = undefined;
   assert.equal(
     (
-      await api('/agents', 'POST', {
+      await api('/ai-characters', 'POST', {
         providerId: 'deepseek',
         name: 'Overflow',
       })
@@ -444,7 +447,7 @@ try {
   );
   assert.equal((await api('/providers/deepseek', 'DELETE')).status, 409);
   assert.equal(
-    (await api(`/agents/${created[0]}/stop`, 'POST', {})).status,
+    (await api(`/ai-characters/${created[0]}/stop`, 'POST', {})).status,
     200,
   );
   await until(
@@ -465,7 +468,7 @@ try {
   // A forbidden tail must prevent even the permitted edit at the head.
   const beforeCapabilities = calls;
   const permissions = { move: true, chat: false, place: true, remove: false };
-  const capabilityResponse = await api('/agents', 'POST', {
+  const capabilityResponse = await api('/ai-characters', 'POST', {
     providerId: 'deepseek',
     name: 'Capability fixture',
     roleDescription: 'capability fixture',
@@ -473,7 +476,7 @@ try {
     permissions,
   });
   assert.equal(capabilityResponse.status, 201);
-  const capabilityJob = (await capabilityResponse.json()) as ManagedAgentView;
+  const capabilityJob = (await capabilityResponse.json()) as AICharacterView;
   await until(
     () =>
       manager!.list().find((j) => j.id === capabilityJob.id)?.status === 'idle',
@@ -493,7 +496,7 @@ try {
     if (event.type === 'chat') emitted.push(event);
   };
   const capabilityTaskResponse = await api('/tasks', 'POST', {
-    agentId: capabilityJob.id,
+    characterId: capabilityJob.id,
     name: 'Validate permissions',
     goal: 'Validate permissions',
     timing: { kind: 'immediate' },
@@ -536,7 +539,7 @@ try {
     200,
   );
   const schedule = await api(`/tasks`, 'POST', {
-    agentId: capabilityJob.id,
+    characterId: capabilityJob.id,
     name: 'Scheduled capability check',
     goal: 'Validate permissions',
     timing: { kind: 'interval', everyMs: 60000 },
@@ -547,7 +550,7 @@ try {
   const plan = await schedule.json();
   const plannedAt = plan.nextRunAt;
   const repeatCreate = await api(`/tasks`, 'POST', {
-    agentId: capabilityJob.id,
+    characterId: capabilityJob.id,
     name: 'Scheduled capability check',
     goal: 'Validate permissions',
     timing: { kind: 'interval', everyMs: 60000 },
@@ -596,7 +599,7 @@ try {
     'Retried manual request never calls model twice',
   );
   const summary = (
-    await (await api(`/tasks?agentId=${capabilityJob.id}`)).json()
+    await (await api(`/tasks?characterId=${capabilityJob.id}`)).json()
   ).items.find((p: { id: string }) => p.id === plan.id);
   assert.equal(
     summary.nextRunAt,
@@ -615,7 +618,7 @@ try {
   assert.equal(
     (
       await api(
-        `/agents/${capabilityJob.id}`,
+        `/ai-characters/${capabilityJob.id}`,
         'DELETE',
         undefined,
         'https://untrusted.example',
@@ -624,12 +627,12 @@ try {
     403,
   );
   assert.equal(
-    (await api(`/agents/${capabilityJob.id}`, 'DELETE')).status,
+    (await api(`/ai-characters/${capabilityJob.id}`, 'DELETE')).status,
     204,
   );
   assert(!manager.list().some((j) => j.id === capabilityJob.id));
   assert.equal(
-    (await api(`/agents/${capabilityJob.id}`, 'DELETE')).status,
+    (await api(`/ai-characters/${capabilityJob.id}`, 'DELETE')).status,
     404,
   );
   await speaker.close();
@@ -644,7 +647,7 @@ try {
       .every((j) => !['joining', 'running', 'stopping'].includes(j.status)),
   );
   const beforeRestore = calls;
-  manager = new AgentManager(store, url.replace('http', 'ws'), {
+  manager = new AICharacterManager(store, url.replace('http', 'ws'), {
     session: (url) => new Session(url),
     runner: fixtureRunnerFactory(
       (config, provider) => new ModelPlanner(config, request, provider),

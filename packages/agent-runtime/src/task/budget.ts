@@ -1,4 +1,4 @@
-import type { AgentTask, AgentUsage } from '@voxel/shared';
+import type { AICharacterTask, AICharacterUsage } from '@voxel/shared';
 import type { AgentConfig } from '../contracts';
 import { AgentRuntimeError } from '../errors';
 
@@ -10,14 +10,14 @@ export class BudgetExhausted extends AgentRuntimeError {
 
 /** Counts actual provider requests, never scheduler wakes or tool calls. */
 export class RequestBudget {
-  readonly usage: AgentUsage = { calls: 0, tokens: 0, estimated: false };
+  readonly usage: AICharacterUsage = { calls: 0, tokens: 0, estimated: false };
   readonly started = Date.now();
-  private attached?: AgentTask;
+  private attached?: AICharacterTask;
   private elapsedCharged = 0;
   constructor(
     readonly config: AgentConfig,
-    readonly total: AgentUsage,
-    task?: AgentTask,
+    readonly total: AICharacterUsage,
+    task?: AICharacterTask,
   ) {
     this.attached = task;
   }
@@ -68,7 +68,7 @@ export class RequestBudget {
       scope.estimated ||= estimated;
     }
   }
-  attach(task: AgentTask) {
+  attach(task: AICharacterTask) {
     if (this.attached === task) return;
     if (this.attached)
       throw new AgentRuntimeError('不能在同一次运行中重新分配任务预算。', true);
@@ -85,7 +85,7 @@ export class RequestBudget {
   }
 }
 
-export function cap(task: AgentTask, config: AgentConfig) {
+export function cap(task: AICharacterTask, config: AgentConfig) {
   if (task.calls >= config.maxTurns)
     return '已达到任务调用上限，请检查进展后手动继续。';
   if (task.tokens >= (config.tokenBudget ?? 50000))

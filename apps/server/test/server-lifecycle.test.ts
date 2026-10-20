@@ -71,7 +71,7 @@ describe('server assembly and lifecycle', () => {
         roomId: server.world.roomId,
       });
       for (const path of [
-        '/agents',
+        '/ai-characters',
         '/providers',
         '/voice/asr/services',
         '/chat/audio/missing',
@@ -79,14 +79,14 @@ describe('server assembly and lifecycle', () => {
         expect((await fetch(server.httpUrl + path)).status, path).toBe(
           path.startsWith('/chat/') ? 403 : 401,
         );
-      const rejected = await fetch(server.httpUrl + '/agents', {
+      const rejected = await fetch(server.httpUrl + '/ai-characters', {
         headers: { Origin: 'https://foreign.example' },
       });
       expect(rejected.status).toBe(403);
       expect(await rejected.json()).toEqual({
         error: '不允许此页面管理 Agent。',
       });
-      const options = await fetch(server.httpUrl + '/agents', {
+      const options = await fetch(server.httpUrl + '/ai-characters', {
         method: 'OPTIONS',
         headers: { Origin: origin },
       });
@@ -95,7 +95,7 @@ describe('server assembly and lifecycle', () => {
         'GET, POST, PUT, DELETE, OPTIONS',
       );
       expect(options.headers.get('vary')).toBe('Origin');
-      const badType = await fetch(server.httpUrl + '/agents', {
+      const badType = await fetch(server.httpUrl + '/ai-characters', {
         method: 'POST',
         headers: {
           Origin: origin,
@@ -105,7 +105,7 @@ describe('server assembly and lifecycle', () => {
       });
       expect(badType.status).toBe(415);
       expect(await badType.json()).toEqual({ error: '请使用 JSON 请求。' });
-      const badJson = await fetch(server.httpUrl + '/agents', {
+      const badJson = await fetch(server.httpUrl + '/ai-characters', {
         method: 'POST',
         headers: {
           Origin: origin,

@@ -51,10 +51,13 @@ it('keeps infrastructure independent of business modules and modules independent
         name.startsWith('modules/tasks/')
       )
         expect(
-          target.startsWith('modules/agent/'),
+          target.startsWith('modules/ai-characters/'),
           `${name} -> ${target}`,
         ).toBe(false);
-      if (name.startsWith('modules/agent/') && !name.includes('/routes/'))
+      if (
+        name.startsWith('modules/ai-characters/') &&
+        !name.includes('/routes/')
+      )
         expect(target.includes('/routes/'), `${name} -> ${target}`).toBe(false);
     }
     if (!name.startsWith('config/'))

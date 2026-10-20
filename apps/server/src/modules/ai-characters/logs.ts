@@ -1,8 +1,8 @@
-import { AGENT_LOG_LIMIT, type ManagedAgentView } from '@voxel/shared';
+import { AI_CHARACTER_LOG_LIMIT, type AICharacterView } from '@voxel/shared';
 
-type LogView = Pick<ManagedAgentView, 'logs' | 'logTimes'>;
+type LogView = Pick<AICharacterView, 'logs' | 'logTimes'>;
 
-export function restoreAgentLogs(
+export function restoreAICharacterLogs(
   logs: unknown,
   times: unknown,
 ): Required<LogView> {
@@ -23,19 +23,19 @@ export function restoreAgentLogs(
         },
       ];
     })
-    .slice(-AGENT_LOG_LIMIT);
+    .slice(-AI_CHARACTER_LOG_LIMIT);
   return {
     logs: entries.map((e) => e.message),
     logTimes: entries.map((e) => e.time),
   };
 }
 
-export function appendAgentLog(
+export function appendAICharacterLog(
   view: LogView,
   message: string,
   now = Date.now(),
 ) {
-  const previous = restoreAgentLogs(view.logs, view.logTimes);
-  view.logs = [...previous.logs, message].slice(-AGENT_LOG_LIMIT);
-  view.logTimes = [...previous.logTimes, now].slice(-AGENT_LOG_LIMIT);
+  const previous = restoreAICharacterLogs(view.logs, view.logTimes);
+  view.logs = [...previous.logs, message].slice(-AI_CHARACTER_LOG_LIMIT);
+  view.logTimes = [...previous.logTimes, now].slice(-AI_CHARACTER_LOG_LIMIT);
 }

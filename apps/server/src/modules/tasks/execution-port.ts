@@ -1,10 +1,10 @@
 import type { AgentRunState } from '@voxel/agent-runtime';
-import type { AgentSettings, ManagedAgentView } from '@voxel/shared';
+import type { AICharacterSettings, AICharacterView } from '@voxel/shared';
 import type { PlanService } from './service';
 
 /** Mutable task state only: no world Session, runner, abort controller or Agent registry. */
 export interface TaskExecutionState {
-  view: AgentSettings & Pick<ManagedAgentView, 'id' | 'status' | 'logs'>;
+  view: AICharacterSettings & Pick<AICharacterView, 'id' | 'status' | 'logs'>;
   memory: AgentRunState;
   readonly ledger: PlanService;
   currentRunId: string | undefined;
@@ -26,8 +26,8 @@ export interface TaskHostPort {
   withStoppedExecution<T>(id: string, change: () => Promise<T>): Promise<T>;
   validateExecution(
     id: string,
-    settings: Partial<AgentSettings>,
-  ): AgentSettings;
+    settings: Partial<AICharacterSettings>,
+  ): AICharacterSettings;
   storageFailed(): boolean;
   committedName(id: string): string | undefined;
   publicIdentity(id: string): AgentRunState['identity'];

@@ -1,4 +1,4 @@
-import { resolvePermissions, type AgentPermissions } from '@voxel/shared';
+import { resolvePermissions, type AICharacterPermissions } from '@voxel/shared';
 import {
   inBounds,
   parseChatRoute,
@@ -12,7 +12,7 @@ import { parseBuildAction } from './building';
 /** Model output is data: only these actions and bounded arguments can execute. */
 export function parseAction(
   value: unknown,
-  allowEdits: boolean | AgentPermissions,
+  allowEdits: boolean | AICharacterPermissions,
 ): AgentAction {
   const fail = () => {
     throw Error('模型动作无效或不在允许范围内。');
@@ -113,7 +113,7 @@ export const MAX_ACTIONS = 8;
 
 export function parseActions(
   value: unknown,
-  allowEdits: boolean | AgentPermissions,
+  allowEdits: boolean | AICharacterPermissions,
 ): AgentAction[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_ACTIONS)
     throw Error(`动作序列须包含 1–${MAX_ACTIONS} 个动作。`);

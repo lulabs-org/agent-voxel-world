@@ -62,7 +62,7 @@ export function TaskRunDetails({
         </div>
       )}
       <p className="plans-run-meta-line agent-hint">
-        执行角色：{run.agentName ?? '历史角色'} · 计划修订{' '}
+        执行角色：{run.characterName ?? '历史角色'} · 计划修订{' '}
         {run.planRevision ?? 1} ·{' '}
         {run.source === 'scheduled'
           ? '时间触发'

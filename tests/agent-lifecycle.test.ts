@@ -2,10 +2,10 @@ import { startTask, controlRun } from './support/managed-tasks';
 import { type Planner } from './support/decision-fixture';
 import { fixtureRunnerFactory } from './support/decision-fixture';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager } from '../apps/server/src/modules/agent';
+import { AICharacterManager } from '../apps/server/src/modules/ai-characters';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../apps/server/src/modules/audio/tts/voice-services';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@voxel/agent-runtime';
 
 import type { WorldEvent } from '../packages/shared/src/index';
-let dir: string, store: ProviderStore, manager: AgentManager | undefined;
+let dir: string, store: ProviderStore, manager: AICharacterManager | undefined;
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'agent-life-'));
   store = new ProviderStore(join(dir, 'providers.json'));
@@ -68,7 +68,7 @@ function setup(
   })),
   voices?: VoiceServiceStore,
 ) {
-  manager = new AgentManager(
+  manager = new AICharacterManager(
     store,
     'ws://fixture',
     {
@@ -80,7 +80,33 @@ function setup(
   );
   return manager;
 }
-async function createWithTask(m: AgentManager, value: Record<string, unknown>) {
+
+it.each([
+  '{invalid-json',
+  JSON.stringify({ version: 99, agents: [{ id: 'keep-me' }] }),
+  JSON.stringify({
+    version: 1,
+    agents: [{ id: 'keep-me', providerId: 'missing-provider', name: '保留' }],
+    plans: [],
+    runs: [],
+    requests: {},
+  }),
+])(
+  'does not overwrite an unreadable or unrestorable archive during shutdown',
+  async (original) => {
+    const path = `${store.path}.agents.json`;
+    await writeFile(path, original);
+    const m = setup(fakeSession());
+    await expect(m.load()).rejects.toThrow();
+    expect(() => m.assertWritable()).toThrow('存档恢复失败');
+    await m.close();
+    expect(await readFile(path, 'utf8')).toBe(original);
+  },
+);
+async function createWithTask(
+  m: AICharacterManager,
+  value: Record<string, unknown>,
+) {
   const { goal, ...profile } = value;
   const created = m.create(profile);
   await m.settled(created.id);
@@ -769,10 +795,10 @@ it('retains capability settings and construction progress across edits, reload a
       note: '等待确认',
     },
   };
-  archive.agents[0].runtime.unfinishedBuild = unfinishedBuild;
+  archive.characters[0].runtime.unfinishedBuild = unfinishedBuild;
   // Simulate a pre-capability archive without losing its task history.
-  delete archive.agents[0].permissions;
-  delete archive.agents[0].skills;
+  delete archive.characters[0].permissions;
+  delete archive.characters[0].skills;
   await writeFile(path, JSON.stringify(archive));
   const restored = setup(fakeSession(), decide);
   await restored.load();
@@ -797,9 +823,11 @@ it('retains capability settings and construction progress across edits, reload a
   });
   expect(updated.usage).toEqual(before.usage);
   expect(decide).toHaveBeenCalledTimes(1);
-  const saved = JSON.parse(await readFile(path, 'utf8')).agents[0];
+  const saved = JSON.parse(await readFile(path, 'utf8')).characters[0];
   expect(saved.runtime.unfinishedBuild).toEqual(unfinishedBuild);
-  expect(saved.runtime.previous).toEqual(archive.agents[0].runtime.previous);
+  expect(saved.runtime.previous).toEqual(
+    archive.characters[0].runtime.previous,
+  );
   await restored.close();
   const finalSession = fakeSession();
   const finalManager = setup(finalSession, decide);
@@ -951,7 +979,7 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
 it('uses newly saved provider inference settings on the next decision without resetting progress', async () => {
   const s = fakeSession();
   const configs: unknown[] = [];
-  manager = new AgentManager(store, 'ws://fixture', {
+  manager = new AICharacterManager(store, 'ws://fixture', {
     session: () => s as unknown as Session,
     models: async () => [],
     runner: fixtureRunnerFactory((config) => {
@@ -999,19 +1027,27 @@ it('persists and reloads 500 timestamped activity records without truncating to 
   await m.close();
   const path = `${store.path}.agents.json`;
   const archive = JSON.parse(await readFile(path, 'utf8'));
-  archive.agents[0].status = 'stopped';
-  archive.agents[0].logs = Array.from({ length: 510 }, (_, i) => `entry-${i}`);
-  archive.agents[0].logTimes = Array.from({ length: 510 }, (_, i) => 1000 + i);
+  archive.characters[0].status = 'stopped';
+  archive.characters[0].logs = Array.from(
+    { length: 510 },
+    (_, i) => `entry-${i}`,
+  );
+  archive.characters[0].logTimes = Array.from(
+    { length: 510 },
+    (_, i) => 1000 + i,
+  );
   await writeFile(path, JSON.stringify(archive));
   const restored = setup(fakeSession());
   await restored.load();
-  expect(restored.list()[0].logs).toEqual(archive.agents[0].logs.slice(-500));
+  expect(restored.list()[0].logs).toEqual(
+    archive.characters[0].logs.slice(-500),
+  );
   expect(restored.list()[0].logTimes).toEqual(
-    archive.agents[0].logTimes.slice(-500),
+    archive.characters[0].logTimes.slice(-500),
   );
   const persisted = JSON.parse(await readFile(path, 'utf8'));
-  expect(persisted.agents[0].logTimes).toEqual(
-    archive.agents[0].logTimes.slice(-500),
+  expect(persisted.characters[0].logTimes).toEqual(
+    archive.characters[0].logTimes.slice(-500),
   );
 });
 
@@ -1119,7 +1155,7 @@ it.each(['cancel', 'pause'] as const)(
   async (operation) => {
     const s = fakeSession();
     let entered = false;
-    manager = new AgentManager(store, 'ws://fixture', {
+    manager = new AICharacterManager(store, 'ws://fixture', {
       session: () => s as unknown as Session,
       models: async () => [],
       runner: () => ({

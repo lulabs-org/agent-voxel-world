@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { agentsApi } from './agents/api';
+import { aiCharactersApi } from './ai-characters/api';
 import { providersApi } from './providers/api';
 import { tasksApi } from './tasks/api';
 import { voiceApi } from './voice/api';
-import { initialAgent } from './agents/model';
+import { initialAICharacter } from './ai-characters/model';
 import { freshProvider } from './providers/model';
 
 vi.mock('../../network/gateway', () => ({
@@ -85,54 +85,54 @@ it('routes agent operations through HTTP REST endpoints', async () => {
     Promise.resolve(new Response(JSON.stringify([]))),
   );
 
-  await agentsApi.listAgents(signal);
+  await aiCharactersApi.listAgents(signal);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents',
+    'https://world.example/ai-characters',
     expect.objectContaining({ method: 'GET', signal }),
   );
 
-  const { goal: _goal, ...profile } = initialAgent;
+  const { goal: _goal, ...profile } = initialAICharacter;
   const value = { ...profile, name: 'Partner' };
-  await agentsApi.saveAgent(value);
+  await aiCharactersApi.saveAgent(value);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents',
+    'https://world.example/ai-characters',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify(value),
     }),
   );
 
-  await agentsApi.saveAgent(value, 'a');
+  await aiCharactersApi.saveAgent(value, 'a');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/a',
+    'https://world.example/ai-characters/a',
     expect.objectContaining({
       method: 'PUT',
       body: JSON.stringify(value),
     }),
   );
 
-  await agentsApi.joinAgent('a');
+  await aiCharactersApi.joinAgent('a');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/a/join',
+    'https://world.example/ai-characters/a/join',
     expect.objectContaining({ method: 'POST', body: '{}' }),
   );
 
-  await agentsApi.stopAgent('a');
+  await aiCharactersApi.stopAgent('a');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/a/stop',
+    'https://world.example/ai-characters/a/stop',
     expect.objectContaining({ method: 'POST', body: '{}' }),
   );
 
   http.mockResolvedValueOnce(new Response(null, { status: 204 }));
-  await agentsApi.deleteAgent('a');
+  await aiCharactersApi.deleteAgent('a');
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/a',
+    'https://world.example/ai-characters/a',
     expect.objectContaining({ method: 'DELETE' }),
   );
 
-  await agentsApi.setVoiceReplies('a', false);
+  await aiCharactersApi.setVoiceReplies('a', false);
   expect(http).toHaveBeenLastCalledWith(
-    'https://world.example/agents/a/voice',
+    'https://world.example/ai-characters/a/voice',
     expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ enabled: false }),
@@ -165,7 +165,7 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
   );
 
   await tasksApi.control(
-    { id: 'p', agentId: 'agent-1', revision: 3 } as any,
+    { id: 'p', characterId: 'agent-1', revision: 3 } as any,
     'run',
     { requestId: 'stable' },
     identity,
@@ -176,7 +176,7 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
       method: 'POST',
       body: JSON.stringify({
         requestId: 'stable',
-        agentId: 'agent-1',
+        characterId: 'agent-1',
         expectedPlanRevision: 3,
         expectedTask: identity,
       }),
@@ -184,14 +184,14 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
   );
 
   await tasksApi.reassign(
-    { id: 'p', agentId: 'agent-1', revision: 3 } as any,
+    { id: 'p', characterId: 'agent-1', revision: 3 } as any,
     'agent-2',
   );
   expect(http).toHaveBeenLastCalledWith(
     'https://world.example/tasks/p/reassign',
     expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ targetAgentId: 'agent-2' }),
+      body: JSON.stringify({ targetCharacterId: 'agent-2' }),
     }),
   );
 

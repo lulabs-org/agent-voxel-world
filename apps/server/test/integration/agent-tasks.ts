@@ -9,11 +9,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager } from '../../src/modules/agent';
+import { AICharacterManager } from '../../src/modules/ai-characters';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { Session, until, delay } from '@voxel/agent-runtime';
 
-import type { ManagedAgentView, TaskRun } from '@voxel/shared';
+import type { AICharacterView, TaskRun } from '@voxel/shared';
 
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
@@ -21,7 +21,7 @@ process.env.WEB_ORIGIN = 'http://127.0.0.1:5188';
 const preview = process.env.TASK_PREVIEW === '1';
 const dir = await mkdtemp(join(tmpdir(), 'voxel-tasks-'));
 let server: Awaited<ReturnType<typeof createTestServer>> | undefined;
-let manager: AgentManager | undefined,
+let manager: AICharacterManager | undefined,
   human: Session | undefined,
   other: Session | undefined;
 let calls = 0;
@@ -202,7 +202,7 @@ try {
     );
   };
   const dependencies: NonNullable<
-    ConstructorParameters<typeof AgentManager>[2]
+    ConstructorParameters<typeof AICharacterManager>[2]
   > = {
     session: (address) => new Session(address),
     runner: fixtureRunnerFactory(
@@ -219,8 +219,9 @@ try {
   });
   const room = server.world,
     url = server.httpUrl;
-  const makeManager = () => new AgentManager(store, server!.url, dependencies);
-  manager = server.agents;
+  const makeManager = () =>
+    new AICharacterManager(store, server!.url, dependencies);
+  manager = server.characters;
   const httpRequest = async <T>(
     path: string,
     method = 'POST',
@@ -240,8 +241,8 @@ try {
     return (await response.json()) as T;
   };
   const api = (path: string, method = 'POST', body: unknown = {}) =>
-    httpRequest<ManagedAgentView>(
-      `/agents${path}`,
+    httpRequest<AICharacterView>(
+      `/ai-characters${path}`,
       method,
       body,
       path === '' ? 201 : 200,
@@ -265,7 +266,7 @@ try {
       '/tasks',
       'POST',
       {
-        agentId: job.id,
+        characterId: job.id,
         name: goal,
         goal,
         timing: { kind: 'immediate' },
@@ -513,7 +514,7 @@ try {
     );
     const saved = JSON.parse(
       await readFile(join(dir, 'providers.json.agents.json'), 'utf8'),
-    ).agents.find((j: any) => j.id === job.id);
+    ).characters.find((j: any) => j.id === job.id);
     assert.equal(saved.runtime.previous.results[0].status, 'interrupted');
     assert.equal(saved.runtime.previous.results[1].status, 'pending');
     const beforeBatchRestore = calls;

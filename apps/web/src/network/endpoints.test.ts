@@ -18,7 +18,9 @@ describe('server endpoints', () => {
       page(`http://${hostname}:5173/`);
       expect(serverSocketUrl()).toBe('ws://127.0.0.1:2567');
       expect(serverHttpUrl()).toBe('http://127.0.0.1:2567');
-      expect(gatewaySocketUrl()).toBe('ws://127.0.0.1:2567/agents/gateway');
+      expect(gatewaySocketUrl()).toBe(
+        'ws://127.0.0.1:2567/ai-characters/gateway',
+      );
     },
   );
 
@@ -33,7 +35,7 @@ describe('server endpoints', () => {
   ])('keeps the deployed page origin for %s', (url, expected) => {
     page(url);
     expect(serverSocketUrl()).toBe(expected);
-    expect(gatewaySocketUrl()).toBe(`${expected}/agents/gateway`);
+    expect(gatewaySocketUrl()).toBe(`${expected}/ai-characters/gateway`);
   });
 
   it('honors an explicit server URL even on a local dev page', () => {
@@ -41,6 +43,8 @@ describe('server endpoints', () => {
     vi.stubEnv('VITE_SERVER_URL', 'wss://gateway.example');
     expect(serverSocketUrl()).toBe('wss://gateway.example');
     expect(serverHttpUrl()).toBe('https://gateway.example');
-    expect(gatewaySocketUrl()).toBe('wss://gateway.example/agents/gateway');
+    expect(gatewaySocketUrl()).toBe(
+      'wss://gateway.example/ai-characters/gateway',
+    );
   });
 });

@@ -3,7 +3,7 @@ import {
   CommandRouter,
   AgentGateway,
 } from '../apps/server/src/modules/gateway';
-import { AgentOrchestrator } from '../apps/server/src/modules/agent';
+import { AICharacterOrchestrator } from '../apps/server/src/modules/ai-characters';
 import {
   parseConnect,
   parseRequest,
@@ -33,13 +33,15 @@ describe('gateway command boundary', () => {
           finish = r;
         }),
     );
-    const a = router.run('same', { a: 1, b: 2 }, 'agent', action),
-      b = router.run('same', { b: 2, a: 1 }, 'agent', action);
+    const a = router.run('same', { a: 1, b: 2 }, 'character', action),
+      b = router.run('same', { b: 2, a: 1 }, 'character', action);
     await Promise.resolve();
     await Promise.resolve();
     expect(action).toHaveBeenCalledTimes(1);
     expect(router.get('same').state).toBe('pending');
-    expect(() => router.run('same', { a: 2 }, 'agent', action)).toThrow('不同');
+    expect(() => router.run('same', { a: 2 }, 'character', action)).toThrow(
+      '不同',
+    );
     finish('saved');
     expect(await a).toBe('saved');
     expect(await b).toBe('saved');
@@ -78,22 +80,38 @@ describe('gateway command boundary', () => {
   });
   it('validates handshake, method parameters and write IDs', () => {
     expect(() =>
-      parseConnect({ type: 'connect', version: 2, client: 'web', token: 'x' }),
+      parseConnect({ type: 'connect', version: 1, client: 'web', token: 'x' }),
     ).toThrow();
     expect(() =>
       parseRequest({
         type: 'req',
-        id: '1',
-        method: 'agents.delete',
+        id: 'old-method',
+        method: 'agents.list',
+        params: {},
+      }),
+    ).toThrow();
+    expect(() =>
+      parseRequest({
+        type: 'req',
+        id: 'old-field',
+        method: 'characters.get',
         params: { agentId: 'a' },
+      }),
+    ).toThrow('未知请求参数');
+    expect(() =>
+      parseRequest({
+        type: 'req',
+        id: '1',
+        method: 'characters.delete',
+        params: { characterId: 'a' },
       }),
     ).toThrow('commandId');
     expect(() =>
       parseRequest({
         type: 'req',
         id: '1',
-        method: 'agents.get',
-        params: { agentId: 'a', authority: 'operator' },
+        method: 'characters.get',
+        params: { characterId: 'a', authority: 'operator' },
       }),
     ).toThrow();
     expect(() =>
@@ -102,7 +120,7 @@ describe('gateway command boundary', () => {
         id: '1',
         method: 'plans.control',
         commandId: 'c',
-        params: { agentId: 'a', planId: 'p', operation: 'destroy' },
+        params: { characterId: 'a', planId: 'p', operation: 'destroy' },
       }),
     ).toThrow();
   });
@@ -116,7 +134,7 @@ describe('gateway command boundary', () => {
           commandId: 'removed',
           method,
           params: {
-            agentId: 'agent',
+            characterId: 'character',
             expectedTask: null,
             value: { goal: 'wrong' },
           },
@@ -130,7 +148,11 @@ describe('gateway command boundary', () => {
       id: 'control',
       commandId: 'control',
       method: 'runs.control',
-      params: { agentId: 'agent', operation: 'pause', expectedTask: null },
+      params: {
+        characterId: 'character',
+        operation: 'pause',
+        expectedTask: null,
+      },
     };
     expect(() => parseRequest(request)).toThrow('缺少执行标识');
     expect(
@@ -192,7 +214,7 @@ async function connected() {
   socket.emit('open');
   socket.frame({
     type: 'connected',
-    version: 1,
+    version: 2,
     gatewayEpoch: 'epoch',
     capabilities: [],
   });
@@ -200,9 +222,28 @@ async function connected() {
   return { client, socket };
 }
 describe('gateway client recovery', () => {
+  it('rejects an older server instead of sending new commands over an incompatible protocol', async () => {
+    const socket = new FakeSocket();
+    const client = new GatewayClient({
+      url: 'ws://test',
+      token: () => 'secret',
+      socket: () => socket,
+      reconnect: false,
+    });
+    const result = expect(client.connect()).rejects.toThrow('协议版本不兼容');
+    socket.emit('open');
+    socket.frame({
+      type: 'connected',
+      version: 1,
+      gatewayEpoch: 'old',
+      capabilities: [],
+    });
+    await result;
+    client.close();
+  });
   it('correlates out-of-order responses and never resends a disconnected mutation', async () => {
     const { client, socket } = await connected();
-    const a = client.request('agents.list'),
+    const a = client.request('characters.list'),
       b = client.request('providers.list');
     await Promise.resolve();
     const req = socket.sent.filter((v) => v.type === 'req');
@@ -211,7 +252,7 @@ describe('gateway client recovery', () => {
     expect(await a).toEqual(['a']);
     expect(await b).toEqual(['b']);
     const write = client.request(
-      'agents.create',
+      'characters.create',
       { value: {} },
       { commandId: 'stable' },
     );
@@ -287,7 +328,7 @@ it('does not acknowledge a failed creation, publish unsaved state or enter the w
   await providers.load({ DEEPSEEK_API_KEY: 'fixture-only' });
   const world = vi.fn();
   let fail = true;
-  const orchestrator = new AgentOrchestrator(
+  const orchestrator = new AICharacterOrchestrator(
     providers,
     'ws://fixture',
     {
@@ -309,7 +350,7 @@ it('does not acknowledge a failed creation, publish unsaved state or enter the w
   try {
     await expect(
       gateway.dispatch(
-        'agents.create',
+        'characters.create',
         {
           value: { providerId: 'deepseek', name: 'Failure' },
         },
@@ -319,7 +360,7 @@ it('does not acknowledge a failed creation, publish unsaved state or enter the w
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(world).not.toHaveBeenCalled();
     expect(events).not.toHaveBeenCalled();
-    expect(await gateway.dispatch('agents.list', {})).toEqual([]);
+    expect(await gateway.dispatch('characters.list', {})).toEqual([]);
     expect(gateway.commands.get('fail-create').state).toBe('rejected');
   } finally {
     fail = false;
@@ -358,13 +399,15 @@ function serverSocket(gateway: any, origin = 'http://localhost') {
 }
 const hello = {
   type: 'connect',
-  version: 1,
+  version: 2,
   client: 'web',
   token: 'fixture-gateway-token-for-tests',
 };
 it('buffers changes during a subscription snapshot and disconnects slow clients', async () => {
-  const { AgentEvents } = await import('../apps/server/src/modules/agent');
-  const events = new AgentEvents();
+  const { AICharacterEvents } = await import(
+    '../apps/server/src/modules/ai-characters'
+  );
+  const events = new AICharacterEvents();
   let resolve!: (value: unknown) => void;
   const gateway = {
     events,
@@ -381,9 +424,9 @@ it('buffers changes during a subscription snapshot and disconnects slow clients'
     type: 'req',
     id: 's',
     method: 'gateway.subscribe',
-    params: { scope: 'agent', agentId: 'a' },
+    params: { scope: 'character', characterId: 'a' },
   });
-  events.publish('agents', ['a']);
+  events.publish('characters', ['a']);
   resolve({ id: 'a' });
   await vi.waitFor(() =>
     expect(socket.frames.filter((f) => f.type === 'event')).toHaveLength(2),
@@ -397,7 +440,7 @@ it('buffers changes during a subscription snapshot and disconnects slow clients'
     ['changed', 2],
   ]);
   socket.bufferedAmount = 1048577;
-  events.publish('agents', ['a']);
+  events.publish('characters', ['a']);
   expect(socket.closeCode).toBe(1013);
 });
 it('rejects missing handshake, unsupported version, Origin, malformed/oversize frames and handshake timeout', () => {
@@ -405,8 +448,8 @@ it('rejects missing handshake, unsupported version, Origin, malformed/oversize f
   try {
     const gateway = {};
     for (const frame of [
-      { type: 'req', id: 'x', method: 'agents.list', params: {} },
-      { ...hello, version: 2 },
+      { type: 'req', id: 'x', method: 'characters.list', params: {} },
+      { ...hello, version: 1 },
       { ...hello, token: 'wrong' },
     ]) {
       const socket = serverSocket(gateway);
@@ -441,14 +484,14 @@ it('restores an initially interrupted subscription after reconnect without sendi
     },
   });
   try {
-    const first = client.subscribe({ scope: 'agents' });
+    const first = client.subscribe({ scope: 'characters' });
     sockets[0].close();
     await expect(first).rejects.toThrow();
     const connected = client.connect();
     sockets[1].emit('open');
     sockets[1].frame({
       type: 'connected',
-      version: 1,
+      version: 2,
       gatewayEpoch: 'new',
       capabilities: [],
     });
@@ -490,13 +533,13 @@ it('queries an unknown command after a new gateway epoch without replaying the m
     sockets[0].emit('open');
     sockets[0].frame({
       type: 'connected',
-      version: 1,
+      version: 2,
       gatewayEpoch: 'old',
       capabilities: [],
     });
     await first;
     const write = client.request(
-      'agents.create',
+      'characters.create',
       { value: {} },
       { commandId: 'uncertain' },
     );
@@ -507,7 +550,7 @@ it('queries an unknown command after a new gateway epoch without replaying the m
     sockets[1].emit('open');
     sockets[1].frame({
       type: 'connected',
-      version: 1,
+      version: 2,
       gatewayEpoch: 'new',
       capabilities: [],
     });
@@ -528,7 +571,7 @@ it('queries an unknown command after a new gateway epoch without replaying the m
       expect(client.outcomes.get('uncertain')).toEqual({ state: 'unknown' }),
     );
     expect(
-      sockets[1].sent.filter((f) => f.method === 'agents.create'),
+      sockets[1].sent.filter((f) => f.method === 'characters.create'),
     ).toHaveLength(0);
   } finally {
     client.close();

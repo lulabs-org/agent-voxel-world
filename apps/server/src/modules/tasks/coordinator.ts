@@ -35,16 +35,16 @@ export class TaskCoordinator {
   publicPlans(id?: string, metadata = false) {
     const plans = this.committedPlans.views(id).map((p) => ({
       ...p,
-      agentName: p.agentId
-        ? (this.host.committedName(p.agentId) ?? p.agentName)
-        : p.agentName,
+      characterName: p.characterId
+        ? (this.host.committedName(p.characterId) ?? p.characterName)
+        : p.characterName,
     }));
     return metadata
       ? plans.map((plan) => ({
           ...plan,
           resourceVersion: this.host.resourceVersion(),
-          taskIdentity: plan.agentId
-            ? (this.host.publicIdentity(plan.agentId) ?? null)
+          taskIdentity: plan.characterId
+            ? (this.host.publicIdentity(plan.characterId) ?? null)
             : null,
         }))
       : plans;
@@ -62,8 +62,8 @@ export class TaskCoordinator {
     const annotate = (run: (typeof page.items)[number]) => ({
       ...run,
       resourceVersion: this.host.resourceVersion(),
-      taskIdentity: run.agentId
-        ? (this.host.publicIdentity(run.agentId) ?? null)
+      taskIdentity: run.characterId
+        ? (this.host.publicIdentity(run.characterId) ?? null)
         : null,
     });
     return {
@@ -75,7 +75,7 @@ export class TaskCoordinator {
   }
 
   planPage(p: RpcParams) {
-    let all = this.publicPlans(p.agentId, true).filter(
+    let all = this.publicPlans(p.characterId, true).filter(
       (plan) =>
         (!p.search ||
           plan.name
@@ -83,7 +83,7 @@ export class TaskCoordinator {
             .includes(p.search.toLocaleLowerCase())) &&
         (!p.state ||
           (p.state === 'unassigned'
-            ? !plan.agentId && plan.state === 'paused'
+            ? !plan.characterId && plan.state === 'paused'
             : plan.state === p.state)) &&
         (!p.timing || plan.timing.kind === p.timing),
     );
@@ -103,8 +103,8 @@ export class TaskCoordinator {
     return p;
   }
 
-  async reassignPlan(id: string, agentId: string) {
-    const agent = this.host.execution(agentId);
+  async reassignPlan(id: string, characterId: string) {
+    const agent = this.host.execution(characterId);
     return this.commitPlan(id, () => this.plans.reassign(id, agent.view));
   }
 
@@ -144,8 +144,8 @@ export class TaskCoordinator {
       () => {
         const p = {
           ...newPlan(draft, Date.now()),
-          agentId: id,
-          agentName: job.view.name,
+          characterId: id,
+          characterName: job.view.name,
         };
         job.ledger.plans.push(p);
         if (p.timing.kind === 'immediate')
@@ -166,7 +166,7 @@ export class TaskCoordinator {
   private async commitPlan<T>(planId: string, change: () => T) {
     if (this.host.storageFailed())
       throw new AppError('计划存档失败，请修复存储后重启。', 503);
-    const bound = this.plans.get(planId).agentId;
+    const bound = this.plans.get(planId).characterId;
     if (
       this.changingPlans.has(planId) ||
       (bound && this.host.findExecution(bound)?.taskMutating)
@@ -212,7 +212,7 @@ export class TaskCoordinator {
       return this.commitPlan(planId, () =>
         this.plans.control(planId, operation, value),
       );
-    const target = this.plans.get(planId).agentId;
+    const target = this.plans.get(planId).characterId;
     if (!target) throw new AppError('请先指派执行角色。', 409);
     return executeTaskPlanControl(
       this.host.execution(target),
@@ -231,7 +231,7 @@ export class TaskCoordinator {
     operation: string,
     value: unknown = {},
   ) {
-    const targetId = id || this.plans.run(runId).agentId;
+    const targetId = id || this.plans.run(runId).characterId;
     if (!targetId) throw new AppError('任务未关联执行角色。', 404);
     const job = this.host.execution(targetId);
     return executeTaskRunControl(
@@ -312,13 +312,13 @@ export class TaskCoordinator {
     const state = this.host.execution(id);
     captureTask(state);
     const priorPlans = structuredClone(
-      this.plans.plans.filter((p) => p.agentId === id),
+      this.plans.plans.filter((p) => p.characterId === id),
     );
     const priorRuns = structuredClone(
-      this.plans.runs.filter((r) => r.agentId === id),
+      this.plans.runs.filter((r) => r.characterId === id),
     );
     for (const run of this.plans.runs.filter(
-      (r) => r.agentId === id && !endedRun(r),
+      (r) => r.characterId === id && !endedRun(r),
     )) {
       if (run.runtime?.task) {
         new TaskService(run.runtime).command(
@@ -340,7 +340,7 @@ export class TaskCoordinator {
         this.plans.plans[index] = plan;
       }
       this.plans.runs = [
-        ...this.plans.runs.filter((r) => r.agentId !== id),
+        ...this.plans.runs.filter((r) => r.characterId !== id),
         ...priorRuns,
       ];
     };
@@ -371,7 +371,7 @@ export class TaskCoordinator {
       )
         continue;
       const due = duePlans(job.ledger, now).filter(
-        (p) => p.agentId === job.view.id,
+        (p) => p.characterId === job.view.id,
       );
       let selected = false;
       for (const plan of due) {

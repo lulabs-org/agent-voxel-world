@@ -1,5 +1,5 @@
-import type { AgentSettings } from '@voxel/shared';
-export const initialAgent: AgentSettings = {
+import type { AICharacterSettings } from '@voxel/shared';
+export const initialAICharacter: AICharacterSettings = {
   providerId: '',
   model: '',
   name: '',
