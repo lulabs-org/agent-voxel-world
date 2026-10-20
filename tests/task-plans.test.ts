@@ -112,25 +112,29 @@ afterEach(async () => {
 });
 it('persists immediate runs, deduplicates create and manual requests, and preserves history', async () => {
   const id = await role();
-  const p = await manager.createTaskPlan(id, {
+  const p = await manager.tasks.createTaskPlan(id, {
     ...draft(),
     requestId: 'create-1',
   });
   await idle();
   expect(
-    (await manager.createTaskPlan(id, { ...draft(), requestId: 'create-1' }))
-      .id,
+    (
+      await manager.tasks.createTaskPlan(id, {
+        ...draft(),
+        requestId: 'create-1',
+      })
+    ).id,
   ).toBe(p.id);
-  expect(manager.taskRuns(id, p.id).items[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, p.id).items[0]).toMatchObject({
     status: 'completed',
     totalTokens: 600,
     task: { calls: 1 },
   });
-  await manager.controlTaskPlan(id, p.id, 'run', { requestId: 'run-2' });
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', { requestId: 'run-2' });
   await idle();
-  await manager.controlTaskPlan(id, p.id, 'run', { requestId: 'run-2' });
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', { requestId: 'run-2' });
   expect(decide).toHaveBeenCalledTimes(2);
-  expect(manager.taskRuns(id, p.id).items).toHaveLength(2);
+  expect(manager.tasks.taskRuns(id, p.id).items).toHaveLength(2);
   const disk = JSON.parse(await readFile(`${store.path}.agents.json`, 'utf8'));
   expect(disk.version).toBe(1);
   expect(disk.runs).toHaveLength(2);
@@ -145,7 +149,7 @@ it('reserves durably before inference', async () => {
     expect(disk.agents[0].currentRunId).toBe(disk.runs[0].id);
     return response();
   });
-  await manager.createTaskPlan(id, draft());
+  await manager.tasks.createTaskPlan(id, draft());
   await idle();
   expect(decide).toHaveBeenCalledOnce();
 });
@@ -153,9 +157,9 @@ it('does not start or retain a reservation when persistence fails', async () => 
   const id = await role();
   await rename(dir, `${dir}-hold`);
   try {
-    await expect(manager.createTaskPlan(id, draft())).rejects.toThrow();
+    await expect(manager.tasks.createTaskPlan(id, draft())).rejects.toThrow();
     expect(decide).not.toHaveBeenCalled();
-    expect(manager.taskPlans(id)).toHaveLength(0);
+    expect(manager.tasks.taskPlans(id)).toHaveLength(0);
   } finally {
     await rename(`${dir}-hold`, dir);
   }
@@ -163,156 +167,158 @@ it('does not start or retain a reservation when persistence fails', async () => 
 it('runs one due plan and skips simultaneous plans, without queuing', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const a = await manager.createTaskPlan(
+  const a = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
-  const b = await manager.createTaskPlan(
+  const b = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
   now += 60000;
-  await manager.dispatchDue(now);
+  await manager.tasks.dispatchDue(now);
   await idle();
-  expect(manager.taskRuns(id, a.id).items[0].status).toBe('waiting');
-  expect(manager.taskRuns(id, b.id).items[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, a.id).items[0].status).toBe('waiting');
+  expect(manager.tasks.taskRuns(id, b.id).items[0]).toMatchObject({
     status: 'skipped',
     reason: expect.stringContaining('忙碌'),
   });
-  await manager.dispatchDue(now);
+  await manager.tasks.dispatchDue(now);
   expect(decide).toHaveBeenCalledOnce();
-  expect(manager.taskRuns(id, b.id).items).toHaveLength(1);
-  expect(manager.taskPlans(id).find((p) => p.id === a.id)?.nextRunAt).toBe(
-    now + 60000,
-  );
+  expect(manager.tasks.taskRuns(id, b.id).items).toHaveLength(1);
+  expect(
+    manager.tasks.taskPlans(id).find((p) => p.id === a.id)?.nextRunAt,
+  ).toBe(now + 60000);
 });
 it('records offline once as missed and recurring as skipped without joining', async () => {
   const id = await role();
   manager.stop(id);
   await vi.waitFor(() => expect(manager.list()[0].status).toBe('stopped'));
-  const once = await manager.createTaskPlan(
+  const once = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'once', at: now + 60000 }),
   );
-  const repeat = await manager.createTaskPlan(
+  const repeat = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
   now += 60000;
-  await manager.dispatchDue(now);
-  expect(manager.taskRuns(id, once.id).items[0].status).toBe('missed');
-  expect(manager.taskRuns(id, repeat.id).items[0].status).toBe('skipped');
+  await manager.tasks.dispatchDue(now);
+  expect(manager.tasks.taskRuns(id, once.id).items[0].status).toBe('missed');
+  expect(manager.tasks.taskRuns(id, repeat.id).items[0].status).toBe('skipped');
   expect(decide).not.toHaveBeenCalled();
   expect(manager.list()[0].sessionId).toBeUndefined();
   await expect(
-    manager.controlTaskPlan(id, once.id, 'run', { requestId: 'offline' }),
+    manager.tasks.controlTaskPlan(id, once.id, 'run', { requestId: 'offline' }),
   ).rejects.toThrow('离线');
 });
 it('separates plan pause, run pause, edits and resumption while preserving snapshots and usage', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const p = await manager.createTaskPlan(
+  const p = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
-  await manager.controlTaskPlan(id, p.id, 'run', { requestId: 'manual' });
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', { requestId: 'manual' });
   await idle();
-  const run = manager.taskRuns(id, p.id).items[0];
-  expect(manager.taskPlans(id)[0].nextRunAt).toBe(now + 60000);
-  await manager.controlTaskPlan(id, p.id, 'pause');
-  expect(manager.taskRuns(id, p.id).items[0].status).toBe('waiting');
-  await manager.updateTaskPlan(id, p.id, {
+  const run = manager.tasks.taskRuns(id, p.id).items[0];
+  expect(manager.tasks.taskPlans(id)[0].nextRunAt).toBe(now + 60000);
+  await manager.tasks.controlTaskPlan(id, p.id, 'pause');
+  expect(manager.tasks.taskRuns(id, p.id).items[0].status).toBe('waiting');
+  await manager.tasks.updateTaskPlan(id, p.id, {
     ...draft({ kind: 'interval', everyMs: 120000 }),
     goal: '新的未来目标',
     limits: { ...DEFAULT_TASK_LIMITS, maxTurns: 20 },
   });
-  expect(manager.taskRuns(id, p.id).items[0].snapshot).toEqual(run.snapshot);
-  await manager.controlTaskRun(id, run.id, 'pause');
-  const other = await manager.createTaskPlan(id, draft());
-  await idle();
-  expect(manager.taskRuns(id, other.id).items[0].status).toBe('waiting');
-  await expect(manager.controlTaskRun(id, run.id, 'resume')).rejects.toThrow(
-    '忙碌',
+  expect(manager.tasks.taskRuns(id, p.id).items[0].snapshot).toEqual(
+    run.snapshot,
   );
-  await manager.controlTaskRun(
+  await manager.tasks.controlTaskRun(id, run.id, 'pause');
+  const other = await manager.tasks.createTaskPlan(id, draft());
+  await idle();
+  expect(manager.tasks.taskRuns(id, other.id).items[0].status).toBe('waiting');
+  await expect(
+    manager.tasks.controlTaskRun(id, run.id, 'resume'),
+  ).rejects.toThrow('忙碌');
+  await manager.tasks.controlTaskRun(
     id,
-    manager.taskRuns(id, other.id).items[0].id,
+    manager.tasks.taskRuns(id, other.id).items[0].id,
     'cancel',
   );
   decide.mockImplementation(async () => response());
-  await manager.controlTaskRun(id, run.id, 'resume');
+  await manager.tasks.controlTaskRun(id, run.id, 'resume');
   await idle();
-  expect(manager.taskRuns(id, p.id).items[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, p.id).items[0]).toMatchObject({
     status: 'completed',
     totalTokens: 1200,
     task: { calls: 2, goal: run.snapshot.goal },
   });
-  expect(manager.taskPlans(id).find((x) => x.id === p.id)?.state).toBe(
+  expect(manager.tasks.taskPlans(id).find((x) => x.id === p.id)?.state).toBe(
     'paused',
   );
   now += 300000;
-  await manager.controlTaskPlan(id, p.id, 'resume');
+  await manager.tasks.controlTaskPlan(id, p.id, 'resume');
   expect(
-    manager.taskPlans(id).find((x) => x.id === p.id)!.nextRunAt,
+    manager.tasks.taskPlans(id).find((x) => x.id === p.id)!.nextRunAt,
   ).toBeGreaterThan(now);
 });
 it('enforces per-run and lifetime budgets including manual work, and extension never erases usage', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('running'));
-  const p = await manager.createTaskPlan(id, {
+  const p = await manager.tasks.createTaskPlan(id, {
     ...draft({ kind: 'interval', everyMs: 60000 }),
     limits: { ...DEFAULT_TASK_LIMITS, maxTurns: 1 },
     totalTokenBudget: 1000,
   });
-  await manager.controlTaskPlan(id, p.id, 'run', { requestId: 'first' });
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', { requestId: 'first' });
   await idle();
-  let run = manager.taskRuns(id, p.id).items[0];
+  let run = manager.tasks.taskRuns(id, p.id).items[0];
   expect(run.status).toBe('budget');
-  expect(manager.taskPlans(id)[0].state).toBe('paused');
-  await expect(manager.controlTaskRun(id, run.id, 'resume')).rejects.toThrow(
-    '额度',
-  );
-  await manager.controlTaskRun(id, run.id, 'resume', { maxTurns: 10 });
+  expect(manager.tasks.taskPlans(id)[0].state).toBe('paused');
+  await expect(
+    manager.tasks.controlTaskRun(id, run.id, 'resume'),
+  ).rejects.toThrow('额度');
+  await manager.tasks.controlTaskRun(id, run.id, 'resume', { maxTurns: 10 });
   await idle();
-  run = manager.taskRuns(id, p.id).items[0];
+  run = manager.tasks.taskRuns(id, p.id).items[0];
   expect(run.totalTokens).toBe(1200);
   expect(run.task?.calls).toBe(2);
   expect(run.status).toBe('budget');
-  await expect(manager.controlTaskRun(id, run.id, 'resume')).rejects.toThrow(
-    '累计额度',
-  );
-  await manager.controlTaskPlan(id, p.id, 'extend', { tokens: 1000 });
-  expect(manager.taskPlans(id)[0]).toMatchObject({
+  await expect(
+    manager.tasks.controlTaskRun(id, run.id, 'resume'),
+  ).rejects.toThrow('累计额度');
+  await manager.tasks.controlTaskPlan(id, p.id, 'extend', { tokens: 1000 });
+  expect(manager.tasks.taskPlans(id)[0]).toMatchObject({
     spentTokens: 1200,
     totalTokenBudget: 2000,
     state: 'paused',
   });
-  await manager.controlTaskRun(id, run.id, 'cancel');
-  await manager.controlTaskPlan(id, p.id, 'resume');
-  expect(manager.taskPlans(id)[0].spentTokens).toBe(1200);
+  await manager.tasks.controlTaskRun(id, run.id, 'cancel');
+  await manager.tasks.controlTaskPlan(id, p.id, 'resume');
+  expect(manager.tasks.taskPlans(id)[0].spentTokens).toBe(1200);
 });
 it('pauses the plan after an execution error without occupying the role', async () => {
   const id = await role();
-  const p = await manager.createTaskPlan(
+  const p = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
   decide.mockRejectedValueOnce(new AgentRuntimeError('fixture', true));
-  await manager.controlTaskPlan(id, p.id, 'run', { requestId: 'err' });
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', { requestId: 'err' });
   await vi.waitFor(() => expect(manager.list()[0].status).toBe('failed'));
-  expect(manager.taskPlans(id)[0].state).toBe('paused');
-  expect(manager.taskRuns(id, p.id).items[0].status).toBe('failed');
-  await manager.createTaskPlan(id, draft());
+  expect(manager.tasks.taskPlans(id)[0].state).toBe('paused');
+  expect(manager.tasks.taskRuns(id, p.id).items[0].status).toBe('failed');
+  await manager.tasks.createTaskPlan(id, draft());
   await idle();
   expect(decide).toHaveBeenCalledTimes(2);
 });
 it('restart preserves paused progress and skips missed schedules without calling a model', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const p = await manager.createTaskPlan(id, draft());
+  const p = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  const r = manager.taskRuns(id, p.id).items[0];
-  const future = await manager.createTaskPlan(
+  const r = manager.tasks.taskRuns(id, p.id).items[0];
+  const future = await manager.tasks.createTaskPlan(
     id,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
@@ -322,22 +328,22 @@ it('restart preserves paused progress and skips missed schedules without calling
   decide.mockClear();
   await manager.load();
   expect(decide).not.toHaveBeenCalled();
-  expect(manager.taskRuns(id, p.id).items[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, p.id).items[0]).toMatchObject({
     id: r.id,
     status: 'paused',
     totalTokens: 600,
     task: { calls: 1 },
   });
-  expect(manager.taskPlans(id).find((x) => x.id === p.id)?.state).toBe(
+  expect(manager.tasks.taskPlans(id).find((x) => x.id === p.id)?.state).toBe(
     'paused',
   );
-  expect(manager.taskRuns(id, future.id).items[0].status).toBe('skipped');
-  await manager.dispatchDue(now);
+  expect(manager.tasks.taskRuns(id, future.id).items[0].status).toBe('skipped');
+  await manager.tasks.dispatchDue(now);
   expect(decide).not.toHaveBeenCalled();
 });
 it('backs up and migrates old records without inference, preserving checkpoints and terminal state', async () => {
   const id = await role();
-  const p = await manager.createTaskPlan(id, draft());
+  const p = await manager.tasks.createTaskPlan(id, draft());
   await idle();
   await manager.close();
   const path = `${store.path}.agents.json`;
@@ -349,7 +355,7 @@ it('backs up and migrates old records without inference, preserving checkpoints 
   decide.mockClear();
   await manager.load();
   expect(await readFile(`${path}.before-task-plans.bak`, 'utf8')).toBe(old);
-  const migrated = manager.taskPlans(id);
+  const migrated = manager.tasks.taskPlans(id);
   expect(migrated).toHaveLength(1);
   expect(migrated[0].latestRun).toMatchObject({
     status: 'completed',
@@ -362,54 +368,56 @@ it('backs up and migrates old records without inference, preserving checkpoints 
 });
 it('archives only ended runs and paginates independent history', async () => {
   const id = await role();
-  const p = await manager.createTaskPlan(id, draft());
+  const p = await manager.tasks.createTaskPlan(id, draft());
   await idle();
   for (let i = 0; i < 21; i++) {
-    await manager.controlTaskPlan(id, p.id, 'run', { requestId: `page-${i}` });
+    await manager.tasks.controlTaskPlan(id, p.id, 'run', {
+      requestId: `page-${i}`,
+    });
     await idle();
   }
-  expect(manager.taskRuns(id, p.id).items).toHaveLength(20);
-  expect(manager.taskRuns(id, p.id).nextOffset).toBe(20);
-  expect(manager.taskRuns(id, p.id, 20).items).toHaveLength(2);
-  await manager.controlTaskPlan(id, p.id, 'archive');
-  expect(manager.taskPlans(id)[0].state).toBe('archived');
-  expect(manager.taskRuns(id, p.id).items).toHaveLength(20);
+  expect(manager.tasks.taskRuns(id, p.id).items).toHaveLength(20);
+  expect(manager.tasks.taskRuns(id, p.id).nextOffset).toBe(20);
+  expect(manager.tasks.taskRuns(id, p.id, 20).items).toHaveLength(2);
+  await manager.tasks.controlTaskPlan(id, p.id, 'archive');
+  expect(manager.tasks.taskPlans(id)[0].state).toBe('archived');
+  expect(manager.tasks.taskRuns(id, p.id).items).toHaveLength(20);
 });
 
 it('switches plans after a pause without losing the older resumable run', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const p = await manager.createTaskPlan(id, draft());
+  const p = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  const first = manager.taskRuns(id, p.id).items[0];
-  await manager.controlTaskRun(id, first.id, 'pause');
+  const first = manager.tasks.taskRuns(id, p.id).items[0];
+  await manager.tasks.controlTaskRun(id, first.id, 'pause');
   decide.mockImplementation(async () => response());
   await expect(
-    manager.controlTaskPlan(id, p.id, 'run', { requestId: 'same-plan' }),
+    manager.tasks.controlTaskPlan(id, p.id, 'run', { requestId: 'same-plan' }),
   ).rejects.toThrow('未完成');
-  const second = await manager.createTaskPlan(id, draft());
+  const second = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  expect(manager.taskRuns(id, p.id).items).toHaveLength(1);
-  expect(manager.taskRuns(id, second.id).items).toHaveLength(1);
-  expect(manager.taskRuns(id, p.id).active[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, p.id).items).toHaveLength(1);
+  expect(manager.tasks.taskRuns(id, second.id).items).toHaveLength(1);
+  expect(manager.tasks.taskRuns(id, p.id).active[0]).toMatchObject({
     id: first.id,
     status: 'paused',
     totalTokens: 600,
   });
-  await expect(manager.controlTaskPlan(id, p.id, 'archive')).rejects.toThrow(
-    '结束',
-  );
-  await manager.controlTaskRun(id, first.id, 'resume');
+  await expect(
+    manager.tasks.controlTaskPlan(id, p.id, 'archive'),
+  ).rejects.toThrow('结束');
+  await manager.tasks.controlTaskRun(id, first.id, 'resume');
   await idle();
   expect(
-    manager.taskRuns(id, p.id).items.find((r) => r.id === first.id)
+    manager.tasks.taskRuns(id, p.id).items.find((r) => r.id === first.id)
       ?.totalTokens,
   ).toBe(1200);
 });
 it('restores unconfirmed action history as unknown and expires private runs without executing them', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const p = await manager.createTaskPlan(id, draft());
+  const p = await manager.tasks.createTaskPlan(id, draft());
   await idle();
   await manager.close();
   const path = `${store.path}.agents.json`,
@@ -447,13 +455,13 @@ it('restores unconfirmed action history as unknown and expires private runs with
   manager = build();
   decide.mockClear();
   await manager.load();
-  const run = manager.taskRuns(id, p.id).items[0];
+  const run = manager.tasks.taskRuns(id, p.id).items[0];
   expect(run.requiresReassignment).toBe(true);
   expect(run.status).toBe('needs_input');
   expect(decide).not.toHaveBeenCalled();
-  await expect(manager.controlTaskRun(id, run.id, 'resume')).rejects.toThrow(
-    '私聊',
-  );
+  await expect(
+    manager.tasks.controlTaskRun(id, run.id, 'resume'),
+  ).rejects.toThrow('私聊');
   const restored = JSON.parse(await readFile(path, 'utf8'));
   expect(restored.runs[0].runtime.previous.results[0].status).toBe('unknown');
   expect(
@@ -492,7 +500,7 @@ it('records chat execution without creating plans and rejects replacement of act
     expect(manager.plans.runs.filter((r) => r.agentId === id)).toHaveLength(1),
   );
   await idle();
-  expect(manager.taskPlans(id)).toHaveLength(0);
+  expect(manager.tasks.taskPlans(id)).toHaveLength(0);
   expect(manager.plans.runs[0].planId).toBeUndefined();
   expect(manager.plans.runs[0]).toMatchObject({
     source: 'chat',
@@ -502,7 +510,7 @@ it('records chat execution without creating plans and rejects replacement of act
   currentSession.onEvent!(addressed(2));
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
   await idle();
-  expect(manager.taskPlans(id)).toHaveLength(0);
+  expect(manager.tasks.taskPlans(id)).toHaveLength(0);
   expect(manager.plans.runs).toHaveLength(1);
   expect(manager.plans.runs[0].task?.goal).toBe('聊天安排');
   expect(
@@ -512,7 +520,7 @@ it('records chat execution without creating plans and rejects replacement of act
 
 it('unchecked limits survive restart, resume and scheduled/manual executions without capping cumulative usage', async () => {
   const id = await role();
-  const p = await manager.createTaskPlan(id, {
+  const p = await manager.tasks.createTaskPlan(id, {
     ...draft({ kind: 'interval', everyMs: 60000 }),
     limits: {
       enabled: false,
@@ -523,38 +531,38 @@ it('unchecked limits survive restart, resume and scheduled/manual executions wit
     totalTokenBudget: 1000,
   });
   decide.mockResolvedValueOnce(response('waiting'));
-  await manager.controlTaskPlan(id, p.id, 'run', {
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', {
     requestId: 'unlimited-first',
   });
   await idle();
-  const r = manager.taskRuns(id, p.id).items[0];
+  const r = manager.tasks.taskRuns(id, p.id).items[0];
   expect(r.status).toBe('waiting');
-  await manager.controlTaskRun(id, r.id, 'pause');
+  await manager.tasks.controlTaskRun(id, r.id, 'pause');
   await manager.close();
   manager = build();
   await manager.load();
   await idle();
-  expect(manager.taskPlans(id)[0].limits.enabled).toBe(false);
-  await manager.controlTaskRun(id, r.id, 'resume');
+  expect(manager.tasks.taskPlans(id)[0].limits.enabled).toBe(false);
+  await manager.tasks.controlTaskRun(id, r.id, 'resume');
   await idle();
-  expect(manager.taskRuns(id, p.id).items[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, p.id).items[0]).toMatchObject({
     status: 'completed',
     totalTokens: 1200,
     task: { calls: 2 },
     snapshot: { limits: { enabled: false } },
   });
-  await manager.controlTaskPlan(id, p.id, 'run', {
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', {
     requestId: 'unlimited-again',
   });
   await idle();
   now += 60000;
-  await manager.dispatchDue(now);
+  await manager.tasks.dispatchDue(now);
   await idle();
-  expect(manager.taskPlans(id)[0]).toMatchObject({
+  expect(manager.tasks.taskPlans(id)[0]).toMatchObject({
     state: 'enabled',
     spentTokens: 2400,
   });
-  expect(manager.taskRuns(id, p.id).items).toHaveLength(3);
+  expect(manager.tasks.taskRuns(id, p.id).items).toHaveLength(3);
 });
 
 it('retains multiple Pi tool batches within the same model call in actual action history', async () => {
@@ -598,12 +606,12 @@ it('retains multiple Pi tool batches within the same model call in actual action
       ),
   });
   const id = await role();
-  const plan = await manager.createTaskPlan(id, {
+  const plan = await manager.tasks.createTaskPlan(id, {
     ...draft(),
     requestId: 'pi-batches',
   });
   await idle();
-  const history = manager.taskRuns(id, plan.id).items;
+  const history = manager.tasks.taskRuns(id, plan.id).items;
   expect(history[0].actions?.map((a) => a.kind)).toEqual(['chat']);
   expect(new Set(history[0].actions?.map((a) => a.batchId)).size).toBe(1);
 });
@@ -611,12 +619,12 @@ it('retains multiple Pi tool batches within the same model call in actual action
 it('owns plans independently, reassigns with revision guards and retains executor snapshots', async () => {
   const a = await role(),
     b = await role();
-  const p = await manager.createTaskPlan(a, draft());
+  const p = await manager.tasks.createTaskPlan(a, draft());
   await vi.waitFor(() =>
-    expect(manager.taskRuns(a, p.id).items[0].status).toBe('completed'),
+    expect(manager.tasks.taskRuns(a, p.id).items[0].status).toBe('completed'),
   );
-  const first = manager.taskRuns(a, p.id).items[0];
-  const before = manager.publicPlan(p.id);
+  const first = manager.tasks.taskRuns(a, p.id).items[0];
+  const before = manager.tasks.publicPlan(p.id);
   const result = (await gateway.dispatch(
     'plans.reassign',
     { planId: p.id, targetAgentId: b, expectedPlanRevision: before.revision },
@@ -627,13 +635,13 @@ it('owns plans independently, reassigns with revision guards and retains executo
     state: 'paused',
     spentTokens: 600,
   });
-  expect(manager.publicRuns(undefined, p.id).items[0]).toMatchObject({
+  expect(manager.tasks.publicRuns(undefined, p.id).items[0]).toMatchObject({
     id: first.id,
     agentId: a,
     planRevision: 1,
     totalTokens: 600,
   });
-  expect(manager.taskPlans(a)).toHaveLength(0);
+  expect(manager.tasks.taskPlans(a)).toHaveLength(0);
   await expect(
     gateway.dispatch(
       'plans.control',
@@ -649,39 +657,42 @@ it('owns plans independently, reassigns with revision guards and retains executo
     gateway.dispatch(
       'plans.control',
       { agentId: a, planId: p.id, operation: 'pause' },
-      'old-http',
-      true,
+      'old-target',
     ),
   ).rejects.toThrow('已改变');
   const page = (await gateway.dispatch('plans.list', {})) as any;
   expect(page.items).toHaveLength(1);
   expect(page.items[0].agentId).toBe(b);
-  await manager.controlTaskPlan(b, p.id, 'run', { requestId: 'new-owner' });
+  await manager.tasks.controlTaskPlan(b, p.id, 'run', {
+    requestId: 'new-owner',
+  });
   await vi.waitFor(() =>
-    expect(manager.publicPlan(p.id).spentTokens).toBe(1200),
+    expect(manager.tasks.publicPlan(p.id).spentTokens).toBe(1200),
   );
-  expect(manager.publicPlan(p.id).state).toBe('paused');
+  expect(manager.tasks.publicPlan(p.id).state).toBe('paused');
 });
 
 it('deletes an Agent without deleting plans or history and restores unassigned plans', async () => {
   const a = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const p = await manager.createTaskPlan(
+  const p = await manager.tasks.createTaskPlan(
     a,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
-  await manager.controlTaskPlan(a, p.id, 'run', { requestId: 'wait-delete' });
+  await manager.tasks.controlTaskPlan(a, p.id, 'run', {
+    requestId: 'wait-delete',
+  });
   await idle();
-  const run = manager.taskRuns(a, p.id).items[0];
-  await expect(manager.reassignPlan(p.id, a)).rejects.toThrow('未结束');
+  const run = manager.tasks.taskRuns(a, p.id).items[0];
+  await expect(manager.tasks.reassignPlan(p.id, a)).rejects.toThrow('未结束');
   await manager.remove(a);
   expect(manager.list()).toHaveLength(0);
-  expect(manager.publicPlan(p.id)).toMatchObject({
+  expect(manager.tasks.publicPlan(p.id)).toMatchObject({
     state: 'paused',
     spentTokens: 600,
   });
-  expect(manager.publicPlan(p.id).agentId).toBeUndefined();
-  expect(manager.publicRuns(undefined, p.id).items[0]).toMatchObject({
+  expect(manager.tasks.publicPlan(p.id).agentId).toBeUndefined();
+  expect(manager.tasks.publicRuns(undefined, p.id).items[0]).toMatchObject({
     id: run.id,
     status: 'cancelled',
     agentId: a,
@@ -690,11 +701,13 @@ it('deletes an Agent without deleting plans or history and restores unassigned p
   await manager.close();
   manager = build();
   await manager.load();
-  expect(manager.publicPlan(p.id).agentId).toBeUndefined();
-  expect(manager.publicRuns(undefined, p.id).items[0].status).toBe('cancelled');
+  expect(manager.tasks.publicPlan(p.id).agentId).toBeUndefined();
+  expect(manager.tasks.publicRuns(undefined, p.id).items[0].status).toBe(
+    'cancelled',
+  );
   const b = await role();
-  await manager.reassignPlan(p.id, b);
-  expect(manager.publicPlan(p.id)).toMatchObject({
+  await manager.tasks.reassignPlan(p.id, b);
+  expect(manager.tasks.publicPlan(p.id)).toMatchObject({
     agentId: b,
     state: 'paused',
     spentTokens: 600,
@@ -704,15 +717,15 @@ it('deletes an Agent without deleting plans or history and restores unassigned p
 it('does not publish an uncommitted reassignment or lose other plans on save failure', async () => {
   const a = await role(),
     b = await role();
-  const p = await manager.createTaskPlan(
+  const p = await manager.tasks.createTaskPlan(
     a,
     draft({ kind: 'interval', everyMs: 60000 }),
   );
-  const before = manager.publicPlan(p.id);
+  const before = manager.tasks.publicPlan(p.id);
   await rename(dir, `${dir}-away`);
   try {
-    await expect(manager.reassignPlan(p.id, b)).rejects.toThrow();
-    expect(manager.publicPlan(p.id)).toEqual(before);
+    await expect(manager.tasks.reassignPlan(p.id, b)).rejects.toThrow();
+    expect(manager.tasks.publicPlan(p.id)).toEqual(before);
     expect(manager.plans.get(p.id).agentId).toBe(a);
   } finally {
     await rename(`${dir}-away`, dir);
@@ -721,7 +734,7 @@ it('does not publish an uncommitted reassignment or lose other plans on save fai
 
 it('filters global plans and controls plan state independently of a chat task revision', async () => {
   const a = await role();
-  const p = await manager.createTaskPlan(a, {
+  const p = await manager.tasks.createTaskPlan(a, {
     ...draft({ kind: 'daily', time: '09:00' }),
     name: '每天巡查',
   });
@@ -746,39 +759,44 @@ it('filters global plans and controls plan state independently of a chat task re
 it('keeps newer plan definitions intact when an older execution completes', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const plan = await manager.createTaskPlan(id, draft());
+  const plan = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  const run = manager.taskRuns(id, plan.id).items[0];
-  await manager.updateTaskPlan(id, plan.id, { ...draft(), goal: '下一次目标' });
-  const revision = manager.taskPlans(id)[0].revision;
-  await manager.controlTaskRun(id, run.id, 'pause');
+  const run = manager.tasks.taskRuns(id, plan.id).items[0];
+  await manager.tasks.updateTaskPlan(id, plan.id, {
+    ...draft(),
+    goal: '下一次目标',
+  });
+  const revision = manager.tasks.taskPlans(id)[0].revision;
+  await manager.tasks.controlTaskRun(id, run.id, 'pause');
   decide.mockImplementation(async () => response());
-  await manager.controlTaskRun(id, run.id, 'resume');
+  await manager.tasks.controlTaskRun(id, run.id, 'resume');
   await idle();
-  expect(manager.taskRuns(id, plan.id).items[0]).toMatchObject({
+  expect(manager.tasks.taskRuns(id, plan.id).items[0]).toMatchObject({
     status: 'completed',
     snapshot: { goal: plan.goal },
   });
-  expect(manager.taskPlans(id)[0]).toMatchObject({
+  expect(manager.tasks.taskPlans(id)[0]).toMatchObject({
     goal: '下一次目标',
     state: 'enabled',
     revision,
   });
-  expect(manager.taskPlans(id)[0].spentTokens).toBe(1200);
+  expect(manager.tasks.taskPlans(id)[0].spentTokens).toBe(1200);
 });
 
 it('rolls back deletion of the Agent, bindings and history together when storage fails', async () => {
   const id = await role();
-  const plan = await manager.createTaskPlan(id, draft());
+  const plan = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  const history = manager.publicRuns(undefined, plan.id);
+  const history = manager.tasks.publicRuns(undefined, plan.id);
   await rename(dir, `${dir}-away`);
   try {
     await expect(manager.remove(id)).rejects.toThrow();
     expect(manager.list().some((a) => a.id === id)).toBe(true);
     expect(manager.plans.get(plan.id).agentId).toBe(id);
-    expect(manager.publicPlan(plan.id).agentId).toBe(id);
-    expect(manager.publicRuns(undefined, plan.id).items).toEqual(history.items);
+    expect(manager.tasks.publicPlan(plan.id).agentId).toBe(id);
+    expect(manager.tasks.publicRuns(undefined, plan.id).items).toEqual(
+      history.items,
+    );
   } finally {
     await rename(`${dir}-away`, dir);
   }
@@ -786,21 +804,21 @@ it('rolls back deletion of the Agent, bindings and history together when storage
 
 it('freezes each executor name at launch while showing the live role name on plans', async () => {
   const id = await role();
-  const plan = await manager.createTaskPlan(id, draft());
+  const plan = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  const first = manager.publicRuns(undefined, plan.id).items[0];
+  const first = manager.tasks.publicRuns(undefined, plan.id).items[0];
   await manager.update(id, { name: '改名后的角色' });
-  expect(manager.publicPlan(plan.id).agentName).toBe('改名后的角色');
-  await manager.controlTaskPlan(id, plan.id, 'run', {
+  expect(manager.tasks.publicPlan(plan.id).agentName).toBe('改名后的角色');
+  await manager.tasks.controlTaskPlan(id, plan.id, 'run', {
     requestId: 'after-rename',
   });
   await idle();
-  const runs = manager.publicRuns(undefined, plan.id).items;
+  const runs = manager.tasks.publicRuns(undefined, plan.id).items;
   expect(runs[0].agentName).toBe('改名后的角色');
   expect(runs[1].agentName).toBe(first.agentName);
   await manager.remove(id);
-  expect(manager.publicPlan(plan.id).agentName).toBe('改名后的角色');
-  expect(manager.publicRuns(undefined, plan.id).items[1].agentName).toBe(
+  expect(manager.tasks.publicPlan(plan.id).agentName).toBe('改名后的角色');
+  expect(manager.tasks.publicRuns(undefined, plan.id).items[1].agentName).toBe(
     first.agentName,
   );
 });
@@ -808,12 +826,12 @@ it('freezes each executor name at launch while showing the live role name on pla
 it('preserves plan execution when changing models and rejects implicit task replacement', async () => {
   const id = await role();
   decide.mockImplementation(async () => response('waiting'));
-  const plan = await manager.createTaskPlan(id, draft());
+  const plan = await manager.tasks.createTaskPlan(id, draft());
   await idle();
-  const before = manager.publicRuns(undefined, plan.id).items[0];
+  const before = manager.tasks.publicRuns(undefined, plan.id).items[0];
   const calls = decide.mock.calls.length;
   await manager.update(id, { model: 'deepseek-reasoner' });
-  const after = manager.publicRuns(undefined, plan.id).items[0];
+  const after = manager.tasks.publicRuns(undefined, plan.id).items[0];
   expect(after).toMatchObject({
     id: before.id,
     source: 'manual',
@@ -834,7 +852,7 @@ it('preserves plan execution when changing models and rejects implicit task repl
   expect(
     manager.plans.runs.every((run) => run.planId && run.source === 'manual'),
   ).toBe(true);
-  expect(manager.publicRuns(undefined, plan.id).items[0]).toMatchObject({
+  expect(manager.tasks.publicRuns(undefined, plan.id).items[0]).toMatchObject({
     id: before.id,
     status: 'paused',
     totalTokens: before.totalTokens,

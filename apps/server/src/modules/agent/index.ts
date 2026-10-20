@@ -1,8 +1,7 @@
 export { AgentManager } from './manager';
 export { AgentOrchestrator, type AgentDependencies } from './orchestrator';
 export { AgentPersistence } from './persistence';
-export { AgentPlanCoordinator } from './plan-coordinator';
-export { validateAgent, taskLimits } from './validation';
+export { validateAgent } from './validation';
 export { appendAgentLog, restoreAgentLogs } from './logs';
 export { migrateArchive, readAgentArchive, writeAgentArchive } from './storage';
 export { AgentEvents, type AgentResourceChange } from './events';

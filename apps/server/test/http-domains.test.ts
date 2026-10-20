@@ -150,9 +150,9 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
         })
       ).status,
     ).toBe(204);
-    const immediate = vi.spyOn(server.agents, 'assignTask');
-    const pause = vi.spyOn(server.agents, 'controlTask');
-    const resume = vi.spyOn(server.agents, 'resume');
+    expect('assignTask' in server.agents).toBe(false);
+    expect('controlTask' in server.agents).toBe(false);
+    expect('resume' in server.agents).toBe(false);
     for (const operation of ['task', 'pause', 'resume', 'cancel']) {
       const removed = await fetch(
         `${server.httpUrl}/agents/agent-123/${operation}`,
@@ -164,11 +164,8 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
       );
       expect(removed.status).toBe(404);
     }
-    expect(immediate).not.toHaveBeenCalled();
-    expect(pause).not.toHaveBeenCalled();
-    expect(resume).not.toHaveBeenCalled();
     const createPlan = vi
-      .spyOn(server.agents, 'createTaskPlan')
+      .spyOn(server.agents.tasks, 'createTaskPlan')
       .mockResolvedValue({ id: 'plan-123' } as any);
     const draft = {
       agentId: 'agent-123',
@@ -188,7 +185,7 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     ).toBe(201);
     expect(createPlan).toHaveBeenCalledWith('agent-123', draft);
     const run = vi
-      .spyOn(server.agents, 'controlTaskRun')
+      .spyOn(server.agents.tasks, 'controlTaskRun')
       .mockResolvedValue({ id: 'run-123' } as any);
     for (const operation of ['pause', 'resume', 'cancel']) {
       expect(
@@ -203,7 +200,7 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
       expect(run).toHaveBeenCalledWith(undefined, 'run-123', operation, {});
     }
     const reassign = vi
-      .spyOn(server.agents, 'reassignPlan')
+      .spyOn(server.agents.tasks, 'reassignPlan')
       .mockResolvedValue({ id: 'plan-123' } as any);
     expect(
       (

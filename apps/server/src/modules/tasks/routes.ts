@@ -8,12 +8,12 @@ import { TasksService, type TaskPort } from './port';
  */
 export function installTaskRoutes(
   app: Express,
-  managerOrService: TaskPort | TasksService,
+  tasksOrService: TaskPort | TasksService,
 ) {
   const service =
-    managerOrService instanceof TasksService
-      ? managerOrService
-      : new TasksService(managerOrService);
+    tasksOrService instanceof TasksService
+      ? tasksOrService
+      : new TasksService(tasksOrService);
 
   // ---------------------------------------------------------------------------
   // 任务计划与执行运行的 HTTP 适配

@@ -7,13 +7,14 @@ flowchart TD
   Web[Web 控制台] --> HTTP[领域 HTTP 路由]
   CLI[agent:ctl] --> Client[GatewayClient]
   Client --> RPC[WebSocket RPC /agents/gateway]
-  HTTP --> Registry
+  HTTP --> Plans
   RPC --> Router[CommandRouter]
   Router --> Registry[AgentRegistry]
   Scheduler[Agent 唤醒与跟随调度] --> Host[AgentHost]
-  Router --> Plans[PlanService 全局计划与执行]
+  Router --> Plans[TaskCoordinator 计划与执行]
+  Plans --> Port[TaskHostPort 宿主端口]
+  Port --> Host
   Timer[TaskScheduler 时间触发] --> Plans
-  Plans --> Host
   Plans --> Archive
   Registry --> Host
   Host --> Runner[AgentRunner / Coordinator]
@@ -33,8 +34,8 @@ flowchart TD
 - `packages/gateway-client`：宿主注入 socket；处理握手、请求关联、超时、订阅序号、重连和未确认命令查询。不会自动重发写请求。
 - `apps/server/src/modules/gateway`：令牌、RPC 命令分发与 socket 适配；HTTP 路由由各领域维护并在 app.ts 装配。
 - `apps/server/src/modules/providers`：`provider-store.ts`（模型提供商配置持久化）、`provider-validation.ts`、`provider-port.ts`、`providers.routes.ts`。
-- `apps/server/src/modules/tasks`：`model.ts`（TaskPlan 状态计算）、`service.ts`（计划与运行历史）、`scheduler.ts`（计划调度）、`port.ts`（任务领域接口与服务封装）、`routes.ts`（HTTP 路由）。
-- `apps/server/src/modules/agent`：`orchestrator.ts`（Agent 核心编排调度器）、`manager.ts`（生产依赖注入）、`host.ts`（AgentHost 宿主执行器）、`storage.ts`（存档文件适配）、`routes.ts`（HTTP 路由）。各类校验与实体紧密内聚在各自领域模块中。
+- `apps/server/src/modules/tasks`：`coordinator.ts`（TaskCoordinator：计划、运行控制与调度）、`execution.ts`（执行状态、预算、聊天运行与历史）、`restore.ts`（任务恢复、私聊失效、未知动作与错过调度处理）、`execution-port.ts`（TaskHostPort / TaskExecutionState）、`model.ts`、`service.ts`、`scheduler.ts`、`port.ts`（HTTP 适配服务）、`routes.ts`。
+- `apps/server/src/modules/agent`：`orchestrator.ts`（Agent 核心编排调度器）、`manager.ts`（生产依赖注入）、`host.ts`（AgentHost 宿主执行器）、`execution-adapter.ts`（任务状态与宿主能力的窄接口适配）、`storage.ts`（存档文件适配）、`routes.ts`（HTTP 路由）。各类校验与实体紧密内聚在各自领域模块中。
 - `apps/server/src/modules/audio/tts/agent-speech.ts`：世界内语音合成队列、空间听众筛选与音频缓存，由 `WorldRoom` 装配并管理生命周期。
 
 Gateway 按程序规则路由。消息意图仍由 ConversationRunner 判断；网关没有模型分类请求。每个角色的模型和动作串行，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。
@@ -93,6 +94,14 @@ Agent HTTP 只提供配置、加入世界、停止离线、删除与语音绑定
 - `/tasks/:planId/pause` 只暂停未来调度，当前执行不受影响；resume 恢复定时调度。执行 resume 保留进度与用量，已结束执行应重新 run。
 
 创建与更新角色只写角色配置，不再通过 goal/startTask 隐式创建或替换任务。默认创建后上线待命，joinWorld=false 仅保存离线角色；两种方式都不生成计划或执行，也不自动调用模型。startTask（包括 false）、taskTimeZone 和非空 goal 返回 400 并提示使用 Tasks；空 goal 仅兼容旧请求，不清空已有任务。已有任务的摘要仍可在查询中展示，进度、用量和历史不变。内部执行器的暂停、取消能力供 Tasks 和世界生命周期调用。
+
+## 内部执行边界
+
+Agent 不再提供 resume、assignTask、controlTask 或计划操作转发方法。HTTP 与 Gateway 的 plans/runs 请求直接调用 Tasks 领域端口；内部调用使用 `agents.tasks`。Tasks 负责目标、计划、预算、恢复资格、聊天执行记录与历史，Agent 负责世界连接、消息唤醒、运行器启动和中断退出。
+
+`TaskExecutionState` 只包含执行所需的业务状态与在线标记，不暴露 Session、AbortController、runner 或整个 Agent Job。`TaskHostPort` 提供按角色 ID 启动、调度、验证配置、保存以及“中断并等待运行器退出后提交变更”的能力。Tasks 不依赖 Agent 模块。更换角色配置、离线和关闭产生的任务状态转换复用 Tasks 规则；角色删除与任务归属/历史仍在同一存档事务中提交和回滚。
+
+可信世界消息的暂停/取消携带完整任务身份、玩家消息和命令 ID。Tasks 在中断前及等待退出后重新校验任务身份与私聊发起者权限，再按玩家权限提交；过期命令不能影响新的执行。相同命令 ID 和内容共用回执，不同内容冲突，复用公共 CommandRouter 的有界进程内去重。聊天执行仍无 planId，原私聊归属保留，不转成管理计划；运行器退出时恰好完成的结果不被暂停/取消覆盖。
 
 ## CLI
 

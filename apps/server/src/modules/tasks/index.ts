@@ -37,3 +37,6 @@ export type {
   RunControlOperation,
   TaskRunsPage,
 } from './types';
+
+export { TaskCoordinator } from './coordinator';
+export type { TaskExecutionState, TaskHostPort } from './execution-port';

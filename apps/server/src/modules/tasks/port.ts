@@ -1,11 +1,11 @@
 import type { PlanQueryFilter } from './types';
 
 /**
- * Tasks / Plans 领域的管理接口契约（由 AgentManager / TaskStore 实现）
+ * Tasks / Plans 领域的管理接口契约（由 TaskCoordinator 实现）
  */
 export interface TaskPort {
   planPage(params: PlanQueryFilter): unknown;
-  publicPlans(agentId?: string): unknown;
+  publicPlans(agentId?: string, metadata?: boolean): unknown;
   publicPlan(planId: string): unknown;
   createTaskPlan(agentId: string, value: unknown): Promise<unknown>;
   updateTaskPlan(
@@ -37,37 +37,37 @@ export interface TaskPort {
 export type TasksManagerPort = TaskPort;
 
 /**
- * Tasks 业务服务封装（兼容适配器）
+ * Tasks 的 HTTP 适配服务
  */
 export class TasksService {
-  constructor(private readonly manager: TaskPort) {}
+  constructor(private readonly tasks: TaskPort) {}
 
   listGlobalPlans(params: PlanQueryFilter) {
-    return this.manager.planPage(params);
+    return this.tasks.planPage(params);
   }
 
   listAgentPlans(agentId: string) {
-    return this.manager.publicPlans(agentId);
+    return this.tasks.publicPlans(agentId);
   }
 
   getPlan(planId: string) {
-    return this.manager.publicPlan(planId);
+    return this.tasks.publicPlan(planId);
   }
 
   createPlan(agentId: string, value: unknown) {
-    return this.manager.createTaskPlan(agentId, value);
+    return this.tasks.createTaskPlan(agentId, value);
   }
 
   updatePlan(agentId: string | undefined, planId: string, value: unknown) {
-    return this.manager.updateTaskPlan(agentId, planId, value);
+    return this.tasks.updateTaskPlan(agentId, planId, value);
   }
 
   deletePlan(agentId: string | undefined, planId: string) {
-    return this.manager.controlTaskPlan(agentId, planId, 'delete', {});
+    return this.tasks.controlTaskPlan(agentId, planId, 'delete', {});
   }
 
   reassignPlan(planId: string, targetAgentId: string) {
-    return this.manager.reassignPlan(planId, targetAgentId);
+    return this.tasks.reassignPlan(planId, targetAgentId);
   }
 
   listRuns(
@@ -76,7 +76,7 @@ export class TasksService {
     offset = 0,
     metadata = true,
   ) {
-    return this.manager.publicRuns(agentId, planId, offset, metadata);
+    return this.tasks.publicRuns(agentId, planId, offset, metadata);
   }
 
   controlPlan(
@@ -85,7 +85,7 @@ export class TasksService {
     operation: string,
     value: unknown,
   ) {
-    return this.manager.controlTaskPlan(agentId, planId, operation, value);
+    return this.tasks.controlTaskPlan(agentId, planId, operation, value);
   }
 
   controlRun(
@@ -94,6 +94,6 @@ export class TasksService {
     operation: string,
     value: unknown,
   ) {
-    return this.manager.controlTaskRun(agentId, runId, operation, value);
+    return this.tasks.controlTaskRun(agentId, runId, operation, value);
   }
 }

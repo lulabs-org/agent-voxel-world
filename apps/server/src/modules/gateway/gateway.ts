@@ -27,6 +27,10 @@ export class AgentGateway {
     return this.target.plans;
   }
 
+  get tasks() {
+    return this.target.tasks;
+  }
+
   get providers() {
     return this.target.providers;
   }
@@ -41,27 +45,6 @@ export class AgentGateway {
 
   publicIdentity(id: string) {
     return this.target.publicIdentity(id);
-  }
-
-  publicPlans(id?: string, metadata = false) {
-    return this.target.publicPlans(id, metadata);
-  }
-
-  publicRuns(
-    id: string | undefined,
-    plan: string,
-    offset?: number,
-    metadata = false,
-  ) {
-    return this.target.publicRuns(id, plan, offset, metadata);
-  }
-
-  planPage(p: RpcParams) {
-    return this.target.planPage(p);
-  }
-
-  publicPlan(id: string) {
-    return this.target.publicPlan(id);
   }
 
   taskIdentity(id: string) {
@@ -108,40 +91,6 @@ export class AgentGateway {
     return this.target.setVoice(id, value);
   }
 
-  async reassignPlan(id: string, targetAgentId: string) {
-    return this.target.reassignPlan(id, targetAgentId);
-  }
-
-  async createTaskPlan(agentId: string, value: any) {
-    return this.target.createTaskPlan(agentId, value);
-  }
-
-  async updateTaskPlan(
-    agentId: string | undefined,
-    planId: string,
-    value: any,
-  ) {
-    return this.target.updateTaskPlan(agentId, planId, value);
-  }
-
-  async controlTaskPlan(
-    agentId: string | undefined,
-    planId: string,
-    operation: string,
-    value: any,
-  ) {
-    return this.target.controlTaskPlan(agentId, planId, operation, value);
-  }
-
-  async controlTaskRun(
-    agentId: string | undefined,
-    runId: string,
-    operation: string,
-    value: any,
-  ) {
-    return this.target.controlTaskRun(agentId, runId, operation, value);
-  }
-
   async models(providerId: string) {
     return this.target.models(providerId);
   }
@@ -154,12 +103,7 @@ export class AgentGateway {
     await this.target.close?.();
   }
 
-  async dispatch(
-    method: RpcMethod,
-    params: RpcParams,
-    commandId?: string,
-    legacy = false,
-  ) {
-    return invokeGateway(this, method, params, commandId, legacy);
+  async dispatch(method: RpcMethod, params: RpcParams, commandId?: string) {
+    return invokeGateway(this, method, params, commandId);
   }
 }

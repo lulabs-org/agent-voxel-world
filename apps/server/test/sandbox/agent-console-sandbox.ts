@@ -84,7 +84,7 @@ try {
   await until(
     () => manager!.list().filter((j) => j.status === 'idle').length === 2,
   );
-  await manager.createTaskPlan(b.id, {
+  await manager.tasks.createTaskPlan(b.id, {
     name: '等待附近环境变化',
     goal: '等待附近环境变化',
     timing: { kind: 'immediate' },

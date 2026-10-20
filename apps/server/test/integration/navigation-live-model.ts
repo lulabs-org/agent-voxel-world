@@ -1,3 +1,4 @@
+import { controlRun } from '../../../../tests/support/managed-tasks';
 import { createTestServer } from '../helpers/test-server';
 /** Opt-in paid-model acceptance test. Uses real AgentManager, chat, WebSocket and physics. */
 import assert from 'node:assert/strict';
@@ -5,7 +6,8 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { AgentManager } from '../../src/modules/agent';
-import { reserveRun } from '../../src/modules/agent/task-execution';
+import { reserveRun } from '../../src/modules/tasks/execution';
+import { executionState } from '../../src/modules/agent/execution-adapter';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import {
   AgentRunner,
@@ -128,14 +130,19 @@ try {
     taskStates.clear();
     if (kind.startsWith('cancelled')) {
       // Seed prior execution state without spending a real model call on fixture setup.
-      const prior = await manager.createTaskPlan(managed.id, {
+      const prior = await manager.tasks.createTaskPlan(managed.id, {
         name: `旧任务-${kind}`,
         goal: `旧任务-${kind}`,
         timing: { kind: 'once', at: Date.now() + 3600000 },
         timeZone: 'UTC',
       });
-      reserveRun(manager.jobs.get(managed.id)!, prior, 'manual', Date.now());
-      await manager.controlTask(managed.id, 'cancel');
+      reserveRun(
+        executionState(manager.jobs.get(managed.id)!),
+        prior,
+        'manual',
+        Date.now(),
+      );
+      await controlRun(manager, managed.id, 'cancel');
       assert.equal(view().task?.status, 'cancelled');
     }
     room.blocks.clear();

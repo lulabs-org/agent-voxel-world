@@ -18,7 +18,6 @@ export async function invokeGateway(
   method: RpcMethod,
   p: RpcParams,
   id?: string,
-  legacy = false,
 ): Promise<unknown> {
   const originalParams = { ...p };
   p = { ...p };
@@ -32,10 +31,7 @@ export async function invokeGateway(
       if (originalParams.agentId && plan.agentId !== originalParams.agentId)
         throw new GatewayError('计划执行角色已改变。', 'CONFLICT', 409);
       p.agentId = plan.agentId;
-      if (
-        !legacy &&
-        ['plans.update', 'plans.control', 'plans.reassign'].includes(method)
-      )
+      if (['plans.update', 'plans.control', 'plans.reassign'].includes(method))
         g.plans.assertRevision(plan.id, p.expectedPlanRevision);
     }
     if (method === 'runs.control') {
@@ -54,9 +50,8 @@ export async function invokeGateway(
   const validateRevision = () => {
     resolveTarget();
     if (
-      !legacy &&
-      (method === 'runs.control' ||
-        (method === 'plans.control' && p.operation === 'run'))
+      method === 'runs.control' ||
+      (method === 'plans.control' && p.operation === 'run')
     ) {
       if (p.expectedTask === undefined)
         throw new GatewayError(
@@ -93,7 +88,7 @@ export async function invokeGateway(
       case 'commands.get':
         return g.commands.get(p.commandId ?? '');
       case 'agents.list':
-        return legacy ? g.publicList() : view();
+        return view();
       case 'agents.get': {
         const a = view().find((a) => a.id === p.agentId);
         if (!a) throw new GatewayError('Agent 不存在。', 'NOT_FOUND', 404);
@@ -119,31 +114,36 @@ export async function invokeGateway(
         result = await g.setVoice(p.agentId!, value);
         break;
       case 'plans.list':
-        return legacy ? g.publicPlans(p.agentId) : g.planPage(p);
+        return g.tasks.planPage(p);
       case 'plans.get':
-        return g.publicPlan(p.planId!);
+        return g.tasks.publicPlan(p.planId!);
       case 'plans.reassign':
-        result = await g.reassignPlan(p.planId!, p.targetAgentId!);
+        result = await g.tasks.reassignPlan(p.planId!, p.targetAgentId!);
         break;
       case 'plans.create':
-        result = await g.createTaskPlan(p.agentId!, {
+        result = await g.tasks.createTaskPlan(p.agentId!, {
           ...value,
           requestId: value.requestId ?? id,
         });
         break;
       case 'plans.update':
-        result = await g.updateTaskPlan(p.agentId, p.planId!, value);
+        result = await g.tasks.updateTaskPlan(p.agentId, p.planId!, value);
         break;
       case 'plans.control':
-        result = await g.controlTaskPlan(p.agentId, p.planId!, p.operation!, {
-          ...value,
-          requestId: value.requestId ?? id,
-        });
+        result = await g.tasks.controlTaskPlan(
+          p.agentId,
+          p.planId!,
+          p.operation!,
+          {
+            ...value,
+            requestId: value.requestId ?? id,
+          },
+        );
         break;
       case 'runs.list':
-        return g.publicRuns(p.agentId!, p.planId!, p.offset, !legacy);
+        return g.tasks.publicRuns(p.agentId!, p.planId!, p.offset, true);
       case 'runs.control':
-        result = await g.controlTaskRun(
+        result = await g.tasks.controlTaskRun(
           p.agentId!,
           p.runId!,
           p.operation!,
@@ -167,7 +167,6 @@ export async function invokeGateway(
     }
     await g.flush(since);
     if (
-      !legacy &&
       result &&
       typeof result === 'object' &&
       'id' in result &&

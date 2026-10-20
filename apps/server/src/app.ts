@@ -65,7 +65,7 @@ export function createApp(deps: {
     remove: (id) => deps.agents.removeProvider(id),
     changed: () => deps.agents.events.publish('providers'),
   });
-  installTaskRoutes(app, deps.agents);
+  installTaskRoutes(app, deps.agents.tasks);
   installVoiceServiceRoutes(
     app,
     () => deps.voiceServices,
