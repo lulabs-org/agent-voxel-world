@@ -1,5 +1,4 @@
-import type { RpcParams } from '@voxel/gateway-protocol';
-import type { PlanQueryFilter } from './task-types';
+import type { PlanQueryFilter } from './types';
 
 /**
  * Tasks / Plans 领域的管理接口契约（由 AgentManager / TaskStore 实现）

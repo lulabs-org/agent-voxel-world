@@ -1,4 +1,4 @@
-import type { RestoredAgentRecord, AgentArchive } from './agent-ports';
+import type { RestoredAgentRecord, AgentArchive } from './ports';
 
 export type AgentResourceChange = {
   resource: 'agents' | 'providers' | 'plans' | 'runs';
@@ -67,7 +67,12 @@ export class AgentEvents {
     agentIds: string[] = [],
     details: { planIds?: string[]; runIds?: string[] } = {},
   ) {
-    const c: AgentResourceChange = { resource, agentIds, ...details, version: ++this.version };
+    const c: AgentResourceChange = {
+      resource,
+      agentIds,
+      ...details,
+      version: ++this.version,
+    };
     for (const listener of this.listeners) {
       try {
         listener(c);
@@ -81,4 +86,3 @@ export class AgentEvents {
     this.listeners.clear();
   }
 }
-

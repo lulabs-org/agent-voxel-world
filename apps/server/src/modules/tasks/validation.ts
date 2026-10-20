@@ -98,17 +98,15 @@ export function validatePlan(
       throw new AppError('执行方式无效。');
   }
 
-  if (v.limits?.enabled !== undefined && typeof v.limits.enabled !== 'boolean') {
+  if (
+    v.limits?.enabled !== undefined &&
+    typeof v.limits.enabled !== 'boolean'
+  ) {
     throw new AppError('执行限制开关必须为布尔值。');
   }
 
   // Hidden fields do not prevent saving an unlimited task; retain valid values for later use.
-  const quota = (
-    value: unknown,
-    fallback: number,
-    min: number,
-    max: number,
-  ) =>
+  const quota = (value: unknown, fallback: number, min: number, max: number) =>
     v.limits?.enabled === false &&
     (typeof value !== 'number' ||
       !Number.isInteger(value) ||

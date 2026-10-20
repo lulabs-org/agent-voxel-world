@@ -15,6 +15,20 @@ const operations = Object.entries(spec.paths).flatMap(
       })),
 );
 
+it('includes agent and task endpoints from domain routes.ts files', () => {
+  for (const [path, methods] of [
+    ['/agents', ['get', 'post']],
+    ['/agents/{id}', ['put', 'delete']],
+    ['/tasks', ['get', 'post']],
+    ['/tasks/{planId}', ['get', 'put', 'delete']],
+    ['/task-runs/{runId}/{operation}', ['post']],
+  ] as const) {
+    expect(spec.paths[path], path).toBeDefined();
+    for (const method of methods)
+      expect(spec.paths[path][method], `${method} ${path}`).toBeDefined();
+  }
+});
+
 it('documents resource ownership, management and chat credentials, with no global auth on public APIs', () => {
   expect(spec.servers).toEqual([{ url: '/', description: '当前服务器' }]);
   expect(spec.security).toBeUndefined();

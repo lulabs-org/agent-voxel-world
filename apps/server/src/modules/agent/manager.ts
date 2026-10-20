@@ -1,8 +1,8 @@
-import { AgentOrchestrator, type AgentDependencies } from './agent-orchestrator';
+import { AgentOrchestrator, type AgentDependencies } from './orchestrator';
 import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
 import { ProviderStore } from '../providers/provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
-import { readAgentArchive, writeAgentArchive } from './agent-storage';
+import { readAgentArchive, writeAgentArchive } from './storage';
 
 /** AgentManager is the concrete orchestrator in the server with file-based persistence defaults. */
 export class AgentManager extends AgentOrchestrator {

@@ -1,19 +1,15 @@
-import { migrateArchive } from './agent-storage';
-import { AgentWakeScheduler } from './agent-wake-scheduler';
-import { appendAgentLog } from './agent-logs';
+import { migrateArchive } from './storage';
+import { AgentWakeScheduler } from './wake-scheduler';
+import { appendAgentLog } from './logs';
 import {
   hasPlanTokenLimit,
   agentPermissions,
   type AgentSettings,
 } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
-import type {
-  VoiceServicePort,
-  ProviderPort,
-  ArchivePort,
-} from './agent-ports';
-import { AgentRegistry } from './agent-types';
-import { AgentEvents } from './agent-events';
+import type { VoiceServicePort, ProviderPort, ArchivePort } from './ports';
+import { AgentRegistry } from './types';
+import { AgentEvents } from './events';
 import type { RpcParams } from '@voxel/gateway-protocol';
 import {
   Session,
@@ -26,23 +22,19 @@ import {
 } from '@voxel/agent-runtime';
 
 import { object, text, boolean } from '../../common/validation';
-import { validateAgent, taskLimits } from './agent-validation';
+import { validateAgent, taskLimits } from './validation';
 import type { SavedProvider } from '../providers/provider-validation';
 import { AppError } from '../../common/errors';
 
-import { active, resident, type Job } from './agent-types';
-import {
-  captureTask,
-  currentRun,
-  reserveRun,
-} from './agent-task-execution';
-import { restoreAgentJob } from './agent-restore';
-import { AgentHost, type ExecutionContext } from './agent-host';
-import { AgentPersistence } from './agent-persistence';
-import { AgentPlanCoordinator } from './agent-plan-coordinator';
+import { active, resident, type Job } from './types';
+import { captureTask, currentRun, reserveRun } from './task-execution';
+import { restoreAgentJob } from './restore';
+import { AgentHost, type ExecutionContext } from './host';
+import { AgentPersistence } from './persistence';
+import { AgentPlanCoordinator } from './plan-coordinator';
 import { endedRun, newPlan, newRun, validatePlan } from '../tasks';
 
-export * from './agent-validation';
+export * from './validation';
 
 export class AgentOrchestrator {
   readonly jobs = new AgentRegistry();
@@ -327,8 +319,7 @@ export class AgentOrchestrator {
     const settings = validateAgent(value, provider);
     const startTask = boolean(object(value).startTask, true);
     const joinWorld = boolean(object(value).joinWorld, true);
-    if (startTask && !joinWorld)
-      throw new AppError('立即任务需要加入世界。');
+    if (startTask && !joinWorld) throw new AppError('立即任务需要加入世界。');
     if (startTask && !settings.goal)
       throw new AppError('请填写任务目标，或选择加入世界待命。');
     const firstTask = startTask
@@ -594,10 +585,7 @@ export class AgentOrchestrator {
       if (session && settings.name !== job.view.name) {
         const result = await session.request('rename', { name: settings.name });
         if (!result.ok || job.session !== session || active(job.view.status))
-          throw new AppError(
-            '角色状态已变化，未保存参数，请刷新后重试。',
-            409,
-          );
+          throw new AppError('角色状态已变化，未保存参数，请刷新后重试。', 409);
       }
       if (settings.goal !== currentGoal) {
         this.taskScheduler.cancel(job.view.id);
@@ -708,8 +696,7 @@ export class AgentOrchestrator {
     try {
       if (job.session?.room) {
         const result = await job.session.request('agent.voice', { enabled });
-        if (!result.ok)
-          throw new AppError('语音开关未生效，请重试。', 409);
+        if (!result.ok) throw new AppError('语音开关未生效，请重试。', 409);
       }
       job.view.voiceReplies = enabled;
       this.bindVoice(job);
@@ -988,4 +975,3 @@ export type AgentDependencies = {
   ) => Pick<AgentRunner, 'run'>;
   models: (provider: SavedProvider) => Promise<string[]>;
 };
-

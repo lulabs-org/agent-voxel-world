@@ -4,8 +4,8 @@ import {
   nextOccurrence,
   type TaskPlan,
 } from '@voxel/shared';
-import type { StoredRun, TaskRunsPage } from './task-types';
-import { endedRun, runView } from './task-model';
+import type { StoredRun, TaskRunsPage } from './types';
+import { endedRun, runView } from './model';
 import { integer, object } from '../../common/validation';
 import { AppError } from '../../common/errors';
 
@@ -43,8 +43,7 @@ export class TaskPlanService {
   }
   reassign(id: string, agent: { id: string; name: string }) {
     const p = this.get(id);
-    if (p.state === 'archived')
-      throw new AppError('已归档计划不能改派。', 409);
+    if (p.state === 'archived') throw new AppError('已归档计划不能改派。', 409);
     if (this.unfinished(id))
       throw new AppError('请先结束该计划所有未结束的执行。', 409);
     p.agentId = agent.id;

@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import type { AgentManager } from './agent-manager';
+import type { AgentManager } from './manager';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
 /**

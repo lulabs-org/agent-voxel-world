@@ -1,7 +1,7 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { isRepeating, DEFAULT_TASK_LIMITS } from '@voxel/shared';
 import { AppError } from '../../common/errors';
-import type { RestoredAgentRecord, AgentArchive } from './agent-ports';
+import type { RestoredAgentRecord, AgentArchive } from './ports';
 import { newPlan, newRun } from '../tasks';
 
 export async function writeAgentArchive(
