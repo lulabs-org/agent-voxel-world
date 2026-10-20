@@ -31,3 +31,7 @@ export const active = (status: ManagedAgentView['status']) =>
   ['joining', 'running', 'stopping'].includes(status);
 
 export const resident = (job: Job) => !!job.session || active(job.view.status);
+
+/** The sole owner of hosted Agent instances. Never shared with standalone CLI instances. */
+export class AgentRegistry extends Map<string, Job> {}
+

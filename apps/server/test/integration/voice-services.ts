@@ -13,7 +13,7 @@ import type {
   ManagedAgentView,
   VoiceServiceView,
 } from '@voxel/shared';
-import { AgentManager } from '../../src/modules/agent/manager';
+import { AgentManager } from '../../src/modules/agent';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 import { validatePcmWav } from '../../src/modules/audio/asr/local-speech';

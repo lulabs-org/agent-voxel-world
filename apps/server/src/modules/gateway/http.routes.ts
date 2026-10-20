@@ -1,10 +1,10 @@
 import express, { type Express } from 'express';
 import type { AgentGateway } from './gateway';
-import type { AgentManager } from '../agent/manager';
+import type { AgentManager } from '../agent';
 import { SpeechError } from '../audio/errors';
 import { installVoiceServiceRoutes } from '../audio/routes/voice-services.routes';
 import { installProviderRoutes } from '../providers/providers.routes';
-import { installAgentRoutes } from '../agent/agents.routes';
+import { installAgentRoutes } from '../agent';
 import { installTaskRoutes } from '../tasks/tasks.routes';
 import { createOriginGuard } from '../../common/middleware/cors';
 import { requireJsonBody } from '../../common/middleware/json-body';
@@ -20,9 +20,9 @@ export function installGatewayHttp(
   managerOrGateway: AgentManager | AgentGateway,
 ) {
   const manager =
-    'gateway' in managerOrGateway
-      ? managerOrGateway
-      : ((managerOrGateway as any).target as AgentManager);
+    'target' in managerOrGateway
+      ? (managerOrGateway.target as AgentManager)
+      : managerOrGateway;
   installProviderRoutes(app, manager);
   installAgentRoutes(app, manager);
   installTaskRoutes(app, manager);
@@ -30,10 +30,14 @@ export function installGatewayHttp(
 
 export function installGatewayRoutes(
   app: Express,
-  manager: AgentManager,
+  managerOrGateway: AgentManager | AgentGateway,
   origin = env.webOrigin(),
   authenticated = false,
 ) {
+  const manager =
+    'target' in managerOrGateway
+      ? (managerOrGateway.target as AgentManager)
+      : managerOrGateway;
   app.use(
     '/agents',
     ...(authenticated

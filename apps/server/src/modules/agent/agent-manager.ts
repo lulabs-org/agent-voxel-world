@@ -1,25 +1,23 @@
 import {
   AgentOrchestrator,
+  type AgentDependencies,
   type GatewayDependencies,
-} from './orchestrator';
-import { AgentGateway } from '../gateway/gateway';
+} from './agent-orchestrator';
 import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
 import { ProviderStore } from '../providers/provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
 import { readAgentArchive, writeAgentArchive } from './agent-storage';
-import type { RpcMethod, RpcParams } from '@voxel/gateway-protocol';
 
-export { type GatewayDependencies };
+export { type AgentDependencies, type GatewayDependencies };
 
-/** AgentManager is the concrete orchestrator in the server, with an attached AgentGateway. */
+/** AgentManager is the concrete orchestrator in the server with file-based persistence defaults. */
 export class AgentManager extends AgentOrchestrator {
   declare readonly voiceServices: VoiceServiceStore | undefined;
-  readonly gateway: AgentGateway;
 
   constructor(
     providers: ProviderStore,
     serverUrl: string | (() => string),
-    dependencies: GatewayDependencies = {
+    dependencies: AgentDependencies = {
       session: (url) => new Session(url),
       runner: (_config, provider) => new AgentRunner(provider),
       models: (provider) => listModels(provider, provider.apiKey),
@@ -31,19 +29,5 @@ export class AgentManager extends AgentOrchestrator {
       load: () => readAgentArchive(path),
       save: (records) => writeAgentArchive(path, records),
     });
-    this.gateway = new AgentGateway(this);
-  }
-
-  get commands() {
-    return this.gateway.commands;
-  }
-
-  dispatch(
-    method: RpcMethod,
-    params: RpcParams,
-    commandId?: string,
-    legacy = false,
-  ) {
-    return this.gateway.dispatch(method, params, commandId, legacy);
   }
 }

@@ -16,7 +16,7 @@ import { object } from '../../common/validation';
 import { taskLimits, validateAgent } from './agent-validation';
 import type { SavedProvider } from '../providers/provider-validation';
 import { AppError } from '../../common/errors';
-import { active, type Job } from './types';
+import { active, type Job } from './agent-types';
 
 export function currentRun(job: Job) {
   return job.ledger.runs.find((r) => r.id === job.currentRunId);

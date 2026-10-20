@@ -6,7 +6,7 @@ import { PiperTts } from './piper-tts';
 import { speechEndpoint } from '../speech-endpoint';
 import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '@voxel/shared';
 import { installGatewayRoutes } from '../../gateway/http.routes';
-import type { AgentManager } from '../../agent/manager';
+import type { AgentManager } from '../../agent';
 
 afterEach(() => {
   vi.unstubAllEnvs();

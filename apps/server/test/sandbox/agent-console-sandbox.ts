@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Session, until, AgentRunner } from '@voxel/agent-runtime';
-import { AgentManager } from '../../src/modules/agent/manager';
+import { AgentManager } from '../../src/modules/agent';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
 process.env.DATABASE_URL = '';

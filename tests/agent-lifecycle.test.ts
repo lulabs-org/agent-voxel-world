@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AgentManager } from '../apps/server/src/modules/agent/manager';
+import { AgentManager } from '../apps/server/src/modules/agent';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../apps/server/src/modules/audio/tts/voice-services';
 import {

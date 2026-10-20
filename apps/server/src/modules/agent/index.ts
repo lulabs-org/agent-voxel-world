@@ -1,16 +1,36 @@
-export { AgentManager, type GatewayDependencies } from './manager';
-export { AgentOrchestrator } from './orchestrator';
+export {
+  AgentManager,
+  type AgentDependencies,
+  type GatewayDependencies,
+} from './agent-manager';
+export {
+  AgentOrchestrator,
+  type OrchestratorDependencies,
+} from './agent-orchestrator';
+export { AgentPersistence } from './agent-persistence';
+export { AgentPlanCoordinator } from './agent-plan-coordinator';
 export { validateAgent, taskLimits } from './agent-validation';
 export { appendAgentLog, restoreAgentLogs } from './agent-logs';
-export { migrateArchive } from './archive';
-export { readAgentArchive, writeAgentArchive } from './agent-storage';
-export { GatewayEvents, type Change } from './events';
-export { AgentRegistry } from './registry';
-export type { Job } from './types';
+export {
+  migrateArchive,
+  readAgentArchive,
+  writeAgentArchive,
+} from './agent-storage';
+export {
+  AgentEvents,
+  GatewayEvents,
+  type AgentResourceChange,
+  type Change,
+} from './agent-events';
+export { AgentRegistry, type Job, type HostedAgent } from './agent-types';
+export { AgentWakeScheduler, GatewayScheduler } from './agent-wake-scheduler';
+export { AgentHost } from './agent-host';
+export { AgentSpeech } from './agent-speech';
 export type {
   ArchivePort,
   VoiceServicePort,
   RestoredAgentRecord,
+  AgentArchive,
   GatewayArchive,
-} from './ports';
-export { installAgentRoutes } from './agents.routes';
+} from './agent-ports';
+export { installAgentRoutes } from './agent.routes';

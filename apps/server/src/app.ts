@@ -1,7 +1,8 @@
 import type { GatewayAuth } from './modules/gateway/auth';
 import express from 'express';
 import type { ServerConfig } from './config';
-import type { AgentManager } from './modules/agent/manager';
+import type { AgentManager } from './modules/agent';
+import type { AgentGateway } from './modules/gateway/gateway';
 import type { AsrSettingsStore } from './modules/audio/asr/asr-settings';
 import type { LocalSpeech } from './modules/audio/asr/local-speech';
 import type { WorldRoom } from './modules/world/room';
@@ -23,6 +24,7 @@ export function createApp(deps: {
   config: ServerConfig;
   gatewayAuth: GatewayAuth;
   agents: AgentManager;
+  gateway?: AgentGateway;
   speech: LocalSpeech;
   asrSettings: AsrSettingsStore;
   world: () => WorldRoom | undefined;
@@ -41,7 +43,7 @@ export function createApp(deps: {
   app.use('/voice/asr/services', deps.gatewayAuth.middleware);
   installSpeechRoutes(app, deps.speech, deps.asrSettings, origin);
   installAsrRoutes(app, deps.asrSettings, origin, true);
-  installGatewayRoutes(app, deps.agents, origin, true);
+  installGatewayRoutes(app, deps.gateway ?? deps.agents, origin, true);
   installWorldRoutes(app, () => deps.world()?.roomId ?? '');
   installChatRoutes(
     app,
