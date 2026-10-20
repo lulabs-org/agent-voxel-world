@@ -226,20 +226,24 @@ export class AICharacterOrchestrator {
 
   list() {
     return [...this.jobs.values()]
-      .map(({ view, memory }) =>
-        structuredClone({
+      .map(({ view, memory, currentRunId }) => {
+        const run = this.plans.runs.find((run) => run.id === currentRunId);
+        return structuredClone({
           ...view,
           goal: memory.task?.goal ?? view.goal,
           voiceServiceName: this.voiceServices
             ?.list()
             .find((s) => s.id === view.voiceServiceId)?.name,
           task: memory.task,
+          taskExecution: run
+            ? { runId: run.id, limits: run.snapshot.limits }
+            : undefined,
           usage: memory.usage,
           lastResponse: memory.lastResponse,
           taskRequiresReassignment: !!memory.audienceExpired,
           logs: [...view.logs],
-        }),
-      )
+        });
+      })
       .reverse();
   }
 

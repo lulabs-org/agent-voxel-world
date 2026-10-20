@@ -1,5 +1,14 @@
 import { AI_CHARACTER_LOG_LIMIT, type AICharacterView } from '@voxel/shared';
-export function AICharacterLogViewer({ job }: { job: AICharacterView }) {
+import { CurrentTaskBudget } from './CurrentTaskBudget';
+export function AICharacterLogViewer({
+  job,
+  disabled,
+  onUpdated,
+}: {
+  job: AICharacterView;
+  disabled: boolean;
+  onUpdated: () => Promise<void>;
+}) {
   return (
     <section className="agents-activity" aria-label="运行记录与用量">
       <div className="agents-usage">
@@ -18,6 +27,12 @@ export function AICharacterLogViewer({ job }: { job: AICharacterView }) {
           </strong>
         </div>
       </div>
+      <CurrentTaskBudget
+        key={job.taskExecution?.runId ?? 'none'}
+        job={job}
+        disabled={disabled}
+        onUpdated={onUpdated}
+      />
       {job.lastResponse && (
         <div className="agents-progress">
           <span className="agents-section-label">最近回复</span>

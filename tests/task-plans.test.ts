@@ -275,6 +275,10 @@ it('enforces per-run and lifetime budgets including manual work, and extension n
   let run = manager.tasks.taskRuns(id, p.id).items[0];
   expect(run.status).toBe('budget');
   expect(manager.tasks.taskPlans(id)[0].state).toBe('paused');
+  expect(manager.list().find((role) => role.id === id)?.taskExecution).toEqual({
+    runId: run.id,
+    limits: run.snapshot.limits,
+  });
   await expect(
     manager.tasks.controlTaskRun(id, run.id, 'resume'),
   ).rejects.toThrow('额度');
@@ -283,6 +287,10 @@ it('enforces per-run and lifetime budgets including manual work, and extension n
   run = manager.tasks.taskRuns(id, p.id).items[0];
   expect(run.totalTokens).toBe(1200);
   expect(run.task?.calls).toBe(2);
+  expect(
+    manager.list().find((role) => role.id === id)?.taskExecution?.limits
+      .maxTurns,
+  ).toBe(10);
   expect(run.status).toBe('budget');
   await expect(
     manager.tasks.controlTaskRun(id, run.id, 'resume'),

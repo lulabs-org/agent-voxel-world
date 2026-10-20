@@ -6,6 +6,7 @@ import { AICharacterForm } from './AICharacterForm';
 import { AICharacterLogViewer } from './AICharacterLogViewer';
 import { DeleteAICharacterDialog } from './DeleteAICharacterDialog';
 import { aiCharacterPresentation } from './presentation/agent-presentation';
+import { aiCharactersApi } from './api';
 
 export function AICharacterDetail(
   props: ConsoleController & {
@@ -168,7 +169,13 @@ export function AICharacterDetail(
           </section>
         </>
       ) : (
-        <AICharacterLogViewer job={job} />
+        <AICharacterLogViewer
+          job={job}
+          disabled={disabled}
+          onUpdated={async () =>
+            props.setJobs(await aiCharactersApi.listAgents())
+          }
+        />
       )}
     </article>
   );

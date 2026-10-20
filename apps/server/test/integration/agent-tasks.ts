@@ -415,7 +415,15 @@ try {
       'random polling performs one decision per interval and honors cap',
     );
     const tokensBeforeContinue = current().task!.tokens;
+    const budgetExecution = current().taskExecution;
+    assert.ok(
+      budgetExecution,
+      'chat-created tasks expose execution budget controls without a plan',
+    );
+    assert.equal(budgetExecution.limits.maxTurns, 2);
     const continued = await controlRun('resume', { maxTurns: 4 });
+    assert.equal(current().taskExecution?.runId, budgetExecution.runId);
+    assert.equal(current().taskExecution?.limits.maxTurns, 4);
     // A committed response can race the next model request; assert the command snapshot.
     assert.equal(
       continued.task!.calls,

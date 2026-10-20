@@ -2,6 +2,7 @@ import type {
   AICharacterPermissions,
   AICharacterSkillId,
 } from './ai-character-capabilities';
+import type { TaskLimits } from './task-plans';
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
 export const AI_CHARACTER_ROLE_DESCRIPTION_LIMIT = 2000;
 export type ProviderInference = Pick<
@@ -97,6 +98,8 @@ export type AICharacterView = AICharacterSettings & {
   /** UTC epoch milliseconds aligned with logs; null means legacy time is unknown. */
   logTimes?: (number | null)[];
   task?: AICharacterTask;
+  /** Limits of the current execution, which may differ from role defaults. */
+  taskExecution?: { runId: string; limits: TaskLimits };
   usage?: AICharacterUsage;
   lastResponse?: string;
   /** The original private recipient no longer exists; the task must be reassigned. */
