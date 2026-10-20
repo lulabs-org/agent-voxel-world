@@ -13,10 +13,10 @@ import {
 } from '../tasks';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import { object } from '../../common/validation';
-import { taskLimits, validateAgent } from './agent-validation';
+import { taskLimits, validateAgent } from './validation';
 import type { SavedProvider } from '../providers/provider-validation';
 import { AppError } from '../../common/errors';
-import { active, type Job } from './agent-types';
+import { active, type Job } from './types';
 
 export function currentRun(job: Job) {
   return job.ledger.runs.find((r) => r.id === job.currentRunId);
@@ -77,13 +77,13 @@ export function captureTask(job: Job) {
   settleTaskUsage(run!, task.tokens, plan);
   const batch = job.memory.previous as
     | {
-      batchId?: string;
-      results?: {
-        action?: { type?: string };
-        status?: string;
-        result?: unknown;
-      }[];
-    }
+        batchId?: string;
+        results?: {
+          action?: { type?: string };
+          status?: string;
+          result?: unknown;
+        }[];
+      }
     | undefined;
   if (
     Array.isArray(batch?.results) &&
@@ -119,7 +119,7 @@ export function captureTask(job: Job) {
   run.startedAt ??= task.startedAt;
   run.status =
     job.view.status === 'failed' &&
-      !['completed', 'cancelled', 'budget'].includes(task.status)
+    !['completed', 'cancelled', 'budget'].includes(task.status)
       ? 'failed'
       : task.status;
   run.reason =
@@ -269,10 +269,7 @@ export async function executeTaskPlanControl(
     if (job.ledger.unfinished(planId))
       throw new AppError('请先结束该计划的未完成执行。', 409);
     if (!job.session || taskBusy(job))
-      throw new AppError(
-        '角色离线或忙碌，请先上线或暂停当前执行。',
-        409,
-      );
+      throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
     if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
       throw new AppError('请先追加计划累计额度。');
     let runId: string | undefined;
@@ -385,10 +382,10 @@ export async function executeTaskRunControl(
           ...settings,
           ...(!enabled
             ? {
-              maxTurns: Infinity,
-              tokenBudget: Infinity,
-              taskTimeoutMs: Infinity,
-            }
+                maxTurns: Infinity,
+                tokenBudget: Infinity,
+                taskTimeoutMs: Infinity,
+              }
             : {}),
           apiKey: '',
         },

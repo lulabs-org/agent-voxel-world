@@ -15,12 +15,12 @@ import {
   type Session,
 } from '@voxel/agent-runtime';
 import type { TaskIdentity } from '@voxel/gateway-protocol';
-import { appendAgentLog } from './agent-logs';
+import { appendAgentLog } from './logs';
 
-import type { VoiceServicePort as VoiceServiceStore } from './agent-ports';
+import type { VoiceServicePort as VoiceServiceStore } from './ports';
 import type { SavedProvider } from '../providers/provider-validation';
-import type { Job } from './agent-types';
-import { captureTask, currentRun } from './agent-task-execution';
+import type { Job } from './types';
+import { captureTask, currentRun } from './task-execution';
 
 export type ExecutionContext = {
   serverUrl: string;

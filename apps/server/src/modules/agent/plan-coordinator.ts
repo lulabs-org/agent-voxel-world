@@ -6,14 +6,11 @@ import {
   nextOccurrence,
   duePlans,
 } from '../tasks';
-import {
-  hasPlanTokenLimit,
-  isRepeating,
-} from '@voxel/shared';
+import { hasPlanTokenLimit, isRepeating } from '@voxel/shared';
 import type { RpcParams } from '@voxel/gateway-protocol';
 import { object } from '../../common/validation';
 import { AppError } from '../../common/errors';
-import type { Job } from './agent-types';
+import type { Job } from './types';
 import {
   commitExecution,
   getTaskPlans,
@@ -22,9 +19,9 @@ import {
   taskBusy,
   executeTaskPlanControl,
   executeTaskRunControl,
-} from './agent-task-execution';
-import type { AgentPersistence } from './agent-persistence';
-import type { AgentEvents } from './agent-events';
+} from './task-execution';
+import type { AgentPersistence } from './persistence';
+import type { AgentEvents } from './events';
 import type { SavedProvider } from '../providers/provider-validation';
 
 export type PlanCoordinatorHost = {
@@ -210,8 +207,7 @@ export class AgentPlanCoordinator {
   async updateTaskPlan(id: string | undefined, planId: string, value: unknown) {
     const plan = this.plans.get(planId);
     if (id) this.plans.assertBinding(planId, id);
-    if (plan.state === 'archived')
-      throw new AppError('已归档任务不能修改。');
+    if (plan.state === 'archived') throw new AppError('已归档任务不能修改。');
     const draft = validatePlan(value, Date.now(), plan);
     return this.commitPlan(planId, () => {
       Object.assign(plan, draft);
@@ -269,7 +265,8 @@ export class AgentPlanCoordinator {
   }
 
   async dispatchDue(now = Date.now()) {
-    if (this.host.isClosing() || this.host.persistence.planStorageFailed) return;
+    if (this.host.isClosing() || this.host.persistence.planStorageFailed)
+      return;
     for (const job of this.host.allJobs()) {
       if (
         job.storageFailed ||

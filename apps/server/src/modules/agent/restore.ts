@@ -13,12 +13,12 @@ import {
   nextOccurrence,
 } from '../tasks';
 import { isRepeating } from '@voxel/shared';
-import { restoreAgentLogs } from './agent-logs';
-import { validateAgent } from './agent-validation';
+import { restoreAgentLogs } from './logs';
+import { validateAgent } from './validation';
 import { AppError } from '../../common/errors';
-import type { ProviderPort, RestoredAgentRecord } from './agent-ports';
-import type { Job } from './agent-types';
-import { captureTask } from './agent-task-execution';
+import type { ProviderPort, RestoredAgentRecord } from './ports';
+import type { Job } from './types';
+import { captureTask } from './task-execution';
 
 export function restoreAgentJob(
   view: RestoredAgentRecord,

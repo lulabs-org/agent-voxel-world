@@ -1,21 +1,14 @@
 // 1. 契约与业务服务
-export {
-  TasksService,
-  type TaskPort,
-  type TasksManagerPort,
-} from './task-port';
+export { TasksService, type TaskPort, type TasksManagerPort } from './port';
 
 // 2. HTTP 路由
-export { installTaskRoutes } from './tasks.routes';
+export { installTaskRoutes } from './routes';
 
 // 3. 仓储与内存存储服务
-export {
-  TaskPlanService,
-  PlanService,
-} from './task-service';
+export { TaskPlanService, PlanService } from './service';
 
 // 4. 定时调度器
-export { TaskScheduler } from './task-scheduler';
+export { TaskScheduler } from './scheduler';
 
 // 5. 模型工厂与领域状态计算
 export {
@@ -30,10 +23,10 @@ export {
   nextOccurrence,
   settleTaskUsage,
   syncPlanStateFromRun,
-} from './task-model';
+} from './model';
 
 // 6. 输入校验
-export { validatePlan } from './task-validation';
+export { validatePlan } from './validation';
 
 // 7. 领域与 DTO 类型
 export type {
@@ -43,4 +36,4 @@ export type {
   PlanControlOperation,
   RunControlOperation,
   TaskRunsPage,
-} from './task-types';
+} from './types';

@@ -1,11 +1,11 @@
 import type { ManagedAgentView } from '@voxel/shared';
 import { AppError } from '../../common/errors';
-import type { ArchivePort, RestoredAgentRecord, AgentArchive } from './agent-ports';
-import type { AgentEvents } from './agent-events';
-import type { AgentRegistry } from './agent-types';
-import type { AgentWakeScheduler } from './agent-wake-scheduler';
+import type { ArchivePort, RestoredAgentRecord, AgentArchive } from './ports';
+import type { AgentEvents } from './events';
+import type { AgentRegistry } from './types';
+import type { AgentWakeScheduler } from './wake-scheduler';
 import type { PlanService } from '../tasks';
-import { captureTask } from './agent-task-execution';
+import { captureTask } from './task-execution';
 
 export class AgentPersistence {
   private saving: Promise<void> = Promise.resolve();
@@ -44,10 +44,7 @@ export class AgentPersistence {
     return this.committed.get(id);
   }
 
-  initCommitted(
-    records: RestoredAgentRecord[],
-    views: ManagedAgentView[],
-  ) {
+  initCommitted(records: RestoredAgentRecord[], views: ManagedAgentView[]) {
     this.committed = new Map(records.map((record) => [record.id, record]));
     this.committedViews = views;
   }

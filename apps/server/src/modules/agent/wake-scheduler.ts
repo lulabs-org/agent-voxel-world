@@ -24,4 +24,3 @@ export class AgentWakeScheduler {
     for (const id of this.agents.keys()) this.cancel(id);
   }
 }
-
