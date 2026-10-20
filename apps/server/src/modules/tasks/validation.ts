@@ -139,3 +139,11 @@ export function validatePlan(
     totalTokenBudget: quota(v.totalTokenBudget, 500000, 1000, 1000000000),
   };
 }
+
+export function taskLimits(input: Record<string, unknown>) {
+  return Object.fromEntries(
+    ['maxTurns', 'tokenBudget', 'taskTimeoutMs']
+      .filter((key) => input[key] !== undefined)
+      .map((key) => [key, input[key]]),
+  );
+}

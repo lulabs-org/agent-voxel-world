@@ -1,26 +1,30 @@
 import {
   agentPermissions,
-  hasPlanTokenLimit,
-  executionLimits,
-  DEFAULT_TASK_LIMITS,
   type ManagedAgentView,
   type ChatData,
+  type WorldEvent,
 } from '@voxel/shared';
 import {
   AgentAttention,
-  TaskService,
   AgentRuntimeError,
+  TaskService,
   type AgentConfig,
   type AgentRunner,
   type Session,
 } from '@voxel/agent-runtime';
-import type { TaskIdentity } from '@voxel/gateway-protocol';
+import type { TaskLease } from '@voxel/agent-runtime';
 import { appendAgentLog } from './logs';
 
 import type { VoiceServicePort as VoiceServiceStore } from './ports';
 import type { SavedProvider } from '../providers/provider-validation';
 import type { Job } from './types';
-import { captureTask, currentRun } from './task-execution';
+import {
+  captureTask,
+  currentRun,
+  executionConfigOverrides,
+  beginChatExecution,
+} from '../tasks/execution';
+import { executionState } from './execution-adapter';
 
 export type ExecutionContext = {
   serverUrl: string;
@@ -34,11 +38,12 @@ export type ExecutionContext = {
   voiceServices?: VoiceServiceStore;
   closing: () => boolean;
   bindVoice: (job: Job) => void;
-  controlTask: (
+  controlMessage: (
     id: string,
     op: 'pause' | 'cancel',
-    identity?: TaskIdentity,
-    commandId?: string,
+    identity: TaskLease,
+    commandId: string,
+    message: WorldEvent,
   ) => Promise<unknown>;
   wake: (job: Job) => void;
   schedule: (job: Job) => void;
@@ -59,7 +64,7 @@ export class AgentHost {
         ? message.split(provider.apiKey).join('[已隐藏]')
         : message;
       appendAgentLog(job.view, safe);
-      const record = currentRun(job);
+      const record = currentRun(executionState(job));
       if (record) record.logs = [...record.logs, safe].slice(-40);
       ctx.persist();
     };
@@ -67,26 +72,14 @@ export class AgentHost {
     let finalStatus: ManagedAgentView['status'] = 'idle';
 
     try {
-      captureTask(job);
+      captureTask(executionState(job));
       await ctx.save();
       if (job.abort.signal.aborted || ctx.closing()) return;
 
-      const record = currentRun(job);
-      const plan = job.ledger.plans.find((p) => p.id === record?.planId);
-      const limits = record?.snapshot.limits;
       const config: AgentConfig = {
         ...job.view,
         ...provider.inference,
-        ...(limits ? executionLimits(limits) : {}),
-        ...(record && plan && hasPlanTokenLimit(record.snapshot)
-          ? {
-              tokenBudget: Math.min(
-                executionLimits(limits!).tokenBudget,
-                (job.memory.task?.tokens ?? 0) +
-                  Math.max(0, plan.totalTokenBudget - plan.spentTokens),
-              ),
-            }
-          : {}),
+        ...executionConfigOverrides(executionState(job)),
         apiKey: provider.apiKey,
       };
 
@@ -131,11 +124,12 @@ export class AgentHost {
               return;
             }
             void ctx
-              .controlTask(
+              .controlMessage(
                 job.view.id,
                 command.startsWith('取消') ? 'cancel' : 'pause',
                 new TaskService(job.memory).lease(),
                 `world-${job.attention.generation}-${event.seq}`,
+                event,
               )
               .then(() =>
                 agentPermissions(job.view).chat
@@ -205,39 +199,13 @@ export class AgentHost {
             await ctx.save();
           },
           hooks: {
-            beforeNewTask: async (task, previousMemory) => {
-              // Capture the prior run before publishing the already validated new state.
-              const nextMemory = job.memory;
-              try {
-                job.memory = previousMemory;
-                captureTask(job);
-              } finally {
-                job.memory = nextMemory;
-              }
-              const previous = currentRun(job);
-              if (previous && ['running', 'waiting'].includes(previous.status))
-                throw new AgentRuntimeError(
-                  '角色已有正在执行的任务，请先暂停或结束。',
-                );
-              const beforeMemory = structuredClone(job.memory),
-                beforeRunId = job.currentRunId;
-              try {
-                delete job.currentRunId;
-                captureTask(job);
-                Object.assign(config, DEFAULT_TASK_LIMITS);
-                await ctx.save();
-              } catch (error) {
-                const failed = job.currentRunId;
-                job.ledger.runs = job.ledger.runs.filter(
-                  (r) => r.id !== failed,
-                );
-                job.currentRunId = beforeRunId;
-                for (const key of Object.keys(job.memory))
-                  delete (job.memory as Record<string, unknown>)[key];
-                Object.assign(job.memory, beforeMemory);
-                throw error;
-              }
-            },
+            beforeNewTask: (_task, previousMemory) =>
+              beginChatExecution(
+                executionState(job),
+                previousMemory,
+                config,
+                ctx.save,
+              ),
           },
         });
       }

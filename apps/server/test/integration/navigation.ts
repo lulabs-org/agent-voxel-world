@@ -1,3 +1,4 @@
+import { controlRun } from '../../../../tests/support/managed-tasks';
 import { createTestServer } from '../helpers/test-server';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -195,7 +196,7 @@ try {
   });
   const view = () => manager!.list().find((a) => a.id === managed.id)!;
   await manager.settled(managed.id);
-  await manager.createTaskPlan(managed.id, {
+  await manager.tasks.createTaskPlan(managed.id, {
     name: '持续跟随',
     goal: '持续跟随',
     timing: { kind: 'immediate' },
@@ -212,7 +213,7 @@ try {
     () => separation() <= 1.5 && view().task?.status === 'waiting',
     10000,
   );
-  await manager.controlTask(managed.id, 'pause');
+  await controlRun(manager, managed.id, 'pause');
   const paused = { x: managedPosition().x, z: managedPosition().z };
   for (let i = 0; i < 8; i++) {
     human.move(1, 0);
@@ -221,12 +222,12 @@ try {
   human.move(0, 0);
   await delay(300);
   assert.deepEqual({ x: managedPosition().x, z: managedPosition().z }, paused);
-  manager.resume(managed.id, {});
+  await controlRun(manager, managed.id, 'resume');
   await until(
     () => separation() <= 1.5 && view().task?.status === 'waiting',
     10000,
   );
-  await manager.controlTask(managed.id, 'cancel');
+  await controlRun(manager, managed.id, 'cancel');
   assert.equal(view().task!.status, 'cancelled');
   assert.equal(
     calls,

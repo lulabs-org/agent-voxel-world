@@ -269,11 +269,14 @@ try {
     'rejected',
   );
   const task = await c.request<any>('agents.get', { agentId: first.id });
-  await c.request(
+  const paused = await c.request<any>(
     'runs.control',
     { runId, operation: 'pause', expectedTask: task.taskIdentity },
     { commandId: 'pause' },
   );
+  assert.equal(paused.id, runId);
+  assert.equal(paused.planId, plan.id);
+  assert.equal(paused.status, 'paused');
   assert.equal(server.agents.list()[0].task?.status, 'paused');
   const concurrentPlan = await c.request<any>(
     'plans.create',

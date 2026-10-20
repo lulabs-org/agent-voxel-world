@@ -1,37 +1,36 @@
 import { migrateArchive } from './storage';
 import { AgentWakeScheduler } from './wake-scheduler';
 import { appendAgentLog } from './logs';
-import {
-  hasPlanTokenLimit,
-  agentPermissions,
-  type AgentSettings,
-} from '@voxel/shared';
+import { agentPermissions, type AgentSettings } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
 import type { VoiceServicePort, ProviderPort, ArchivePort } from './ports';
 import { AgentRegistry } from './types';
 import { AgentEvents } from './events';
-import type { RpcParams } from '@voxel/gateway-protocol';
 import {
   Session,
   AgentAttention,
   AgentRunner,
-  TaskService,
   nextIntervalMs,
   type AgentConfig,
 } from '@voxel/agent-runtime';
 
 import { object, text, boolean } from '../../common/validation';
-import { validateAgent, taskLimits, agentProfileInput } from './validation';
+import { validateAgent, agentProfileInput } from './validation';
 import type { SavedProvider } from '../providers/provider-validation';
 import { AppError } from '../../common/errors';
 
 import { active, resident, type Job } from './types';
-import { captureTask, currentRun, reserveRun } from './task-execution';
+import {
+  pauseTaskForHost,
+  markJoined,
+  markOffline,
+  modelChanged,
+} from '../tasks/execution';
+import { executionState } from './execution-adapter';
 import { restoreAgentJob } from './restore';
 import { AgentHost, type ExecutionContext } from './host';
 import { AgentPersistence } from './persistence';
-import { AgentPlanCoordinator } from './plan-coordinator';
-import { endedRun, newPlan, validatePlan } from '../tasks';
+import { TaskCoordinator } from '../tasks/coordinator';
 
 export * from './validation';
 
@@ -40,7 +39,7 @@ export class AgentOrchestrator {
   readonly events = new AgentEvents();
   readonly taskScheduler = new AgentWakeScheduler();
   readonly persistence: AgentPersistence;
-  readonly planCoordinator: AgentPlanCoordinator;
+  readonly tasks: TaskCoordinator;
 
   private closing = false;
   private closePromise?: Promise<void>;
@@ -55,17 +54,34 @@ export class AgentOrchestrator {
     private archive: ArchivePort,
   ) {
     this.persistence = new AgentPersistence(this.archive, this.events);
-    this.planCoordinator = new AgentPlanCoordinator({
-      taskJob: (id) => this.taskJob(id),
-      jobById: (id) => this.jobs.get(id),
-      allJobs: () => this.jobs.values(),
+    this.tasks = new TaskCoordinator({
+      execution: (id) => executionState(this.taskJob(id)),
+      findExecution: (id) => {
+        const job = this.jobs.get(id);
+        return job ? executionState(job) : undefined;
+      },
+      executions: () => [...this.jobs.values()].map(executionState),
       save: () => this.save(),
-      schedule: (job) => this.schedule(job),
-      launchReserved: (job) => this.launchReserved(job),
-      controlTask: (id, op) => this.controlTask(id, op),
-      getProvider: (id) => this.providers.get(id),
-      persistence: this.persistence,
-      events: this.events,
+      schedule: (id) => {
+        const job = this.jobs.get(id);
+        if (job) this.schedule(job);
+      },
+      launch: (id) => this.launchReserved(this.taskJob(id)),
+      withStoppedExecution: (id, change) =>
+        this.withStoppedExecution(id, change),
+      validateExecution: (id, overrides) => {
+        const job = this.taskJob(id);
+        const settings = validateAgent(
+          { ...job.view, ...overrides },
+          this.providers.get(job.view.providerId),
+        );
+        this.checkVoice(settings);
+        return settings;
+      },
+      storageFailed: () => this.persistence.planStorageFailed,
+      committedName: (id) => this.persistence.committedAgentName(id),
+      publicIdentity: (id) => this.persistence.publicIdentity(id),
+      resourceVersion: () => this.events.version,
       isClosing: () => this.closing,
       assertWritable: (id) => this.assertWritable(id),
     });
@@ -76,15 +92,15 @@ export class AgentOrchestrator {
   }
 
   get plans() {
-    return this.planCoordinator.plans;
+    return this.tasks.plans;
   }
 
   get committedPlans() {
-    return this.planCoordinator.committedPlans;
+    return this.tasks.committedPlans;
   }
 
   get planScheduler() {
-    return this.planCoordinator.planScheduler;
+    return this.tasks.planScheduler;
   }
 
   assertWritable(id?: string) {
@@ -100,31 +116,6 @@ export class AgentOrchestrator {
 
   publicIdentity(id: string) {
     return this.persistence.publicIdentity(id);
-  }
-
-  publicPlans(id?: string, metadata = false) {
-    return this.planCoordinator.publicPlans(id, metadata);
-  }
-
-  publicRuns(
-    id: string | undefined,
-    plan: string,
-    offset?: number,
-    metadata = false,
-  ) {
-    return this.planCoordinator.publicRuns(id, plan, offset, metadata);
-  }
-
-  planPage(p: RpcParams) {
-    return this.planCoordinator.planPage(p);
-  }
-
-  publicPlan(id: string) {
-    return this.planCoordinator.publicPlan(id);
-  }
-
-  async reassignPlan(id: string, agentId: string) {
-    return this.planCoordinator.reassignPlan(id, agentId);
   }
 
   async settled(id: string) {
@@ -242,53 +233,11 @@ export class AgentOrchestrator {
     return job;
   }
 
-  taskPlans(id: string) {
-    return this.planCoordinator.taskPlans(id);
-  }
-
-  taskRuns(id: string, planId: string, offset = 0) {
-    return this.planCoordinator.taskRuns(id, planId, offset);
-  }
-
   private launchReserved(job: Job) {
     this.taskScheduler.cancel(job.view.id);
     job.view.status = 'running';
     job.abort = new AbortController();
     job.done = this.execute(job, this.providers.get(job.view.providerId));
-  }
-
-  createTaskPlan(id: string, value: unknown) {
-    return this.planCoordinator.createTaskPlan(id, value);
-  }
-
-  commitPlan<T>(planId: string, change: () => T) {
-    return this.planCoordinator.commitPlan(planId, change);
-  }
-
-  updateTaskPlan(id: string | undefined, planId: string, value: unknown) {
-    return this.planCoordinator.updateTaskPlan(id, planId, value);
-  }
-
-  controlTaskPlan(
-    id: string | undefined,
-    planId: string,
-    operation: string,
-    value: unknown = {},
-  ) {
-    return this.planCoordinator.controlTaskPlan(id, planId, operation, value);
-  }
-
-  controlTaskRun(
-    id: string | undefined,
-    runId: string,
-    operation: string,
-    value: unknown = {},
-  ) {
-    return this.planCoordinator.controlTaskRun(id, runId, operation, value);
-  }
-
-  dispatchDue(now = Date.now()) {
-    return this.planCoordinator.dispatchDue(now);
   }
 
   async models(id: string) {
@@ -362,14 +311,7 @@ export class AgentOrchestrator {
     const settings = validateAgent(job.view, provider);
     this.checkVoice(settings);
     this.taskScheduler.cancel(job.view.id);
-    // Joining is a presence action: it must never resume a previous task.
-    if (
-      job.memory.task &&
-      ['running', 'waiting', 'paused'].includes(job.memory.task.status)
-    ) {
-      job.memory.task.status = 'paused';
-      job.memory.task.reason = '已加入世界待命，任务进度保留。';
-    }
+    markJoined(executionState(job));
     Object.assign(job.view, settings, {
       providerName: provider.name,
       status: 'joining',
@@ -379,117 +321,6 @@ export class AgentOrchestrator {
     job.done = this.execute(job, provider, false);
     this.persist();
     return this.list().find((v) => v.id === id)!;
-  }
-
-  resume(id: string, value: unknown = {}) {
-    if (this.closing) throw new AppError('世界服务正在关闭。', 503);
-    const job = this.jobs.get(id);
-    if (!job) throw new AppError('Agent 不存在。', 404);
-    if (
-      active(job.view.status) ||
-      job.updating ||
-      job.controlling ||
-      job.taskMutating
-    )
-      throw new AppError('Agent 正在运行或关闭，请稍候。', 409);
-    const input = object(value);
-    if (job.memory.audienceExpired && input.goal === undefined)
-      throw new AppError(
-        '原私聊会话已失效，请重新通过聊天发起，避免向错误的玩家发送进展。',
-        409,
-      );
-    const provider = this.providers.get(job.view.providerId);
-    const settings = validateAgent(
-      {
-        ...job.view,
-        goal: input.goal ?? job.memory.task?.goal ?? job.view.goal,
-        ...taskLimits(input),
-      },
-      provider,
-    );
-    if (!settings.goal) throw new AppError('请先布置任务。');
-    this.checkVoice(settings);
-    if (!job.session && [...this.jobs.values()].filter(resident).length >= 4)
-      throw new AppError('最多同时在线 4 个 Agent，请先关闭一个。', 409);
-    this.taskScheduler.cancel(job.view.id);
-    captureTask(job);
-    if (
-      input.goal !== undefined ||
-      !job.memory.task ||
-      ['completed', 'cancelled'].includes(job.memory.task.status)
-    ) {
-      const previousRun = currentRun(job);
-      const previousPlan = job.ledger.plans.find(
-        (p) => p.id === previousRun?.planId,
-      );
-      if (input.goal === undefined && previousPlan) {
-        if (previousPlan.state === 'archived')
-          throw new AppError('任务已归档，请创建新任务。');
-        if (
-          hasPlanTokenLimit(previousPlan) &&
-          previousPlan.spentTokens >= previousPlan.totalTokenBudget
-        )
-          throw new AppError('请先追加计划累计额度。');
-        reserveRun(job, previousPlan, 'manual', Date.now());
-      } else {
-        const plan = {
-          ...newPlan(
-            validatePlan({
-              name: settings.goal.slice(0, 80),
-              goal: settings.goal,
-              timing: { kind: 'immediate' },
-              timeZone: 'UTC',
-              limits: settings,
-            }),
-            Date.now(),
-          ),
-          agentId: id,
-          agentName: job.view.name,
-        };
-        this.plans.plans.push(plan);
-        reserveRun(job, plan, 'manual', Date.now());
-      }
-    } else {
-      const task = job.memory.task;
-      if (
-        currentRun(job)?.snapshot.limits.enabled !== false &&
-        (task.calls >= settings.maxTurns ||
-          task.tokens >= settings.tokenBudget! ||
-          task.elapsedMs >= settings.taskTimeoutMs!)
-      )
-        throw new AppError('请增加本次执行的总额度后再继续。');
-      new TaskService(job.memory).command(
-        { type: 'resume' },
-        { kind: 'operator' },
-        {
-          ...settings,
-          ...(currentRun(job)?.snapshot.limits.enabled === false
-            ? {
-                maxTurns: Infinity,
-                tokenBudget: Infinity,
-                taskTimeoutMs: Infinity,
-              }
-            : {}),
-          apiKey: '',
-        },
-      );
-    }
-    const resumedRecord = currentRun(job);
-    if (resumedRecord)
-      resumedRecord.snapshot.limits = {
-        enabled: resumedRecord.snapshot.limits.enabled,
-        maxTurns: settings.maxTurns,
-        tokenBudget: settings.tokenBudget!,
-        taskTimeoutMs: settings.taskTimeoutMs!,
-      };
-    Object.assign(job.view, settings, {
-      providerName: provider.name,
-      status: job.session ? 'running' : 'joining',
-    });
-    job.abort = new AbortController();
-    job.done = this.execute(job, provider);
-    this.persist();
-    return this.list().find((v) => v.id === job.view.id)!;
   }
 
   async update(id: string, value: unknown) {
@@ -547,23 +378,7 @@ export class AgentOrchestrator {
         settings.model !== job.view.model
       ) {
         this.taskScheduler.cancel(job.view.id);
-        if (
-          job.memory.task &&
-          !['completed', 'cancelled'].includes(job.memory.task.status)
-        ) {
-          new TaskService(job.memory).command(
-            { type: 'pause' },
-            { kind: 'operator' },
-            { ...settings, apiKey: '' },
-          );
-          job.memory.task.reason = '模型已修改，进度已保留，请确认后继续。';
-        }
-        if (job.memory.pi?.inFlight)
-          job.memory.unknownEffect = {
-            ...job.memory.pi.inFlight,
-            state: 'unknown',
-          };
-        delete job.memory.pi;
+        modelChanged(executionState(job));
         job.attention.clear();
       } else if (
         JSON.stringify(agentPermissions(settings)) !==
@@ -572,18 +387,10 @@ export class AgentOrchestrator {
       ) {
         this.taskScheduler.cancel(job.view.id);
         job.attention.clear();
-        if (
-          job.memory.task &&
-          !['completed', 'cancelled'].includes(job.memory.task.status)
-        ) {
-          new TaskService(job.memory).command(
-            { type: 'pause' },
-            { kind: 'operator' },
-            { ...settings, apiKey: '' },
-          );
-          job.memory.task.reason =
-            '角色技能或动作权限已修改，进度已保留，请确认后继续。';
-        }
+        pauseTaskForHost(
+          executionState(job),
+          '角色技能或动作权限已修改，进度已保留，请确认后继续。',
+        );
         appendAgentLog(
           job.view,
           '角色能力已更新；后续按新权限重新规划，已有进度保留。',
@@ -672,58 +479,31 @@ export class AgentOrchestrator {
     }
   }
 
-  async controlTask(id: string, operation: 'pause' | 'cancel') {
-    const job = this.jobs.get(id);
-    if (!job) throw new AppError('Agent 不存在。', 404);
+  /** Host primitive only: stop the runner, then let Tasks commit the chosen transition. */
+  private async withStoppedExecution<T>(
+    id: string,
+    change: () => Promise<T>,
+  ): Promise<T> {
+    const job = this.taskJob(id);
     if (
-      this.closing ||
       job.updating ||
       job.taskMutating ||
       job.controlling ||
       ['joining', 'stopping'].includes(job.view.status)
     )
       throw new AppError('Agent 状态正在更新，请稍候。', 409);
-    const taskEnded = () =>
-      !!job.memory.task &&
-      ['completed', 'cancelled'].includes(job.memory.task.status);
-    if (taskEnded() && !active(job.view.status)) {
-      await this.flush();
-      return this.list().find((v) => v.id === id)!;
-    }
     job.controlling = true;
-    this.taskScheduler.cancel(job.view.id);
+    this.taskScheduler.cancel(id);
     job.attention.clear();
     job.abort.abort();
     try {
       await job.done;
-      if (job.memory.task && !taskEnded()) {
-        new TaskService(job.memory).command(
-          { type: operation },
-          { kind: 'operator' },
-          { ...job.view, apiKey: '' },
-        );
-      }
       if (job.session) job.view.status = 'idle';
-      await this.save();
-      return this.list().find((v) => v.id === id)!;
+      return await change();
     } finally {
       job.controlling = false;
+      this.schedule(job);
     }
-  }
-
-  async assignTask(id: string, value: unknown) {
-    const input = object(value);
-    const goal = text(input.goal, '任务目标', 2000);
-    if (!goal) throw new AppError('请填写任务目标。');
-    const job = this.jobs.get(id);
-    if (!job) throw new AppError('Agent 不存在。', 404);
-    const limits = taskLimits(input);
-    validateAgent(
-      { ...job.view, ...limits, goal },
-      this.providers.get(job.view.providerId),
-    );
-    await this.controlTask(id, 'pause');
-    return this.resume(id, { goal, ...limits });
   }
 
   private async execute(job: Job, provider: SavedProvider, run = true) {
@@ -738,7 +518,8 @@ export class AgentOrchestrator {
       voiceServices: this.voiceServices,
       closing: () => this.closing,
       bindVoice: (j) => this.bindVoice(j),
-      controlTask: (targetId, op) => this.controlTask(targetId, op),
+      controlMessage: (targetId, op, identity, commandId, message) =>
+        this.tasks.controlMessage(targetId, op, identity, commandId, message),
       wake: (j) => this.wake(j),
       schedule: (j) => this.schedule(j),
       save: () => this.save(),
@@ -771,17 +552,7 @@ export class AgentOrchestrator {
         job.session = undefined;
         delete job.view.sessionId;
         job.view.status = 'stopped';
-        if (
-          job.memory.task &&
-          ['running', 'waiting'].includes(job.memory.task.status)
-        ) {
-          new TaskService(job.memory).command(
-            { type: 'pause' },
-            { kind: 'operator' },
-            { ...job.view, apiKey: '' },
-          );
-          job.memory.task.reason = '角色已离开世界，任务进度已保留。';
-        }
+        markOffline(executionState(job));
         this.persist();
       })();
     }
@@ -797,43 +568,13 @@ export class AgentOrchestrator {
     try {
       this.stop(id);
       await job.done;
-      captureTask(job);
-      const priorPlans = structuredClone(
-        this.plans.plans.filter((p) => p.agentId === id),
-      );
-      const priorRuns = structuredClone(
-        this.plans.runs.filter((r) => r.agentId === id),
-      );
-      for (const run of this.plans.runs.filter(
-        (r) => r.agentId === id && !endedRun(r),
-      )) {
-        if (run.runtime?.task) {
-          new TaskService(run.runtime).command(
-            { type: 'cancel' },
-            { kind: 'operator' },
-            { ...job.view, apiKey: '' },
-          );
-          delete run.runtime.follow;
-          run.task = structuredClone(run.runtime.task);
-        }
-        run.status = 'cancelled';
-        run.reason = '执行角色已删除。';
-        run.finishedAt = Date.now();
-      }
-      this.plans.detach(id, job.view.name);
+      const restoreTasks = this.tasks.detachAgent(id, job.view.name);
       this.jobs.delete(id);
       this.persist();
       try {
         await this.flush();
       } catch (error) {
-        for (const p of priorPlans) {
-          const idx = this.plans.plans.findIndex((x) => x.id === p.id);
-          this.plans.plans[idx] = p;
-        }
-        this.plans.runs = [
-          ...this.plans.runs.filter((r) => r.agentId !== id),
-          ...priorRuns,
-        ];
+        restoreTasks();
         this.jobs.set(id, job);
         this.persist();
         await this.flush().catch(() => {});
@@ -872,15 +613,7 @@ export class AgentOrchestrator {
     this.closing = true;
     for (const job of this.jobs.values()) {
       this.shutdownPresence.set(job.view.id, job.view.status);
-      if (['running', 'waiting'].includes(job.memory.task?.status ?? '')) {
-        const run = currentRun(job),
-          plan = job.ledger.plans.find((p) => p.id === run?.planId);
-        if (plan) {
-          plan.state = 'paused';
-          plan.reason = '服务关闭，进度保留，请手动继续。';
-          delete plan.nextRunAt;
-        }
-      }
+      this.tasks.pauseForShutdown(job.view.id);
     }
     for (const id of this.jobs.keys()) this.stop(id);
     await Promise.allSettled([...this.jobs.values()].map((j) => j.done));

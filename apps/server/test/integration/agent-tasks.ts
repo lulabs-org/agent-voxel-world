@@ -1,3 +1,7 @@
+import {
+  startTask,
+  controlRun as controlManagedRun,
+} from '../../../../tests/support/managed-tasks';
 import { createTestServer } from '../helpers/test-server';
 import { DecisionFixture as ModelPlanner } from './../../../../tests/support/decision-fixture';
 import { fixtureRunnerFactory } from './../../../../tests/support/decision-fixture';
@@ -284,7 +288,7 @@ try {
   await delay(1100);
   assert.equal(calls, 1, 'completed task must not poll the model');
   if (preview) {
-    await manager.assignTask(job.id, { goal: '等待附近方块变化' });
+    await startTask(manager, job.id, { goal: '等待附近方块变化' });
     await until(() => current().task?.status === 'waiting');
     console.log(
       'Task preview ready at backend 2578. All model responses are local fixtures.',
@@ -449,7 +453,7 @@ try {
       intervalMs: 1000,
     });
     const beforeBatch = calls;
-    await manager.assignTask(job.id, { goal: '批次成功' });
+    await startTask(manager, job.id, { goal: '批次成功' });
     await until(() => current().task?.status === 'completed');
     assert.equal(
       calls,
@@ -463,7 +467,7 @@ try {
       ['succeeded', 'succeeded', 'succeeded'],
     );
 
-    await manager.assignTask(job.id, { goal: '批次失败' });
+    await startTask(manager, job.id, { goal: '批次失败' });
     await until(() => current().task?.status === 'needs_input');
     assert.equal(room.blocks.get('3,3,1')?.material, 'wood');
     assert.equal(room.blocks.has('3,4,1'), false);
@@ -483,7 +487,7 @@ try {
           .map((b) => b.y),
       ) + 0.5;
     await delay(300);
-    await manager.assignTask(job.id, { goal: '批次受阻' });
+    await startTask(manager, job.id, { goal: '批次受阻' });
     await until(() => current().task?.status === 'needs_input');
     assert.equal(
       prompts.at(-1).previous.previous.stopReason,
@@ -493,14 +497,14 @@ try {
     Object.assign(player, position);
 
     const beforePause = calls;
-    await manager.assignTask(job.id, { goal: '批次暂停' });
+    await startTask(manager, job.id, { goal: '批次暂停' });
     await until(
       () =>
         calls === beforePause + 1 &&
         current().logs.some((l) => l.includes('第 1/2 个动作：move')),
     );
     await delay(100);
-    await manager.controlTask(job.id, 'pause');
+    await controlManagedRun(manager, job.id, 'pause');
     assert.equal(current().task?.status, 'paused');
     assert.equal(
       room.blocks.has('3,3,2'),

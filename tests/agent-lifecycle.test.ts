@@ -1,3 +1,4 @@
+import { startTask, controlRun } from './support/managed-tasks';
 import { type Planner } from './support/decision-fixture';
 import { fixtureRunnerFactory } from './support/decision-fixture';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -83,7 +84,7 @@ async function createWithTask(m: AgentManager, value: Record<string, unknown>) {
   const { goal, ...profile } = value;
   const created = m.create(profile);
   await m.settled(created.id);
-  await m.createTaskPlan(created.id, {
+  await m.tasks.createTaskPlan(created.id, {
     name: String(goal).slice(0, 80),
     goal,
     timing: { kind: 'immediate' },
@@ -111,7 +112,7 @@ it('saves task heartbeat independently without resetting or resuming progress', 
   const m = setup(fakeSession(), decide);
   const created = await createWithTask(m, { ...settings, maxTurns: 30 });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.controlTask(created.id, 'pause');
+  await controlRun(m, created.id, 'pause');
   const before = m.list()[0];
   const schedule = {
     intervalMode: 'random',
@@ -310,7 +311,9 @@ it('unexpected disconnect releases identity and allows rejoining the same saved 
   await s.close();
   expect(m.list()[0]?.status).toBe('failed');
   expect(m.list()[0]?.sessionId).toBeUndefined();
-  m.resume(job.id, { goal: 'New goal' });
+  m.join(job.id);
+  await m.settled(job.id);
+  await startTask(m, job.id, { goal: 'New goal' });
   await vi.waitFor(() => expect(m.list()[0]?.status).toBe('idle'));
   expect(m.list()[0]).toMatchObject({
     id: job.id,
@@ -396,16 +399,16 @@ it('pause, resume and cancel keep identity and retain task progress across resta
       intervalMs: 60000,
     });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.controlTask(job.id, 'pause');
+  await controlRun(m, job.id, 'pause');
   expect(m.list()[0]).toMatchObject({
     sessionId: 'player-1',
     task: { status: 'paused', summary: '地基已规划', calls: 1 },
     usage: { calls: 1 },
   });
-  m.resume(job.id);
+  await controlRun(m, job.id, 'resume');
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.controlTask(job.id, 'pause');
+  await controlRun(m, job.id, 'pause');
   await m.close();
   const restored = setup(s, decide);
   await restored.load();
@@ -414,7 +417,7 @@ it('pause, resume and cancel keep identity and retain task progress across resta
     task: { status: 'paused', summary: '地基已规划', calls: 2 },
     usage: { calls: 2 },
   });
-  await restored.controlTask(job.id, 'cancel');
+  await controlRun(restored, job.id, 'cancel');
   expect(restored.list()[0]).toMatchObject({
     sessionId: 'player-1',
     task: { status: 'cancelled' },
@@ -446,7 +449,7 @@ it('pausing pending inference drops late edits and does not close the character'
       allowEdits: true,
     });
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(1));
-  const paused = m.controlTask(job.id, 'pause');
+  const paused = controlRun(m, job.id, 'pause');
   release();
   await paused;
   expect(s.request.mock.calls.some((c) => (c as unknown[])[0] === 'edit')).toBe(
@@ -501,7 +504,9 @@ it('expired private task audiences cannot be resumed after server restart', asyn
   const restored = setup(s, decide);
   await restored.load();
   expect(restored.list()[0].task?.status).toBe('needs_input');
-  expect(() => restored.resume(job.id)).toThrow('私聊会话已失效');
+  await expect(controlRun(restored, job.id, 'resume')).rejects.toThrow(
+    '私聊会话已失效',
+  );
   expect(decide).toHaveBeenCalledTimes(2);
 });
 
@@ -558,7 +563,7 @@ it('keeps the current chat-assigned goal consistent through editing, persistence
   const restored = setup(s, decide);
   await restored.load();
   expect(restored.list()[0].goal).toBe('Build a new house');
-  restored.resume(job.id);
+  await startTask(restored, job.id, { goal: restored.list()[0].task!.goal });
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(3));
   expect(decide.mock.calls[2][1]).toMatchObject({
     task: { goal: 'Build a new house' },
@@ -631,7 +636,7 @@ it('creates and restores a standby character with no task or automatic model cal
   });
   expect(m.list()[0].task).toBeUndefined();
   expect(decide).not.toHaveBeenCalled();
-  expect(() => m.resume(created.id)).toThrow('请先布置任务');
+  expect(m.currentRunId(created.id)).toBeUndefined();
   expect(() => m.join(created.id)).toThrow('已在线');
   await m.update(created.id, {
     name: 'Renamed standby',
@@ -668,7 +673,7 @@ it('keeps task progress and usage when only the role description changes', async
     intervalMs: 60000,
   });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.controlTask(created.id, 'pause');
+  await controlRun(m, created.id, 'pause');
   const task = structuredClone(m.list()[0].task);
   const usage = structuredClone(m.list()[0].usage);
   await m.update(created.id, {
@@ -708,7 +713,7 @@ it('joining a stopped character preserves the task without executing or resettin
     summary: 'Half done',
     calls: 1,
   });
-  await m.assignTask(created.id, { goal: 'A fresh task' });
+  await startTask(m, created.id, { goal: 'A fresh task' });
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   expect(m.list()[0].task?.goal).toBe('A fresh task');
@@ -804,7 +809,7 @@ it('retains capability settings and construction progress across edits, reload a
     skills: ['building', 'exploration'],
     task: { status: 'paused', calls: before.task!.calls },
   });
-  finalManager.resume(created.id);
+  await controlRun(finalManager, created.id, 'resume');
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
   await vi.waitFor(() => expect(finalManager.list()[0].status).toBe('idle'));
   expect(finalManager.list()[0].task!.calls).toBe(before.task!.calls + 1);
@@ -832,7 +837,7 @@ it.each(['completed', 'cancelled'] as const)(
     }));
     const job = await createWithTask(m, settings);
     await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-    if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
+    if (status === 'cancelled') await controlRun(m, job.id, 'cancel');
     expect(m.list()[0].task?.status).toBe(status);
     const task = structuredClone(m.list()[0].task);
     await m.update(job.id, {
@@ -906,7 +911,7 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
   const m = setup(s, decide);
   const job = m.create({ ...settings, goal: '' });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.assignTask(job.id, {
+  await startTask(m, job.id, {
     goal: '测试任务',
     maxTurns: 1,
     tokenBudget: 10000,
@@ -915,10 +920,14 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
   await vi.waitFor(() => expect(m.list()[0].task?.status).toBe('budget'));
   const before = m.list()[0];
   await expect(
-    m.assignTask(job.id, { goal: '不能替换', maxTurns: 0 }),
+    startTask(m, job.id, { goal: '不能替换', maxTurns: 0 }),
   ).rejects.toThrow();
   expect(m.list()[0].task).toEqual(before.task);
-  m.resume(job.id, { maxTurns: 2, tokenBudget: 20000, taskTimeoutMs: 180000 });
+  await controlRun(m, job.id, 'resume', {
+    maxTurns: 2,
+    tokenBudget: 20000,
+    taskTimeoutMs: 180000,
+  });
   expect(m.list()[0]).toMatchObject({
     maxTurns: 2,
     tokenBudget: 20000,
@@ -927,7 +936,7 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
   expect(m.list()[0].task?.goal).toBe('测试任务');
   expect(m.list()[0].usage?.calls).toBe(before.usage?.calls);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.controlTask(job.id, 'pause');
+  await controlRun(m, job.id, 'pause');
   await m.close();
   manager = undefined;
   const restored = setup(fakeSession());
@@ -965,7 +974,7 @@ it('uses newly saved provider inference settings on the next decision without re
   };
   await store.save({ ...store.get('deepseek'), inference }, 'deepseek');
   expect(configs).toHaveLength(0);
-  await manager.createTaskPlan(job.id, {
+  await manager.tasks.createTaskPlan(job.id, {
     name: 'Wait',
     goal: 'Wait',
     timing: { kind: 'immediate' },
@@ -1011,11 +1020,11 @@ it('deletes a resident character and its tasks durably, preserving shared servic
   const m = setup(session);
   const job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  expect(m.taskPlans(job.id).length).toBeGreaterThan(0);
+  expect(m.tasks.taskPlans(job.id).length).toBeGreaterThan(0);
   await m.remove(job.id);
   expect(session.close).toHaveBeenCalled();
   expect(m.list()).toEqual([]);
-  expect(() => m.taskPlans(job.id)).toThrow('不存在');
+  expect(() => m.tasks.taskPlans(job.id)).toThrow('不存在');
   expect(store.get('deepseek')).toBeDefined();
   await expect(m.remove(job.id)).rejects.toMatchObject({ status: 404 });
   await m.close();
@@ -1058,7 +1067,6 @@ it('keeps a stopped character recoverable when deletion cannot be persisted', as
   const m = setup(fakeSession());
   const job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  await m.controlTask(job.id, 'pause');
   const blocked = `${store.path}.agents.json.tmp`;
   await mkdir(blocked);
   try {
@@ -1082,24 +1090,21 @@ it.each(['completed', 'cancelled'] as const)(
     }));
     const job = await createWithTask(m, settings);
     await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-    if (status === 'cancelled') await m.controlTask(job.id, 'cancel');
+    if (status === 'cancelled') await controlRun(m, job.id, 'cancel');
     const before = m.list()[0];
-    const plan = m.taskPlans(job.id)[0];
-    const history = m.taskRuns(job.id, plan.id);
+    const plan = m.tasks.taskPlans(job.id)[0];
+    const history = m.tasks.taskRuns(job.id, plan.id);
     for (const op of ['cancel', 'pause', 'cancel'] as const) {
-      const after = await m.controlTask(job.id, op);
-      expect(after.task).toEqual(before.task);
-      expect(after.usage).toEqual(before.usage);
-      expect(m.taskRuns(job.id, plan.id)).toEqual(history);
-      await expect(
-        m.controlTaskRun(job.id, history.items[0].id, op),
-      ).rejects.toThrow('执行已结束');
+      await expect(controlRun(m, job.id, op)).rejects.toThrow('执行已结束');
+      expect(m.list()[0].task).toEqual(before.task);
+      expect(m.list()[0].usage).toEqual(before.usage);
+      expect(m.tasks.taskRuns(job.id, plan.id)).toEqual(history);
     }
     await m.close();
     const restored = setup(fakeSession());
     await restored.load();
     expect(restored.list()[0].task).toEqual(before.task);
-    const reloaded = restored.taskRuns(job.id, plan.id);
+    const reloaded = restored.tasks.taskRuns(job.id, plan.id);
     expect(reloaded.items.map(({ logs: _, ...run }) => run)).toEqual(
       history.items.map(({ logs: _, ...run }) => run),
     );
@@ -1132,12 +1137,14 @@ it.each(['cancel', 'pause'] as const)(
     });
     const job = await createWithTask(manager, settings);
     await vi.waitFor(() => expect(entered).toBe(true));
-    await manager.controlTask(job.id, operation);
+    await controlRun(manager, job.id, operation);
     expect(manager.list()[0].task).toMatchObject({
       status: 'completed',
       reason: '动作已确认完成',
     });
-    expect(manager.taskPlans(job.id)[0].latestRun?.status).toBe('completed');
+    expect(manager.tasks.taskPlans(job.id)[0].latestRun?.status).toBe(
+      'completed',
+    );
   },
 );
 
@@ -1212,4 +1219,71 @@ it('creates an offline profile without joining or allocating a plan, then joins 
   expect(restored.plans.plans).toHaveLength(0);
   expect(restored.plans.runs).toHaveLength(0);
   expect(decide).not.toHaveBeenCalled();
+});
+
+it('restores the live task adapter and full profile after a failed task reservation, without launching a runner', async () => {
+  const { rename } = await import('node:fs/promises');
+  const decide = vi.fn();
+  const m = setup(fakeSession(), decide);
+  const job = m.create({
+    providerId: 'deepseek',
+    name: 'Standby',
+    roleDescription: 'Keep identity',
+  });
+  await m.settled(job.id);
+  const before = structuredClone(m.list()[0]);
+  await rename(dir, `${dir}-away`);
+  try {
+    await expect(
+      startTask(m, job.id, { goal: 'Must not launch' }),
+    ).rejects.toThrow();
+    expect(m.list()[0]).toEqual(before);
+    expect(m.currentRunId(job.id)).toBeUndefined();
+    expect(m.plans.plans).toHaveLength(0);
+    expect(m.plans.runs).toHaveLength(0);
+    expect(decide).not.toHaveBeenCalled();
+  } finally {
+    await rename(`${dir}-away`, dir);
+  }
+});
+
+it('forwards the task lease, stable command ID and player event through the real host control path', async () => {
+  const session = fakeSession();
+  const m = setup(session, async () => ({
+    actions: [{ type: 'wait' }],
+    task: {
+      intent: 'continue',
+      status: 'needs_input',
+      summary: 'Waiting for player',
+    },
+  }));
+  const job = await createWithTask(m, { ...settings, maxTurns: 30 });
+  await m.settled(job.id);
+  const lease = structuredClone(m.taskIdentity(job.id));
+  const message: WorldEvent = {
+    seq: 123,
+    at: Date.now(),
+    type: 'chat',
+    actor: 'person',
+    actorKind: 'human',
+    data: {
+      text: '暂停',
+      name: 'Person',
+      kind: 'text',
+      scope: 'private',
+      recipients: ['player-1'],
+    },
+  };
+  const control = vi.spyOn(m.tasks, 'controlMessage');
+  session.onEvent!(message);
+  expect(control).toHaveBeenCalledWith(
+    job.id,
+    'pause',
+    lease,
+    expect.stringMatching(/^world-.*-123$/),
+    message,
+  );
+  await vi.waitFor(() => expect(m.list()[0].task?.status).toBe('paused'));
+  session.onEvent!(message);
+  expect(control).toHaveBeenCalledTimes(1);
 });

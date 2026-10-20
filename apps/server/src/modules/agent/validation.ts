@@ -10,14 +10,6 @@ import {
   type SavedProvider,
 } from '../providers/provider-validation';
 
-export function taskLimits(input: Record<string, unknown>) {
-  return Object.fromEntries(
-    ['maxTurns', 'tokenBudget', 'taskTimeoutMs']
-      .filter((key) => input[key] !== undefined)
-      .map((key) => [key, input[key]]),
-  );
-}
-
 export function validateAgent(
   value: unknown,
   provider: SavedProvider,

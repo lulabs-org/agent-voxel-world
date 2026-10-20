@@ -657,8 +657,17 @@ try {
   assert.equal(manager.list().filter((j) => j.status === 'idle').length, 3);
   const stopped = manager.list().find((j) => j.id === created[0])!;
   assert.equal(stopped.status, 'stopped');
-  manager.resume(stopped.id);
-  assert.throws(() => manager!.resume(stopped.id), /正在运行/);
+  manager.join(stopped.id);
+  await manager.settled(stopped.id);
+  const priorPlan = manager.tasks.taskPlans(stopped.id)[0];
+  await manager.tasks.controlTaskPlan(stopped.id, priorPlan.id, 'run', {
+    requestId: 'explicit-rerun',
+  });
+  await assert.rejects(
+    manager.tasks.controlTaskPlan(stopped.id, priorPlan.id, 'run', {
+      requestId: 'conflicting-rerun',
+    }),
+  );
   await until(
     () => manager!.list().find((j) => j.id === stopped.id)?.status === 'idle',
   );

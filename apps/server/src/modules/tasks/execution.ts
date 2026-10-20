@@ -1,5 +1,7 @@
 import {
   hasPlanTokenLimit,
+  executionLimits,
+  DEFAULT_TASK_LIMITS,
   isRepeating,
   type TaskPlan,
   type TaskRun,
@@ -10,19 +12,27 @@ import {
   runView,
   settleTaskUsage,
   syncPlanStateFromRun,
-} from '../tasks';
-import { newTask, TaskService } from '@voxel/agent-runtime';
+} from './model';
+import {
+  newTask,
+  TaskService,
+  AgentRuntimeError,
+  type AgentRunState,
+  type AgentConfig,
+} from '@voxel/agent-runtime';
 import { object } from '../../common/validation';
-import { taskLimits, validateAgent } from './validation';
-import type { SavedProvider } from '../providers/provider-validation';
+import { taskLimits } from './validation';
 import { AppError } from '../../common/errors';
-import { active, type Job } from './types';
+import type { TaskExecutionState } from './execution-port';
+import type { AgentSettings } from '@voxel/shared';
+const active = (status: TaskExecutionState['view']['status']) =>
+  ['joining', 'running', 'stopping'].includes(status);
 
-export function currentRun(job: Job) {
+export function currentRun(job: TaskExecutionState) {
   return job.ledger.runs.find((r) => r.id === job.currentRunId);
 }
 
-export function taskBusy(job: Job) {
+export function taskBusy(job: TaskExecutionState) {
   const run = currentRun(job);
   return (
     !!job.taskMutating ||
@@ -35,7 +45,7 @@ export function taskBusy(job: Job) {
   );
 }
 
-export function captureTask(job: Job) {
+export function captureTask(job: TaskExecutionState) {
   if (!job.memory.task) return;
   new TaskService(job.memory).lease();
   let run = currentRun(job);
@@ -134,10 +144,10 @@ export function captureTask(job: Job) {
 }
 
 export async function commitExecution<T>(
-  job: Job,
+  job: TaskExecutionState,
   change: () => T,
   save: () => Promise<void>,
-  schedule: (job: Job) => void,
+  schedule: (job: TaskExecutionState) => void,
   swapsExecution = false,
 ): Promise<T> {
   if (job.taskMutating || job.updating || job.controlling)
@@ -193,18 +203,22 @@ export async function commitExecution<T>(
   }
 }
 
-export function getTaskPlans(job: Job) {
+export function getTaskPlans(job: TaskExecutionState) {
   captureTask(job);
   return job.ledger.views(job.view.id);
 }
-export function getTaskRuns(job: Job, planId: string, offset = 0) {
+export function getTaskRuns(
+  job: TaskExecutionState,
+  planId: string,
+  offset = 0,
+) {
   captureTask(job);
   job.ledger.assertBinding(planId, job.view.id);
   return job.ledger.history(planId, offset);
 }
 
 export function reserveRun(
-  job: Job,
+  job: TaskExecutionState,
   plan: TaskPlan,
   source: TaskRun['source'],
   at: number,
@@ -243,13 +257,13 @@ export function reserveRun(
 }
 
 export async function executeTaskPlanControl(
-  job: Job,
+  job: TaskExecutionState,
   planId: string,
   operation: string,
   value: unknown,
   save: () => Promise<void>,
-  schedule: (job: Job) => void,
-  launch: (job: Job) => void,
+  schedule: (job: TaskExecutionState) => void,
+  launch: (job: TaskExecutionState) => void,
 ) {
   const plan = job.ledger.plans.find((p) => p.id === planId);
   if (!plan) throw new AppError('任务不存在。', 404);
@@ -268,7 +282,7 @@ export async function executeTaskPlanControl(
     if (prior) return runView(prior);
     if (job.ledger.unfinished(planId))
       throw new AppError('请先结束该计划的未完成执行。', 409);
-    if (!job.session || taskBusy(job))
+    if (!job.online || taskBusy(job))
       throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
     if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
       throw new AppError('请先追加计划累计额度。');
@@ -297,15 +311,15 @@ export async function executeTaskPlanControl(
 }
 
 export async function executeTaskRunControl(
-  job: Job,
+  job: TaskExecutionState,
   runId: string,
   operation: string,
   value: unknown,
-  provider: SavedProvider,
+  validate: (settings: Partial<AgentSettings>) => AgentSettings,
   save: () => Promise<void>,
-  schedule: (job: Job) => void,
-  launch: (job: Job) => void,
-  controlCurrentTask: (op: 'pause' | 'cancel') => Promise<unknown>,
+  schedule: (job: TaskExecutionState) => void,
+  launch: (job: TaskExecutionState) => void,
+  controlCurrentTask: (op: 'pause' | 'cancel') => Promise<TaskRun>,
 ) {
   captureTask(job);
   const run = job.ledger.runs.find((r) => r.id === runId);
@@ -338,7 +352,7 @@ export async function executeTaskRunControl(
     );
   }
   if (operation !== 'resume') throw new AppError('执行操作无效。');
-  if (!job.session || taskBusy(job))
+  if (!job.online || taskBusy(job))
     throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
   if (run.runtime.audienceExpired)
     throw new AppError('原私聊会话已失效，请重新通过聊天发起。', 409);
@@ -350,10 +364,10 @@ export async function executeTaskRunControl(
   )
     throw new AppError('请先追加计划累计额度。');
   const enabled = run.snapshot.limits.enabled !== false;
-  const settings = validateAgent(
-    { ...job.view, ...run.snapshot.limits, ...taskLimits(object(value)) },
-    provider,
-  );
+  const settings = validate({
+    ...run.snapshot.limits,
+    ...taskLimits(object(value)),
+  });
   if (
     enabled &&
     (settings.maxTurns <= run.task!.calls ||
@@ -404,4 +418,94 @@ export async function executeTaskRunControl(
   );
   launch(job);
   return runView(run);
+}
+
+/** The runtime adapter supplies effects; all task-specific quota shaping lives here. */
+export function executionConfigOverrides(state: TaskExecutionState) {
+  const run = currentRun(state),
+    plan = state.ledger.plans.find((p) => p.id === run?.planId);
+  const limits = run?.snapshot.limits;
+  return {
+    ...(limits ? executionLimits(limits) : {}),
+    ...(run && plan && hasPlanTokenLimit(run.snapshot)
+      ? {
+          tokenBudget: Math.min(
+            executionLimits(limits!).tokenBudget,
+            (state.memory.task?.tokens ?? 0) +
+              Math.max(0, plan.totalTokenBudget - plan.spentTokens),
+          ),
+        }
+      : {}),
+  };
+}
+
+/** Called only after the host has quiesced the runner or while updating its profile. */
+export function pauseTaskForHost(state: TaskExecutionState, reason: string) {
+  const task = state.memory.task;
+  if (task && !['completed', 'cancelled'].includes(task.status)) {
+    new TaskService(state.memory).command(
+      { type: 'pause' },
+      { kind: 'operator' },
+      { ...state.view, apiKey: '' },
+    );
+    task.reason = reason;
+  }
+}
+
+/** Chat execution has no planId, but obeys the same durable history and occupied-slot rules. */
+export async function beginChatExecution(
+  state: TaskExecutionState,
+  previousMemory: AgentRunState,
+  config: AgentConfig,
+  save: () => Promise<void>,
+) {
+  const nextMemory = state.memory;
+  try {
+    state.memory = previousMemory;
+    captureTask(state);
+  } finally {
+    state.memory = nextMemory;
+  }
+  const previous = currentRun(state);
+  if (previous && ['running', 'waiting'].includes(previous.status))
+    throw new AgentRuntimeError('角色已有正在执行的任务，请先暂停或结束。');
+  const beforeMemory = structuredClone(state.memory),
+    beforeRunId = state.currentRunId;
+  try {
+    state.currentRunId = undefined;
+    captureTask(state);
+    Object.assign(config, DEFAULT_TASK_LIMITS);
+    await save();
+  } catch (error) {
+    const failed = state.currentRunId;
+    state.ledger.runs = state.ledger.runs.filter((r) => r.id !== failed);
+    state.currentRunId = beforeRunId;
+    for (const key of Object.keys(state.memory))
+      delete (state.memory as Record<string, unknown>)[key];
+    Object.assign(state.memory, beforeMemory);
+    throw error;
+  }
+}
+
+export function markJoined(state: TaskExecutionState) {
+  const task = state.memory.task;
+  if (task && ['running', 'waiting', 'paused'].includes(task.status)) {
+    task.status = 'paused';
+    task.reason = '已加入世界待命，任务进度保留。';
+  }
+}
+
+export function markOffline(state: TaskExecutionState) {
+  if (['running', 'waiting'].includes(state.memory.task?.status ?? ''))
+    pauseTaskForHost(state, '角色已离开世界，任务进度已保留。');
+}
+
+export function modelChanged(state: TaskExecutionState) {
+  pauseTaskForHost(state, '模型已修改，进度已保留，请确认后继续。');
+  if (state.memory.pi?.inFlight)
+    state.memory.unknownEffect = {
+      ...state.memory.pi.inFlight,
+      state: 'unknown',
+    };
+  delete state.memory.pi;
 }

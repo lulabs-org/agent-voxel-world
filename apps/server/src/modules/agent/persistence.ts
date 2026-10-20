@@ -5,7 +5,8 @@ import type { AgentEvents } from './events';
 import type { AgentRegistry } from './types';
 import type { AgentWakeScheduler } from './wake-scheduler';
 import type { PlanService } from '../tasks';
-import { captureTask } from './task-execution';
+import { captureTask } from '../tasks/execution';
+import { executionState } from './execution-adapter';
 
 export class AgentPersistence {
   private saving: Promise<void> = Promise.resolve();
@@ -63,7 +64,7 @@ export class AgentPersistence {
     listFn: () => ManagedAgentView[],
     shutdownPresence: Map<string, ManagedAgentView['status']>,
   ): Promise<void> {
-    for (const job of jobs.values()) captureTask(job);
+    for (const job of jobs.values()) captureTask(executionState(job));
     const views = listFn();
     const records = [...views].reverse().map((view) => ({
       ...view,

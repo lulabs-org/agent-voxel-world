@@ -1,4 +1,4 @@
-import type { RpcParams } from '@voxel/gateway-protocol';
+import type { TaskPort } from '../tasks/port';
 
 export interface GatewayTarget {
   readonly storageRevision: number;
@@ -18,15 +18,7 @@ export interface GatewayTarget {
   };
   publicList(): any[];
   publicIdentity(id: string): any;
-  publicPlans(id?: string, metadata?: boolean): any[];
-  publicPlan(id: string): any;
-  planPage(p: RpcParams): any;
-  publicRuns(
-    id: string | undefined,
-    plan: string,
-    offset?: number,
-    metadata?: boolean,
-  ): any;
+  readonly tasks: TaskPort;
   taskIdentity(id: string): any;
   assertWritable(id?: string): void;
   currentRunId(id: string): string | undefined;
@@ -40,26 +32,6 @@ export interface GatewayTarget {
   stop(id: string): any;
   remove(id: string): Promise<any>;
   setVoice(id: string, value: any): Promise<any>;
-
-  reassignPlan(id: string, targetAgentId: string): Promise<any>;
-  createTaskPlan(agentId: string, value: any): Promise<any>;
-  updateTaskPlan(
-    agentId: string | undefined,
-    planId: string,
-    value: any,
-  ): Promise<any>;
-  controlTaskPlan(
-    agentId: string | undefined,
-    planId: string,
-    operation: string,
-    value: any,
-  ): Promise<any>;
-  controlTaskRun(
-    agentId: string | undefined,
-    runId: string,
-    operation: string,
-    value: any,
-  ): Promise<any>;
 
   providers: {
     list(): any[];
