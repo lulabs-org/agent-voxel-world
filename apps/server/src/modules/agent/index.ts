@@ -1,11 +1,7 @@
-export {
-  AgentManager,
-  type AgentDependencies,
-  type GatewayDependencies,
-} from './agent-manager';
+export { AgentManager } from './agent-manager';
 export {
   AgentOrchestrator,
-  type OrchestratorDependencies,
+  type AgentDependencies,
 } from './agent-orchestrator';
 export { AgentPersistence } from './agent-persistence';
 export { AgentPlanCoordinator } from './agent-plan-coordinator';
@@ -23,7 +19,7 @@ export {
   type Change,
 } from './agent-events';
 export { AgentRegistry, type Job, type HostedAgent } from './agent-types';
-export { AgentWakeScheduler, GatewayScheduler } from './agent-wake-scheduler';
+export { AgentWakeScheduler } from './agent-wake-scheduler';
 export { AgentHost } from './agent-host';
 export { AgentSpeech } from './agent-speech';
 export type {
