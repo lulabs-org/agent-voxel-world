@@ -12,7 +12,7 @@ export type DispatchGateway = GatewayTarget & {
   commands: CommandRouter;
 };
 
-/** Both legacy HTTP and RPC use this command boundary. Internal player authority stays separate. */
+/** RPC command boundary. HTTP adapters belong to their respective domains. */
 export async function invokeGateway(
   g: DispatchGateway,
   method: RpcMethod,
@@ -55,8 +55,7 @@ export async function invokeGateway(
     resolveTarget();
     if (
       !legacy &&
-      (method.startsWith('tasks.') ||
-        method === 'runs.control' ||
+      (method === 'runs.control' ||
         (method === 'plans.control' && p.operation === 'run'))
     ) {
       if (p.expectedTask === undefined)
@@ -82,12 +81,7 @@ export async function invokeGateway(
     const since = g.storageRevision;
     if (isWrite(method))
       g.assertWritable(
-        [
-          'tasks.pause',
-          'tasks.cancel',
-          'agents.stop',
-          'agents.delete',
-        ].includes(method)
+        ['agents.stop', 'agents.delete'].includes(method)
           ? undefined
           : p.agentId,
       );
@@ -123,19 +117,6 @@ export async function invokeGateway(
         break;
       case 'agents.voice':
         result = await g.setVoice(p.agentId!, value);
-        break;
-      case 'tasks.assign':
-        result = await g.assignTask(p.agentId!, value);
-        break;
-      case 'tasks.pause':
-      case 'tasks.cancel':
-        result = await g.controlTask(
-          p.agentId!,
-          method === 'tasks.pause' ? 'pause' : 'cancel',
-        );
-        break;
-      case 'tasks.resume':
-        result = g.resume(p.agentId!, value);
         break;
       case 'plans.list':
         return legacy ? g.publicPlans(p.agentId) : g.planPage(p);
@@ -190,7 +171,7 @@ export async function invokeGateway(
       result &&
       typeof result === 'object' &&
       'id' in result &&
-      (method.startsWith('agents.') || method.startsWith('tasks.'))
+      method.startsWith('agents.')
     ) {
       return {
         ...result,
@@ -226,12 +207,7 @@ export async function invokeGateway(
       validateRevision();
       if (
         p.agentId &&
-        ([
-          'tasks.pause',
-          'tasks.cancel',
-          'agents.stop',
-          'agents.delete',
-        ].includes(method) ||
+        (['agents.stop', 'agents.delete'].includes(method) ||
           (method === 'runs.control' &&
             ['pause', 'cancel'].includes(p.operation ?? '') &&
             g.currentRunId(p.agentId) === p.runId))

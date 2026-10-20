@@ -45,6 +45,45 @@ const http = (path: string, method = 'GET', body?: unknown, key?: string) =>
     },
     body: body ? JSON.stringify(body) : undefined,
   });
+const cli = (...args: string[]) =>
+  new Promise<any>((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        fileURLToPath(
+          new URL(
+            '../../../agent-cli/src/cli/agent-control.ts',
+            import.meta.url,
+          ),
+        ),
+        ...args,
+        '--url',
+        server.url + '/agents/gateway',
+        '--json',
+      ],
+      {
+        env: { ...process.env, AGENT_GATEWAY_TOKEN: token },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let out = '',
+      err = '';
+    child.stdout.on('data', (d) => (out += d));
+    child.stderr.on('data', (d) => (err += d));
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code !== 0) reject(Error(err));
+      else {
+        try {
+          resolve(JSON.parse(out));
+        } catch (e) {
+          reject(e);
+        }
+      }
+    });
+  });
 try {
   assert.equal(
     (await fetch(server.httpUrl + '/agents', { headers: { Origin: origin } }))
@@ -100,9 +139,13 @@ try {
     { value },
     { commandId: 'create-stable' },
   );
-  const response = await http('/agents', 'POST', value, 'create-stable');
-  assert.equal(response.status, 201);
-  assert.equal((await response.json()).id, first.id);
+  const duplicateAgent = await c.request<any>(
+    'agents.create',
+    { value },
+    { commandId: 'create-stable' },
+  );
+  assert.equal(duplicateAgent.id, first.id);
+  assert.equal((await http('/agents')).status, 200);
   assert.equal((await c.request<any[]>('agents.list')).length, 1);
   await assert.rejects(
     c.request(
@@ -112,33 +155,59 @@ try {
     ),
   );
   await until(() => server.agents.list()[0].status === 'idle');
-  const current = await c.request<any>('agents.get', { agentId: first.id });
-  await c.request(
-    'tasks.assign',
-    {
-      agentId: first.id,
-      expectedTask: current.taskIdentity,
-      value: { goal: '等待' },
-    },
+  const immediate = {
+    name: 'Immediate fixture',
+    goal: '等待',
+    timing: { kind: 'immediate' },
+    timeZone: 'UTC',
+  };
+  const plan = await c.request<any>(
+    'plans.create',
+    { agentId: first.id, value: immediate },
     { commandId: 'assign' },
   );
   await until(() => server.agents.list()[0].task?.status === 'waiting');
-  const duplicateTask = await http(
-    `/agents/${first.id}/task`,
-    'POST',
-    { goal: '等待' },
-    'assign',
+  const duplicatePlanCreate = await c.request<any>(
+    'plans.create',
+    { agentId: first.id, value: immediate },
+    { commandId: 'assign' },
   );
-  assert.equal(
-    duplicateTask.status,
-    200,
-    'RPC and HTTP share one task command receipt',
-  );
+  assert.equal(duplicatePlanCreate.id, plan.id);
+  const history = await c.request<any>('runs.list', { planId: plan.id });
+  assert.equal(history.total, 1, 'immediate creation starts exactly one run');
+  const runId = history.items[0].id;
+  for (const operation of ['task', 'pause', 'resume', 'cancel']) {
+    assert.equal(
+      (
+        await http(`/agents/${first.id}/${operation}`, 'POST', {
+          goal: 'wrong',
+        })
+      ).status,
+      404,
+    );
+  }
+  for (const method of [
+    'tasks.assign',
+    'tasks.pause',
+    'tasks.resume',
+    'tasks.cancel',
+  ]) {
+    await assert.rejects(
+      c.request(
+        method as any,
+        { agentId: first.id },
+        { commandId: `removed-${method.replace('.', '-')}` },
+      ),
+    );
+  }
+  assert.equal(server.agents.list()[0].task?.status, 'waiting');
 
   await assert.rejects(
     c.request(
-      'tasks.cancel',
+      'runs.control',
       {
+        runId,
+        operation: 'cancel',
         agentId: first.id,
         expectedTask: { id: 'old', revision: 0, startedAt: 0 },
       },
@@ -151,15 +220,44 @@ try {
   );
   const task = await c.request<any>('agents.get', { agentId: first.id });
   await c.request(
-    'tasks.pause',
-    { agentId: first.id, expectedTask: task.taskIdentity },
+    'runs.control',
+    { runId, operation: 'pause', expectedTask: task.taskIdentity },
     { commandId: 'pause' },
   );
   assert.equal(server.agents.list()[0].task?.status, 'paused');
+  const concurrentPlan = await c.request<any>(
+    'plans.create',
+    { agentId: first.id, value: { ...immediate, name: 'Second execution' } },
+    { commandId: 'second-execution' },
+  );
+  await until(() => server.agents.list()[0].task?.status === 'waiting');
+  const newer = await c.request<any>('agents.get', { agentId: first.id });
+  await c.request(
+    'runs.control',
+    { runId, operation: 'pause', expectedTask: newer.taskIdentity },
+    { commandId: 'pause-old-run' },
+  );
+  assert.equal(
+    server.agents.list()[0].task?.status,
+    'waiting',
+    'controlling an older run must not pause the current run',
+  );
+  const concurrentHistory = await c.request<any>('runs.list', {
+    planId: concurrentPlan.id,
+  });
+  await c.request(
+    'runs.control',
+    {
+      runId: concurrentHistory.items[0].id,
+      operation: 'cancel',
+      expectedTask: newer.taskIdentity,
+    },
+    { commandId: 'cancel-second-execution' },
+  );
   const updated = await c.request<any>('agents.get', { agentId: first.id });
   await c.request(
-    'tasks.resume',
-    { agentId: first.id, expectedTask: updated.taskIdentity },
+    'runs.control',
+    { runId, operation: 'resume', expectedTask: updated.taskIdentity },
     { commandId: 'resume' },
   );
   await until(() => server.agents.list()[0].task?.status === 'waiting');
@@ -259,11 +357,50 @@ try {
   );
   const latest = await other.request<any>('agents.get', { agentId: first.id });
   await other.request(
-    'tasks.cancel',
-    { agentId: first.id, expectedTask: latest.taskIdentity },
+    'runs.control',
+    { runId, operation: 'cancel', expectedTask: latest.taskIdentity },
     { commandId: 'cancel' },
   );
   assert.equal(server.agents.list()[0].task?.status, 'cancelled');
+  const cliPlan = await cli(
+    'task',
+    'create',
+    first.id,
+    '--goal',
+    'CLI immediate task',
+  );
+  await until(() => server.agents.list()[0].task?.status === 'waiting');
+  const cliRuns = await other.request<any>('runs.list', { planId: cliPlan.id });
+  assert.equal(cliRuns.total, 1);
+  const cliRunId = cliRuns.items[0].id;
+  await cli('run', 'pause', cliRunId, '--agent', first.id);
+  assert.equal(server.agents.list()[0].task?.status, 'paused');
+  await other.request('agents.stop', { agentId: first.id });
+  await assert.rejects(
+    cli('run', 'resume', cliRunId, '--agent', first.id),
+    /离线/,
+  );
+  assert.equal(
+    server.agents.list()[0].status,
+    'stopped',
+    'resume cannot implicitly join the world',
+  );
+  await other.request('agents.join', { agentId: first.id });
+  await until(() => server.agents.list()[0].status === 'idle');
+  assert.equal(
+    server.agents.list()[0].task?.status,
+    'paused',
+    'join must not resume task execution',
+  );
+  await cli('run', 'resume', cliRunId, '--agent', first.id);
+  await until(() => server.agents.list()[0].task?.status === 'waiting');
+  await cli('run', 'cancel', cliRunId, '--agent', first.id);
+  assert.equal(server.agents.list()[0].task?.status, 'cancelled');
+  assert.equal(
+    (await other.request<any>('runs.list', { planId: cliPlan.id })).total,
+    1,
+    'resume continues the same run',
+  );
   const second = await other.request<any>(
     'agents.create',
     { value: { ...value, name: 'Second', joinWorld: false } },
@@ -285,7 +422,7 @@ try {
   const duplicatePlan = await http(
     `/tasks`,
     'POST',
-    { ...draft, agentId: first.id },
+    { ...draft, agentId: first.id, requestId: 'global-plan' },
     'global-plan',
   );
   assert.equal(duplicatePlan.status, 201);
@@ -349,7 +486,7 @@ try {
   );
   unsubscribePlans();
   console.log(
-    'PASS Gateway: authenticated RPC/HTTP parity, cross-transport deduplication, revision conflicts, global plans/reassignment/deletion, subscriptions, task controls, disconnect survival, CLI state and exit.',
+    'PASS Gateway: authenticated RPC/HTTP parity, RPC command deduplication and persistent plan request IDs, revision conflicts, global plans/reassignment/deletion, subscriptions, task controls, disconnect survival, CLI state and exit.',
   );
 } finally {
   for (const c of clients) c.close();

@@ -150,22 +150,33 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
         })
       ).status,
     ).toBe(204);
-    const immediate = vi
-      .spyOn(server.agents, 'assignTask')
-      .mockResolvedValue({ id: 'agent-123' } as Awaited<
-        ReturnType<typeof server.agents.assignTask>
-      >);
-    const assigned = await fetch(server.httpUrl + '/agents/agent-123/task', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ goal: 'test' }),
-    });
-    expect(assigned.status).toBe(200);
-    expect(immediate).toHaveBeenCalledWith('agent-123', { goal: 'test' });
+    const immediate = vi.spyOn(server.agents, 'assignTask');
+    const pause = vi.spyOn(server.agents, 'controlTask');
+    const resume = vi.spyOn(server.agents, 'resume');
+    for (const operation of ['task', 'pause', 'resume', 'cancel']) {
+      const removed = await fetch(
+        `${server.httpUrl}/agents/agent-123/${operation}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ goal: 'test' }),
+        },
+      );
+      expect(removed.status).toBe(404);
+    }
+    expect(immediate).not.toHaveBeenCalled();
+    expect(pause).not.toHaveBeenCalled();
+    expect(resume).not.toHaveBeenCalled();
     const createPlan = vi
       .spyOn(server.agents, 'createTaskPlan')
       .mockResolvedValue({ id: 'plan-123' } as any);
-    const draft = { agentId: 'agent-123', name: 'Plan', goal: 'test' };
+    const draft = {
+      agentId: 'agent-123',
+      name: 'Plan',
+      goal: 'test',
+      timing: { kind: 'immediate' },
+      timeZone: 'UTC',
+    };
     expect(
       (
         await fetch(server.httpUrl + '/tasks', {
@@ -179,16 +190,18 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     const run = vi
       .spyOn(server.agents, 'controlTaskRun')
       .mockResolvedValue({ id: 'run-123' } as any);
-    expect(
-      (
-        await fetch(server.httpUrl + '/task-runs/run-123/pause', {
-          method: 'POST',
-          headers,
-          body: '{}',
-        })
-      ).status,
-    ).toBe(200);
-    expect(run).toHaveBeenCalledWith(undefined, 'run-123', 'pause', {});
+    for (const operation of ['pause', 'resume', 'cancel']) {
+      expect(
+        (
+          await fetch(`${server.httpUrl}/task-runs/run-123/${operation}`, {
+            method: 'POST',
+            headers,
+            body: '{}',
+          })
+        ).status,
+      ).toBe(200);
+      expect(run).toHaveBeenCalledWith(undefined, 'run-123', operation, {});
+    }
     const reassign = vi
       .spyOn(server.agents, 'reassignPlan')
       .mockResolvedValue({ id: 'plan-123' } as any);

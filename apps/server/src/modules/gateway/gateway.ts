@@ -108,18 +108,6 @@ export class AgentGateway {
     return this.target.setVoice(id, value);
   }
 
-  async assignTask(id: string, value: any) {
-    return this.target.assignTask(id, value);
-  }
-
-  async controlTask(id: string, op: 'pause' | 'cancel') {
-    return this.target.controlTask(id, op);
-  }
-
-  resume(id: string, value: any) {
-    return this.target.resume(id, value);
-  }
-
   async reassignPlan(id: string, targetAgentId: string) {
     return this.target.reassignPlan(id, targetAgentId);
   }

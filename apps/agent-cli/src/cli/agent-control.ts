@@ -22,12 +22,13 @@ try {
       new URL('../../../../.data/agent-gateway-token', import.meta.url),
     );
   const goal = option('--goal');
+  const agentId = option('--agent');
   const json = args.includes('--json');
   if (json) args.splice(args.indexOf('--json'), 1);
   const [command, id, third] = args;
   if (!command || command === 'help' || command === '--help') {
     console.log(
-      '用法：agent:ctl list | status/join/stop <agentId> | plans [agentId] | watch [agentId] | runs <agentId> <planId> | task assign/pause/resume/cancel <agentId> [--goal ...] | auth show；选项 --url --token-file --json',
+      '用法：agent:ctl list | status/join/stop <agentId> | plans [agentId] | watch [agentId] | runs <agentId> <planId> | task create <agentId> --goal ... | run pause/resume/cancel <runId> --agent <agentId> | auth show；选项 --url --token-file --json',
     );
   } else if (command === 'auth' && id === 'show') {
     console.log((await readFile(tokenFile, 'utf8')).trim());
@@ -118,20 +119,33 @@ try {
       } else if (command === 'runs') {
         method = 'runs.list';
         params = { agentId: id, planId: third, offset: 0 };
-      } else if (
-        command === 'task' &&
-        ['assign', 'pause', 'resume', 'cancel'].includes(id)
-      ) {
-        method = `tasks.${id}` as RpcMethod;
-        params.agentId = third;
-        const view = await client.request<any>('agents.get', {
+      } else if (command === 'task' && id === 'create') {
+        if (!goal) throw Error('请通过 --goal 提供任务目标。');
+        if (!third) throw Error('请提供执行角色标识。');
+        method = 'plans.create';
+        params = {
           agentId: third,
-        });
-        params.expectedTask = view.taskIdentity ?? null;
-        if (id === 'assign') {
-          if (!goal) throw Error('请通过 --goal 提供任务目标。');
-          params.value = { goal };
-        }
+          value: {
+            name: goal.slice(0, 80),
+            goal,
+            timing: { kind: 'immediate' },
+            timeZone: 'UTC',
+          },
+        };
+      } else if (
+        command === 'run' &&
+        ['pause', 'resume', 'cancel'].includes(id)
+      ) {
+        if (!third || !agentId)
+          throw Error('请提供 runId 和 --agent 执行角色标识。');
+        method = 'runs.control';
+        const view = await client.request<any>('agents.get', { agentId });
+        params = {
+          agentId,
+          runId: third,
+          operation: id,
+          expectedTask: view.taskIdentity ?? null,
+        };
       } else throw Error('不支持的命令。');
       print(await client.request(method, params));
     }

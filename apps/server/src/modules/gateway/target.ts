@@ -40,9 +40,6 @@ export interface GatewayTarget {
   stop(id: string): any;
   remove(id: string): Promise<any>;
   setVoice(id: string, value: any): Promise<any>;
-  assignTask(id: string, value: any): Promise<any>;
-  controlTask(id: string, op: 'pause' | 'cancel'): Promise<any>;
-  resume(id: string, value: any): any;
 
   reassignPlan(id: string, targetAgentId: string): Promise<any>;
   createTaskPlan(agentId: string, value: any): Promise<any>;

@@ -105,7 +105,7 @@ try {
   const missingRoute = await api('/agents/missing/endpoint', 'POST', {});
   assert.equal(missingRoute.status, 404);
   assert.equal(typeof (await missingRoute.json()).error, 'string');
-  const missingAgent = await api('/agents/nonexistent/resume', 'POST', {});
+  const missingAgent = await api('/task-runs/nonexistent/resume', 'POST', {});
   assert.equal(missingAgent.status, 404);
   assert.equal(typeof (await missingAgent.json()).error, 'string');
   const publicProviders = await (await api('/providers')).text();
@@ -168,11 +168,16 @@ try {
     const originalPosition = { x: original.x, y: original.y, z: original.z };
     assert.equal(
       (
-        await api(`/agents/${job.id}/resume`, 'POST', {
+        await api('/tasks', 'POST', {
+          agentId: job.id,
+          name: 'A different task',
           goal: 'A different task',
+          timing: { kind: 'immediate' },
+          timeZone: 'UTC',
+          limits: { maxTurns: 1 },
         })
       ).status,
-      200,
+      201,
     );
     await until(
       () => manager!.list().find((j) => j.id === job.id)?.status === 'idle',
@@ -287,7 +292,15 @@ try {
     undefined,
   );
   assert.equal(
-    (await api(`/agents/${standby.id}/resume`, 'POST', {})).status,
+    (
+      await api('/tasks', 'POST', {
+        agentId: standby.id,
+        name: 'Empty task',
+        goal: '',
+        timing: { kind: 'immediate' },
+        timeZone: 'UTC',
+      })
+    ).status,
     400,
   );
   await api(`/agents/${standby.id}/stop`, 'POST', {});
@@ -418,14 +431,15 @@ try {
   speaker.onEvent = (event) => {
     if (event.type === 'chat') emitted.push(event);
   };
-  assert.equal(
-    (
-      await api(`/agents/${capabilityJob.id}/task`, 'POST', {
-        goal: 'Validate permissions',
-      })
-    ).status,
-    200,
-  );
+  const capabilityTaskResponse = await api('/tasks', 'POST', {
+    agentId: capabilityJob.id,
+    name: 'Validate permissions',
+    goal: 'Validate permissions',
+    timing: { kind: 'immediate' },
+    timeZone: 'UTC',
+  });
+  assert.equal(capabilityTaskResponse.status, 201);
+  const capabilityPlan = await capabilityTaskResponse.json();
   await until(
     () =>
       calls > beforeCapabilities &&
@@ -452,7 +466,14 @@ try {
       .logs.some((line) => line.includes('聊天权限')),
   );
   // Task schedules use the same permission-checked runtime and origin boundary.
-  await api(`/agents/${capabilityJob.id}/pause`, 'POST', {});
+  const capabilityRuns = await (
+    await api(`/tasks/${capabilityPlan.id}/runs`)
+  ).json();
+  assert.equal(
+    (await api(`/task-runs/${capabilityRuns.items[0].id}/pause`, 'POST', {}))
+      .status,
+    200,
+  );
   const schedule = await api(`/tasks`, 'POST', {
     agentId: capabilityJob.id,
     name: 'Scheduled capability check',
