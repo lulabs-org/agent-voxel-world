@@ -39,8 +39,15 @@ export function App({ connection }: { connection: Connection }) {
     changeVoice,
     togglePanel,
   } = hud;
-  const { hostRef, target, material, setMaterial, editBlock, leaveWorldScene } =
-    useWorldScene(connection);
+  const {
+    hostRef,
+    target,
+    material,
+    setMaterial,
+    editBlock,
+    leaveWorldScene,
+    speechAnchor,
+  } = useWorldScene(connection);
   const session = useWorldSession(connection, leaveWorldScene);
   const { name, setName, joined } = session;
   useGameShortcuts(joined, hud, setMaterial);
@@ -128,6 +135,7 @@ export function App({ connection }: { connection: Connection }) {
           className={`game-communication${chatExpanded || voiceExpanded ? ' has-expanded' : ''}`}
         >
           <SpatialVoicePanel
+            speechAnchor={speechAnchor}
             connection={connection}
             expanded={voiceExpanded}
             onExpandedChange={changeVoice}

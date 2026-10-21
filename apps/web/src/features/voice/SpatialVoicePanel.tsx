@@ -1,3 +1,5 @@
+import { SpeechCaption } from './SpeechCaption';
+import type { SpeechAnchor } from '../../graphics/speech-anchor';
 import { useEffect, useRef, useState } from 'react';
 import {
   SpatialTranscriber,
@@ -8,11 +10,13 @@ import {
 import type { Connection } from '../../network/connection';
 export function SpatialVoicePanel({
   connection,
+  speechAnchor,
   expanded,
   onExpandedChange,
   expandDisabled,
 }: {
   connection: Connection;
+  speechAnchor: (actor: string) => SpeechAnchor | null;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   expandDisabled: boolean;
@@ -105,72 +109,74 @@ export function SpatialVoicePanel({
     </button>
   );
   return (
-    <section
-      className={`spatial-voice${expanded ? ' is-expanded' : ''}`}
-      aria-label="附近空间语音"
-      data-hud
-    >
-      <div
-        ref={details}
-        className="spatial-details"
-        hidden={!expanded}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            event.stopPropagation();
-            onExpandedChange(false);
-          }
-        }}
+    <>
+      <SpeechCaption speech={state.agentSpeaking} anchor={speechAnchor} />
+      <section
+        className={`spatial-voice${expanded ? ' is-expanded' : ''}`}
+        aria-label="附近空间语音"
+        data-hud
       >
-        <div className="chat-title">
-          <strong>附近语音</strong>
+        <div
+          ref={details}
+          className="spatial-details"
+          hidden={!expanded}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              onExpandedChange(false);
+            }
+          }}
+        >
+          <div className="chat-title">
+            <strong>附近语音</strong>
+            <button
+              aria-label="收起附近语音"
+              onClick={() => onExpandedChange(false)}
+            >
+              ×
+            </button>
+          </div>
+          <small>18 格内随距离、朝向变化 · {state.connected} 个语音连接</small>
+          <small>整句确认后附近 Agent 才会收到；私聊语音仅接收者可听。</small>
+          <small role="status">{transcript.status}</small>
+          {transcript.text && (
+            <p className="spatial-caption">{transcript.text}</p>
+          )}
+          {(state.error || transcript.error) && (
+            <p role="alert" className="chat-error">
+              {state.error || transcript.error}
+            </p>
+          )}
+        </div>
+        {transcript.partial && (
+          <div className="spatial-live-caption" role="status">
+            {transcript.partial && <span>临时字幕 · {transcript.partial}</span>}
+          </div>
+        )}
+        {!expanded && (state.error || transcript.error) && (
           <button
-            aria-label="收起附近语音"
-            onClick={() => onExpandedChange(false)}
+            className="spatial-error-summary"
+            aria-label="语音异常 · 查看详情"
+            disabled={expandDisabled}
+            onClick={() => onExpandedChange(true)}
           >
-            ×
+            <span role="status">语音异常 · 查看详情</span>
+          </button>
+        )}
+        <div className="spatial-toolbar">
+          {micButton}
+          {listenButton}
+          <button
+            ref={toggle}
+            aria-label={expanded ? '收起附近语音' : '展开附近语音'}
+            aria-expanded={expanded}
+            disabled={!expanded && expandDisabled}
+            onClick={() => onExpandedChange(!expanded)}
+          >
+            {expanded ? '⌄' : '⌃'}
           </button>
         </div>
-        <small>18 格内随距离、朝向变化 · {state.connected} 个语音连接</small>
-        <small>整句确认后附近 Agent 才会收到；私聊语音仅接收者可听。</small>
-        <small role="status">{transcript.status}</small>
-        {transcript.text && (
-          <p className="spatial-caption">{transcript.text}</p>
-        )}
-        {(state.error || transcript.error) && (
-          <p role="alert" className="chat-error">
-            {state.error || transcript.error}
-          </p>
-        )}
-      </div>
-      {(state.agentSpeaking || transcript.partial) && (
-        <div className="spatial-live-caption" role="status">
-          {state.agentSpeaking && <span>正在说话 · {state.agentSpeaking}</span>}
-          {transcript.partial && <span>临时字幕 · {transcript.partial}</span>}
-        </div>
-      )}
-      {!expanded && (state.error || transcript.error) && (
-        <button
-          className="spatial-error-summary"
-          aria-label="语音异常 · 查看详情"
-          disabled={expandDisabled}
-          onClick={() => onExpandedChange(true)}
-        >
-          <span role="status">语音异常 · 查看详情</span>
-        </button>
-      )}
-      <div className="spatial-toolbar">
-        {micButton}
-        {listenButton}
-        <button
-          ref={toggle}
-          aria-label={expanded ? '收起附近语音' : '展开附近语音'}
-          aria-expanded={expanded}
-          disabled={!expanded && expandDisabled}
-          onClick={() => onExpandedChange(!expanded)}
-        >
-          {expanded ? '⌄' : '⌃'}
-        </button>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

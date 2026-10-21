@@ -1,13 +1,16 @@
 import { spatialMix, type Player } from '@voxel/shared';
 import type { Connection } from '../../network/connection';
-import { AgentSpeechPlayback } from './agent-speech-playback';
+import {
+  AgentSpeechPlayback,
+  type ActiveSpeech,
+} from './agent-speech-playback';
 export type SpatialStatus = {
   sending: boolean;
   listening: boolean;
   pending: boolean;
   connected: number;
   error: string;
-  agentSpeaking?: string;
+  agentSpeaking?: ActiveSpeech;
 };
 type Signal = {
   from: string;

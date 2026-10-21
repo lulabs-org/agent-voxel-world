@@ -166,7 +166,7 @@ it('cleans up a failed source start and can play the next reply', async () => {
   };
   s.player.receive(event());
   await vi.waitFor(() =>
-    expect(s.changed).toHaveBeenCalledWith('', 'start failed'),
+    expect(s.changed).toHaveBeenCalledWith(undefined, 'start failed'),
   );
   s.player.receive(event('next'));
   await vi.waitFor(() => expect(s.sources[1]?.start).toHaveBeenCalled());
@@ -206,4 +206,35 @@ it('speaks browser events without audio fetching and stops on mute or leaving he
     s.player.stop();
     vi.unstubAllGlobals();
   }
+});
+
+it('carries actor and private scope, retains normal completion briefly, and clears on mute', async () => {
+  const s = setup();
+  s.player.receive({ ...event(), scope: 'private' });
+  await vi.waitFor(() => expect(s.sources[0]?.start).toHaveBeenCalled());
+  expect(s.changed).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      actor: 'ai',
+      name: 'AI',
+      text: '你好',
+      scope: 'private',
+      startedAt: expect.any(Number),
+    }),
+  );
+  s.sources[0].onended?.();
+  expect(s.changed).toHaveBeenLastCalledWith(
+    expect.objectContaining({ actor: 'ai', endedAt: expect.any(Number) }),
+  );
+  s.mute();
+  expect(s.changed).toHaveBeenLastCalledWith(undefined);
+});
+
+it('clears the caption on disconnect and does not retain interrupted text', async () => {
+  const s = setup();
+  s.player.receive(event());
+  await vi.waitFor(() => expect(s.sources[0]?.start).toHaveBeenCalled());
+  s.link.status = 'disconnected';
+  s.player.update();
+  expect(s.changed).toHaveBeenLastCalledWith(undefined);
+  expect(s.sources[0].stop).toHaveBeenCalled();
 });

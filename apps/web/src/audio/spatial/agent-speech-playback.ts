@@ -3,11 +3,22 @@ import type { Connection } from '../../network/connection';
 import { serverHttpUrl } from '../../network/endpoints';
 import { speakBrowserText } from '../services/browser-tts';
 
+export type ActiveSpeech = Pick<
+  AgentSpeechEvent,
+  'id' | 'actor' | 'text' | 'scope'
+> & {
+  name: string;
+  durationMs: number;
+  startedAt: number;
+  endedAt?: number;
+};
+
 type Link = Pick<Connection, 'players' | 'self' | 'status' | 'chatToken'>;
 /** Live speech only: no history replay when listening is enabled later. */
 export class AgentSpeechPlayback {
   private queue: AgentSpeechEvent[] = [];
   private seen = new Set<string>();
+  private caption?: ActiveSpeech;
   private active?: {
     event: AgentSpeechEvent;
     abort: AbortController;
@@ -19,7 +30,7 @@ export class AgentSpeechPlayback {
     private link: Link,
     private context: () => AudioContext | undefined,
     private listening: () => boolean,
-    private changed: (text: string, error?: string) => void,
+    private changed: (speech: ActiveSpeech | undefined, error?: string) => void,
     private fetchAudio: typeof fetch = (...args) => fetch(...args),
   ) {}
   receive = (event: AgentSpeechEvent) => {
@@ -73,7 +84,7 @@ export class AgentSpeechPlayback {
     this.active = active;
     try {
       if (event.browserVoice) {
-        this.changed(`${speaker.name}：${event.text}`);
+        this.startCaption(event, speaker.name);
         await speakBrowserText(
           event.text,
           event.browserVoice,
@@ -120,29 +131,48 @@ export class AgentSpeechPlayback {
         .connect(context.destination);
       active.source.onended = () => {
         if (this.active === active) {
-          this.finish();
+          this.finish(true);
           void this.next();
         }
       };
       this.update();
       if (this.active !== active) return;
       active.source.start();
-      this.changed(`${speaker.name}：${event.text}`);
+      this.startCaption(event, speaker.name, buffer.duration * 1000);
     } catch (error) {
       if (!active.abort.signal.aborted) {
         this.finish();
         this.changed(
-          '',
+          undefined,
           error instanceof Error ? error.message : 'Agent 语音播放失败。',
         );
         void this.next();
       }
     } finally {
       if (this.active === active && !active.source) {
-        this.finish();
+        this.finish(!active.abort.signal.aborted);
         void this.next();
       }
     }
+  }
+  private startCaption(
+    event: AgentSpeechEvent,
+    name: string,
+    durationMs = event.durationMs,
+  ) {
+    this.caption = {
+      id: event.id,
+      actor: event.actor,
+      text: event.text,
+      scope: event.scope,
+      name,
+      startedAt: Date.now(),
+      durationMs:
+        durationMs > 0
+          ? durationMs
+          : Math.max(2000, Array.from(event.text).length * 200),
+    };
+    this.changed(this.caption);
   }
   update() {
     if (!this.listening() || this.link.status !== 'connected') {
@@ -174,7 +204,7 @@ export class AgentSpeechPlayback {
     active.gain?.gain.setTargetAtTime(mix.gain, context.currentTime, 0.04);
     active.pan?.pan.setTargetAtTime(mix.pan, context.currentTime, 0.04);
   }
-  private finish() {
+  private finish(completed = false) {
     const active = this.active;
     if (!active) return;
     this.active = undefined;
@@ -190,10 +220,18 @@ export class AgentSpeechPlayback {
     }
     active.gain?.disconnect();
     active.pan?.disconnect();
-    this.changed('');
+    this.caption =
+      completed && this.caption
+        ? { ...this.caption, endedAt: Date.now() }
+        : undefined;
+    this.changed(this.caption);
   }
   stop() {
     this.queue = [];
     this.finish();
+    if (this.caption) {
+      this.caption = undefined;
+      this.changed(undefined);
+    }
   }
 }
