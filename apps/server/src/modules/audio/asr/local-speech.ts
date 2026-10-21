@@ -3,110 +3,32 @@ import { AppError } from '../../../common/errors';
 import { speechEndpoint } from '../speech-endpoint';
 import type { WhisperAsrSettings } from '@voxel/shared';
 import { whisperModelPath } from './whisper-settings';
-import { execFile } from 'node:child_process';
-import { constants } from 'node:fs';
-import {
-  access,
-  mkdtemp,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
-import { promisify } from 'node:util';
+import { join } from 'node:path';
+import {
+  executable,
+  runCommand,
+  type CommandRunner,
+} from '../processing/command';
+import { validatePcmWav } from '../processing/pcm-wav';
+import {
+  audioFormats,
+  MAX_AUDIO_BYTES,
+  normalizeRecording,
+  convertToPcmWav,
+} from '../processing/normalize';
 
-const exec = promisify(execFile);
+// Preserve existing imports while shared audio consumers use processing directly.
+export { executable, type CommandRunner } from '../processing/command';
+export { validatePcmWav } from '../processing/pcm-wav';
+export { MAX_AUDIO_BYTES } from '../processing/normalize';
+
 function whisperPrompt(language: string, settings?: WhisperAsrSettings) {
   return (
     settings?.prompt.trim() ||
     (language === 'zh' ? '以下是简体中文的语音转写。' : '')
   );
-}
-export const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
-const formats: Record<string, string> = {
-  'audio/webm': 'matroska',
-  'audio/mp4': 'mov',
-  'audio/ogg': 'ogg',
-  'audio/wav': 'wav',
-  'audio/x-wav': 'wav',
-};
-
-export type CommandRunner = (
-  file: string,
-  args: string[],
-  signal: AbortSignal,
-  timeout: number,
-) => Promise<void>;
-const run: CommandRunner = async (file, args, signal, timeout) => {
-  await exec(file, args, {
-    signal,
-    timeout,
-    killSignal: 'SIGKILL',
-    maxBuffer: 512 * 1024,
-  });
-};
-export async function executable(name: string) {
-  const candidates = name.includes('/')
-    ? [name]
-    : env
-        .readSpeech()
-        .path.split(delimiter)
-        .map((dir) => join(dir, name));
-  for (const path of candidates) {
-    try {
-      await access(path, constants.X_OK);
-      return path;
-    } catch {
-      /* Try next PATH entry. */
-    }
-  }
-  return undefined;
-}
-/** Validate FFmpeg's mono PCM16 output and avoid sending silence to Whisper. */
-export function validatePcmWav(wav: Buffer, maxSeconds = 20.5) {
-  if (
-    wav.toString('ascii', 0, 4) !== 'RIFF' ||
-    wav.toString('ascii', 8, 12) !== 'WAVE'
-  )
-    throw new AppError('音频转换失败。');
-  let pcm: Buffer | undefined,
-    validFormat = false;
-  for (let offset = 12; offset + 8 <= wav.length; ) {
-    const id = wav.toString('ascii', offset, offset + 4),
-      size = wav.readUInt32LE(offset + 4);
-    if (offset + 8 + size > wav.length)
-      throw new AppError('音频文件不完整。');
-    if (id === 'fmt ' && size >= 16)
-      validFormat =
-        wav.readUInt16LE(offset + 8) === 1 &&
-        wav.readUInt16LE(offset + 10) === 1 &&
-        wav.readUInt32LE(offset + 12) === 16000 &&
-        wav.readUInt16LE(offset + 22) === 16;
-    if (id === 'data') pcm = wav.subarray(offset + 8, offset + 8 + size);
-    offset += 8 + size + (size % 2);
-  }
-  if (!validFormat || !pcm || pcm.length % 2)
-    throw new AppError('音频格式不正确。');
-  const seconds = pcm.length / 32000;
-  if (seconds < 0.25) throw new AppError('录音太短，请至少说一句话。');
-  if (seconds > maxSeconds)
-    throw new AppError(
-      maxSeconds === 20.5
-        ? '录音超过 20 秒，请分段录音。'
-        : '音频过长，请分段发送。',
-    );
-  let sum = 0;
-  for (let i = 0; i < pcm.length; i += 2)
-    sum += (pcm.readInt16LE(i) / 32768) ** 2;
-  if (Math.sqrt(sum / (pcm.length / 2)) < 0.003)
-    throw new AppError(
-      '没有检测到清晰声音，请靠近麦克风后重试。',
-      400,
-      'no-speech',
-    );
-  return Math.round(seconds * 1000);
 }
 export class LocalSpeech {
   private busy = false;
@@ -115,7 +37,7 @@ export class LocalSpeech {
       env.dataPath('voice/ggml-base.bin'),
     private whisper = env.readSpeech().whisperBin ?? 'whisper-cli',
     private ffmpeg = env.readSpeech().ffmpegBin,
-    private runner: CommandRunner = run,
+    private runner: CommandRunner = runCommand,
     private apiUrl = !env.readSpeech().whisperApiUrl?.trim() &&
     !env.readSpeech().speechApiUrl?.trim() &&
     (env.readSpeech().whisperBin?.trim() ||
@@ -191,52 +113,13 @@ export class LocalSpeech {
     }
   }
   async normalize(audio: Buffer, contentType: string, signal: AbortSignal) {
-    const format = formats[contentType.split(';')[0].trim().toLowerCase()];
-    if (!format || !audio.length || audio.length > MAX_AUDIO_BYTES)
-      throw new AppError('音频格式或大小无效。');
-    const dir = await mkdtemp(join(tmpdir(), 'voxel-clip-'));
-    try {
-      const input = join(dir, 'input'),
-        output = join(dir, 'audio.wav');
-      await writeFile(input, audio, { mode: 0o600 });
-      await this.runner(
-        this.ffmpeg,
-        [
-          '-nostdin',
-          '-v',
-          'error',
-          '-protocol_whitelist',
-          'file,pipe',
-          '-f',
-          format,
-          '-i',
-          input,
-          '-t',
-          '21',
-          '-vn',
-          '-ar',
-          '16000',
-          '-ac',
-          '1',
-          '-c:a',
-          'pcm_s16le',
-          output,
-        ],
-        signal,
-        15000,
-      );
-      const bytes = await readFile(output);
-      const durationMs = validatePcmWav(bytes);
-      return { bytes, durationMs };
-    } catch (error) {
-      if (error instanceof AppError || signal.aborted) throw error;
-      throw new AppError(
-        '无法处理录音，请检查服务器上的 FFmpeg 或重试。',
-        502,
-      );
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
+    return normalizeRecording(
+      audio,
+      contentType,
+      signal,
+      this.ffmpeg,
+      this.runner,
+    );
   }
   async transcribe(
     audio: Buffer,
@@ -245,7 +128,7 @@ export class LocalSpeech {
     signal: AbortSignal,
     settings?: WhisperAsrSettings,
   ) {
-    const format = formats[contentType.split(';')[0].trim().toLowerCase()];
+    const format = audioFormats[contentType.split(';')[0].trim().toLowerCase()];
     if (!format)
       throw new AppError(
         '不支持的音频格式，请使用 WAV、WebM、MP4 或 Ogg。',
@@ -277,32 +160,13 @@ export class LocalSpeech {
         wav = join(dir, 'audio.wav'),
         output = join(dir, 'transcript');
       await writeFile(input, audio, { mode: 0o600 });
-      await this.runner(
-        this.ffmpeg,
-        [
-          '-nostdin',
-          '-v',
-          'error',
-          '-protocol_whitelist',
-          'file,pipe',
-          '-f',
-          format,
-          '-i',
-          input,
-          '-t',
-          '21',
-          '-vn',
-          '-ar',
-          '16000',
-          '-ac',
-          '1',
-          '-c:a',
-          'pcm_s16le',
-          wav,
-        ],
-        signal,
-        15000,
-      );
+      await convertToPcmWav(input, wav, signal, {
+        ffmpeg: this.ffmpeg,
+        runner: this.runner,
+        format,
+        maxSeconds: 21,
+        timeoutMs: 15000,
+      });
       validatePcmWav(await readFile(wav));
       const prompt = whisperPrompt(language, settings);
       await this.runner(

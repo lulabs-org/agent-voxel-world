@@ -180,7 +180,7 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     expect(createProvider.status).toBe(201);
     const provider = await createProvider.json();
     const models = vi
-      .spyOn(server.characters, 'models')
+      .spyOn(server.characters.modelCatalog, 'models')
       .mockResolvedValue(['fixture-model']);
     expect(
       await (

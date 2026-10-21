@@ -10,6 +10,7 @@ import type { LocalSpeech } from './modules/audio/asr/local-speech';
 import type { WorldRoom } from './modules/world/room';
 import { installAICharacterRoutes } from './modules/ai-characters';
 import { installProviderRoutes } from './modules/providers/providers.routes';
+import type { ModelCatalog } from './modules/providers/model-catalog';
 import { installTaskRoutes } from './modules/tasks';
 import type { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { installAudioRoutes } from './modules/audio/routes';
@@ -32,6 +33,7 @@ export function createApp(deps: {
   config: ServerConfig;
   gatewayAuth: GatewayAuth;
   characters: AICharacterManager;
+  modelCatalog?: ModelCatalog;
   voiceServices: VoiceServiceStore;
   speech: LocalSpeech;
   asrSettings: AsrSettingsStore;
@@ -39,6 +41,7 @@ export function createApp(deps: {
 }) {
   const app = express();
   const commands = new ManagementCommands();
+  const modelCatalog = deps.modelCatalog ?? deps.characters.modelCatalog;
   const origin = deps.config.webOrigin;
   const publicCors = cors({
     origin: (requestOrigin, callback) =>
@@ -75,7 +78,7 @@ export function createApp(deps: {
     app,
     {
       store: deps.characters.providers,
-      models: (id) => deps.characters.models(id),
+      models: (id) => modelCatalog.models(id),
       remove: (id) => deps.characters.removeProvider(id),
       changed: () => deps.characters.events.publish('providers'),
     },

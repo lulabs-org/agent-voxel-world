@@ -2,7 +2,7 @@ import {
   AICharacterOrchestrator,
   type AICharacterDependencies,
 } from './orchestrator';
-import { Session, AgentRunner, listModels } from '@voxel/agent-runtime';
+import { Session, AgentRunner } from '@voxel/agent-runtime';
 import { ProviderStore } from '../providers/provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
 import { readAICharacterArchive, writeAICharacterArchive } from './storage';
@@ -17,7 +17,6 @@ export class AICharacterManager extends AICharacterOrchestrator {
     dependencies: AICharacterDependencies = {
       session: (url) => new Session(url),
       runner: (_config, provider) => new AgentRunner(provider),
-      models: (provider) => listModels(provider, provider.apiKey),
     },
     voiceServices?: VoiceServiceStore,
   ) {

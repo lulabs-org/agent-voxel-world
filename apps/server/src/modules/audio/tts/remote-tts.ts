@@ -1,15 +1,9 @@
-import { env } from '../../../config/env';
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
+import { normalizeSpeech } from '../processing/normalize';
+export { normalizeSpeech } from '../processing/normalize';
 import type { VoiceServiceDraft } from '@voxel/shared';
-import { validatePcmWav } from '../asr/local-speech';
 import { AppError } from '../../../common/errors';
 import type { SpeechSynthesizer } from './speech-synthesizer';
 
-const exec = promisify(execFile);
 async function boundedBody(response: Response, limit: number) {
   if (!response.ok) {
     let detail = '';
@@ -60,55 +54,6 @@ async function readBody(response: Response, limit: number) {
     return Buffer.concat(chunks);
   } finally {
     await reader.cancel().catch(() => {});
-  }
-}
-
-/** Normalize provider WAV output to the same bounded PCM format used by world audio. */
-export async function normalizeSpeech(bytes: Buffer, signal: AbortSignal) {
-  signal.throwIfAborted();
-  try {
-    return { bytes, durationMs: validatePcmWav(bytes, 90.5) };
-  } catch {
-    // Providers may return other WAV sample rates; convert those below.
-  }
-  if (
-    bytes.toString('ascii', 0, 4) !== 'RIFF' ||
-    bytes.toString('ascii', 8, 12) !== 'WAVE'
-  )
-    throw new AppError('语音服务未返回 WAV 音频。', 502);
-  const dir = await mkdtemp(join(tmpdir(), 'voxel-cloud-tts-'));
-  try {
-    const input = join(dir, 'input.wav'),
-      output = join(dir, 'output.wav');
-    await writeFile(input, bytes, { mode: 0o600 });
-    await exec(
-      env.readSpeech().ffmpegBin,
-      [
-        '-nostdin',
-        '-v',
-        'error',
-        '-protocol_whitelist',
-        'file,pipe',
-        '-i',
-        input,
-        '-t',
-        '91',
-        '-vn',
-        '-ar',
-        '16000',
-        '-ac',
-        '1',
-        '-c:a',
-        'pcm_s16le',
-        output,
-      ],
-      { signal, timeout: 30000, maxBuffer: 256 * 1024, killSignal: 'SIGKILL' },
-    );
-    signal.throwIfAborted();
-    const wav = await readFile(output);
-    return { bytes: wav, durationMs: validatePcmWav(wav, 90.5) };
-  } finally {
-    await rm(dir, { recursive: true, force: true });
   }
 }
 

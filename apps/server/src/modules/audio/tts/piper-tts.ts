@@ -1,5 +1,5 @@
 import { DEFAULT_PIPER_MODEL } from '@voxel/shared';
-import { validatePcmWav } from '../asr/local-speech';
+import { validatePcmWav } from '../processing/pcm-wav';
 import { AppError } from '../../../common/errors';
 import { piperModel } from './piper-models';
 import { speechEndpoint } from '../speech-endpoint';

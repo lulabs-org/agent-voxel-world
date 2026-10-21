@@ -16,7 +16,7 @@ import type {
 import { AICharacterManager } from '../../src/modules/ai-characters';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import { VoiceServiceStore } from '../../src/modules/audio/tts/voice-services';
-import { validatePcmWav } from '../../src/modules/audio/asr/local-speech';
+import { validatePcmWav } from '../../src/modules/audio/processing/pcm-wav';
 
 process.env.DATABASE_URL = '';
 process.env.WEB_ORIGIN = 'http://127.0.0.1:5191';

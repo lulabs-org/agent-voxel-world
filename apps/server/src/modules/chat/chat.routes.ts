@@ -7,7 +7,7 @@ import { type WorldChat } from './chat';
 import { ChatError } from './errors';
 import { LocalSpeech } from '../audio/asr/local-speech';
 import { AppError } from '../../common/errors';
-import type { AgentSpeech } from '../audio/session/agent-speech';
+import type { AgentSpeech } from '../audio/tts/agent-speech';
 import { scheduleSpeech } from '../audio/asr/speech-scheduler';
 export function installChatRoutes(
   app: Express,
