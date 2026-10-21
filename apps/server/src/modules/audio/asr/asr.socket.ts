@@ -6,6 +6,8 @@ import { AppError } from '../../../common/errors';
 import type { AsrSettingsStore } from './asr-settings';
 import { bridgeBailianAsr } from './bailian-asr';
 
+export type AsrBridge = Parameters<typeof createAsrSocket>[1];
+
 /** One server's ASR handler owns the concurrency limit and service references. */
 export function createAsrSocket(
   store: AsrSettingsStore,

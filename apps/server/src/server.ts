@@ -6,7 +6,10 @@ import type { AddressInfo } from 'node:net';
 import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
 import { env, type ServerConfig } from './config';
-import { AICharacterManager } from './modules/ai-characters';
+import {
+  AICharacterManager,
+  type AICharacterDependencies,
+} from './modules/ai-characters';
 import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { AsrSettingsStore } from './modules/audio/asr/asr-settings';
@@ -15,7 +18,10 @@ import { createVoiceProvider } from './modules/audio/session';
 import { WorldRoom } from './modules/world/room';
 import { WorldStore } from './modules/world/store';
 import { RoutedWebSocketTransport } from './transport/websocket.transport';
-import { createAsrSocket } from './modules/audio/asr/asr.socket';
+import {
+  createAsrSocket,
+  type AsrBridge,
+} from './modules/audio/asr/asr.socket';
 import { checkStartupDatabase } from './startup';
 
 export type ServerOptions = {
@@ -25,22 +31,30 @@ export type ServerOptions = {
   asrSettings?: AsrSettingsStore;
   speech?: LocalSpeech;
   worldStore?: WorldStore;
-  agentDependencies?: ConstructorParameters<typeof AICharacterManager>[2];
+  agentDependencies?: AICharacterDependencies;
   databaseCheck?: (url: string) => Promise<void>;
-  asrBridge?: Parameters<typeof createAsrSocket>[1];
+  asrBridge?: AsrBridge;
+};
+
+const wsHost = (host: string) => {
+  const h = ['0.0.0.0', '::'].includes(host) ? '127.0.0.1' : host;
+  return h.includes(':') ? `[${h}]` : h;
 };
 
 /** Owns one world's resources. Both production and tests use this lifecycle. */
 export async function createServer(options: ServerOptions = {}) {
   const config = options.config ?? env.readServer();
   await (options.databaseCheck ?? checkStartupDatabase)(config.databaseUrl);
-  const gatewayAuth = await GatewayAuth.load(config.gateway);
   const providers = options.providers ?? new ProviderStore();
   const voiceServices = options.voiceServices ?? new VoiceServiceStore();
   const asrSettings = options.asrSettings ?? new AsrSettingsStore();
-  await providers.load();
-  await voiceServices.load();
-  await asrSettings.load();
+  // Each store reads its own file, so loads are independent and parallel-safe.
+  const [gatewayAuth] = await Promise.all([
+    GatewayAuth.load(config.gateway),
+    providers.load(),
+    voiceServices.load(),
+    asrSettings.load(),
+  ]);
   // Validate fallible provider construction before allocating network resources.
   const voiceProvider = createVoiceProvider(
     config.voice.provider,
@@ -131,10 +145,7 @@ export async function createServer(options: ServerOptions = {}) {
       listening = true;
       try {
         await server.listen(config.port, config.host);
-        const host = ['0.0.0.0', '::'].includes(config.host)
-          ? '127.0.0.1'
-          : config.host;
-        url = `ws://${host.includes(':') ? `[${host}]` : host}:${(http.address() as AddressInfo).port}`;
+        url = `ws://${wsHost(config.host)}:${(http.address() as AddressInfo).port}`;
         const listing = await matchMaker.createRoom('world', {});
         world = matchMaker.getLocalRoomById(listing.roomId) as WorldRoom;
         await characters.load();
