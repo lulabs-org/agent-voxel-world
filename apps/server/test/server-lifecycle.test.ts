@@ -3,6 +3,7 @@ import { access } from 'node:fs/promises';
 import WebSocket from 'ws';
 import { Session, until } from '@voxel/agent-runtime';
 import { DEFAULT_BAILIAN_ASR } from '@voxel/shared';
+import { MANAGEMENT_EVENTS_VERSION } from '@voxel/shared/management';
 import { createTestServer } from './helpers/test-server';
 import { createServer } from '../src/server';
 import { env } from '../src/config/env';
@@ -47,7 +48,7 @@ describe('server assembly and lifecycle', () => {
     ).toBe('http://whisper:8000/v1');
   });
 
-  it('preserves public/guarded HTTP contracts and closes SSE, ASR and world clients idempotently', async () => {
+  it('preserves HTTP contracts and closes SSE, ASR, Gateway and world clients idempotently', async () => {
     const origin = 'http://127.0.0.1:5199';
     const server = await createTestServer({
       origin,
@@ -58,6 +59,7 @@ describe('server assembly and lifecycle', () => {
     });
     let human: Session | undefined;
     let asr: WebSocket | undefined;
+    let gateway: WebSocket | undefined;
     const sseAbort = new AbortController();
     try {
       expect(await (await fetch(server.httpUrl + '/health')).json()).toEqual({
@@ -154,6 +156,41 @@ describe('server assembly and lifecycle', () => {
       await expect(server.asrSettings.remove(service.id)).rejects.toThrow(
         '正在识别',
       );
+      gateway = new WebSocket(`${server.url}/ai-characters/gateway`, {
+        origin,
+      });
+      const gatewayConnected = new Promise<unknown>((resolve, reject) => {
+        gateway!.once('message', (data) =>
+          resolve(JSON.parse(data.toString())),
+        );
+        gateway!.once('error', reject);
+        gateway!.once('open', () =>
+          gateway!.send(
+            JSON.stringify({
+              type: 'connect',
+              version: MANAGEMENT_EVENTS_VERSION,
+              client: 'web',
+              token: 'fixture-gateway-token-for-tests',
+            }),
+          ),
+        );
+      });
+      expect(await gatewayConnected).toEqual({
+        type: 'connected',
+        version: MANAGEMENT_EVENTS_VERSION,
+      });
+      // Both custom routes participate in Colyseus' shared heartbeat.
+      await Promise.all(
+        [asr, gateway].map(
+          (socket) =>
+            new Promise<void>((resolve) =>
+              socket.once('ping', () => resolve()),
+            ),
+        ),
+      );
+      const gatewayClosed = new Promise<void>((resolve) =>
+        gateway!.once('close', () => resolve()),
+      );
       const socketClosed = new Promise<void>((resolve) =>
         asr!.once('close', () => resolve()),
       );
@@ -167,6 +204,7 @@ describe('server assembly and lifecycle', () => {
       })();
       await Promise.all([server.close(), server.close()]);
       await socketClosed;
+      await gatewayClosed;
       await sseEnded;
       await until(() => !human!.room.connection.isOpen, 1000);
       await expect(access(server.directory)).rejects.toThrow();
@@ -174,6 +212,7 @@ describe('server assembly and lifecycle', () => {
     } finally {
       sseAbort.abort();
       asr?.terminate();
+      gateway?.terminate();
       await human?.close();
       await server.close();
     }

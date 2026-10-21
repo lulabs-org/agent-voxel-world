@@ -13,7 +13,8 @@ import { LocalSpeech } from './modules/audio/asr/local-speech';
 import { createVoiceProvider } from './modules/audio/session';
 import { WorldRoom } from './modules/world/room';
 import { WorldStore } from './modules/world/store';
-import { AsrWebSocketTransport } from './transport/asr-websocket.transport';
+import { RoutedWebSocketTransport } from './transport/websocket.transport';
+import { createAsrSocket } from './modules/audio/asr/asr.socket';
 import { checkStartupDatabase } from './startup';
 
 export type ServerOptions = {
@@ -25,7 +26,7 @@ export type ServerOptions = {
   worldStore?: WorldStore;
   agentDependencies?: ConstructorParameters<typeof AICharacterManager>[2];
   databaseCheck?: (url: string) => Promise<void>;
-  asrBridge?: ConstructorParameters<typeof AsrWebSocketTransport>[2];
+  asrBridge?: Parameters<typeof createAsrSocket>[1];
 };
 
 /** Owns one world's resources. Both production and tests use this lifecycle. */
@@ -68,12 +69,19 @@ export async function createServer(options: ServerOptions = {}) {
     sockets.add(socket);
     socket.once('close', () => sockets.delete(socket));
   });
-  const transport = new AsrWebSocketTransport(
+  const transport = new RoutedWebSocketTransport(
     http,
-    asrSettings,
-    options.asrBridge,
-    config.webOrigin,
-    (socket, req) => gatewaySocket(characters.events, gatewayAuth, socket, req),
+    new Map([
+      [
+        '/ai-characters/gateway',
+        (socket, req) =>
+          gatewaySocket(characters.events, gatewayAuth, socket, req),
+      ],
+      [
+        '/voice/asr/realtime',
+        createAsrSocket(asrSettings, options.asrBridge, config.webOrigin),
+      ],
+    ]),
   );
   const server = new Server({
     transport,

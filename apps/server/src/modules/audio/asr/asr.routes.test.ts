@@ -12,12 +12,13 @@ import {
 } from '@voxel/shared';
 import { AsrSettingsStore } from './asr-settings';
 import { installAsrRoutes } from './asr.routes.ts';
-import { AsrWebSocketTransport } from '../../../transport/asr-websocket.transport';
+import { RoutedWebSocketTransport } from '../../../transport/websocket.transport';
+import { createAsrSocket } from './asr.socket';
 import { installCapabilitiesRoutes } from '../capabilities.routes';
 import { LocalSpeech } from './local-speech';
 
 let server: Server,
-  transport: AsrWebSocketTransport,
+  transport: RoutedWebSocketTransport,
   store: AsrSettingsStore,
   dir: string,
   url: string;
@@ -42,7 +43,10 @@ beforeEach(async () => {
   installCapabilitiesRoutes(app, speech, store);
   installAsrRoutes(app, store);
   server = createServer(app);
-  transport = new AsrWebSocketTransport(server, store, bridge);
+  transport = new RoutedWebSocketTransport(
+    server,
+    new Map([['/voice/asr/realtime', createAsrSocket(store, bridge)]]),
+  );
   await new Promise<void>((resolve) =>
     transport.listen(0, '127.0.0.1', undefined, resolve),
   );
@@ -143,6 +147,34 @@ it('dispatches live sockets and bounds concurrent upstream tasks', async () => {
     a.client.close();
   });
   expect((await socket(service.id)).message.type).toBe('ready');
+});
+it('releases all ASR service references when the shared transport closes connections', async () => {
+  const service = await store.save({
+    ...DEFAULT_BAILIAN_ASR,
+    name: 'Closing ASR',
+    apiKey: 'fixture-only',
+  });
+  const a = await socket(service.id);
+  const b = await socket(service.id);
+  await expect(store.remove(service.id)).rejects.toThrow('正在识别');
+  const closed = [a, b].map(
+    ({ client }) =>
+      new Promise<void>((resolve) => client.once('close', () => resolve())),
+  );
+  transport.closeConnections();
+  await Promise.all(closed);
+  await vi.waitFor(() => {
+    for (const [client] of bridge.mock.calls)
+      expect(client.readyState).toBe(WebSocket.CLOSED);
+  });
+  // A new session must be admitted after both slots are released.
+  expect((await socket(service.id)).message.type).toBe('ready');
+  transport.closeConnections();
+  await vi.waitFor(() =>
+    expect(bridge.mock.calls[2][0].readyState).toBe(WebSocket.CLOSED),
+  );
+  await store.remove(service.id);
+  expect(store.list()).toEqual([]);
 });
 it('routes each selected service to its own model and key, rejects missing or deleted IDs, and guards deletion', async () => {
   const a = await store.save({
