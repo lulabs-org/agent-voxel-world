@@ -1,6 +1,7 @@
 import cors from 'cors';
-import { ManagementCommands } from './common/management-command';
-import { identifier } from '@voxel/shared/management';
+import { ManagementCommands } from './modules/management/commands';
+import { installManagementRoutes } from './modules/management/routes';
+import { taskCommandBody } from './modules/tasks/command-policy';
 import type { GatewayAuth } from './modules/gateway/auth';
 import express from 'express';
 import type { ServerConfig } from './config';
@@ -14,10 +15,7 @@ import type { ModelCatalog } from './modules/providers/model-catalog';
 import { installTaskRoutes } from './modules/tasks';
 import type { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { installAudioRoutes } from './modules/audio/routes';
-import {
-  managementBody,
-  managementErrors,
-} from './common/middleware/management-http';
+import { managementBody, managementErrors } from './modules/management/http';
 import { installChatRoutes } from './modules/chat/chat.routes';
 import {
   installWorldRoutes,
@@ -40,7 +38,7 @@ export function createApp(deps: {
   world: () => WorldRoom | undefined;
 }) {
   const app = express();
-  const commands = new ManagementCommands();
+  const commands = new ManagementCommands(taskCommandBody);
   const modelCatalog = deps.modelCatalog ?? deps.characters.modelCatalog;
   const origin = deps.config.webOrigin;
   const publicCors = cors({
@@ -85,13 +83,7 @@ export function createApp(deps: {
     commands,
   );
   installTaskRoutes(app, deps.characters.tasks, commands);
-  app.get('/management/commands/:id', (req, res) => {
-    if (!identifier(req.params.id)) {
-      res.status(400).json({ error: '命令标识无效。' });
-      return;
-    }
-    res.json(commands.get(req.params.id));
-  });
+  installManagementRoutes(app, commands);
   installWorldRoutes(app, () => deps.world()?.roomId ?? '');
   installChatRoutes(
     app,

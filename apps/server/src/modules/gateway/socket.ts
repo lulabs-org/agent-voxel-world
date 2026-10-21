@@ -1,6 +1,6 @@
 import type WebSocket from 'ws';
 import type { IncomingMessage } from 'node:http';
-import type { AICharacterEvents } from '../ai-characters/events';
+import type { ManagementEvents } from '../management/events';
 import {
   ManagementError,
   MANAGEMENT_EVENTS_VERSION,
@@ -8,12 +8,12 @@ import {
   type ManagementFrame,
 } from '@voxel/shared/management';
 import { parseEventConnect } from './validation';
-import { publicError } from '../../common/management-error';
+import { publicError } from '../management/errors';
 import type { GatewayAuth } from './auth';
 
 /** The socket owns only notifications. Snapshots and all commands use authenticated HTTP. */
 export function gatewaySocket(
-  events: AICharacterEvents,
+  events: ManagementEvents,
   auth: GatewayAuth,
   socket: WebSocket,
   req: IncomingMessage,

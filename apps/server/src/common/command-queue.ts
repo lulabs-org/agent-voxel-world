@@ -1,15 +1,11 @@
-import { publicError } from './management-error';
 import { createHash } from 'node:crypto';
-import {
-  ManagementError,
-  type ManagementErrorData,
-} from '@voxel/shared/management';
-type Receipt = {
+
+type Receipt<ErrorData> = {
   fingerprint: string;
   at: number;
   state: 'pending' | 'committed' | 'rejected';
   result?: unknown;
-  error?: ManagementErrorData;
+  error?: ErrorData;
   promise: Promise<unknown>;
 };
 function canonical(value: unknown): string {
@@ -25,8 +21,14 @@ function canonical(value: unknown): string {
     );
   return JSON.stringify(value) ?? 'null';
 }
-export class CommandRouter {
-  private receipts = new Map<string, Receipt>();
+export class CommandQueue<ErrorData> {
+  constructor(
+    private policy: {
+      publicError(error: unknown): ErrorData;
+      conflict(): Error;
+    },
+  ) {}
+  private receipts = new Map<string, Receipt<ErrorData>>();
   private lanes = new Map<string, Promise<unknown>>();
   private prune() {
     const done = [...this.receipts].filter(([, r]) => r.state !== 'pending');
@@ -58,15 +60,10 @@ export class CommandRouter {
         .digest('hex'),
       prior = this.receipts.get(id);
     if (prior) {
-      if (prior.fingerprint !== fingerprint)
-        throw new ManagementError(
-          '同一命令标识不能用于不同操作。',
-          'CONFLICT',
-          409,
-        );
+      if (prior.fingerprint !== fingerprint) throw this.policy.conflict();
       return prior.promise;
     }
-    const r: Receipt = {
+    const r: Receipt<ErrorData> = {
       fingerprint,
       at: Date.now(),
       state: 'pending',
@@ -76,7 +73,7 @@ export class CommandRouter {
       admit?.();
     } catch (error) {
       r.state = 'rejected';
-      r.error = publicError(error);
+      r.error = this.policy.publicError(error);
       r.promise = Promise.reject(error);
       this.receipts.set(id, r);
       this.prune();
@@ -96,7 +93,7 @@ export class CommandRouter {
         (error) => {
           r.state = 'rejected';
           r.at = Date.now();
-          r.error = publicError(error);
+          r.error = this.policy.publicError(error);
           throw error;
         },
       )

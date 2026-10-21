@@ -5,7 +5,10 @@ import {
 import { Session, AgentRunner } from '@voxel/agent-runtime';
 import { ProviderStore } from '../providers/provider-store';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
-import { readAICharacterArchive, writeAICharacterArchive } from './storage';
+import {
+  readManagementArchive,
+  writeManagementArchive,
+} from '../../persistence/archive-file';
 
 /** AICharacterManager is the concrete orchestrator in the server with file-based persistence defaults. */
 export class AICharacterManager extends AICharacterOrchestrator {
@@ -22,8 +25,8 @@ export class AICharacterManager extends AICharacterOrchestrator {
   ) {
     const path = `${providers.path}.agents.json`;
     super(providers, serverUrl, dependencies, voiceServices, {
-      load: () => readAICharacterArchive(path),
-      save: (records) => writeAICharacterArchive(path, records),
+      load: () => readManagementArchive(path),
+      save: (records) => writeManagementArchive(path, records),
     });
   }
 }

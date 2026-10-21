@@ -1,4 +1,4 @@
-import { migrateArchive } from './storage';
+import { migrateArchive } from '../../persistence/migrate-archive';
 import { AICharacterWakeScheduler } from './wake-scheduler';
 import { appendAICharacterLog } from './logs';
 import {
@@ -8,7 +8,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type { VoiceServicePort, ProviderPort, ArchivePort } from './ports';
 import { AICharacterRegistry } from './types';
-import { AICharacterEvents } from './events';
+import { ManagementEvents } from '../management/events';
 import {
   Session,
   AgentAttention,
@@ -33,16 +33,16 @@ import {
 import { executionState } from './execution-adapter';
 import { restoreAICharacterJob } from './restore';
 import { AICharacterHost, type ExecutionContext } from './host';
-import { AICharacterPersistence } from './persistence';
+import { ManagementPersistence } from '../../persistence/management-persistence';
 import { TaskCoordinator } from '../tasks/coordinator';
 
 export * from './validation';
 
 export class AICharacterOrchestrator {
   readonly jobs = new AICharacterRegistry();
-  readonly events = new AICharacterEvents();
+  readonly events = new ManagementEvents();
   readonly taskScheduler = new AICharacterWakeScheduler();
-  readonly persistence: AICharacterPersistence;
+  readonly persistence: ManagementPersistence;
   readonly tasks: TaskCoordinator;
   readonly modelCatalog: ModelCatalog;
 
@@ -59,7 +59,7 @@ export class AICharacterOrchestrator {
     private archive: ArchivePort,
   ) {
     this.modelCatalog = new ModelCatalog(providers, dependencies.models);
-    this.persistence = new AICharacterPersistence(this.archive, this.events);
+    this.persistence = new ManagementPersistence(this.archive, this.events);
     this.tasks = new TaskCoordinator({
       execution: (id) => executionState(this.taskJob(id)),
       findExecution: (id) => {
@@ -167,11 +167,7 @@ export class AICharacterOrchestrator {
       this.planScheduler.start();
       return;
     }
-    Object.assign(this.plans, {
-      plans: saved.plans,
-      runs: saved.runs,
-      requests: saved.requests,
-    });
+    this.persistence.tasks.restore(this.plans, saved);
     const autoJoin: Job[] = [];
     for (const view of saved.characters) {
       const { job, voiceWarning, shouldAutoJoin } = restoreAICharacterJob(

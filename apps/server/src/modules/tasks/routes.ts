@@ -1,4 +1,4 @@
-import { ManagementCommands } from '../../common/management-command';
+import { ManagementCommands } from '../management/commands';
 import type { Express, Request, Response } from 'express';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 import type { PlanQueryFilter } from '@voxel/shared/management';

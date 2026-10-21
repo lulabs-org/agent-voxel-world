@@ -1,8 +1,5 @@
 import type { Express, RequestHandler } from 'express';
-import {
-  managementBody,
-  managementErrors,
-} from '../../common/middleware/management-http';
+import { managementBody, managementErrors } from '../management/http';
 import type { AsrSettingsStore } from './asr/asr-settings';
 import type { LocalSpeech } from './asr/local-speech';
 import type { VoiceServiceStore } from './tts/voice-services';

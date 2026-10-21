@@ -4,7 +4,7 @@ import { validatePlan } from './validation';
 import { newPlan, nextOccurrence, duePlans, runView, endedRun } from './model';
 import { TaskService, recordEvent, type TaskLease } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
-import { CommandRouter } from '../../common/command-router';
+import { CommandRouter } from '../management/command-router';
 import { isRepeating } from '@voxel/shared';
 import { hasPlanTokenLimit } from './limits';
 import type { PlanQueryFilter } from '@voxel/shared/management';

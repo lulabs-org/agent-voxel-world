@@ -1,4 +1,4 @@
-import { ManagementCommands } from '../../common/management-command';
+import { ManagementCommands } from '../management/commands';
 import { AppError } from '../../common/errors';
 import type { Express, Request } from 'express';
 import type { AICharacterManager } from './manager';

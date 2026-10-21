@@ -4,7 +4,10 @@ import { createServer, type Server } from 'node:http';
 import { AppError } from '../errors';
 import { asyncRoute } from './async-route';
 import { errorHandler } from './error-handler';
-import { managementBody, managementErrors } from './management-http';
+import {
+  managementBody,
+  managementErrors,
+} from '../../modules/management/http';
 
 let server: Server;
 let url: string;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CommandRouter } from '../apps/server/src/common/command-router';
+import { CommandRouter } from '../apps/server/src/modules/management/command-router';
 import {
   ManagementError,
   MANAGEMENT_EVENTS_VERSION,

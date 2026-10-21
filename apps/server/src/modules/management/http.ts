@@ -1,9 +1,9 @@
-import { publicError } from '../management-error';
+import { publicError } from './errors';
 import express, { type RequestHandler } from 'express';
 import { identifier } from '@voxel/shared/management';
-import { AppError } from '../errors';
-import { requireJsonRequest } from './require-json';
-import { errorHandler } from './error-handler';
+import { AppError } from '../../common/errors';
+import { requireJsonRequest } from '../../common/middleware/require-json';
+import { errorHandler } from '../../common/middleware/error-handler';
 
 const validateIdempotencyKey: RequestHandler = (req, res, next) => {
   const key = req.header('Idempotency-Key');
