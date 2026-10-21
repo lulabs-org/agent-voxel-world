@@ -5,11 +5,9 @@ import { WorldChat } from '../chat/chat';
 import { AgentSpeech } from '../audio/tts/agent-speech';
 import type { VoiceServiceStore } from '../audio/tts/voice-services';
 import { PiperTts } from '../audio/tts/piper-tts';
-import {
-  createVoiceProvider,
-  type VoiceSession,
-  type VoiceProvider,
-} from '../audio/session';
+import { createVoiceProvider, type VoiceProvider } from '../audio/session';
+import { VoiceSessions } from '../audio/session/voice-sessions';
+import { createSpatialSignaling } from '../audio/spatial/signaling';
 import { WorldStore } from './store';
 import { Room, Client, ServerError } from '@colyseus/core';
 import { Avatar, WorldState } from './schema';
@@ -66,7 +64,14 @@ export class WorldRoom extends Room<WorldState> {
   private ownsActive = false;
   private voiceProvider!: VoiceProvider;
   private realtimeConfig: () => BailianConfig = () => env.readRealtime();
-  private voices = new Map<string, VoiceSession>();
+  private voices = new VoiceSessions(() => this.voiceProvider);
+  private spatialSignal = createSpatialSignaling(
+    (id) => this.state.players.get(id),
+    (recipient, signal) =>
+      this.clients
+        .find((c) => c.sessionId === recipient)
+        ?.send('spatial.signal', signal),
+  );
   private realtime = new RealtimeHub(
     (owner) => ({
       revision: () => this.state.revision,
@@ -184,44 +189,16 @@ export class WorldRoom extends Room<WorldState> {
         return;
       }
       if (type === 'voice.start') {
-        if (
-          typeof payload?.text !== 'string' ||
-          !payload.text.trim() ||
-          payload.text.length > 240
-        )
-          return this.reply(client, id, false, 'invalid-voice-input');
-        this.voices.get(client.sessionId)?.close();
-        this.voices.delete(client.sessionId);
-        let provider;
-        try {
-          if (
-            payload.provider !== undefined &&
-            typeof payload.provider !== 'string'
-          )
-            throw Error('无效语音方案。');
-          provider =
-            payload.provider === undefined
-              ? this.voiceProvider
-              : createVoiceProvider(payload.provider);
-        } catch (error) {
-          client.send('voice', {
-            requestId: id,
-            provider: payload.provider,
-            state: 'error',
-            turn: 0,
-            subtitle: error instanceof Error ? error.message : '语音配置错误。',
-          });
-          return this.reply(client, id, false, 'voice-provider-unavailable');
-        }
-        const voice = provider.create((event) =>
-          client.send('voice', { ...event, requestId: id }),
+        const error = this.voices.start(
+          client.sessionId,
+          id,
+          payload,
+          (event) => client.send('voice', event),
         );
-        this.voices.set(client.sessionId, voice);
-        voice.push({ kind: 'text', text: payload.text });
-        return this.reply(client, id, true);
+        return this.reply(client, id, error === undefined, error);
       }
       if (type === 'voice.interrupt') {
-        this.voices.get(client.sessionId)?.interrupt();
+        this.voices.interrupt(client.sessionId);
         return this.reply(client, id, true);
       }
       if (type === 'observe') {
@@ -256,52 +233,7 @@ export class WorldRoom extends Room<WorldState> {
         return this.reply(client, id, true);
       }
       if (type === 'spatial.signal') {
-        const source = this.state.players.get(client.sessionId),
-          target = this.state.players.get(payload?.to);
-        if (
-          !source?.connected ||
-          !target?.connected ||
-          source.id === target.id ||
-          source.kind !== 'human' ||
-          target.kind !== 'human' ||
-          !(source.voiceSending || source.voiceListening) ||
-          !(target.voiceSending || target.voiceListening)
-        )
-          return;
-        const description = payload?.description,
-          candidate = payload?.candidate;
-        if (
-          description &&
-          ['offer', 'answer'].includes(description.type) &&
-          typeof description.sdp === 'string' &&
-          description.sdp.length <= 12000
-        )
-          this.clients
-            .find((c) => c.sessionId === target.id)
-            ?.send('spatial.signal', {
-              from: source.id,
-              description: { type: description.type, sdp: description.sdp },
-            });
-        else if (
-          candidate &&
-          typeof candidate.candidate === 'string' &&
-          candidate.candidate.length <= 2000 &&
-          (candidate.sdpMid === null ||
-            (typeof candidate.sdpMid === 'string' &&
-              candidate.sdpMid.length < 100)) &&
-          (candidate.sdpMLineIndex === null ||
-            Number.isInteger(candidate.sdpMLineIndex))
-        )
-          this.clients
-            .find((c) => c.sessionId === target.id)
-            ?.send('spatial.signal', {
-              from: source.id,
-              candidate: {
-                candidate: candidate.candidate,
-                sdpMid: candidate.sdpMid,
-                sdpMLineIndex: candidate.sdpMLineIndex,
-              },
-            });
+        this.spatialSignal(client.sessionId, payload);
         return;
       }
       if (type === 'edit') {
@@ -418,8 +350,7 @@ export class WorldRoom extends Room<WorldState> {
     if (!this.state.players.has(client.sessionId)) return;
     this.realtime.close(client.sessionId);
     this.agentSpeech.cancel(client.sessionId);
-    this.voices.get(client.sessionId)?.close();
-    this.voices.delete(client.sessionId);
+    this.voices.close(client.sessionId);
     const p = this.state.players.get(client.sessionId);
     this.chat.revoke(client.sessionId);
     if (p) {
@@ -451,8 +382,7 @@ export class WorldRoom extends Room<WorldState> {
     this.releaseVoiceServices?.();
     this.realtime.dispose();
     this.agentSpeech.close();
-    for (const voice of this.voices.values()) voice.close();
-    this.voices.clear();
+    this.voices.dispose();
     this.chat.clear();
     await this.queue;
     await this.store?.close();
