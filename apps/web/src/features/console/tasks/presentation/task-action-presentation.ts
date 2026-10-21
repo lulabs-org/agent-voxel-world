@@ -1,4 +1,5 @@
 import type { TaskRun } from '@voxel/shared';
+import { i18n } from '../../../../i18n';
 
 type RecordedAction = NonNullable<TaskRun['actions']>[number];
 const object = (value: unknown): Record<string, unknown> =>
@@ -23,16 +24,19 @@ export function presentAction(entry: RecordedAction) {
   const title =
     (
       {
-        wait: '等待',
-        move: '移动',
-        goto: '前往',
-        follow: '持续跟随',
-        move_to: '前往',
-        chat: '发送消息',
-        edit: action.material === null ? '拆除方块' : '放置方块',
-        house: '建造房屋',
-        build: '批量建造',
-        observe: '观察',
+        wait: i18n.t('console.actions.wait'),
+        move: i18n.t('console.actions.move'),
+        goto: i18n.t('console.actions.goto'),
+        follow: i18n.t('console.actions.follow'),
+        move_to: i18n.t('console.actions.moveTo'),
+        chat: i18n.t('console.actions.chat'),
+        edit:
+          action.material === null
+            ? i18n.t('console.actions.destroyBlock')
+            : i18n.t('console.actions.placeBlock'),
+        house: i18n.t('console.actions.buildHouse'),
+        build: i18n.t('console.actions.batchBuild'),
+        observe: i18n.t('console.actions.observe'),
       } as Record<string, string>
     )[entry.kind] ?? entry.kind;
   const parts: string[] = [];
@@ -47,43 +51,58 @@ export function presentAction(entry: RecordedAction) {
       ]
         .filter(Boolean)
         .join(' / ');
-      parts.push(direction ? `方向 ${direction}` : '原地');
+      parts.push(
+        direction
+          ? i18n.t('console.actions.direction', { dir: direction })
+          : i18n.t('console.actions.stationary'),
+      );
     }
-    if (action.jump === true) parts.push('跳跃');
-    if (duration !== undefined) parts.push(`${duration / 1000} 秒`);
+    if (action.jump === true) parts.push(i18n.t('console.actions.jump'));
+    if (duration !== undefined)
+      parts.push(i18n.t('console.actions.seconds', { sec: duration / 1000 }));
   } else if (entry.kind === 'follow') {
     if (typeof action.playerId === 'string')
-      parts.push(`目标 ${action.playerId}`);
+      parts.push(i18n.t('console.actions.target', { id: action.playerId }));
     if (number(action.distance) !== undefined)
-      parts.push(`保持 ${action.distance} 格`);
+      parts.push(
+        i18n.t('console.actions.keepDistance', { dist: action.distance }),
+      );
   } else if (['edit', 'house', 'move_to', 'goto'].includes(entry.kind)) {
     if ([action.x, action.y, action.z].every((v) => number(v) !== undefined))
-      parts.push(`位置 (${action.x}, ${action.y}, ${action.z})`);
+      parts.push(
+        i18n.t('console.actions.position', {
+          x: action.x,
+          y: action.y,
+          z: action.z,
+        }),
+      );
     if (typeof action.material === 'string')
-      parts.push(`材质 ${action.material}`);
+      parts.push(i18n.t('console.actions.material', { mat: action.material }));
   } else if (entry.kind === 'build' && Array.isArray(action.blocks)) {
-    parts.push(`${action.blocks.length} 个方块操作`);
+    parts.push(
+      i18n.t('console.actions.blockCount', { count: action.blocks.length }),
+    );
   }
   const feedback = [result.error, result.note]
     .filter((v): v is string => typeof v === 'string' && !!v.trim())
     .join(' · ');
   const status =
     entry.status === 'succeeded' && entry.kind === 'follow'
-      ? '跟随已启动'
+      ? i18n.t('console.actions.statusFollowStarted')
       : entry.status === 'succeeded' &&
           entry.kind === 'goto' &&
           result.status === 'arrived'
-        ? '已到达'
+        ? i18n.t('console.actions.statusArrived')
         : entry.status === 'succeeded' && entry.kind === 'move'
-          ? '指令已发送'
+          ? i18n.t('console.actions.statusCommandSent')
           : ((
               {
-                pending: '未开始',
-                executing: '执行中',
-                succeeded: '执行成功',
-                failed: '失败',
-                interrupted: '已中断',
-                unknown: '结果待确认',
+                pending: i18n.t('console.actions.statusPending'),
+                executing: i18n.t('console.actions.statusExecuting'),
+                succeeded: i18n.t('console.actions.statusSucceeded'),
+                failed: i18n.t('console.actions.statusFailed'),
+                interrupted: i18n.t('console.actions.statusInterrupted'),
+                unknown: i18n.t('console.actions.statusUnknown'),
               } as Record<string, string>
             )[entry.status] ?? entry.status);
   const tone =

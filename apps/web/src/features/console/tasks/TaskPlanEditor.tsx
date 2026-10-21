@@ -7,6 +7,7 @@ import {
   type AICharacterView,
 } from '@voxel/shared';
 import { useState } from 'react';
+import { useI18n } from '../../../i18n/context';
 import { TaskLimitSettings } from './TaskLimitSettings';
 
 const dateInput = (at: number, zone: string) => {
@@ -22,10 +23,11 @@ const dateInput = (at: number, zone: string) => {
   const p = (type: string) => parts.find((p) => p.type === type)?.value;
   return `${p('year')}-${p('month')}-${p('day')}T${p('hour')}:${p('minute')}`;
 };
+
 export function TaskPlanEditor({
   plan,
   busy,
-  blocked,
+  blocked: _blocked,
   onSave,
   onCancel,
   characters,
@@ -41,6 +43,7 @@ export function TaskPlanEditor({
   ) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const [characterId, setCharacterId] = useState(plan?.characterId ?? '');
   const [requestId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<TaskPlanDraft>(
@@ -69,13 +72,24 @@ export function TaskPlanEditor({
   const [error, setError] = useState('');
   const repeating = isRepeating(draft.timing);
   const target = characters.find((a) => a.id === characterId);
-  blocked = !target
-    ? '请选择执行角色'
+  const blocked = !target
+    ? t('console.plans.reassignTitle')
     : !target.sessionId
-      ? '角色尚未上线'
+      ? t('console.characters.filterOffline')
       : ['joining', 'stopping'].includes(target.status)
-        ? '角色正在上线或下线'
+        ? t('console.characters.bannerTransitioning')
         : '';
+
+  const weekdayNames = [
+    t('console.plans.weekdaySun'),
+    t('console.plans.weekdayMon'),
+    t('console.plans.weekdayTue'),
+    t('console.plans.weekdayWed'),
+    t('console.plans.weekdayThu'),
+    t('console.plans.weekdayFri'),
+    t('console.plans.weekdaySat'),
+  ];
+
   return (
     <form
       className="agent-form task-plan-editor"
@@ -99,7 +113,7 @@ export function TaskPlanEditor({
                 ? wallClockInstant(date, time, draft.timeZone)
                 : undefined;
             if (instant === undefined) {
-              setError('该日期或时间在此时区不存在，请重新选择。');
+              setError(t('console.plans.editorSubtitle'));
               return;
             }
             timing = { kind: 'once', at: instant };
@@ -111,11 +125,11 @@ export function TaskPlanEditor({
       <div className="console-panel-heading plans-editor-heading">
         <div className="plans-editor-heading-row">
           <div>
-            <h3>{plan ? '编辑任务计划' : '新建任务计划'}</h3>
-            <p>配置任务目标、执行角色、触发方式与资源限制。</p>
+            <h3>{plan ? t('console.plans.editorTitleEdit') : t('console.plans.editorTitleNew')}</h3>
+            <p>{t('console.plans.editorSubtitle')}</p>
           </div>
           <button type="button" onClick={onCancel} disabled={busy}>
-            返回
+            {t('common.back')}
           </button>
         </div>
       </div>
@@ -124,55 +138,55 @@ export function TaskPlanEditor({
           className="characters-form-section"
           style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}
         >
-          <h4>基本目标</h4>
+          <h4>{t('console.plans.sectionBasic')}</h4>
           <div className="agent-grid">
             <label>
-              执行角色
+              {t('console.plans.fieldCharacter')}
               <select
                 required={!plan}
                 disabled={!!plan}
                 value={characterId}
                 onChange={(e) => setCharacterId(e.target.value)}
               >
-                <option value="">{plan ? '待指派' : '请选择执行角色'}</option>
+                <option value="">{plan ? t('console.plans.boundCharacter') : t('console.plans.selectCharacterPlaceholder')}</option>
                 {characters.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
-                    {!a.sessionId ? ' · 离线' : ''}
+                    {!a.sessionId ? t('console.plans.charOffline') : ''}
                   </option>
                 ))}
               </select>
             </label>
             <label>
-              计划名称
+              {t('console.plans.fieldName')}
               <input
                 required
                 maxLength={80}
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                placeholder="例如：巡查营地"
+                placeholder={t('console.plans.namePlaceholder')}
               />
             </label>
           </div>
           <p className="agent-hint">
-            未来计划允许选择离线角色；到期仍离线会跳过。改派请在计划详情操作。
+            {t('console.plans.offlineAllowedNote')}
           </p>
           <label>
-            目标与完成条件
+            {t('console.plans.fieldGoal')}
             <textarea
               required
               maxLength={2000}
               rows={3}
               value={draft.goal}
               onChange={(e) => setDraft({ ...draft, goal: e.target.value })}
-              placeholder="例如：查看营地附近三处建筑，汇报位置和变化后结束本次执行。"
+              placeholder={t('console.plans.goalPlaceholder')}
             />
           </label>
         </div>
         <div className="characters-form-section">
-          <h4>调度与触发</h4>
+          <h4>{t('console.plans.sectionSchedule')}</h4>
           <label>
-            执行方式
+            {t('console.plans.fieldScheduleKind')}
             <select
               value={draft.timing.kind}
               onChange={(e) => {
@@ -193,16 +207,16 @@ export function TaskPlanEditor({
                 if (kind === 'interval') setIntervalUnit(3600000);
               }}
             >
-              <option value="immediate">立即执行一次</option>
-              <option value="once">指定时间执行一次</option>
-              <option value="interval">重复 · 固定间隔</option>
-              <option value="daily">重复 · 每天</option>
-              <option value="weekly">重复 · 每周</option>
+              <option value="immediate">{t('console.plans.timingImmediate')}</option>
+              <option value="once">{t('console.plans.timingOnce')}</option>
+              <option value="interval">{t('console.plans.timingInterval')}</option>
+              <option value="daily">{t('console.plans.timingDaily')}</option>
+              <option value="weekly">{t('console.plans.timingWeekly')}</option>
             </select>
           </label>
           {draft.timing.kind === 'once' && (
             <label>
-              执行日期和时间
+              {t('console.plans.fieldDateTime')}
               <input
                 type="datetime-local"
                 name="executeAt"
@@ -215,7 +229,7 @@ export function TaskPlanEditor({
           {draft.timing.kind === 'interval' && (
             <div className="agent-grid">
               <label>
-                每隔
+                {t('console.plans.fieldEvery')}
                 <input
                   type="number"
                   min={1}
@@ -234,7 +248,7 @@ export function TaskPlanEditor({
                 />
               </label>
               <label>
-                间隔单位
+                {t('console.plans.fieldUnit')}
                 <select
                   value={intervalUnit}
                   onChange={(e) => {
@@ -252,8 +266,8 @@ export function TaskPlanEditor({
                     });
                   }}
                 >
-                  <option value={60000}>分钟</option>
-                  <option value={3600000}>小时</option>
+                  <option value={60000}>{t('console.plans.unitMinutes')}</option>
+                  <option value={3600000}>{t('console.plans.unitHours')}</option>
                 </select>
               </label>
             </div>
@@ -261,7 +275,7 @@ export function TaskPlanEditor({
           {(draft.timing.kind === 'daily' ||
             draft.timing.kind === 'weekly') && (
             <label>
-              执行时间
+              {t('console.plans.fieldTime')}
               <input
                 type="time"
                 name="calendarTime"
@@ -283,7 +297,7 @@ export function TaskPlanEditor({
             <div
               className="plans-weekday-chips task-weekdays"
               role="group"
-              aria-label="执行星期"
+              aria-label={t('console.plans.fieldWeekdaysAria')}
             >
               {[1, 2, 3, 4, 5, 6, 0].map((day) => (
                 <label key={day}>
@@ -306,23 +320,23 @@ export function TaskPlanEditor({
                         });
                     }}
                   />
-                  周{'日一二三四五六'[day]}
+                  {weekdayNames[day]}
                 </label>
               ))}
             </div>
           )}
           <p className="agent-hint">
-            时区：{draft.timeZone}
+            {t('console.plans.timeZoneLabel', { tz: draft.timeZone })}
             {draft.timing.kind === 'interval'
-              ? ' · 以创建时刻为起点，首次在一个间隔后执行。'
+              ? t('console.plans.intervalStartHint')
               : ''}
             {repeating
-              ? ' 忙碌时排队，同一计划最多一个待执行项；离线错过不补跑。'
+              ? t('console.plans.queuePolicyHint')
               : ''}
           </p>
         </div>
         <div className="characters-form-section">
-          <h4>执行限制与资源预算</h4>
+          <h4>{t('console.plans.sectionLimits')}</h4>
           <label>
             <input
               type="checkbox"
@@ -334,10 +348,10 @@ export function TaskPlanEditor({
                 })
               }
             />
-            使用角色默认执行额度
+            {t('console.plans.inheritDefaultLimits')}
           </label>
           {draft.limitsMode === 'inherit' && (
-            <p className="agent-hint">开始执行时读取角色默认额度并保存快照。</p>
+            <p className="agent-hint">{t('console.plans.inheritSnapshotHint')}</p>
           )}
           {draft.limitsMode !== 'inherit' && (
             <>
@@ -349,7 +363,7 @@ export function TaskPlanEditor({
           )}
           {repeating && (
             <label style={{ marginTop: 14 }}>
-              计划累计 token 额度
+              {t('console.plans.totalBudgetField')}
               <input
                 type="number"
                 required
@@ -363,18 +377,18 @@ export function TaskPlanEditor({
                   })
                 }
               />
-              <small>所有执行（含手动执行）共用此额度，用尽后暂停计划。</small>
+              <small>{t('console.plans.totalBudgetHint')}</small>
             </label>
           )}
 
           {plan && (
             <p className="agent-hint">
-              仅影响未来执行。已有执行的目标、进度和额度保持原样。
+              {t('console.plans.limitsFutureOnly')}
             </p>
           )}
           {!plan && draft.timing.kind === 'immediate' && blocked && (
             <p role="status" className="agent-hint">
-              {blocked}，可以先保存一个定时安排。
+              {t('console.plans.blockedCannotRun', { reason: blocked })}
             </p>
           )}
           {error && (
@@ -389,12 +403,12 @@ export function TaskPlanEditor({
             disabled={!plan && draft.timing.kind === 'immediate' && !!blocked}
           >
             {busy
-              ? '保存中…'
+              ? t('console.characters.saving')
               : plan
-                ? '保存安排'
+                ? t('console.plans.saveScheduleButton')
                 : draft.timing.kind === 'immediate'
-                  ? '创建并执行'
-                  : '创建计划'}
+                  ? t('console.plans.createAndRunButton')
+                  : t('console.plans.createPlanButton')}
           </button>
         </div>
       </fieldset>

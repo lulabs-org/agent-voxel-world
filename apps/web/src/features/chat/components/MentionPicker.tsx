@@ -1,4 +1,6 @@
+import { useI18n } from '../../../i18n/context';
 import type { ChatController } from '../hooks/useChatController';
+
 type Props = Pick<
   ChatController,
   | 'connection'
@@ -14,6 +16,7 @@ type Props = Pick<
   | 'select'
   | 'onKey'
 >;
+
 export function MentionPicker({
   connection,
   scope,
@@ -28,15 +31,20 @@ export function MentionPicker({
   select,
   onKey,
 }: Props) {
+  const { t } = useI18n();
   if (!picker) return null;
   return (
     <div className="mention-picker">
       <div className="mention-heading">
-        <strong>{scope === 'private' ? '选择私聊对象' : '想提醒谁？'}</strong>
-        <small>{recipients.length}/8 已选</small>
+        <strong>
+          {scope === 'private'
+            ? t('chat.mentionTitlePrivate')
+            : t('chat.mentionTitlePublic')}
+        </strong>
+        <small>{t('chat.mentionSelectedCount', { count: recipients.length })}</small>
         <button
           type="button"
-          aria-label="关闭选人列表"
+          aria-label={t('chat.closeMentionAria')}
           onClick={() => {
             setPicker(null);
             input.current?.focus();
@@ -49,7 +57,7 @@ export function MentionPicker({
         <input
           ref={search}
           className="mention-search"
-          aria-label="搜索玩家或 Agent"
+          aria-label={t('chat.searchMentionAria')}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={true}
@@ -59,7 +67,7 @@ export function MentionPicker({
               ? `mention-${candidates[activeChoice].id}`
               : undefined
           }
-          placeholder="搜索玩家或 Agent…"
+          placeholder={t('chat.searchMentionPlaceholder')}
           value={picker.query}
           onKeyDown={onKey}
           onChange={(e) => {
@@ -72,7 +80,7 @@ export function MentionPicker({
         id="chat-mentions"
         className="mention-list"
         role="listbox"
-        aria-label="选择接收者"
+        aria-label={t('chat.selectRecipientAria')}
       >
         {candidates.length ? (
           candidates.map((p, i) => (
@@ -94,7 +102,8 @@ export function MentionPicker({
               <span className="mention-name">
                 {p.name}
                 <small>
-                  {p.kind === 'human' ? '玩家' : 'Agent'} · 在线
+                  {p.kind === 'human' ? t('worldPanel.player') : t('avatar.agent')} ·{' '}
+                  {t('chat.onlineTag')}
                   {connection.players.filter((other) => other.name === p.name)
                     .length > 1
                     ? ` · ${p.id.slice(-4)}`
@@ -109,13 +118,13 @@ export function MentionPicker({
         ) : (
           <p className="mention-empty">
             {picker.query.trim()
-              ? '没有找到匹配的玩家或 Agent'
-              : '没有其他可选的在线玩家'}
-            <small>关闭列表后，可点击标签上的 × 移除已选对象。</small>
+              ? t('chat.noMatchFound')
+              : t('chat.noOnlineUsers')}
+            <small>{t('chat.removeRecipientHint')}</small>
           </p>
         )}
       </div>
-      <div className="mention-hint">↑ ↓ 选择 · Enter 确认 · Esc 关闭</div>
+      <div className="mention-hint">{t('chat.mentionKeyboardHint')}</div>
     </div>
   );
 }

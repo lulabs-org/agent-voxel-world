@@ -117,7 +117,7 @@ export function ControlConsole({
             {gatewayFailure}
           </p>
         )}
-        <nav className="agent-tabs" aria-label="控制台分类">
+        <nav className="agent-tabs" aria-label={t('console.tabsAria')}>
           <button
             aria-pressed={tab === 'characters'}
             onClick={() => {

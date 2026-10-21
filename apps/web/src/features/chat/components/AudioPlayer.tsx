@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { audioDuration, audioProgress } from '../../../audio';
+import { useI18n } from '../../../i18n/context';
 
 const clock = (seconds: number) => {
   const total = Math.max(0, Math.floor(seconds));
@@ -11,10 +12,10 @@ export function AudioPlayer({
   loadSource,
   durationMs,
   busy = false,
-  label = '语音消息',
-  idleLabel = '点击播放',
-  playLabel = '播放语音',
-  pauseLabel = '暂停语音',
+  label: customLabel,
+  idleLabel: customIdleLabel,
+  playLabel: customPlayLabel,
+  pauseLabel: customPauseLabel,
   compact = false,
 }: {
   src?: string;
@@ -27,6 +28,12 @@ export function AudioPlayer({
   pauseLabel?: string;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
+  const label = customLabel ?? t('chat.voiceMessageDefault');
+  const idleLabel = customIdleLabel ?? t('chat.clickToPlay');
+  const playLabel = customPlayLabel ?? t('chat.audioPlay');
+  const pauseLabel = customPauseLabel ?? t('chat.audioPause');
+
   const audio = useRef<HTMLAudioElement>(null);
   const operation = useRef(0);
   const [playing, setPlaying] = useState(false);
@@ -92,7 +99,7 @@ export function AudioPlayer({
         setError(
           e instanceof Error && e.message
             ? e.message
-            : '暂时无法播放，请重试。',
+            : t('chat.playbackErrorRetry'),
         );
     } finally {
       if (audio.current === player) setLoading(false);
@@ -121,7 +128,7 @@ export function AudioPlayer({
         }}
         onError={() => {
           setPlaying(false);
-          setError('语音无法播放，请重试或重新录制。');
+          setError(t('chat.audioCorruptedError'));
         }}
       />
       {compact ? (
@@ -130,10 +137,10 @@ export function AudioPlayer({
           className={`audio-bubble${playing ? ' is-playing' : ''}`}
           style={{ width: `${Math.min(210, 94 + duration * 4)}px` }}
           aria-label={
-            loading ? '正在加载语音' : playing ? pauseLabel : playLabel
+            loading ? t('chat.loadingVoice') : playing ? pauseLabel : playLabel
           }
           aria-pressed={playing}
-          title={playing ? '点击暂停' : '点击播放'}
+          title={playing ? t('chat.clickToPause') : t('chat.clickToPlay')}
           disabled={busy || loading}
           onClick={() => void toggle()}
         >
@@ -153,7 +160,7 @@ export function AudioPlayer({
             <path className="wave-outer" d="M14 5a10 10 0 0 1 0 14" />
           </svg>
           <span>
-            {loading ? '加载中…' : `${Math.max(1, Math.ceil(duration))}″`}
+            {loading ? t('chat.loadingShort') : `${Math.max(1, Math.ceil(duration))}″`}
           </span>
         </button>
       ) : (
@@ -162,7 +169,7 @@ export function AudioPlayer({
             type="button"
             className="audio-play"
             aria-label={
-              loading ? '正在加载语音' : playing ? pauseLabel : playLabel
+              loading ? t('chat.loadingVoice') : playing ? pauseLabel : playLabel
             }
             disabled={busy || loading}
             onClick={() => void toggle()}
@@ -189,7 +196,7 @@ export function AudioPlayer({
               style={
                 { '--voice-progress': `${progress / 10}%` } as CSSProperties
               }
-              aria-label={`${label}进度`}
+              aria-label={t('chat.progressAria', { label })}
               aria-valuetext={`${clock(displayedTime)} / ${clock(duration)}`}
               min={0}
               max={1000}
@@ -209,11 +216,11 @@ export function AudioPlayer({
               </span>
               <span>
                 {loading
-                  ? '正在加载'
+                  ? t('chat.loadingVoice')
                   : playing
-                    ? '正在播放'
+                    ? t('chat.playingStatus')
                     : ended
-                      ? '播放完毕'
+                      ? t('chat.playEnded')
                       : idleLabel}
               </span>
             </div>

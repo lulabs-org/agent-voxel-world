@@ -1,4 +1,5 @@
 import type { TaskRun } from '@voxel/shared';
+import { useI18n } from '../../../i18n/context';
 import { presentAction } from './presentation/task-action-presentation';
 
 export function TaskActionList({
@@ -6,10 +7,14 @@ export function TaskActionList({
 }: {
   actions: TaskRun['actions'];
 }) {
+  const { t } = useI18n();
   return (
     <details className="task-action-records">
       <summary>
-        实际动作 <span className="task-action-count">{actions.length} 条</span>
+        {t('console.plans.actualActions')}{' '}
+        <span className="task-action-count">
+          {t('console.plans.actionCount', { count: actions.length })}
+        </span>
       </summary>
       {actions.length ? (
         <ol className="task-action-list">
@@ -39,7 +44,7 @@ export function TaskActionList({
                     <p className="task-action-feedback">{view.feedback}</p>
                   )}
                   <details className="task-action-raw">
-                    <summary>原始数据</summary>
+                    <summary>{t('console.plans.rawActionData')}</summary>
                     <pre>{view.raw}</pre>
                   </details>
                 </div>
@@ -48,7 +53,7 @@ export function TaskActionList({
           })}
         </ol>
       ) : (
-        <p className="task-action-empty">暂无动作记录</p>
+        <p className="task-action-empty">{t('console.plans.noActions')}</p>
       )}
     </details>
   );

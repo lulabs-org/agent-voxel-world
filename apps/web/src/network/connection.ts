@@ -13,6 +13,7 @@ import {
   type ChatEntry,
   type AgentSpeechEvent,
 } from '@voxel/shared';
+import { i18n } from '../i18n';
 export class Connection {
   room?: Room;
   blocks = new Map<string, Block>();
@@ -208,7 +209,7 @@ export class Connection {
         this.status = 'disconnected';
         this.onVoice({
           state: 'interrupted',
-          subtitle: '连接中断，语音会话已停止。',
+          subtitle: i18n.t('voice.sessionInterrupted'),
         });
         this.onChange();
         this.retry = setTimeout(() => {
@@ -271,7 +272,7 @@ export class Connection {
     sessionStorage.removeItem('voxel-name');
     this.onVoice({
       state: 'idle',
-      subtitle: '已退出游戏，录音、识别和朗读已停止。',
+      subtitle: i18n.t('voice.sessionExited'),
     });
     this.onChange();
     if (room) void room.leave(true).catch(() => room.connection.close());

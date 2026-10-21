@@ -1,5 +1,6 @@
 import type { Player } from '@voxel/shared';
 import * as THREE from 'three';
+import { i18n } from '../../i18n';
 
 /** A camera-facing label that still respects walls and terrain depth. */
 export class AvatarNameplate extends THREE.Sprite {
@@ -15,7 +16,7 @@ export class AvatarNameplate extends THREE.Sprite {
   }
 
   update(player: Pick<Player, 'name' | 'kind'>, distance: number) {
-    const identity = JSON.stringify([player.name, player.kind]);
+    const identity = JSON.stringify([player.name, player.kind, i18n.language]);
     if (identity !== this.identity) {
       this.identity = identity;
       this.draw(player);
@@ -32,17 +33,19 @@ export class AvatarNameplate extends THREE.Sprite {
     if (!context) return;
     const agent =
       player.kind === 'ai-agent' || player.kind === 'scripted-agent';
-    const badge = agent ? 'Agent' : '玩家';
+    const badge = agent ? i18n.t('avatar.agent') : i18n.t('avatar.player');
     const font = '600 16px system-ui, sans-serif';
     context.font = font;
-    let name = player.name.trim() || (agent ? 'Agent' : '玩家');
+    let name = player.name.trim() || (agent ? i18n.t('avatar.agent') : i18n.t('avatar.player'));
     const characters = Array.from(name);
     while (context.measureText(name).width > 180 && characters.length > 1) {
       characters.pop();
       name = `${characters.join('')}…`;
     }
     const nameWidth = Math.ceil(context.measureText(name).width);
-    const badgeWidth = agent ? 42 : 34;
+    context.font = '600 11px system-ui, sans-serif';
+    const badgeTextWidth = Math.ceil(context.measureText(badge).width);
+    const badgeWidth = Math.max(agent ? 42 : 34, badgeTextWidth + 12);
     const width = nameWidth + badgeWidth + 34;
     const height = 36;
     this.canvas.width = width * 2;

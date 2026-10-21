@@ -1,11 +1,15 @@
+import { useI18n } from '../../i18n';
+
 export function ConsoleHelp() {
+  const { t } = useI18n();
+
   return (
     <>
       <button
         type="button"
         className="console-help-trigger"
-        aria-label="控制台帮助"
-        title="控制台帮助"
+        aria-label={t('console.help.triggerTitle')}
+        title={t('console.help.triggerTitle')}
         popoverTarget="console-help"
       >
         <svg
@@ -29,42 +33,28 @@ export function ConsoleHelp() {
         aria-labelledby="console-help-title"
       >
         <div className="console-help-heading">
-          <h3 id="console-help-title">控制台帮助</h3>
+          <h3 id="console-help-title">{t('console.help.title')}</h3>
           <button
             type="button"
-            aria-label="关闭帮助"
+            aria-label={t('common.close')}
             popoverTarget="console-help"
             popoverTargetAction="hide"
           >
-            关闭 ×
+            {t('console.help.close')}
           </button>
         </div>
-        <h4>AI 角色</h4>
-        <p>
-          安排任务，查看进展，和 AI 角色一起探索与搭建。在 AI
-          角色设置中定义身份、职责与能力，在一级任务计划页集中安排具体任务。
-        </p>
-        <h4>任务计划与执行</h4>
-        <p>
-          支持立即执行、指定时间执行和重复执行。每次执行可包含多轮规划；长期建造目标使用一次性任务，暂停后继续已有进度。重复计划每次独立执行。
-        </p>
-        <p>
-          暂停计划只阻止未来触发。执行异常或额度耗尽时，计划也会暂停，处理后须手动恢复。忙碌、离线或服务关闭期间错过的触发不补跑。
-        </p>
-        <p>
-          日历安排按创建时保存的时区执行。夏令时缺失时间跳过，重复时间仅执行第一次。关闭浏览器不影响服务端调度；世界服务必须保持运行。
-        </p>
-        <h4>模型服务</h4>
-        <p>保存模型与接口配置，在创建或编辑 AI 角色时选择使用。</p>
-        <h4>文本转语音（TTS）</h4>
-        <p>
-          将回复文字合成为声音。保存音色配置、试听效果，在创建或编辑 AI 角色
-          时选择使用。
-        </p>
-        <h4>语音识别（ASR）</h4>
-        <p>
-          边说边查看临时字幕，停顿后自动确认整句。临时字幕会随后续语音修正。
-        </p>
+        <h4>{t('console.help.charactersTitle')}</h4>
+        <p>{t('console.help.charactersDesc')}</p>
+        <h4>{t('console.help.plansTitle')}</h4>
+        <p>{t('console.help.plansDesc1')}</p>
+        <p>{t('console.help.plansDesc2')}</p>
+        <p>{t('console.help.plansDesc3')}</p>
+        <h4>{t('console.help.providersTitle')}</h4>
+        <p>{t('console.help.providersDesc')}</p>
+        <h4>{t('console.help.ttsTitle')}</h4>
+        <p>{t('console.help.ttsDesc')}</p>
+        <h4>{t('console.help.asrTitle')}</h4>
+        <p>{t('console.help.asrDesc')}</p>
       </section>
     </>
   );

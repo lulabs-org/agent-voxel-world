@@ -1,5 +1,6 @@
 import type { AICharacterView, TaskLimits } from '@voxel/shared';
 import { useState } from 'react';
+import { useI18n } from '../../../i18n/context';
 import { displayedTaskIdentity, controlTaskRun } from '../execution/api';
 import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 
@@ -12,6 +13,7 @@ export function CurrentTaskBudget({
   disabled: boolean;
   onUpdated: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const execution = job.taskExecution;
   const task = job.task;
   const [draft, setDraft] = useState<{
@@ -46,52 +48,63 @@ export function CurrentTaskBudget({
       setDraft(undefined);
       await onUpdated();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '操作失败，请重试。');
+      setError(cause instanceof Error ? cause.message : t('console.characters.operationFailed'));
     } finally {
       setBusy(false);
     }
   };
+  const sourceLabel =
+    execution.source === 'chat'
+      ? t('console.characters.taskSourceChat')
+      : execution.source === 'scheduled'
+        ? t('console.characters.taskSourceScheduled')
+        : t('console.characters.taskSourceManual');
+
   return (
-    <section className="agents-progress" aria-label="当前任务预算">
-      <h4>当前任务：{task.goal}</h4>
+    <section className="agents-progress" aria-label={t('console.characters.currentTaskAria')}>
+      <h4>{t('console.characters.currentTaskGoal', { goal: task.goal })}</h4>
       <p className="agent-hint">
-        来源：
-        {execution.source === 'chat'
-          ? '玩家聊天'
-          : execution.source === 'scheduled'
-            ? '定时计划'
-            : '手动安排'}
+        {t('console.characters.taskSource', { source: sourceLabel })}
         {execution.action
-          ? ` · 动作：${({ house: '建房', build: '建造', goto: '移动', follow: '跟随' } as Record<string, string>)[execution.action.name] ?? execution.action.name}（${({ running: '执行中', completed: '已完成', failed: '失败', unknown: '待确认', paused: '已暂停', cancelled: '已取消' } as Record<string, string>)[execution.action.status] ?? execution.action.status}）`
+          ? ` · ${execution.action.name} (${execution.action.status})`
           : ''}
       </p>
       {task.reason && <p role="status">{task.reason}</p>}
       <dl className="plans-run-stats task-run-usage">
         <div>
-          <dt>模型调用</dt>
+          <dt>{t('console.characters.statTurns')}</dt>
           <dd>
-            {task.calls} / {limited ? execution.limits.maxTurns : '不限'} 次
+            {t('console.characters.turnsValue', {
+              calls: task.calls,
+              limit: limited ? execution.limits.maxTurns : t('console.characters.unlimited'),
+            })}
           </dd>
         </div>
         <div>
-          <dt>tokens{task.estimated ? '（估算）' : ''}</dt>
+          <dt>
+            {t('console.characters.statTokens', {
+              estimated: task.estimated ? t('console.characters.statEstimatedTag') : '',
+            })}
+          </dt>
           <dd>
             {task.tokens.toLocaleString()} /{' '}
-            {limited ? execution.limits.tokenBudget.toLocaleString() : '不限'}
+            {limited ? execution.limits.tokenBudget.toLocaleString() : t('console.characters.unlimited')}
           </dd>
         </div>
         <div>
-          <dt>有效执行时间</dt>
+          <dt>{t('console.characters.statDuration')}</dt>
           <dd>
-            {Math.round(task.elapsedMs / 1000)} 秒 /{' '}
-            {limited
-              ? `${execution.limits.taskTimeoutMs / 60000} 分钟`
-              : '不限'}
+            {t('console.characters.durationValue', {
+              elapsed: Math.round(task.elapsedMs / 1000),
+              limit: limited
+                ? t('console.characters.minutesUnit', { min: execution.limits.taskTimeoutMs / 60000 })
+                : t('console.characters.unlimited'),
+            })}
           </dd>
         </div>
       </dl>
       <p className="agent-hint">
-        以上为本次任务用量，继续时不会清零。新任务使用角色默认额度，也可在计划中覆盖。
+        {t('console.characters.currentBudgetHint')}
       </p>
       {!['completed', 'cancelled'].includes(task.status) && (
         <div className="agents-actions">
@@ -100,14 +113,14 @@ export function CurrentTaskBudget({
               disabled={disabled || busy || offline}
               onClick={() => void control('pause')}
             >
-              暂停当前任务
+              {t('console.characters.pauseCurrentTask')}
             </button>
           )}
           <button
             disabled={disabled || busy || offline}
             onClick={() => void control('cancel')}
           >
-            取消当前任务
+            {t('console.characters.cancelCurrentTask')}
           </button>
         </div>
       )}
@@ -122,15 +135,17 @@ export function CurrentTaskBudget({
             });
           }}
         >
-          {limited ? '调整预算并继续' : '继续本次任务'}
+          {limited
+            ? t('console.characters.adjustBudgetAndResume')
+            : t('console.characters.resumeCurrentTask')}
         </button>
       )}
       {resumable && offline && (
-        <p className="agent-hint">请先上线 AI 角色，再继续任务。</p>
+        <p className="agent-hint">{t('console.characters.offlineResumeHint')}</p>
       )}
       {job.taskRequiresReassignment && (
         <p className="agent-error">
-          原私聊会话已失效，请重新通过聊天发起任务。
+          {t('console.characters.staleChatSessionError')}
         </p>
       )}
       {draft && resumable && (
@@ -146,9 +161,7 @@ export function CurrentTaskBudget({
                   limits.tokenBudget <= task.tokens ||
                   limits.taskTimeoutMs <= task.elapsedMs)
               ) {
-                setError(
-                  '各项总额度必须高于本次任务的已用量，请调整后再继续。',
-                );
+                setError(t('console.characters.budgetLowerThanUsedError'));
                 return;
               }
               setBusy(true);
@@ -166,7 +179,7 @@ export function CurrentTaskBudget({
                 setError(
                   cause instanceof Error
                     ? cause.message
-                    : '继续任务失败，请重试。',
+                    : t('console.characters.resumeFailed'),
                 );
               } finally {
                 setBusy(false);
@@ -174,9 +187,7 @@ export function CurrentTaskBudget({
             })();
           }}
         >
-          <p>
-            填写本次任务的总额度（含已用量），确认后保留已有进度并继续执行。
-          </p>
+          <p>{t('console.characters.resumePrompt')}</p>
           <fieldset disabled={blocked}>
             {limited && (
               <TaskBudgetFields
@@ -187,7 +198,7 @@ export function CurrentTaskBudget({
               />
             )}
             <div className="agents-actions">
-              <button className="primary">确认并继续</button>
+              <button className="primary">{t('console.characters.confirmAndResume')}</button>
               <button
                 type="button"
                 onClick={() => {
@@ -195,7 +206,7 @@ export function CurrentTaskBudget({
                   setError('');
                 }}
               >
-                取消
+                {t('common.cancel')}
               </button>
             </div>
           </fieldset>
