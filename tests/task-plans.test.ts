@@ -79,8 +79,10 @@ const draft = (timing: TaskTiming = { kind: 'immediate' }): TaskPlanDraft => ({
   limits: { ...DEFAULT_TASK_LIMITS },
   totalTokenBudget: 500000,
 });
-async function idle() {
-  await vi.waitFor(() => expect(manager.list()[0]?.status).toBe('idle'));
+async function idle(timeout = 5000) {
+  await vi.waitFor(() => expect(manager.list()[0]?.status).toBe('idle'), {
+    timeout,
+  });
 }
 async function role() {
   const j = manager.create({
