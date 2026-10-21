@@ -1,8 +1,8 @@
-import { asyncRoute } from '../../../common/middleware/async-route';
+import { asyncRoute } from '../../../http/middleware/async-route';
 import cors from 'cors';
 import { env } from '../../../config/env';
-import { createOriginGuard } from '../../../common/middleware/origin-guard';
-import { errorHandler } from '../../../common/middleware/error-handler';
+import { createOriginGuard } from '../../../http/middleware/origin-guard';
+import { errorHandler } from '../../../http/middleware/error-handler';
 import { AsrSettingsStore } from './asr-settings';
 import express, { type Express } from 'express';
 import { LocalSpeech } from './local-speech';

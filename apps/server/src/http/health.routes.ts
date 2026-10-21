@@ -1,6 +1,10 @@
 import { env, type ServerConfig } from '../config/env';
 import type { Express } from 'express';
 
+export type HealthConfig = Pick<ServerConfig, 'databaseUrl'> & {
+  voice: Pick<ServerConfig['voice'], 'provider' | 'ollamaModel'>;
+};
+
 /**
  * @openapi
  * /health:
@@ -36,7 +40,7 @@ import type { Express } from 'express';
  */
 export function installHealthRoutes(
   app: Express,
-  config: ServerConfig = env.readServer(),
+  config: HealthConfig = env.readServer(),
 ) {
   app.get('/health', (_req, res) =>
     res.json({

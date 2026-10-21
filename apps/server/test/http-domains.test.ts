@@ -55,6 +55,7 @@ it('assembles public audio endpoints separately from protected management routes
     });
     const spec = await (await fetch(server.httpUrl + '/api-docs.json')).json();
     for (const [path, method] of [
+      ['/health', 'get'],
       ['/voice/capabilities', 'get'],
       ['/voice/transcribe', 'post'],
       ['/voice/asr/services', 'get'],
@@ -130,6 +131,20 @@ it('protects each management domain and retains transport policies after path mi
         });
         expect(invalidKey.status, path).toBe(400);
       }
+      const unauthenticatedJson = await fetch(url, {
+        method: 'POST',
+        headers: { Origin: origin, 'Content-Type': 'application/json' },
+        body: '{',
+      });
+      expect(unauthenticatedJson.status, path).toBe(401);
+      const deniedPreflight = await fetch(url, {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://foreign.test' },
+      });
+      expect(deniedPreflight.status, path).toBe(403);
+      expect(
+        deniedPreflight.headers.get('access-control-allow-origin'),
+      ).toBeNull();
     }
     for (const path of [
       '/ai-characters',
@@ -166,7 +181,8 @@ it('protects each management domain and retains transport policies after path mi
 });
 
 it('routes resource IDs and request bodies to their owning domain without old Agent aliases', async () => {
-  const server = await createTestServer({ origin });
+  const models = vi.fn(async () => ['fixture-model']);
+  const server = await createTestServer({ origin, modelQuery: models });
   try {
     const createProvider = await fetch(server.httpUrl + '/providers', {
       method: 'POST',
@@ -179,9 +195,6 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     });
     expect(createProvider.status).toBe(201);
     const provider = await createProvider.json();
-    const models = vi
-      .spyOn(server.characters.modelCatalog, 'models')
-      .mockResolvedValue(['fixture-model']);
     expect(
       await (
         await fetch(`${server.httpUrl}/providers/${provider.id}/models`, {
@@ -189,7 +202,9 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
         })
       ).json(),
     ).toEqual({ models: ['fixture-model'] });
-    expect(models).toHaveBeenCalledWith(provider.id);
+    expect(models).toHaveBeenCalledWith(
+      expect.objectContaining({ id: provider.id }),
+    );
     expect(
       (
         await fetch(`${server.httpUrl}/providers/${provider.id}`, {
@@ -371,7 +386,6 @@ it('does not acknowledge or publish an HTTP creation whose archive cannot be sav
     origin,
     agentDependencies: {
       session,
-      models: async () => [],
       runner: () => ({ run: async () => {} }),
     },
   });
@@ -399,6 +413,74 @@ it('does not acknowledge or publish an HTTP creation whose archive cannot be sav
   } finally {
     off();
     await rename(moved, server.directory);
+    await server.close();
+  }
+});
+
+it('shares command receipts across management domains without adding receipts to TTS or ASR', async () => {
+  const server = await createTestServer({ origin });
+  const id = 'cross-domain-command';
+  const commandHeaders = { ...headers, 'Idempotency-Key': id };
+  const providerBody = JSON.stringify({
+    type: 'ollama',
+    name: 'Receipt provider',
+    baseUrl: 'http://127.0.0.1:11434/v1',
+  });
+  try {
+    const sendProvider = () =>
+      fetch(server.httpUrl + '/providers', {
+        method: 'POST',
+        headers: commandHeaders,
+        body: providerBody,
+      });
+    const first = await sendProvider();
+    expect(first.status).toBe(201);
+    const provider = await first.json();
+    const retry = await sendProvider();
+    expect(retry.status).toBe(201);
+    expect(await retry.json()).toEqual(provider);
+    // Same method/body at a different domain must not replay the provider result.
+    const conflict = await fetch(server.httpUrl + '/ai-characters', {
+      method: 'POST',
+      headers: commandHeaders,
+      body: providerBody,
+    });
+    expect(conflict.status).toBe(409);
+    const receipt = await fetch(server.httpUrl + '/management/commands/' + id, {
+      headers,
+    });
+    expect(await receipt.json()).toMatchObject({
+      state: 'committed',
+      result: { id: provider.id },
+    });
+
+    const voiceIds: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const voice = await fetch(server.httpUrl + '/voice/tts/services', {
+        method: 'POST',
+        headers: { ...headers, 'Idempotency-Key': 'tts-command' },
+        body: JSON.stringify({
+          type: 'browser',
+          name: 'Browser',
+          voice: 'Test',
+          speed: 1,
+        }),
+      });
+      expect(voice.status).toBe(201);
+      voiceIds.push((await voice.json()).id);
+    }
+    expect(new Set(voiceIds).size).toBe(2);
+    const voiceReceipt = await fetch(
+      server.httpUrl + '/management/commands/tts-command',
+      { headers },
+    );
+    expect(await voiceReceipt.json()).toEqual({ state: 'unknown' });
+    // ASR has no management idempotency-key validation, including for reads.
+    const asr = await fetch(server.httpUrl + '/voice/asr/services', {
+      headers: { ...headers, 'Idempotency-Key': 'invalid key' },
+    });
+    expect(asr.status).toBe(200);
+  } finally {
     await server.close();
   }
 });

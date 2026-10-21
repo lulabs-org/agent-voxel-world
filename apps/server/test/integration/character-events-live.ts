@@ -12,9 +12,9 @@ const output = resolve(
 const results: unknown[] = [];
 let calls = 0;
 const server = await createTestServer({
+  modelQuery: async () => [process.env.EVENTS_MODEL ?? 'qwen3:8b'],
   agentDependencies: {
     session: (url) => new Session(url),
-    models: async () => [process.env.EVENTS_MODEL ?? 'qwen3:8b'],
     runner: (_config, endpoint) => ({
       run: (options) =>
         new AgentRunner(endpoint, async (url, init) => {

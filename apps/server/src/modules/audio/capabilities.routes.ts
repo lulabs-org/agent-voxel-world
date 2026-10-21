@@ -1,7 +1,7 @@
-import { asyncRoute } from '../../common/middleware/async-route';
+import { asyncRoute } from '../../http/middleware/async-route';
 import cors from 'cors';
 import { env } from '../../config/env';
-import { createOriginGuard } from '../../common/middleware/origin-guard';
+import { createOriginGuard } from '../../http/middleware/origin-guard';
 import { AsrSettingsStore } from './asr/asr-settings';
 import { listWhisperModels } from './asr/whisper-settings';
 import type { Express } from 'express';

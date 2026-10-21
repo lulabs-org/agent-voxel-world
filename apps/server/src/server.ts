@@ -8,7 +8,7 @@ import { createApp } from './app';
 import { env, type ServerConfig } from './config';
 import { checkStartupDatabase } from './startup';
 
-import type { SocketRoutes } from './common/socket-routes';
+import type { SocketRoutes } from './transport/socket-routes';
 import { RoutedWebSocketTransport } from './transport/websocket.transport';
 
 import {
@@ -29,6 +29,10 @@ import { GatewayAuth } from './modules/gateway/auth';
 import { installGatewaySocket } from './modules/gateway/socket';
 
 import { ProviderStore } from './modules/providers/provider-store';
+import {
+  ModelCatalog,
+  type ModelQuery,
+} from './modules/providers/model-catalog';
 
 import { WorldRoom } from './modules/world/room';
 import { WorldStore } from './modules/world/store';
@@ -41,6 +45,7 @@ export type ServerOptions = {
   speech?: LocalSpeech;
   worldStore?: WorldStore;
   agentDependencies?: AICharacterDependencies;
+  modelQuery?: ModelQuery;
   databaseCheck?: (url: string) => Promise<void>;
   asrBridge?: AsrBridge;
 };
@@ -94,14 +99,38 @@ export async function createServer(options: ServerOptions = {}) {
     options.agentDependencies,
     voiceServices,
   );
+  const modelCatalog = new ModelCatalog(providers, options.modelQuery);
+  const speech = options.speech ?? new LocalSpeech();
   const app = createApp({
-    config,
-    gatewayAuth,
-    characters,
-    voiceServices,
-    asrSettings,
-    speech: options.speech ?? new LocalSpeech(),
-    world: () => world,
+    origin: config.webOrigin,
+    health: config,
+    management: {
+      authenticate: gatewayAuth.middleware,
+      characters,
+      tasks: characters.tasks,
+      providers: {
+        store: providers,
+        models: (id) => modelCatalog.models(id),
+        remove: (id) => characters.removeProvider(id),
+        changed: () => characters.events.publish('providers'),
+      },
+    },
+    audio: {
+      authenticateManagement: gatewayAuth.middleware,
+      speech,
+      asrSettings,
+      voiceServices,
+      removeVoiceService: (id) => characters.removeVoiceService(id),
+    },
+    world: {
+      roomId: () => world?.roomId ?? '',
+      presence: () => world?.getPresence(),
+    },
+    chat: {
+      getChat: () => world?.chat,
+      speech,
+      getAgentSpeech: () => world?.agentSpeech,
+    },
   });
   const http = createHttpServer(app);
   // Sockets register module-by-module like HTTP routes; other upgrades reach Colyseus.

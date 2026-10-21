@@ -28,11 +28,11 @@ let agent: Session | undefined, human: Session | undefined;
 try {
   server = await createTestServer({
     directory: dir,
+    modelQuery: async () => ['fixture-model'],
     agentDependencies: {
       session: (endpoint) => new Session(endpoint),
       runner: () =>
         new AgentRunner(undefined, (input, init) => request(input, init)),
-      models: async () => ['fixture-model'],
     },
   });
   const room = server.world,

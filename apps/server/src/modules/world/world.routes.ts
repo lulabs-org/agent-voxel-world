@@ -1,6 +1,6 @@
 import cors from 'cors';
 import { env } from '../../config/env';
-import { createOriginGuard } from '../../common/middleware/origin-guard';
+import { createOriginGuard } from '../../http/middleware/origin-guard';
 import type { Express } from 'express';
 import type { WorldPresence } from '@voxel/shared';
 

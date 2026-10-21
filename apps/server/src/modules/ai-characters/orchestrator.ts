@@ -22,7 +22,6 @@ import {
 import { object, text, boolean } from '../../common/validation';
 import { validateAICharacter, aiCharacterProfileInput } from './validation';
 import type { SavedProvider } from '../providers/provider-validation';
-import { ModelCatalog, type ModelQuery } from '../providers/model-catalog';
 import { AppError } from '../../common/errors';
 
 import { active, resident, type Job } from './types';
@@ -44,7 +43,6 @@ export class AICharacterOrchestrator {
   readonly taskScheduler = new AICharacterWakeScheduler();
   readonly persistence: ManagementPersistence;
   readonly tasks: TaskCoordinator;
-  readonly modelCatalog: ModelCatalog;
 
   private closing = false;
   private restoreFailed = false;
@@ -58,7 +56,6 @@ export class AICharacterOrchestrator {
     readonly voiceServices: VoiceServicePort | undefined,
     private archive: ArchivePort,
   ) {
-    this.modelCatalog = new ModelCatalog(providers, dependencies.models);
     this.persistence = new ManagementPersistence(this.archive, this.events);
     this.tasks = new TaskCoordinator({
       execution: (id) => executionState(this.taskJob(id)),
@@ -651,5 +648,4 @@ export type AICharacterDependencies = {
     config: AgentConfig,
     provider: SavedProvider,
   ) => Pick<AgentRunner, 'run'>;
-  models?: ModelQuery;
 };

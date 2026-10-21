@@ -17,9 +17,9 @@ const token = 'fixture-gateway-token-for-tests',
   origin = 'http://127.0.0.1:5188';
 const server = await createTestServer({
   origin,
+  modelQuery: async () => ['fixture'],
   agentDependencies: {
     session: (url) => new Session(url),
-    models: async () => ['fixture'],
     runner: () => ({
       async run(o) {
         if (o.memory.task) {

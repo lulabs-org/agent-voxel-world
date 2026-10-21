@@ -69,7 +69,6 @@ function build() {
       decide,
       lastUsage: { tokens: 600, estimated: false },
     })),
-    models: async () => [],
   });
 }
 const draft = (timing: TaskTiming = { kind: 'immediate' }): TaskPlanDraft => ({
@@ -597,7 +596,6 @@ it('retains multiple Pi tool batches within the same model call in actual action
       });
       return s as unknown as Session;
     },
-    models: async () => [],
     runner: () =>
       new AgentRunner(undefined, async () =>
         toolResponse([

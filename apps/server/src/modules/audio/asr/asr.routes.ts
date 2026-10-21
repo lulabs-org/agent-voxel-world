@@ -1,9 +1,9 @@
 import cors from 'cors';
 import { env } from '../../../config/env';
-import { createOriginGuard } from '../../../common/middleware/origin-guard';
-import { asyncRoute } from '../../../common/middleware/async-route';
-import { assertJsonRequest } from '../../../common/middleware/require-json';
-import { errorHandler } from '../../../common/middleware/error-handler';
+import { createOriginGuard } from '../../../http/middleware/origin-guard';
+import { asyncRoute } from '../../../http/middleware/async-route';
+import { assertJsonRequest } from '../../../http/middleware/require-json';
+import { errorHandler } from '../../../http/middleware/error-handler';
 import express, { type Express, type Request, type Response } from 'express';
 import { AsrSettingsStore } from './asr-settings';
 import { AppError } from '../../../common/errors';

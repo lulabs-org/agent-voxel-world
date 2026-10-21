@@ -1,9 +1,9 @@
-import { publicError } from './errors';
-import express, { type RequestHandler } from 'express';
+import { publicError } from '../modules/management/errors';
+import express, { type Express, type RequestHandler } from 'express';
 import { identifier } from '@voxel/shared/management';
-import { AppError } from '../../common/errors';
-import { requireJsonRequest } from '../../common/middleware/require-json';
-import { errorHandler } from '../../common/middleware/error-handler';
+import { AppError } from '../common/errors';
+import { requireJsonRequest } from './middleware/require-json';
+import { errorHandler } from './middleware/error-handler';
 
 const validateIdempotencyKey: RequestHandler = (req, res, next) => {
   const key = req.header('Idempotency-Key');
@@ -37,3 +37,19 @@ export const managementErrors = errorHandler((error) => {
   const e = publicError(error);
   return { status: e.status, body: { error: e.message } };
 });
+
+/** Full policy for the existing 32 KiB management APIs; ASR has its own contract. */
+export function installManagementJsonRoutes(
+  app: Express,
+  paths: string | string[],
+  authenticate: RequestHandler,
+  install: () => void,
+) {
+  app.use(paths, authenticate, ...managementBody);
+  // Register on the app itself so command fingerprints retain the full req.path.
+  install();
+  app.use(paths, (_req, res) => {
+    res.status(404).json({ error: '管理接口不存在，请确认前后端版本一致。' });
+  });
+  app.use(paths, managementErrors);
+}

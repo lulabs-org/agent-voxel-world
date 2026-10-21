@@ -2,14 +2,30 @@ import { ManagementCommands } from '../management/commands';
 import { AppError } from '../../common/errors';
 import type { Express, Request } from 'express';
 import type { AICharacterManager } from './manager';
-import { asyncRoute as route } from '../../common/middleware/async-route';
+import { asyncRoute as route } from '../../http/middleware/async-route';
+
+export type AICharacterRoutePort = Pick<
+  AICharacterManager,
+  | 'assertWritable'
+  | 'create'
+  | 'flush'
+  | 'join'
+  | 'publicIdentity'
+  | 'publicList'
+  | 'remove'
+  | 'setVoice'
+  | 'settled'
+  | 'stop'
+  | 'storageRevision'
+  | 'update'
+> & { readonly events: Pick<AICharacterManager['events'], 'version'> };
 
 /**
  * 安装 AI 角色基础配置与生命周期控制相关 HTTP REST 路由
  */
 export function installAICharacterRoutes(
   app: Express,
-  manager: AICharacterManager,
+  manager: AICharacterRoutePort,
   commands: ManagementCommands,
 ) {
   const view = (id: string) => {

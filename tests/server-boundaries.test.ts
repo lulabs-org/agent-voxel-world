@@ -33,7 +33,7 @@ const graph = new Map(
 const isRoute = (name: string) =>
   /(^|\/)routes\//.test(name) || /(^|\/)(?:[^/]+\.)?routes\.ts$/.test(name);
 
-it('keeps infrastructure independent of business modules and modules independent of composition/transport', () => {
+it('keeps infrastructure independent of business modules and modules independent of composition/transport implementations', () => {
   for (const [file, deps] of graph) {
     const name = relative(root, file);
     for (const dep of deps) {
@@ -43,14 +43,40 @@ it('keeps infrastructure independent of business modules and modules independent
           target.startsWith('common/') || target.startsWith('config/'),
           `${name} -> ${target}`,
         ).toBe(true);
-      if (name.startsWith('modules/'))
+      if (name.startsWith('modules/')) {
+        const socketContract =
+          target === 'transport/socket-routes.ts' &&
+          /(^|[/.])socket\.ts$/.test(name);
         expect(
           ['app.ts', 'server.ts', 'index.ts'].includes(target) ||
-            target.startsWith('transport/') ||
+            (target.startsWith('transport/') && !socketContract) ||
             target.startsWith('routes/') ||
+            target === 'http/management.ts' ||
+            (target.startsWith('http/') && isRoute(target)) ||
             target.startsWith('openapi/'),
           `${name} -> ${target}`,
         ).toBe(false);
+        if (socketContract) {
+          const source = ts.createSourceFile(
+            file,
+            readFileSync(file, 'utf8'),
+            ts.ScriptTarget.Latest,
+          );
+          const imports = source.statements.filter(
+            (statement): statement is ts.ImportDeclaration =>
+              ts.isImportDeclaration(statement) &&
+              ts.isStringLiteral(statement.moduleSpecifier) &&
+              resolve(dirname(file), statement.moduleSpecifier.text) + '.ts' ===
+                dep,
+          );
+          expect(imports.length, `${name} -> ${target}`).toBeGreaterThan(0);
+          for (const statement of imports)
+            expect(
+              statement.importClause?.isTypeOnly,
+              `${name} -> ${target}`,
+            ).toBe(true);
+        }
+      }
       if (
         name.startsWith('modules/audio/') ||
         name.startsWith('modules/providers/') ||

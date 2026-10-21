@@ -126,11 +126,17 @@ apps/server/
 │   ├── app.ts              # createApp：HTTP 路由装配
 │   ├── server.ts           # createServer：依赖、房间与连接生命周期
 │   ├── config/             # 环境配置、校验与稳定的数据路径
-│   ├── common/             # 通用错误、中间件与 Swagger 扫描
-│   ├── transport/          # Colyseus / ASR WebSocket 适配
-│   ├── routes/             # 健康检查与 API 文档
+│   ├── common/             # 通用错误、校验、命令队列与 Origin 判断
+│   ├── http/               # HTTP 装配、中间件、管理策略、健康检查与文档路由
+│   ├── openapi/            # OpenAPI schema 与 Swagger 扫描
+│   ├── transport/          # Socket 路由类型与 Gateway / ASR / Colyseus 分发
+│   ├── persistence/        # 角色与任务联合存档、迁移和提交
 │   └── modules/
-│       ├── agent/          # 管理、调度、执行、存储及拆分后的路由
+│       ├── ai-characters/  # 角色生命周期、唤醒、执行与配置
+│       ├── providers/      # 模型提供商配置与模型目录
+│       ├── tasks/          # 任务计划、调度、执行控制与历史
+│       ├── management/     # 管理命令回执、错误与事件
+│       ├── gateway/        # 管理令牌与 WebSocket 通知
 │       ├── audio/          # asr、tts、session 与音频路由
 │       ├── chat/           # 聊天、附件、票据与 HTTP 路由
 │       ├── realtime/       # 实时会话、百炼适配器与离线协议模拟器

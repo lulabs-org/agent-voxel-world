@@ -63,9 +63,9 @@ try {
   server = await createTestServer({
     directory: dir,
     providers: store,
+    modelQuery: async () => [provider.defaultModel],
     agentDependencies: {
       session: (endpoint) => new Session(endpoint),
-      models: async () => [provider.defaultModel],
       runner: (_config, endpoint) => ({
         run: async (options) => {
           await new AgentRunner(endpoint, async (input, init) => {

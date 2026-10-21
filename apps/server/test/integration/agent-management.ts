@@ -63,6 +63,7 @@ try {
     directory: dir,
     providers: store,
     origin: process.env.WEB_ORIGIN,
+    modelQuery: async () => ['fixture-model'],
     agentDependencies: {
       session: (url) => new Session(url),
       runner: fixtureRunnerFactory((config, provider) => {
@@ -74,7 +75,6 @@ try {
         };
         return planner;
       }),
-      models: async () => ['fixture-model'],
     },
   });
   manager = server.characters;
@@ -652,7 +652,6 @@ try {
     runner: fixtureRunnerFactory(
       (config, provider) => new ModelPlanner(config, request, provider),
     ),
-    models: async () => ['fixture-model'],
   });
   await manager.load();
   assert.equal(calls, beforeRestore, 'restoration never spends inference');

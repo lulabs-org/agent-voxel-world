@@ -64,7 +64,7 @@ const options: swaggerJsdoc.Options = {
     },
   },
   apis: [
-    path.join(__dirname, '..', 'routes', '**', '*.routes.ts'),
+    path.join(__dirname, '..', 'http', '**', '*.routes.ts'),
     path.join(__dirname, '..', 'modules', '**', '*.routes.ts'),
     path.join(__dirname, '..', 'modules', '**', 'routes.ts'),
   ],

@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import express, { type Response } from 'express';
 import { createServer, type Server } from 'node:http';
-import { AppError } from '../errors';
+import { AppError } from '../../common/errors';
 import { asyncRoute } from './async-route';
 import { errorHandler } from './error-handler';
-import {
-  managementBody,
-  managementErrors,
-} from '../../modules/management/http';
+import { managementBody, managementErrors } from '../management-policy';
 
 let server: Server;
 let url: string;

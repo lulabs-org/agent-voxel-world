@@ -26,9 +26,9 @@ try {
     voiceServices: voices,
     port: 2589,
     origin: process.env.WEB_ORIGIN,
+    modelQuery: async () => ['fixture-model'],
     agentDependencies: {
       session: (url) => new Session(url),
-      models: async () => ['fixture-model'],
       runner: () =>
         new AgentRunner(undefined, async (_url, init) => {
           calls++;

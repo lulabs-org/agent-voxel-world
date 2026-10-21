@@ -217,13 +217,13 @@ try {
     runner: fixtureRunnerFactory(
       (config, provider) => new ModelPlanner(config, request, provider),
     ),
-    models: async () => ['fixture-model'],
   };
   server = await createTestServer({
     directory: dir,
     providers: store,
     origin: process.env.WEB_ORIGIN,
     port: preview ? 2578 : 0,
+    modelQuery: async () => ['fixture-model'],
     agentDependencies: dependencies,
   });
   const room = server.world,

@@ -74,7 +74,6 @@ function setup(
     {
       session: () => s as unknown as Session,
       runner: fixtureRunnerFactory(() => ({ decide })),
-      models: async () => [],
     },
     voices,
   );
@@ -997,7 +996,6 @@ it('uses newly saved provider inference settings on the next decision without re
   const configs: unknown[] = [];
   manager = new AICharacterManager(store, 'ws://fixture', {
     session: () => s as unknown as Session,
-    models: async () => [],
     runner: fixtureRunnerFactory((config) => {
       configs.push(config);
       return {
@@ -1175,7 +1173,6 @@ it.each(['cancel', 'pause'] as const)(
     let entered = false;
     manager = new AICharacterManager(store, 'ws://fixture', {
       session: () => s as unknown as Session,
-      models: async () => [],
       runner: () => ({
         async run({ memory, signal, checkpoint }) {
           entered = true;
