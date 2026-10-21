@@ -1,5 +1,6 @@
 import type { TaskLimits } from '@voxel/shared';
 import type { ReactNode } from 'react';
+import { useI18n } from '../../../i18n/context';
 import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 
 export function TaskLimitSettings({
@@ -11,16 +12,17 @@ export function TaskLimitSettings({
   onChange: (limits: TaskLimits) => void;
   children?: ReactNode;
 }) {
+  const { t } = useI18n();
   const enabled = value.enabled !== false;
   return (
-    <section className="plans-limit-box task-limits" aria-label="执行限制">
+    <section className="plans-limit-box task-limits" aria-label={t('console.plans.enableLimits')}>
       <label className="task-limits-toggle">
         <input
           type="checkbox"
           checked={enabled}
           onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
         />
-        <span>启用执行限制</span>
+        <span>{t('console.plans.enableLimits')}</span>
       </label>
       {enabled ? (
         <>
@@ -32,7 +34,7 @@ export function TaskLimitSettings({
         </>
       ) : (
         <p className="agent-hint">
-          不限制调用次数、tokens 和执行时长。重复任务也不设累计额度。
+          {t('console.plans.unlimitedLimitsHint')}
         </p>
       )}
     </section>

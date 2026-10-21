@@ -1,5 +1,7 @@
 import { AI_CHARACTER_LOG_LIMIT, type AICharacterView } from '@voxel/shared';
+import { useI18n } from '../../../i18n/context';
 import { CurrentTaskBudget } from './CurrentTaskBudget';
+
 export function AICharacterLogViewer({
   job,
   disabled,
@@ -9,20 +11,21 @@ export function AICharacterLogViewer({
   disabled: boolean;
   onUpdated: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   return (
-    <section className="agents-activity" aria-label="运行记录与用量">
+    <section className="agents-activity" aria-label={t('console.characters.tabActivity')}>
       <div className="agents-usage">
         <div>
-          <span className="agents-section-label">累计模型调用</span>
+          <span className="agents-section-label">{t('console.characters.totalModelCalls')}</span>
           <strong>
             {job.usage?.calls ?? 0}
-            <small> 次</small>
+            <small>{t('console.characters.turnUnit')}</small>
           </strong>
         </div>
         <div>
-          <span className="agents-section-label">累计 tokens</span>
+          <span className="agents-section-label">{t('console.characters.totalTokens')}</span>
           <strong>
-            {job.usage?.estimated ? '约 ' : ''}
+            {job.usage?.estimated ? t('console.characters.approxPrefix') : ''}
             {(job.usage?.tokens ?? 0).toLocaleString()}
           </strong>
         </div>
@@ -34,30 +37,33 @@ export function AICharacterLogViewer({
         onUpdated={onUpdated}
       />
       {!!job.queuedTasks?.length && (
-        <section className="agents-progress" aria-label="待执行任务">
-          <h4>待执行任务</h4>
+        <section className="agents-progress" aria-label={t('console.characters.queuedTasksTitle')}>
+          <h4>{t('console.characters.queuedTasksTitle')}</h4>
           <ol>
             {job.queuedTasks.map((run) => (
               <li key={run.id}>
-                {run.goal} · 已合并 {run.coalescedTriggers} 次触发
+                {t('console.characters.queuedItem', {
+                  goal: run.goal,
+                  count: run.coalescedTriggers,
+                })}
               </li>
             ))}
           </ol>
           <p className="agent-hint">
-            当前活动完成或结束后依次执行；暂停期间继续等待。
+            {t('console.characters.queuedHint')}
           </p>
         </section>
       )}
       {job.lastResponse && (
         <div className="agents-progress">
-          <span className="agents-section-label">最近回复</span>
+          <span className="agents-section-label">{t('console.characters.lastReplyTitle')}</span>
           <p>{job.lastResponse}</p>
         </div>
       )}
       <div className="agents-task-heading">
-        <h4>最近运行记录</h4>
+        <h4>{t('console.characters.activityLogsHeading')}</h4>
         <span className="agent-hint">
-          最多保留 {AI_CHARACTER_LOG_LIMIT} 条 · 最新在上 · 本地时间
+          {t('console.characters.activityLogsLimit', { limit: AI_CHARACTER_LOG_LIMIT })}
         </span>
       </div>
       {job.logs.length ? (
@@ -85,7 +91,7 @@ export function AICharacterLogViewer({
                     })}
                   </time>
                 ) : (
-                  <span className="agents-log-time">时间未记录</span>
+                  <span className="agents-log-time">{t('console.characters.timeNotRecorded')}</span>
                 )}
                 <span>{message}</span>
               </li>
@@ -94,7 +100,7 @@ export function AICharacterLogViewer({
         </ol>
       ) : (
         <p className="agents-list-empty">
-          暂时没有运行记录。加入世界或执行任务后会显示在这里。
+          {t('console.characters.noActivityLogs')}
         </p>
       )}
     </section>

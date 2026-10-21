@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '../../../i18n/context';
 
 export function BrowserVoiceSelect({
   value,
@@ -11,6 +12,7 @@ export function BrowserVoiceSelect({
   active: boolean;
   onChange: (voice: string, language: string) => void;
 }) {
+  const { t } = useI18n();
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const supported = typeof window.speechSynthesis !== 'undefined';
   useEffect(() => {
@@ -26,7 +28,7 @@ export function BrowserVoiceSelect({
     <>
       <div className="voice-select-field">
         <label>
-          音色
+          {t('console.voice.voiceLabel')}
           <select
             value={key(value, language)}
             disabled={!supported}
@@ -38,16 +40,16 @@ export function BrowserVoiceSelect({
               onChange(name, lang);
             }}
           >
-            <option value={key('')}>按中英文自动选择</option>
+            <option value={key('')}>{t('console.voice.browserAutoVoice')}</option>
             {value &&
               !voices.some((v) => v.name === value && v.lang === language) && (
                 <option value={key(value, language)}>
-                  {value}（当前设备不可用，将按语言回退）
+                  {t('console.voice.browserVoiceFallback', { name: value })}
                 </option>
               )}
             {voices.map((v, i) => (
               <option key={`${v.voiceURI}-${i}`} value={key(v.name, v.lang)}>
-                {v.name} · {v.lang} · {v.localService ? '设备本地' : '远程音色'}
+                {v.name} · {v.lang} · {v.localService ? t('console.voice.deviceLocal') : t('console.voice.remoteVoice')}
               </option>
             ))}
           </select>
@@ -57,16 +59,16 @@ export function BrowserVoiceSelect({
           disabled={!supported}
           onClick={() => setVoices(window.speechSynthesis.getVoices())}
         >
-          刷新音色列表
+          {t('console.voice.browserRefreshVoices')}
         </button>
       </div>
       {!supported && (
         <small role="alert">
-          当前浏览器不支持语音合成，可选择其他语音服务。
+          {t('console.voice.browserNotSupported')}
         </small>
       )}
       {supported && !voices.length && (
-        <small>浏览器尚未提供音色列表，可使用自动选择或刷新列表。</small>
+        <small>{t('console.voice.browserNoVoices')}</small>
       )}
     </>
   );

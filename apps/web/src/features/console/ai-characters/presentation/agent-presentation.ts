@@ -1,4 +1,5 @@
 import type { AICharacterView } from '@voxel/shared';
+import i18n from '../../../../i18n/config';
 import { taskStatusNames } from '../../execution-status';
 
 /** Presence and task execution are separate: an idle process can have a running task. */
@@ -25,13 +26,13 @@ export function aiCharacterPresentation(job: AICharacterView) {
     attention,
     presence:
       job.status === 'joining'
-        ? '正在加入'
+        ? i18n.t('console.characters.presenceJoining')
         : job.status === 'stopping'
-          ? '正在离开'
+          ? i18n.t('console.characters.presenceLeaving')
           : online
-            ? '在世界中'
-            : '未在世界中',
-    taskLabel: job.task ? taskStatusNames[job.task.status] : '等待安排任务',
+            ? i18n.t('console.characters.presenceInWorld')
+            : i18n.t('console.characters.presenceNotInWorld'),
+    taskLabel: job.task ? taskStatusNames[job.task.status] : i18n.t('console.characters.waitingTask'),
     canEdit: !transitioning && !executing && job.status !== 'running',
   };
 }

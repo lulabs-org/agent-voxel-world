@@ -1,6 +1,7 @@
 import type { AICharacterView } from '@voxel/shared';
 import { aiCharacterPermissions } from '@voxel/shared';
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../../../i18n/context';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterForm } from './AICharacterForm';
 import { AICharacterLogViewer } from './AICharacterLogViewer';
@@ -15,6 +16,7 @@ export function AICharacterDetail(
     capacityFull: boolean;
   },
 ) {
+  const { t } = useI18n();
   const {
     job,
     disabled,
@@ -41,7 +43,7 @@ export function AICharacterDetail(
   const state = aiCharacterPresentation(job);
   const editing = showAgentForm && editingAgent === job.id;
   return (
-    <article className="agents-detail" aria-label={`${job.name}的工作区`}>
+    <article className="agents-detail" aria-label={t('console.characters.workspaceAria', { name: job.name })}>
       <div className="agents-detail-heading">
         <div className="agents-identity">
           <span className="agents-avatar" aria-hidden="true">
@@ -62,10 +64,10 @@ export function AICharacterDetail(
       <div className="agents-presence-bar">
         <p>
           {!aiCharacterPermissions(job).chat
-            ? '发送聊天已关闭，AI 角色不会发送文字或语音回复。可在控制台安排任务和查看进展。'
+            ? t('console.characters.presenceBarChatOff')
             : state.online
-              ? '可在世界中私聊或 @ 交流。关闭控制台后仍保持在线。'
-              : '上线后可交流；原任务会保留，由你决定是否继续。'}
+              ? t('console.characters.presenceBarOnline')
+              : t('console.characters.presenceBarOffline')}
         </p>
         {state.occupiesSlot ? (
           <button
@@ -73,31 +75,31 @@ export function AICharacterDetail(
             disabled={disabled || job.status === 'stopping'}
             onClick={() => setConfirmLeave(true)}
           >
-            下线 AI 角色
+            {t('console.characters.offlineButton')}
           </button>
         ) : (
           <button
             disabled={disabled || capacityFull}
             onClick={() => void joinAgent(job)}
           >
-            上线 AI 角色
+            {t('console.characters.onlineButton')}
           </button>
         )}
       </div>
       {job.status === 'failed' && (
         <p role="alert" className="agent-error">
-          上次连接或执行未成功。
-          {job.logs.at(-1) || '请检查世界连接与模型配置。'}{' '}
-          可在“运行记录”中查看详情。
+          {t('console.characters.lastRunFailed', {
+            reason: job.logs.at(-1) || t('console.characters.checkConnectionModelHint'),
+          })}
         </p>
       )}
       {confirmLeave && (
         <div
           className="agents-confirm"
           role="group"
-          aria-label="确认下线 AI 角色"
+          aria-label={t('console.characters.confirmLeaveAria')}
         >
-          <p>AI 角色下线后将停止交流与任务执行，AI 角色设置和任务进度保留。</p>
+          <p>{t('console.characters.confirmLeaveDesc')}</p>
           <div className="agents-actions">
             <button
               disabled={disabled}
@@ -106,19 +108,19 @@ export function AICharacterDetail(
                 void stopAgent(job);
               }}
             >
-              确认下线
+              {t('console.characters.confirmLeaveButton')}
             </button>
-            <button onClick={() => setConfirmLeave(false)}>取消</button>
+            <button onClick={() => setConfirmLeave(false)}>{t('common.cancel')}</button>
           </div>
         </div>
       )}
-      <nav className="agents-detail-nav" aria-label="AI 角色工作区分类">
+      <nav className="agents-detail-nav" aria-label={t('console.characters.navAria')}>
         <button
           aria-pressed={editing}
           disabled={disabled}
           onClick={() => openAgentEditor(job)}
         >
-          AI 角色设置
+          {t('console.characters.tabSettings')}
         </button>
         <button
           aria-pressed={!editing && view === 'activity'}
@@ -129,7 +131,7 @@ export function AICharacterDetail(
             setNotice('');
           }}
         >
-          运行记录
+          {t('console.characters.tabActivity')}
         </button>
       </nav>
       {editing ? (

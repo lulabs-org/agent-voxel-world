@@ -1,5 +1,6 @@
 import { PIPER_MODELS, type PiperModelView } from '@voxel/shared';
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../../../i18n/context';
 import { voiceApi } from './api';
 
 export function PiperModelSelect({
@@ -11,6 +12,7 @@ export function PiperModelSelect({
   onChange: (value: string) => void;
   active: boolean;
 }) {
+  const { t } = useI18n();
   const [models, setModels] = useState<PiperModelView[]>([]);
   const [error, setError] = useState('');
   const [installing, setInstalling] = useState(false);
@@ -29,7 +31,7 @@ export function PiperModelSelect({
         }
       } catch (e) {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : '无法查询模型状态。');
+          setError(e instanceof Error ? e.message : t('console.characters.operationFailed'));
       } finally {
         if (!controller.signal.aborted)
           timer = setTimeout(() => void poll(), 3000);
@@ -40,7 +42,7 @@ export function PiperModelSelect({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [active, refresh]);
+  }, [active, refresh, t]);
   useEffect(() => {
     if (!active) {
       installRequest.current?.abort();
@@ -62,21 +64,21 @@ export function PiperModelSelect({
       if (!controller.signal.aborted) setRefresh((n) => n + 1);
     } catch (e) {
       if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : '无法开始安装。');
+        setError(e instanceof Error ? e.message : t('console.characters.operationFailed'));
     } finally {
       if (!controller.signal.aborted) setInstalling(false);
     }
   };
   const states = {
-    missing: '未安装',
-    installing: '安装中…',
-    installed: '已安装',
-    failed: '安装失败',
+    missing: t('console.voice.piperStatusMissing'),
+    installing: t('console.voice.piperStatusInstalling'),
+    installed: t('console.voice.piperStatusInstalled'),
+    failed: t('console.voice.piperStatusFailed'),
   };
   return (
     <div>
       <label>
-        语音模型
+        {t('console.voice.voiceModel')}
         <select value={value} onChange={(e) => onChange(e.target.value)}>
           {PIPER_MODELS.map((model) => (
             <option key={model.id} value={model.id}>
@@ -85,7 +87,7 @@ export function PiperModelSelect({
           ))}
         </select>
       </label>
-      <p role="status">{selected ? states[selected.state] : '正在检查模型…'}</p>
+      <p role="status">{selected ? states[selected.state] : t('console.voice.piperChecking')}</p>
       {error && (
         <p className="agent-error" role="alert">
           {error}
@@ -104,18 +106,18 @@ export function PiperModelSelect({
           }
           onClick={() => void install()}
         >
-          {selected?.state === 'failed' ? '重试安装' : '安装模型'}
+          {selected?.state === 'failed' ? t('console.voice.piperRetryInstall') : t('console.voice.piperInstall')}
         </button>
         <button
           type="button"
           disabled={!active}
           onClick={() => setRefresh((n) => n + 1)}
         >
-          刷新状态
+          {t('console.voice.piperRefresh')}
         </button>
       </div>
       <small>
-        首次安装需要联网下载。模型保存在服务器，安装后可离线合成；关闭控制台后安装继续。
+        {t('console.voice.piperNotice')}
       </small>
     </div>
   );

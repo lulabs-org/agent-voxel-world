@@ -1,8 +1,10 @@
 import type { ChatEntry } from '@voxel/shared';
 import { useEffect, useRef } from 'react';
 import type { Connection } from '../../../network/connection';
+import { useI18n } from '../../../i18n/context';
 import { chatApi } from '../api';
 import { AudioPlayer } from './AudioPlayer';
+
 export function AudioMessage({
   entry,
   connection,
@@ -10,6 +12,7 @@ export function AudioMessage({
   entry: ChatEntry;
   connection: Connection;
 }) {
+  const { t } = useI18n();
   const resource = useRef(''),
     controller = useRef<AbortController | undefined>(undefined);
   useEffect(
@@ -42,7 +45,7 @@ export function AudioMessage({
       />
       {entry.data.transcriptAvailable && (
         <details className="chat-transcript">
-          <summary>转文字</summary>
+          <summary>{t('chat.transcript')}</summary>
           <p>{entry.data.text}</p>
         </details>
       )}

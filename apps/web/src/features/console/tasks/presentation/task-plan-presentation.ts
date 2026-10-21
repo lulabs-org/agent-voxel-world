@@ -1,29 +1,58 @@
 import type { TaskPlan, TaskRun } from '@voxel/shared';
+import { i18n } from '../../../../i18n';
+
 export const runEnded = (run: TaskRun) =>
   ['completed', 'cancelled', 'skipped', 'missed'].includes(run.status);
-export const runStatus: Record<TaskRun['status'], string> = {
-  queued: '排队中',
-  running: '执行中',
-  waiting: '等待条件',
-  paused: '已暂停',
-  completed: '已完成',
-  cancelled: '已结束',
-  needs_input: '等待补充信息',
-  blocked: '执行受阻',
-  budget: '额度用尽',
-  failed: '执行异常',
-  missed: '已错过',
-  skipped: '已跳过',
+
+export const getRunStatusLabel = (status: TaskRun['status']) => {
+  const map: Record<TaskRun['status'], string> = {
+    queued: i18n.t('console.plans.statusQueued'),
+    running: i18n.t('console.plans.statusRunning'),
+    waiting: i18n.t('console.plans.statusWaiting'),
+    paused: i18n.t('console.plans.statusRunPaused'),
+    completed: i18n.t('console.plans.statusCompleted'),
+    cancelled: i18n.t('console.plans.statusCancelled'),
+    needs_input: i18n.t('console.plans.statusNeedsInput'),
+    blocked: i18n.t('console.plans.statusBlocked'),
+    budget: i18n.t('console.plans.statusBudget'),
+    failed: i18n.t('console.plans.statusFailed'),
+    missed: i18n.t('console.plans.statusMissed'),
+    skipped: i18n.t('console.plans.statusSkipped'),
+  };
+  return map[status] || status;
 };
-export const planStatus: Record<TaskPlan['state'], string> = {
-  enabled: '已启用',
-  paused: '计划暂停',
-  completed: '一次性安排已结束',
-  archived: '已归档',
+
+export const runStatus: Record<TaskRun['status'], string> = new Proxy(
+  {} as Record<TaskRun['status'], string>,
+  {
+    get(_target, prop: string) {
+      return getRunStatusLabel(prop as TaskRun['status']);
+    },
+  },
+);
+
+export const getPlanStatusLabel = (state: TaskPlan['state']) => {
+  const map: Record<TaskPlan['state'], string> = {
+    enabled: i18n.t('console.plans.statusEnabled'),
+    paused: i18n.t('console.plans.planStatePaused'),
+    completed: i18n.t('console.plans.planStateCompleted'),
+    archived: i18n.t('console.plans.statusArchived'),
+  };
+  return map[state] || state;
 };
+
+export const planStatus: Record<TaskPlan['state'], string> = new Proxy(
+  {} as Record<TaskPlan['state'], string>,
+  {
+    get(_target, prop: string) {
+      return getPlanStatusLabel(prop as TaskPlan['state']);
+    },
+  },
+);
+
 export function planTime(at: number | undefined, zone: string) {
   return at
-    ? new Intl.DateTimeFormat('zh-CN', {
+    ? new Intl.DateTimeFormat(i18n.language === 'en' ? 'en-US' : 'zh-CN', {
         timeZone: zone,
         month: '2-digit',
         day: '2-digit',
@@ -34,18 +63,35 @@ export function planTime(at: number | undefined, zone: string) {
       }).format(at)
     : '—';
 }
+
 export function timingLabel(plan: TaskPlan) {
   const t = plan.timing;
   switch (t.kind) {
     case 'immediate':
-      return '立即执行 · 一次性';
+      return i18n.t('console.plans.immediate');
     case 'once':
-      return `${planTime(t.at, plan.timeZone)} · 一次性`;
-    case 'interval':
-      return `每 ${t.everyMs % 3600000 === 0 ? `${t.everyMs / 3600000} 小时` : `${t.everyMs / 60000} 分钟`}`;
+      return i18n.t('console.plans.planTimingOnce', {
+        time: planTime(t.at, plan.timeZone),
+      });
+    case 'interval': {
+      const interval =
+        t.everyMs % 3600000 === 0
+          ? i18n.t('console.plans.hourUnit', { count: t.everyMs / 3600000 })
+          : i18n.t('console.plans.minuteUnit', { count: t.everyMs / 60000 });
+      return i18n.t('console.plans.planTimingInterval', { interval });
+    }
     case 'daily':
-      return `每天 ${t.time}`;
-    case 'weekly':
-      return `每周 ${t.weekdays.map((d) => '日一二三四五六'[d]).join('、')} ${t.time}`;
+      return i18n.t('console.plans.planTimingDaily', { time: t.time });
+    case 'weekly': {
+      const weekdaysList = (i18n.language === 'en'
+        ? i18n.t('console.plans.weekdays').split(',')
+        : Array.from(i18n.t('console.plans.weekdays')));
+      const sep = i18n.language === 'en' ? ', ' : '、';
+      const days = t.weekdays.map((d) => weekdaysList[d] ?? d).join(sep);
+      return i18n.t('console.plans.planTimingWeekly', {
+        weekdays: days,
+        time: t.time,
+      });
+    }
   }
 }

@@ -6,6 +6,7 @@ import type {
   TaskRun,
 } from '@voxel/shared';
 import type { PublicPlanView, PlanQueryFilter } from '@voxel/shared/management';
+import { useI18n } from '../../../i18n/context';
 import { refreshOnGatewayChange } from '../../../network/gateway';
 import { tasksApi, displayedTaskIdentity, type PlanPage } from './api';
 import { TaskPlanEditor } from './TaskPlanEditor';
@@ -42,6 +43,7 @@ export function TaskPlans({
   active: boolean;
   disabled: boolean;
 }) {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<PlanQueryFilter>({});
   const [page, setPage] = useState<PlanPage>({ items: [], total: 0 });
   const [selected, setSelected] = useState<string>();
@@ -91,7 +93,7 @@ export function TaskPlans({
         setLoading(false);
       } catch (e) {
         if (!abort.signal.aborted) {
-          setReadError(e instanceof Error ? e.message : '无法读取计划');
+          setReadError(e instanceof Error ? e.message : t('console.plans.noMatchPlans'));
           setLoading(false);
         }
       }
@@ -101,7 +103,7 @@ export function TaskPlans({
       abort.abort();
       stop();
     };
-  }, [active, selected, filters, revision]);
+  }, [active, selected, filters, revision, t]);
 
   const mutate = async (action: () => Promise<unknown>) => {
     if (mutation.current || disabled) return;
@@ -112,7 +114,7 @@ export function TaskPlans({
       await action();
       setRevision((v) => v + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '操作未完成');
+      setError(e instanceof Error ? e.message : t('console.characters.operationFailed'));
       throw e;
     } finally {
       mutation.current = false;
@@ -128,18 +130,18 @@ export function TaskPlans({
     p.characterId
       ? (characters.find((a) => a.id === p.characterId)?.name ??
         p.characterName ??
-        '未知角色')
+        t('console.plans.deletedTag'))
       : p.characterName
-        ? `${['completed', 'archived'].includes(p.state) ? '' : '待指派 · '}${p.characterName}（已删除）`
-        : '待指派';
+        ? `${['completed', 'archived'].includes(p.state) ? '' : `${t('console.plans.reassignTitle')} · `}${p.characterName}${t('console.plans.deletedTag')}`
+        : t('console.plans.reassignTitle');
 
   const job = characters.find((a) => a.id === plan?.characterId);
   const blocked = !job
-    ? '请先指派执行角色'
+    ? t('console.plans.reassignTitle')
     : !job.sessionId
-      ? '角色尚未上线'
+      ? t('console.characters.filterOffline')
       : ['joining', 'stopping'].includes(job.status)
-        ? '角色正在上线或下线'
+        ? t('console.characters.bannerTransitioning')
         : '';
   const locked = busy || disabled;
 
@@ -194,7 +196,7 @@ export function TaskPlans({
   };
 
   return (
-    <section aria-label="任务计划管理" className="plans-workspace">
+    <section aria-label={t('console.plans.managementAria')} className="plans-workspace">
       {(error || readError) && (
         <p className="agent-error" role="alert">
           {error || readError}
@@ -202,35 +204,35 @@ export function TaskPlans({
       )}
       {!characters.length && (
         <p className="agent-notice">
-          暂无可用角色。请先在“AI 角色”创建 AI 角色；已有计划和历史仍可查看。
+          {t('console.plans.noCharactersWarning')}
         </p>
       )}
       <div className="console-columns">
-        <aside className="console-sidebar" aria-label="任务计划列表">
+        <aside className="console-sidebar" aria-label={t('console.plans.listAria')}>
           <div className="console-sidebar-heading">
-            <h3>任务计划</h3>
-            <span>{page.total} 项</span>
+            <h3>{t('console.plans.title')}</h3>
+            <span>{t('console.plans.totalCount', { total: page.total })}</span>
           </div>
           <button
             className="primary console-sidebar-add"
             disabled={locked || !characters.length || !!editor}
             onClick={() => setEditor({})}
           >
-            ＋ 新建计划
+            {t('console.plans.createButton')}
           </button>
           <div className="plans-sidebar-filter">
             <div
               className="plans-state-pills"
               role="group"
-              aria-label="筛选计划状态"
+              aria-label={t('console.plans.filterStatusAria')}
             >
               {(
                 [
-                  ['', '全部'],
-                  ['enabled', '已启用'],
-                  ['paused', '已暂停'],
-                  ['completed', '已完成'],
-                  ['archived', '已归档'],
+                  ['', t('console.plans.filterAll')],
+                  ['enabled', t('console.plans.statusEnabled')],
+                  ['paused', t('console.plans.statusPaused')],
+                  ['completed', t('console.plans.statusCompleted')],
+                  ['archived', t('console.plans.statusArchived')],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -275,7 +277,7 @@ export function TaskPlans({
             ))}
             {!page.items.length && (
               <p className="characters-list-empty">
-                {loading ? '正在读取计划…' : '没有符合条件的计划'}
+                {loading ? t('console.plans.loadingPlans') : t('console.plans.noMatchPlans')}
               </p>
             )}
           </div>
@@ -290,7 +292,7 @@ export function TaskPlans({
                   }))
                 }
               >
-                ‹ 上一页
+                {t('console.plans.prevPage')}
               </button>
               <span className="plans-sidebar-pagination-info">
                 {(filters.offset ?? 0) + 1} -{' '}
@@ -303,12 +305,12 @@ export function TaskPlans({
                   setFilters((f) => ({ ...f, offset: page.nextOffset }))
                 }
               >
-                下一页 ›
+                {t('console.plans.nextPage')}
               </button>
             </div>
           )}
           <p className="console-sidebar-note">
-            定时与周期任务由网关调度，离线角色到达执行时间时将跳过。
+            {t('console.plans.cronNote')}
           </p>
         </aside>
         <div className="console-panel">
@@ -343,7 +345,7 @@ export function TaskPlans({
           ) : plan ? (
             <article
               className="plans-detail"
-              aria-label={`${plan.name}的计划详情`}
+              aria-label={t('console.plans.detailAria', { name: plan.name })}
             >
               <div className="plans-detail-heading">
                 <div className="plans-identity">
@@ -354,11 +356,11 @@ export function TaskPlans({
                     <div className="plans-identity-title-row">
                       <h3>{plan.name}</h3>
                       {plan.imported && (
-                        <span className="plans-tag">历史导入</span>
+                        <span className="plans-tag">{t('console.plans.importedTag')}</span>
                       )}
                     </div>
                     <p>
-                      执行角色：<strong>{bindingName(plan)}</strong> ·{' '}
+                      {t('console.plans.boundCharacter', { name: bindingName(plan) })}
                       {timingLabel(plan)} · {plan.timeZone}
                     </p>
                   </div>
@@ -374,14 +376,14 @@ export function TaskPlans({
               <div className="plans-presence-bar">
                 <p>
                   {plan.nextRunAt
-                    ? `下次计划执行：${planTime(plan.nextRunAt, plan.timeZone)}`
+                    ? t('console.plans.nextRunAt', { time: planTime(plan.nextRunAt, plan.timeZone) })
                     : plan.state === 'completed'
-                      ? '本次安排已结束，可手动重新执行。'
+                      ? t('console.plans.stateCompletedDesc')
                       : plan.state === 'paused'
-                        ? '计划当前处于暂停状态，不会自动触发。'
+                        ? t('console.plans.statePausedDesc')
                         : plan.state === 'archived'
-                          ? '该计划已归档，历史记录与用量保留。'
-                          : '计划就绪，等待触发条件或手动启动。'}
+                          ? t('console.plans.stateArchivedDesc')
+                          : t('console.plans.stateReadyDesc')}
                 </p>
                 {plan.timing.kind !== 'immediate' &&
                   plan.state !== 'archived' && (
@@ -396,7 +398,9 @@ export function TaskPlans({
                         )
                       }
                     >
-                      {plan.state === 'enabled' ? '暂停计划' : '启用计划'}
+                      {plan.state === 'enabled'
+                        ? t('console.plans.pausePlan')
+                        : t('console.plans.enablePlan')}
                     </button>
                   )}
               </div>
@@ -406,20 +410,20 @@ export function TaskPlans({
                 </p>
               )}
               <div className="plans-goal-card">
-                <span className="plans-card-label">计划目标与完成条件</span>
+                <span className="plans-card-label">{t('console.plans.targetAndCondition')}</span>
                 <p className="plans-goal-text">{plan.goal}</p>
               </div>
               <div className="plans-usage-grid">
                 <div className="plans-usage-card">
                   <div className="plans-usage-card-top">
-                    <span className="plans-usage-label">累计消耗 Tokens</span>
+                    <span className="plans-usage-label">{t('console.plans.totalTokensConsumed')}</span>
                     {plan.state !== 'archived' && (
                       <button
                         className="plans-usage-action"
                         disabled={locked}
                         onClick={() => setExtend(!extend)}
                       >
-                        追加额度
+                        {t('console.plans.addBudget')}
                       </button>
                     )}
                   </div>
@@ -430,8 +434,8 @@ export function TaskPlans({
                   <span className="plans-usage-meta">
                     {plan.limits.enabled !== false &&
                     plan.timing.kind !== 'immediate'
-                      ? `计划总预算 ${plan.totalTokenBudget.toLocaleString()} tokens`
-                      : '未设预算上限'}
+                      ? t('console.plans.totalBudgetLabel', { tokens: plan.totalTokenBudget.toLocaleString() })
+                      : t('console.plans.noBudgetLimit')}
                   </span>
                   {plan.limits.enabled !== false &&
                     plan.timing.kind !== 'immediate' && (
@@ -456,17 +460,20 @@ export function TaskPlans({
                     )}
                 </div>
                 <div className="plans-usage-card">
-                  <span className="plans-usage-label">执行记录与单次限额</span>
+                  <span className="plans-usage-label">{t('console.plans.recordsAndLimit')}</span>
                   <strong>
                     {runs.length}
-                    <small>次记录</small>
+                    <small>{t('console.plans.recordCount')}</small>
                   </strong>
                   <span className="plans-usage-meta">
                     {plan.limitsMode === 'inherit'
-                      ? '继承角色默认额度，执行开始时确定'
+                      ? t('console.plans.inheritsCharacterBudget')
                       : plan.limits.enabled !== false
-                        ? `单次上限：${plan.limits.maxTurns} 轮调用 / ${(plan.limits.tokenBudget ?? 50000).toLocaleString()} tokens`
-                        : '单次执行不限调用与额度'}
+                        ? t('console.plans.singleRunLimit', {
+                            turns: plan.limits.maxTurns,
+                            tokens: (plan.limits.tokenBudget ?? 50000).toLocaleString(),
+                          })
+                        : t('console.plans.singleRunNoLimit')}
                   </span>
                 </div>
               </div>
@@ -478,9 +485,9 @@ export function TaskPlans({
                     void control('extend', { tokens: extra });
                   }}
                 >
-                  <h4>追加计划 token 额度</h4>
+                  <h4>{t('console.plans.addTokensTitle')}</h4>
                   <label>
-                    追加 tokens
+                    {t('console.plans.addTokensLabel')}
                     <input
                       type="number"
                       min="1000"
@@ -491,14 +498,14 @@ export function TaskPlans({
                     />
                   </label>
                   <p className="agent-hint">
-                    保留历史用量；追加后计划保持当前状态，如已暂停需手动恢复。
+                    {t('console.plans.addTokensHint')}
                   </p>
                   <div className="plans-drawer-actions">
                     <button className="primary" disabled={locked}>
-                      确认追加
+                      {t('console.plans.confirmAdd')}
                     </button>
                     <button type="button" onClick={() => setExtend(false)}>
-                      取消
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </form>
@@ -514,13 +521,13 @@ export function TaskPlans({
                       void control('run', { requestId: crypto.randomUUID() })
                     }
                   >
-                    立即执行
+                    {t('console.plans.runNow')}
                   </button>
                   <button
                     disabled={locked}
                     onClick={() => setEditor({ plan: structuredClone(plan) })}
                   >
-                    编辑计划
+                    {t('console.plans.editPlan')}
                   </button>
                   <button
                     disabled={
@@ -532,7 +539,7 @@ export function TaskPlans({
                       setTarget('');
                     }}
                   >
-                    改派角色
+                    {t('console.plans.reassignCharacter')}
                   </button>
                   <button
                     disabled={
@@ -541,7 +548,7 @@ export function TaskPlans({
                     }
                     onClick={() => void control('archive')}
                   >
-                    归档计划
+                    {t('console.plans.archivePlan')}
                   </button>
                 </div>
               )}
@@ -550,7 +557,7 @@ export function TaskPlans({
                   className="agent-hint"
                   style={{ marginTop: -10, marginBottom: 16 }}
                 >
-                  {blocked}，暂时不能立即执行。
+                  {t('console.plans.blockedCannotRun', { reason: blocked })}
                 </p>
               )}
               {reassign && (
@@ -568,15 +575,15 @@ export function TaskPlans({
                     })();
                   }}
                 >
-                  <h4>改派执行角色</h4>
+                  <h4>{t('console.plans.reassignTitle')}</h4>
                   <label>
-                    选择新的执行角色
+                    {t('console.plans.selectNewCharacter')}
                     <select
                       required
                       value={target}
                       onChange={(e) => setTarget(e.target.value)}
                     >
-                      <option value="">请选择角色</option>
+                      <option value="">{t('console.plans.selectCharacterPlaceholder')}</option>
                       {characters
                         .filter((a) => a.id !== plan.characterId)
                         .map((a) => (
@@ -587,27 +594,27 @@ export function TaskPlans({
                     </select>
                   </label>
                   <p className="agent-hint">
-                    改派后计划保持暂停状态，历史和累计用量保留。
+                    {t('console.plans.reassignHint')}
                   </p>
                   <div className="plans-drawer-actions">
                     <button className="primary" disabled={locked || !target}>
-                      确认改派
+                      {t('console.plans.confirmReassign')}
                     </button>
                     <button type="button" onClick={() => setReassign(false)}>
-                      取消
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </form>
               )}
               <div className="plans-section-heading">
-                <h4>当前执行</h4>
+                <h4>{t('console.plans.activeRuns')}</h4>
                 <span className="plans-section-badge">
-                  {runs.filter((r) => !runEnded(r)).length} 项活跃
+                  {t('console.plans.activeItems', { count: runs.filter((r) => !runEnded(r)).length })}
                 </span>
               </div>
               {!runs.some((r) => !runEnded(r)) && (
                 <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
-                  暂无未结束的执行
+                  {t('console.plans.noActiveRuns')}
                 </p>
               )}
               {runs
@@ -623,14 +630,14 @@ export function TaskPlans({
                   />
                 ))}
               <div className="plans-section-heading">
-                <h4>执行历史</h4>
+                <h4>{t('console.plans.historyHeading')}</h4>
                 <span className="plans-section-badge">
-                  {runs.filter(runEnded).length} 条记录
+                  {t('console.plans.historyCount', { count: runs.filter(runEnded).length })}
                 </span>
               </div>
               {!runs.some(runEnded) && (
                 <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
-                  暂无历史执行
+                  {t('console.plans.noHistoryRuns')}
                 </p>
               )}
               {runs.filter(runEnded).map((r) => (
@@ -646,7 +653,7 @@ export function TaskPlans({
                       )}{' '}
                       · {r.characterName}
                       {!characters.some((a) => a.id === r.characterId)
-                        ? '（已删除）'
+                        ? t('console.plans.deletedTag')
                         : ''}
                     </span>
                     <span
@@ -677,7 +684,7 @@ export function TaskPlans({
                       setRevision((v) => v + 1);
                     }}
                   >
-                    加载更早记录
+                    {t('console.plans.loadOlderRecords')}
                   </button>
                 </div>
               )}
@@ -687,11 +694,11 @@ export function TaskPlans({
               <span className="characters-welcome-symbol" aria-hidden="true">
                 ⏱
               </span>
-              <h4>{loading ? '正在同步计划…' : '安排下一项任务'}</h4>
+              <h4>{loading ? t('console.plans.welcomeSyncing') : t('console.plans.welcomeNextTask')}</h4>
               <p>
-                为 AI 伙伴集中安排即时任务、定时日程或周期循环巡查。
+                {t('console.plans.welcomeDescLine1')}
                 <br />
-                选择左侧计划查看执行进展，或直接新建计划。
+                {t('console.plans.welcomeDescLine2')}
               </p>
               {!loading && characters.length > 0 && !editor && (
                 <button
@@ -699,7 +706,7 @@ export function TaskPlans({
                   disabled={locked}
                   onClick={() => setEditor({})}
                 >
-                  ＋ 新建任务计划
+                  {t('console.plans.welcomeNewPlan')}
                 </button>
               )}
             </div>

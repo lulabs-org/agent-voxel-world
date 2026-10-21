@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { HelpCircle, X, Copy, Check } from 'lucide-react';
+import { useI18n } from '../../i18n';
 
 const LOCAL_AUTH_CMD = 'pnpm agent:ctl auth show';
 
 export function TokenHelpPopover() {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -23,8 +25,8 @@ export function TokenHelpPopover() {
         <button
           type="button"
           className="console-help-icon-btn"
-          title="如何获取管理员令牌？"
-          aria-label="如何获取管理员令牌？"
+          title={t('console.help.tokenTriggerTitle')}
+          aria-label={t('console.help.tokenTriggerTitle')}
         >
           <HelpCircle size={13} strokeWidth={2.2} />
         </button>
@@ -39,12 +41,12 @@ export function TokenHelpPopover() {
           collisionPadding={12}
         >
           <div className="console-token-popover-header">
-            <span className="console-token-popover-title">获取管理员令牌</span>
+            <span className="console-token-popover-title">{t('console.help.tokenTitle')}</span>
             <Popover.Close asChild>
               <button
                 type="button"
                 className="console-token-popover-close"
-                aria-label="关闭提示"
+                aria-label={t('console.help.tokenClose')}
               >
                 <X size={14} />
               </button>
@@ -52,7 +54,7 @@ export function TokenHelpPopover() {
           </div>
 
           <div className="console-token-popover-section">
-            <span className="console-token-popover-sub">本机开发环境</span>
+            <span className="console-token-popover-sub">{t('console.help.tokenLocalEnv')}</span>
             <div className="console-token-cmd-box">
               <code>{LOCAL_AUTH_CMD}</code>
               <button
@@ -62,11 +64,11 @@ export function TokenHelpPopover() {
               >
                 {copied ? (
                   <>
-                    <Check size={12} /> 已复制
+                    <Check size={12} /> {t('console.help.tokenCopied')}
                   </>
                 ) : (
                   <>
-                    <Copy size={12} /> 复制
+                    <Copy size={12} /> {t('console.help.tokenCopy')}
                   </>
                 )}
               </button>
@@ -74,7 +76,7 @@ export function TokenHelpPopover() {
           </div>
 
           <p className="console-token-popover-footer">
-            若非本机运行，请联系服务器管理员获取。
+            {t('console.help.tokenRemoteHint')}
           </p>
           <Popover.Arrow
             className="console-token-popover-arrow"

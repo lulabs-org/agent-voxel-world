@@ -178,7 +178,7 @@ export function ChatPanel({
         </div>
         <ChatMessages {...controller} />
         {recipients.length > 0 && (
-          <div className="chat-recipients" aria-label="已选对象">
+          <div className="chat-recipients" aria-label={t('chat.selectedRecipientsAria')}>
             <span className="recipient-label">
               {scope === 'private' ? t('chat.sendTo') : t('chat.remind')}
             </span>

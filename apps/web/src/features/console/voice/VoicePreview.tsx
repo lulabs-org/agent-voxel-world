@@ -1,6 +1,7 @@
 import type { VoiceServiceView } from '@voxel/shared';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { speakBrowserText } from '../../../audio';
+import { useI18n } from '../../../i18n';
 import { voiceApi } from './api';
 import { voicePreviewSamples } from './voice-preview-samples';
 
@@ -15,6 +16,7 @@ export function VoicePreview({
   active: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const textId = useId();
   const [text, setText] = useState(voicePreviewSamples[0].text);
   const [language, setLanguage] = useState(voicePreviewSamples[0].language);
@@ -42,42 +44,42 @@ export function VoicePreview({
     if (!url) return;
     void audio.current
       ?.play()
-      .catch(() => setStatus('音频已生成，请点击播放器开始试听。'));
+      .catch(() => setStatus(t('console.voice.previewStatusClickToPlay')));
     return () => URL.revokeObjectURL(url);
-  }, [url]);
+  }, [url, t]);
   const preview = async () => {
     if (!serviceId || disabled || !active) return;
     stop();
     const abort = new AbortController();
     request.current = abort;
     setBusy(true);
-    setStatus('正在连接并生成试听音频…');
+    setStatus(t('console.voice.previewStatusConnecting'));
     try {
       if (service?.type === 'browser') {
-        setStatus('正在使用当前浏览器朗读…');
+        setStatus(t('console.voice.previewStatusBrowserSpeaking'));
         await speakBrowserText(text, service, abort.signal);
-        if (!abort.signal.aborted) setStatus('浏览器朗读完成。');
+        if (!abort.signal.aborted) setStatus(t('console.voice.previewStatusBrowserDone'));
         return;
       }
       const blob = await voiceApi.previewVoice(serviceId, text, abort.signal);
       if (abort.signal.aborted) return;
       setUrl(URL.createObjectURL(blob));
-      setStatus('连接成功，试听音频已生成。');
+      setStatus(t('console.voice.previewStatusSuccess'));
     } catch (error) {
       if (!abort.signal.aborted)
-        setStatus(error instanceof Error ? error.message : '试听失败。');
+        setStatus(error instanceof Error ? error.message : t('console.voice.previewStatusFailed'));
     } finally {
       if (!abort.signal.aborted) setBusy(false);
     }
   };
   return (
-    <section className="voice-preview tts-preview" aria-label="语音试听">
+    <section className="voice-preview tts-preview" aria-label={t('console.voice.previewSectionAria')}>
       <div className="tts-preview-heading">
-        <label htmlFor={textId}>试听文字</label>
+        <label htmlFor={textId}>{t('console.voice.previewTextLabel')}</label>
         <select
           className="tts-preview-language"
-          aria-label="试听示例语言"
-          title="选择示例文字；不会更改已保存的音色"
+          aria-label={t('console.voice.previewLangAria')}
+          title={t('console.voice.previewLangTitle')}
           value={language}
           onChange={(event) => {
             const sample = voicePreviewSamples.find(
@@ -89,7 +91,7 @@ export function VoicePreview({
             setText(sample.text);
           }}
         >
-          {language === 'custom' && <option value="custom">自定义文字</option>}
+          {language === 'custom' && <option value="custom">{t('console.voice.customText')}</option>}
           {voicePreviewSamples.map((sample) => (
             <option key={sample.language} value={sample.language}>
               {sample.label}
@@ -102,9 +104,9 @@ export function VoicePreview({
             !busy && (!serviceId || disabled || !active || !text.trim())
           }
           onClick={() => (busy ? stop() : void preview())}
-          title={busy ? '取消当前试听' : '使用已保存的配置测试连接并试听'}
+          title={busy ? t('console.voice.previewCancelTitle') : t('console.voice.previewStartTitle')}
         >
-          {busy ? '停止试听' : url ? '重新试听' : '试听'}
+          {busy ? t('console.voice.stopPreview') : url ? t('console.voice.rePreview') : t('console.voice.startPreview')}
         </button>
       </div>
       <textarea
@@ -122,10 +124,10 @@ export function VoicePreview({
       />
       <small className="tts-preview-hint">
         {service?.type === 'browser'
-          ? '使用当前浏览器音色，请确认支持所选语言；远程音色可能联网。'
+          ? t('console.voice.previewHintBrowser')
           : service?.type === 'piper'
-            ? '使用服务器本地模型，请选择与模型匹配的语言。'
-            : '使用已保存的音色，请确认支持所选语言；云端服务会接收文字并按服务商规则计费。'}
+            ? t('console.voice.previewHintPiper')
+            : t('console.voice.previewHintCloud')}
       </small>
       {status && (
         <p className="tts-preview-status" role="status">
@@ -137,8 +139,8 @@ export function VoicePreview({
         controls
         hidden={!url}
         src={url || undefined}
-        aria-label="试听音频"
-        onError={() => setStatus('音频播放失败，请重试或检查浏览器音频设置。')}
+        aria-label={t('console.voice.previewAudioAria')}
+        onError={() => setStatus(t('console.voice.previewStatusPlayFailed'))}
       />
     </section>
   );

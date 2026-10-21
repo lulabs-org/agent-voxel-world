@@ -8,16 +8,12 @@ import {
   speechTransport,
   type SpeechCapabilities,
 } from '../../audio';
+import { useI18n } from '../../i18n/context';
 import type { Connection } from '../../network/connection';
 import { voiceApi } from './api';
 import { BailianAsrConfig } from './BailianAsrConfig';
 import { browserLanguages } from './browser-asr-languages';
 import { useAsrServices } from './useAsrServices';
-
-const serverLanguages = [
-  ['zh-CN', '中文'],
-  ['en-US', '英语'],
-] as const;
 
 export function SpeechRecognitionPanel({
   active,
@@ -26,6 +22,12 @@ export function SpeechRecognitionPanel({
   active: boolean;
   connection: Connection;
 }) {
+  const { t } = useI18n();
+  const serverLanguages = [
+    ['zh-CN', t('console.asr.langChinese')],
+    ['en-US', t('console.asr.langEnglish')],
+  ] as const;
+
   const [recorder] = useState(() => new LocalRecorder());
   const [live] = useState(() => new LiveRecorder());
   const [browser] = useState(() => new BrowserRecognitionSession());
@@ -66,7 +68,7 @@ export function SpeechRecognitionPanel({
     setPartial('');
     release();
     setState('idle');
-    setStatus('已停止识别。');
+    setStatus(t('console.asr.cancelRecognition'));
   };
   useEffect(() => {
     setShowFileTest(false);
@@ -90,7 +92,7 @@ export function SpeechRecognitionPanel({
     const timeout = setTimeout(() => {
       abort.abort();
       setChecking(false);
-      setCheckError('检查超时，请确认项目服务正在运行后重试。');
+      setCheckError(t('console.asr.serviceFailed'));
       setCheckedAt(new Date());
     }, 10000);
     void voiceApi
@@ -100,7 +102,7 @@ export function SpeechRecognitionPanel({
       })
       .catch(() => {
         if (!abort.signal.aborted)
-          setCheckError('无法连接语音识别服务，请确认项目服务正在运行。');
+          setCheckError(t('console.asr.serviceFailed'));
       })
       .finally(() => {
         clearTimeout(timeout);
@@ -113,7 +115,7 @@ export function SpeechRecognitionPanel({
       clearTimeout(timeout);
       abort.abort();
     };
-  }, [active, isWhisper, retry, whisperServiceId, selectedModel]);
+  }, [active, isWhisper, retry, whisperServiceId, selectedModel, t]);
   const busy = state !== 'idle';
   const ready =
     active &&
@@ -140,7 +142,7 @@ export function SpeechRecognitionPanel({
     setError('');
     if (!file) {
       if (connection.chatRecording || connection.voiceLabRecording) {
-        setError('麦克风正被其他录音使用，请结束录音后重试。');
+        setError(t('console.asr.browserCannotRecordError'));
         return;
       }
       connection.stopSpatialInput();
@@ -157,7 +159,7 @@ export function SpeechRecognitionPanel({
         release();
         setText(value);
         setState('idle');
-        setStatus('识别完成，结果仅显示在这里。');
+        setStatus(t('console.asr.checkFinished'));
       },
       onError: (message: string) => {
         release();
@@ -177,7 +179,7 @@ export function SpeechRecognitionPanel({
         onEnd: () => {
           release();
           setState('idle');
-          setStatus('浏览器识别已结束，已保留确认文字；可重新开始录音。');
+          setStatus(t('console.asr.checkFinished'));
         },
       });
     } else if (file)
@@ -197,7 +199,7 @@ export function SpeechRecognitionPanel({
           onEnd: () => {
             release();
             setState('idle');
-            setStatus('录音已结束，整句已确认。结果仅显示在这里。');
+            setStatus(t('console.asr.checkFinished'));
           },
         },
         undefined,
@@ -219,11 +221,11 @@ export function SpeechRecognitionPanel({
       );
   };
   return (
-    <section aria-label="语音识别（ASR）">
+    <section aria-label={t('console.asr.panelAria')}>
       <div className="voice-services-layout console-columns">
-        <aside className="console-sidebar" aria-label="识别服务列表">
+        <aside className="console-sidebar" aria-label={t('console.asr.listAria')}>
           <div className="console-sidebar-heading">
-            <h3>识别服务</h3>
+            <h3>{t('console.asr.sidebarHeading')}</h3>
           </div>
           <button
             className="primary console-sidebar-add"
@@ -232,10 +234,10 @@ export function SpeechRecognitionPanel({
             disabled={busy || asr.saving || !asr.canAdd}
             onClick={() => chooseService('new')}
           >
-            ＋ 添加识别服务
+            {t('console.asr.addService')}
           </button>
           {!asr.loading && asr.services.length === 0 && (
-            <p className="agent-hint">暂无已保存的识别服务，请添加服务。</p>
+            <p className="agent-hint">{t('console.asr.noSavedServices')}</p>
           )}
           <div className="console-sidebar-items">
             {asr.services
@@ -244,10 +246,10 @@ export function SpeechRecognitionPanel({
                 name: value.name,
                 detail:
                   value.provider === 'browser'
-                    ? `浏览器识别 · ${browserLanguages.find(([code]) => code === value.language)?.[1] ?? value.language} · 此浏览器保存`
+                    ? `${t('console.asr.typeBrowser')} · ${browserLanguages.find(([code]) => code === value.language)?.[1] ?? value.language}`
                     : value.provider === 'whisper'
-                      ? `Whisper · ${value.model === 'default' ? '默认模型' : value.model} · ${value.threads} 线程`
-                      : `阿里云百炼 · ${value.model}`,
+                      ? `Whisper · ${value.model === 'default' ? t('console.asr.defaultServerModel') : value.model} · ${value.threads} ${t('console.asr.threadsLabel')}`
+                      : `${t('console.asr.typeBailian')} · ${value.model}`,
               }))
               .map((item) => (
                 <button
@@ -267,11 +269,11 @@ export function SpeechRecognitionPanel({
           </div>
           {asr.loading && (
             <p className="agent-hint" role="status">
-              正在加载识别服务…
+              {t('console.asr.loadingServices')}
             </p>
           )}
           <p className="console-sidebar-note">
-            同一服务商可保存多份模型配置。选择服务，在右侧配置并试用。
+            {t('console.asr.sidebarNote')}
           </p>
         </aside>
         <div className="agent-form console-panel">
@@ -292,18 +294,18 @@ export function SpeechRecognitionPanel({
           />
           {!isBrowser && asr.selected?.provider === 'whisper' && (
             <section className="console-panel-section">
-              <h4>Whisper 服务状态</h4>
+              <h4>{t('console.asr.whisperStatusHeading')}</h4>
               <p role="status" aria-live="polite" aria-atomic="true">
                 {checking
-                  ? '正在检查服务…'
+                  ? t('console.asr.checkingService')
                   : checkError
-                    ? '服务连接失败'
+                    ? t('console.asr.serviceFailed')
                     : capabilities?.local.available
-                      ? '服务器识别服务已就绪'
-                      : '服务未就绪'}
+                      ? t('console.asr.serviceReady')
+                      : t('console.asr.serviceNotReady')}
                 {!checking && checkedAt && (
                   <small className="asr-help">
-                    {checkError ? '本次检查结束' : '检查完成'} ·{' '}
+                    {checkError ? t('console.asr.serviceFailed') : t('console.asr.checkFinished')} ·{' '}
                     {checkedAt.toLocaleTimeString('zh-CN', { hour12: false })}
                   </small>
                 )}
@@ -325,26 +327,24 @@ export function SpeechRecognitionPanel({
                     setRetry((value) => value + 1);
                   }}
                 >
-                  {checking ? '检查中…' : '重新检查'}
+                  {checking ? t('common.loading') : t('console.asr.recheck')}
                 </button>
               </div>
               <p className="agent-hint">
-                聊天录音和附近语音也使用自托管
-                Whisper。识别模型部署在服务器上，玩家无需安装。
+                {t('console.asr.whisperServerNote')}
               </p>
               {!capabilities?.local.available && (
                 <p className="agent-hint">
-                  服务未就绪时，可在服务器的项目目录运行{' '}
-                  <code>pnpm voice:setup</code> 准备识别模型。
+                  {t('console.asr.whisperSetupHint')}
                 </p>
               )}
             </section>
           )}
-          <section className="voice-preview" aria-label="语音识别试用">
-            <h4>试用语音识别</h4>
+          <section className="voice-preview" aria-label={t('console.asr.tryAsrHeading')}>
+            <h4>{t('console.asr.tryAsrHeading')}</h4>
             {!isBrowser && (
               <label>
-                识别语言
+                {t('console.asr.primaryLanguage')}
                 <select
                   value={language}
                   disabled={busy}
@@ -364,7 +364,7 @@ export function SpeechRecognitionPanel({
                 disabled={!ready || busy || (!isBrowser && !live.canRecord)}
                 onClick={() => start()}
               >
-                开始录音
+                {t('console.asr.startRecording')}
               </button>
               {!isBrowser && asr.selected?.provider === 'whisper' && (
                 <button
@@ -375,7 +375,7 @@ export function SpeechRecognitionPanel({
                   disabled={busy}
                   onClick={() => setShowFileTest((value) => !value)}
                 >
-                  {showFileTest ? '收起文件测试' : '用音频文件测试'}
+                  {showFileTest ? t('console.asr.toggleFileTestHide') : t('console.asr.toggleFileTestShow')}
                 </button>
               )}
               {state === 'listening' && (
@@ -388,25 +388,23 @@ export function SpeechRecognitionPanel({
                     } else void live.finish();
                   }}
                 >
-                  结束录音
+                  {t('console.asr.finishRecording')}
                 </button>
               )}
               {busy && (
                 <button type="button" onClick={stop}>
-                  取消识别
+                  {t('console.asr.cancelRecognition')}
                 </button>
               )}
             </div>
             {isBrowser && !browser.available && (
               <p role="alert" className="agent-error">
-                当前浏览器不支持语音识别，或页面不是安全上下文。请使用支持
-                SpeechRecognition 的浏览器，并通过 HTTPS 或 localhost 打开。
+                {t('console.asr.browserNotSupportedError')}
               </p>
             )}
             {!isBrowser && !live.canRecord && (
               <p className="agent-hint">
-                当前浏览器无法录音。请使用支持 AudioWorklet 的浏览器并在 HTTPS
-                或 localhost 下打开；Whisper 支持音频文件识别。
+                {t('console.asr.browserCannotRecordError')}
               </p>
             )}
             {!isBrowser && asr.selected?.provider === 'whisper' && (
@@ -416,7 +414,7 @@ export function SpeechRecognitionPanel({
                 className="asr-file-test"
               >
                 <label>
-                  选择音频文件（最长 20 秒 / 5 MiB）
+                  {t('console.asr.fileInputLabel')}
                   <input
                     type="file"
                     accept=".wav,.webm,.mp4,.m4a,.ogg"
@@ -430,16 +428,6 @@ export function SpeechRecognitionPanel({
                 </label>
               </div>
             )}
-            <small className="asr-help">
-              {isBrowser
-                ? '语音由浏览器直接识别，可能需要联网。'
-                : !isWhisper
-                  ? '录音经项目服务器实时转发至阿里云识别。'
-                  : '录音或文件会发送到项目服务器识别。'}
-              每次连续录音最长 5
-              分钟；结束录音会等待最后的识别结果，取消会丢弃未确认内容。试用结果不会发送到聊天或触发
-              Agent；切换页面或关闭控制台会停止录音和识别。
-            </small>
             {status && <p role="status">{status}</p>}
             {error && (
               <p role="alert" className="agent-error">
@@ -447,21 +435,21 @@ export function SpeechRecognitionPanel({
               </p>
             )}
             <div className="speech-interim" role="status" aria-live="polite">
-              <strong>临时字幕 · 未确认</strong>
+              <strong>{t('console.asr.interimTitle')}</strong>
               <p>
                 {partial ||
                   (state === 'listening'
-                    ? '正在听取讲话…'
-                    : '说话时在这里显示，停顿后确认')}
+                    ? t('console.asr.listeningInterim')
+                    : t('console.asr.speakingInterimPlaceholder'))}
               </p>
             </div>
             <label>
-              已确认文字
+              {t('console.asr.confirmedTextLabel')}
               <textarea
                 rows={4}
                 readOnly
                 value={text}
-                placeholder="每句确认后，文字会追加到这里"
+                placeholder={t('console.asr.confirmedTextPlaceholder')}
               />
             </label>
           </section>

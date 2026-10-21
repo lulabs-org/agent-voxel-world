@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './ai-characters.css';
+import { useI18n } from '../../../i18n/context';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterDetail } from './AICharacterDetail';
 import { AICharacterForm } from './AICharacterForm';
@@ -9,6 +10,7 @@ type Filter = 'all' | 'online' | 'attention' | 'offline';
 export function AICharacterList(
   props: ConsoleController & { active: boolean },
 ) {
+  const { t } = useI18n();
   const {
     jobs,
     busy,
@@ -39,36 +41,40 @@ export function AICharacterList(
     );
   });
   return (
-    <section className="agents-workspace" aria-label="AI 角色管理">
+    <section className="agents-workspace" aria-label={t('console.characters.managementAria')}>
       {pollError && (
         <p role="alert" className="agent-error">
-          {pollError} 当前显示上次同步的记录，恢复连接后可继续操作。
+          {t('console.characters.pollErrorHint', { error: pollError })}
         </p>
       )}
       <div className="agents-layout console-columns">
-        <aside className="console-sidebar" aria-label="AI 角色列表">
+        <aside className="console-sidebar" aria-label={t('console.characters.listAria')}>
           <div className="console-sidebar-heading">
-            <h3>AI 角色</h3>
-            <span>{loadingJobs ? '同步中…' : `${onlineCount} / 4 在线`}</span>
+            <h3>{t('console.characters.title')}</h3>
+            <span>
+              {loadingJobs
+                ? t('console.characters.syncing')
+                : t('console.characters.onlineCount', { online: onlineCount })}
+            </span>
           </div>
           <button
             className="primary console-sidebar-add"
             disabled={disabled}
             onClick={() => openAgentEditor()}
           >
-            ＋ 创建 AI 角色
+            ＋ {t('console.characters.create')}
           </button>
           <div
             className="agents-filters"
             role="group"
-            aria-label="筛选 AI 角色"
+            aria-label={t('console.characters.filterAria')}
           >
             {(
               [
-                ['all', '全部'],
-                ['online', '在线'],
-                ['attention', '待处理'],
-                ['offline', '离线'],
+                ['all', t('console.characters.filterAll')],
+                ['online', t('console.characters.filterOnline')],
+                ['attention', t('console.characters.filterAttention')],
+                ['offline', t('console.characters.filterOffline')],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -83,8 +89,8 @@ export function AICharacterList(
           {jobs.length > 4 && (
             <input
               className="agents-search"
-              aria-label="搜索 AI 角色"
-              placeholder="搜索 AI 角色名称"
+              aria-label={t('console.characters.searchAria')}
+              placeholder={t('console.characters.searchPlaceholder')}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -110,7 +116,7 @@ export function AICharacterList(
                         ? state.presence
                         : state.online
                           ? state.taskLabel
-                          : '未在世界中'}
+                          : t('console.characters.presenceNotInWorld')}
                     </small>
                   </span>
                   <span
@@ -125,17 +131,17 @@ export function AICharacterList(
             {!filtered.length && (
               <p className="agents-list-empty">
                 {loadingJobs
-                  ? '正在读取 AI 角色…'
+                  ? t('console.characters.listLoading')
                   : jobs.length
-                    ? '没有符合条件的 AI 角色'
-                    : '创建后，AI 角色会显示在这里。'}
+                    ? t('console.characters.listNoMatch')
+                    : t('console.characters.listEmptyCreated')}
               </p>
             )}
           </div>
           <p className="console-sidebar-note">
             {onlineCount >= 4
-              ? '在线名额已满，仍可创建离线 AI 角色；上线前请先释放名额。'
-              : 'AI 角色离开世界后仍保留设置，下次可以再次加入。'}
+              ? t('console.characters.capacityFullNote')
+              : t('console.characters.offlineRetentionNote')}
           </p>
         </aside>
         <div
@@ -157,23 +163,27 @@ export function AICharacterList(
               <span className="agents-welcome-symbol" aria-hidden="true">
                 ◇
               </span>
-              <h4>{loadingJobs ? '正在连接你的世界' : '一起开始探索'}</h4>
+              <h4>
+                {loadingJobs
+                  ? t('console.characters.welcomeConnecting')
+                  : t('console.characters.welcomeTitle')}
+              </h4>
               <p>
-                为 AI 角色选择一个模型，给它起个名字。
+                {t('console.characters.welcomeDescLine1')}
                 <br />
-                它可以先加入世界待命，也可以带着任务出发。
+                {t('console.characters.welcomeDescLine2')}
               </p>
               <button
                 className="primary"
                 disabled={disabled}
                 onClick={() => openAgentEditor()}
               >
-                创建第一位 AI 角色
+                {t('console.characters.welcomeCreate')}
               </button>
               <div className="agents-welcome-capabilities">
-                <span>探索与交流</span>
-                <span>协作搭建</span>
-                <span>语音回复</span>
+                <span>{t('console.characters.capExplore')}</span>
+                <span>{t('console.characters.capBuild')}</span>
+                <span>{t('console.characters.capVoice')}</span>
               </div>
             </div>
           )}

@@ -5,22 +5,12 @@ import type {
 } from '@voxel/shared';
 import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '@voxel/shared';
 import { useEffect, useState } from 'react';
+import { useI18n } from '../../../i18n';
 import { voiceApi } from './api';
 import { BrowserVoiceSelect } from './BrowserVoiceSelect';
 import { PiperModelSelect } from './PiperModelSelect';
 import { VoicePreview } from './VoicePreview';
-const voiceLabel = (service: VoiceServiceView) =>
-  service.type === 'piper'
-    ? PIPER_MODELS.find((model) => model.id === service.model)?.name ||
-      service.model
-    : service.voice || '自动选择音色';
 
-const labels: Record<VoiceServiceType, string> = {
-  piper: 'Piper 本地语音',
-  browser: '浏览器系统语音（Web Speech API）',
-  bailian: '百炼语音合成',
-  compatible: '兼容语音接口',
-};
 const fresh = (type: VoiceServiceType = 'piper'): VoiceServiceDraft => ({
   name: '',
   type,
@@ -42,6 +32,7 @@ const fresh = (type: VoiceServiceType = 'piper'): VoiceServiceDraft => ({
           : '',
   voice: type === 'bailian' ? 'Cherry' : type === 'compatible' ? 'alloy' : '',
 });
+
 export function VoiceServices({
   services,
   onChange,
@@ -51,6 +42,21 @@ export function VoiceServices({
   onChange: (list: VoiceServiceView[]) => void;
   active: boolean;
 }) {
+  const { t } = useI18n();
+
+  const labels: Record<VoiceServiceType, string> = {
+    piper: t('console.voice.typePiper'),
+    browser: t('console.voice.typeBrowser'),
+    bailian: t('console.voice.typeBailian'),
+    compatible: t('console.voice.typeCompatible'),
+  };
+
+  const voiceLabel = (service: VoiceServiceView) =>
+    service.type === 'piper'
+      ? PIPER_MODELS.find((model) => model.id === service.model)?.name ||
+        service.model
+      : service.voice || t('console.voice.autoSelectVoice');
+
   const [selected, setSelected] = useState<string | null | undefined>();
   const [draft, setDraft] = useState(fresh);
   const [dirty, setDirty] = useState(false);
@@ -101,9 +107,9 @@ export function VoiceServices({
           : [...services, value],
       );
       choose(value);
-      setNotice('已保存。可在这里试听，或在创建 Agent 时选择此服务。');
+      setNotice(t('console.voice.saveSuccessNotice'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '保存失败。');
+      setError(e instanceof Error ? e.message : t('console.voice.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -117,25 +123,25 @@ export function VoiceServices({
       const next = services.filter((s) => s.id !== selected);
       onChange(next);
       choose(next[0]);
-      setNotice('语音服务已删除。');
+      setNotice(t('console.voice.deleteSuccessNotice'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '删除失败。');
+      setError(e instanceof Error ? e.message : t('console.voice.deleteFailed'));
     } finally {
       setBusy(false);
     }
   };
   return (
     <div className="voice-services-layout console-columns">
-      <aside className="console-sidebar" aria-label="语音服务列表">
+      <aside className="console-sidebar" aria-label={t('console.voice.listAria')}>
         <div className="console-sidebar-heading">
-          <h3>语音服务</h3>
+          <h3>{t('console.tabs.voice')}</h3>
         </div>
         <button
           className="primary console-sidebar-add"
           disabled={busy}
           onClick={() => choose()}
         >
-          ＋ 添加语音服务
+          {t('console.voice.createButton')}
         </button>
         <div className="console-sidebar-items">
           {services.map((service) => (
@@ -160,7 +166,7 @@ export function VoiceServices({
           ))}
         </div>
         <p className="console-sidebar-note">
-          同一服务商可保存多份音色配置，供不同 Agent 复用。
+          {t('console.voice.reuseNote')}
         </p>
       </aside>
       <div className="agent-form console-panel">
@@ -171,9 +177,9 @@ export function VoiceServices({
           }}
         >
           <div className="console-panel-heading">
-            <h3>{selected ? '编辑语音服务' : '添加语音服务'}</h3>
+            <h3>{selected ? t('console.voice.headingEdit') : t('console.voice.headingAdd')}</h3>
             <p>
-              将 Agent 的文字回复合成为声音；回复内容仍由 Agent 的思考模型决定。
+              {t('console.voice.headingDesc')}
             </p>
           </div>
           {error && (
@@ -188,17 +194,17 @@ export function VoiceServices({
           )}
           <fieldset disabled={busy}>
             <label>
-              服务名称
+              {t('console.voice.nameLabel')}
               <input
                 required
                 maxLength={50}
-                placeholder="请输入服务名称"
+                placeholder={t('console.voice.namePlaceholder')}
                 value={draft.name}
                 onChange={(e) => change({ name: e.target.value })}
               />
             </label>
             <label>
-              服务类型
+              {t('console.voice.serviceTypeLabel')}
               <select
                 value={draft.type}
                 onChange={(e) => {
@@ -226,10 +232,10 @@ export function VoiceServices({
                       onChange={(e) => change({ baseUrl: e.target.value })}
                     >
                       <option value="https://dashscope.aliyuncs.com/api/v1">
-                        北京 · dashscope.aliyuncs.com
+                        {t('console.voice.regionBeijing')}
                       </option>
                       <option value="https://dashscope-intl.aliyuncs.com/api/v1">
-                        新加坡 · dashscope-intl.aliyuncs.com
+                        {t('console.voice.regionSingapore')}
                       </option>
                     </select>
                   ) : (
@@ -245,9 +251,9 @@ export function VoiceServices({
                   <span className="voice-key-label">API Key</span>
                   {canKeepKey && !editingKey ? (
                     <div className="voice-key-saved">
-                      <span role="status">密钥已配置</span>
+                      <span role="status">{t('console.voice.keyConfiguredStatus')}</span>
                       <button type="button" onClick={() => setEditingKey(true)}>
-                        更换密钥
+                        {t('console.voice.changeKey')}
                       </button>
                     </div>
                   ) : (
@@ -258,7 +264,7 @@ export function VoiceServices({
                         autoComplete="new-password"
                         value={draft.apiKey}
                         placeholder={
-                          canKeepKey ? '输入新密钥，保存后生效' : '填写服务密钥'
+                          canKeepKey ? t('console.voice.keyPlaceholderNew') : t('console.voice.keyPlaceholderEmpty')
                         }
                         onChange={(e) => change({ apiKey: e.target.value })}
                       />
@@ -270,7 +276,7 @@ export function VoiceServices({
                             setEditingKey(false);
                           }}
                         >
-                          取消更换
+                          {t('console.voice.cancelChangeKey')}
                         </button>
                       )}
                     </div>
@@ -278,15 +284,15 @@ export function VoiceServices({
                   <small>
                     {canKeepKey
                       ? editingKey
-                        ? '留空保存仍使用已有密钥。'
-                        : '密钥已保存在服务端，不回显到浏览器。'
+                        ? t('console.voice.keyLeaveBlankHint')
+                        : t('console.voice.keySavedServerSide')
                       : saved?.hasApiKey
-                        ? '接口地址或服务类型已更改，请重新填写密钥。'
-                        : '密钥仅保存在服务端。'}
+                        ? t('console.voice.keyChangedWarning')
+                        : t('console.voice.keyServerOnly')}
                   </small>
                 </div>
                 <label>
-                  语音模型
+                  {t('console.voice.voiceModel')}
                   <input
                     required
                     maxLength={128}
@@ -313,19 +319,19 @@ export function VoiceServices({
               />
             ) : (
               <label>
-                音色
+                {t('console.voice.voiceLabel')}
                 <input
                   required
                   maxLength={100}
                   value={draft.voice}
-                  placeholder="服务支持的音色 ID"
+                  placeholder={t('console.voice.voicePlaceholder')}
                   onChange={(e) => change({ voice: e.target.value })}
                 />
               </label>
             )}
             {draft.type !== 'bailian' && (
               <label>
-                语速（0.5–2 倍）
+                {t('console.voice.speedLabel')}
                 <input
                   type="number"
                   required
@@ -339,36 +345,32 @@ export function VoiceServices({
             )}
             {draft.type === 'browser' && (
               <p className="agent-hint">
-                由接收者浏览器朗读，无需 API
-                Key。音色因设备而异，缺失时按语言回退；远程音色可能联网。不支持左右声道空间定位。
+                {t('console.voice.hintBrowser')}
               </p>
             )}
             {draft.type === 'piper' && (
               <p className="agent-hint">
-                使用服务器上的 Piper
-                模型合成语音，音色由模型决定。声音发送给玩家播放。
+                {t('console.voice.hintPiper')}
               </p>
             )}
             {draft.type === 'bailian' && (
               <p className="agent-hint">
-                支持 Qwen-TTS 与 Qwen-Audio-TTS，按模型自动选择合成接口。
-                qwen3-tts-flash 可搭配 Cherry；qwen-audio-3.1-tts-flash 可搭配
-                longanhuan_v3.1。音色须与模型及地域匹配。
+                {t('console.voice.hintBailian')}
               </p>
             )}
             <div className="voice-service-actions console-form-actions">
               <button className="primary" disabled={!dirty}>
-                {busy ? '保存中…' : '保存服务'}
+                {busy ? t('console.voice.saving') : t('console.voice.saveService')}
               </button>
               {selected && (
                 <button type="button" onClick={() => void remove()}>
-                  删除服务
+                  {t('console.voice.deleteService')}
                 </button>
               )}
             </div>
           </fieldset>
         </form>
-        {dirty && <p className="agent-hint">请先保存修改，再试听当前配置。</p>}
+        {dirty && <p className="agent-hint">{t('console.voice.previewDirtyHint')}</p>}
         <VoicePreview
           serviceId={selected ?? undefined}
           service={saved}

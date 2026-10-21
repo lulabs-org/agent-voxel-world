@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { BailianAsrDraft } from '@voxel/shared';
+import { useI18n } from '../../i18n/context';
 import type { AsrProvider } from './browser-asr-services';
 import { browserLanguages } from './browser-asr-languages';
 import type { useAsrServices } from './useAsrServices';
@@ -13,6 +14,7 @@ export function BailianAsrConfig({
   disabled: boolean;
   models?: string[];
 }) {
+  const { t } = useI18n();
   const {
     draft,
     selected: saved,
@@ -47,12 +49,12 @@ export function BailianAsrConfig({
       }}
     >
       <div className="console-panel-heading">
-        <h3>{saved ? '编辑识别服务' : '添加识别服务'}</h3>
-        <p>配置语音识别的语言、模型与参数；每份服务独立保存。</p>
+        <h3>{saved ? t('console.asr.headingEdit') : t('console.asr.headingAdd')}</h3>
+        <p>{t('console.asr.headingDesc')}</p>
       </div>
       <fieldset disabled={busy || disabled}>
         <label>
-          服务名称
+          {t('console.asr.serviceName')}
           <input
             required
             maxLength={50}
@@ -61,7 +63,7 @@ export function BailianAsrConfig({
           />
         </label>
         <label>
-          服务类型
+          {t('console.asr.serviceType')}
           <select
             value={draft.provider ?? 'bailian'}
             disabled={!!saved}
@@ -69,15 +71,15 @@ export function BailianAsrConfig({
               manager.changeProvider(e.target.value as AsrProvider)
             }
           >
-            <option value="whisper">自托管 Whisper</option>
-            <option value="bailian">阿里云百炼</option>
-            <option value="browser">浏览器语音识别（Web Speech API）</option>
+            <option value="whisper">{t('console.asr.typeWhisper')}</option>
+            <option value="bailian">{t('console.asr.typeBailian')}</option>
+            <option value="browser">{t('console.asr.typeBrowser')}</option>
           </select>
         </label>
         {draft.provider === 'browser' ? (
           <>
             <label>
-              主要识别语言
+              {t('console.asr.primaryLanguage')}
               <select
                 value={draft.language}
                 onChange={(e) => change({ language: e.target.value })}
@@ -89,29 +91,26 @@ export function BailianAsrConfig({
                 ))}
               </select>
             </label>
-            <small>
-              配置仅保存在当前浏览器，不会同步到其他设备；无需 API
-              Key。每次选择一种主要语言，实际支持取决于浏览器识别服务。
-            </small>
+            <small>{t('console.asr.browserNote')}</small>
           </>
         ) : draft.provider === 'whisper' ? (
           <>
             <label>
-              识别模型
+              {t('console.asr.recognitionModel')}
               <select
                 value={draft.model}
                 onChange={(e) => change({ model: e.target.value })}
               >
                 {[...new Set([...models, draft.model])].map((model) => (
                   <option key={model} value={model}>
-                    {model === 'default' ? '服务器默认模型' : model}
+                    {model === 'default' ? t('console.asr.defaultServerModel') : model}
                   </option>
                 ))}
               </select>
             </label>
-            <small>模型须已安装在服务器；更换模型后保存并检查服务状态。</small>
+            <small>{t('console.asr.whisperModelNote')}</small>
             <label>
-              线程数
+              {t('console.asr.threadsLabel')}
               <input
                 type="number"
                 min={1}
@@ -122,7 +121,7 @@ export function BailianAsrConfig({
               />
             </label>
             <label>
-              搜索宽度（Beam size）
+              {t('console.asr.beamSizeLabel')}
               <input
                 type="number"
                 min={1}
@@ -133,7 +132,7 @@ export function BailianAsrConfig({
               />
             </label>
             <label>
-              采样温度
+              {t('console.asr.temperatureLabel')}
               <input
                 type="number"
                 min={0}
@@ -147,12 +146,12 @@ export function BailianAsrConfig({
               />
             </label>
             <label>
-              提示词（可选）
+              {t('console.asr.promptLabel')}
               <textarea
                 maxLength={500}
                 rows={2}
                 value={draft.prompt}
-                placeholder="例如：人名、专业术语或预期文字风格"
+                placeholder={t('console.asr.promptPlaceholder')}
                 onChange={(e) => change({ prompt: e.target.value })}
               />
             </label>
@@ -160,7 +159,7 @@ export function BailianAsrConfig({
         ) : (
           <>
             <label>
-              服务地域
+              {t('console.asr.regionLabel')}
               <select
                 value={draft.region}
                 onChange={(e) =>
@@ -169,21 +168,21 @@ export function BailianAsrConfig({
                   })
                 }
               >
-                <option value="beijing">北京</option>
-                <option value="singapore">新加坡</option>
+                <option value="beijing">{t('console.asr.regionBeijing')}</option>
+                <option value="singapore">{t('console.asr.regionSingapore')}</option>
               </select>
             </label>
             <label>
-              业务空间 ID（可选）
+              {t('console.asr.workspaceIdLabel')}
               <input
                 value={draft.workspaceId}
                 maxLength={80}
-                placeholder="留空使用公共接口"
+                placeholder={t('console.asr.workspaceIdPlaceholder')}
                 onChange={(e) => change({ workspaceId: e.target.value })}
               />
             </label>
             <label>
-              识别模型
+              {t('console.asr.recognitionModel')}
               <select
                 value={draft.model}
                 onChange={(e) =>
@@ -200,9 +199,9 @@ export function BailianAsrConfig({
               <span className="voice-key-label">API Key</span>
               {canKeepKey && !editingKey ? (
                 <div className="voice-key-saved">
-                  <span role="status">密钥已配置</span>
+                  <span role="status">{t('console.voice.keyConfiguredStatus')}</span>
                   <button type="button" onClick={() => setEditingKey(true)}>
-                    更换密钥
+                    {t('console.voice.changeKey')}
                   </button>
                 </div>
               ) : (
@@ -213,7 +212,9 @@ export function BailianAsrConfig({
                     autoComplete="new-password"
                     value={draft.apiKey}
                     placeholder={
-                      canKeepKey ? '输入新密钥，保存后生效' : '填写百炼 API Key'
+                      canKeepKey
+                        ? t('console.voice.keyPlaceholderNew')
+                        : t('console.voice.keyPlaceholderEmpty')
                     }
                     onChange={(e) => change({ apiKey: e.target.value })}
                   />
@@ -225,7 +226,7 @@ export function BailianAsrConfig({
                         setEditingKey(false);
                       }}
                     >
-                      取消更换
+                      {t('console.voice.cancelChangeKey')}
                     </button>
                   )}
                 </div>
@@ -233,11 +234,11 @@ export function BailianAsrConfig({
               <small>
                 {canKeepKey
                   ? editingKey
-                    ? '留空保存仍使用已有密钥。'
-                    : '密钥已保存在服务端，不回显到浏览器。'
+                    ? t('console.voice.keyLeaveBlankHint')
+                    : t('console.voice.keySavedServerSide')
                   : hasSavedKey
-                    ? '地域或业务空间已更改，请重新填写密钥。'
-                    : '密钥仅保存在服务端，须与地域及业务空间匹配。'}
+                    ? t('console.voice.keyChangedWarning')
+                    : t('console.voice.keyServerOnly')}
               </small>
             </div>
           </>
@@ -248,7 +249,7 @@ export function BailianAsrConfig({
             type="submit"
             disabled={!dirty || manager.loading}
           >
-            {busy ? '处理中…' : '保存识别服务'}
+            {busy ? t('common.loading') : t('console.asr.saveServiceButton')}
           </button>
           {!saved && manager.canAddAnother && (
             <button
@@ -256,43 +257,34 @@ export function BailianAsrConfig({
               value="add-another"
               disabled={!dirty || manager.loading}
             >
-              保存并继续添加
+              {t('console.asr.saveAndAddAnother')}
             </button>
           )}
           {saved && (
             <button type="button" onClick={() => void remove()}>
-              删除服务
+              {t('console.asr.deleteServiceButton')}
             </button>
           )}
           <button type="button" onClick={reload}>
-            重新加载
+            {t('console.asr.reloadButton')}
           </button>
         </div>
       </fieldset>
-      {dirty && <p className="agent-hint">请先保存修改，再开始录音。</p>}
+      {dirty && <p className="agent-hint">{t('console.asr.dirtyRecordHint')}</p>}
       {draft.provider === 'browser' ? (
-        <p className="agent-hint">
-          浏览器直接进行麦克风识别，可能使用在线识别服务。保存后可在下方试用；聊天和附近语音继续使用
-          Whisper。
-        </p>
+        <p className="agent-hint">{t('console.asr.browserHint')}</p>
       ) : draft.provider === 'whisper' ? (
-        <p className="agent-hint">
-          录音与文件使用当前 Whisper
-          配置在项目服务器识别。聊天和附近语音继续使用服务器默认配置。
-        </p>
+        <p className="agent-hint">{t('console.asr.whisperHint')}</p>
       ) : (
         <>
-          <p className="agent-hint">
-            录音经项目服务器发送给阿里云，按服务商规则计费。此处选择用于 ASR
-            试用；聊天和附近语音继续使用 Whisper。
-          </p>
+          <p className="agent-hint">{t('console.asr.bailianHint')}</p>
           <a
             className="console-help-link"
             href="https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide"
             target="_blank"
             rel="noreferrer"
           >
-            阿里云接入文档 ↗
+            {t('console.asr.aliyunDocs')}
           </a>
         </>
       )}

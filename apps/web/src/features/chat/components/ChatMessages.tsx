@@ -1,10 +1,14 @@
+import { useI18n } from '../../../i18n/context';
 import type { ChatController } from '../hooks/useChatController';
 import { AudioMessage } from './AudioMessage';
+
 type Props = Pick<
   ChatController,
   'connection' | 'text' | 'scope' | 'recipients' | 'list'
 >;
+
 export function ChatMessages({ connection, list }: Props) {
+  const { t } = useI18n();
   return (
     <div className="messages" ref={list} aria-live="polite">
       {connection.chats.map((e) => (
@@ -13,20 +17,20 @@ export function ChatMessages({ connection, list }: Props) {
             <strong>{e.data.name}</strong>{' '}
             <small>
               {e.data.scope === 'nearby'
-                ? '附近语音 · 转写'
+                ? t('chat.nearbyTranscribe')
                 : e.data.scope === 'private'
-                  ? '私聊'
-                  : '群聊'}
-              {e.actor === connection.room?.sessionId ? ' · 你' : ''}
+                  ? t('chat.private')
+                  : t('chat.public')}
+              {e.actor === connection.room?.sessionId ? t('worldPanel.you') : ''}
               {e.data.scope === 'private'
                 ? ' → ' +
                   e.data.recipients
                     .map(
                       (id) =>
                         connection.players.find((p) => p.id === id)?.name ??
-                        '已离线玩家',
+                        t('chat.offlineUser'),
                     )
-                    .join('、')
+                    .join(', ')
                 : ''}
             </small>
           </div>
@@ -36,7 +40,7 @@ export function ChatMessages({ connection, list }: Props) {
                 <span key={id}>
                   @
                   {connection.players.find((p) => p.id === id)?.name ??
-                    '已离线玩家'}
+                    t('chat.offlineUser')}
                 </span>
               ))}
             </div>

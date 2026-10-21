@@ -1,3 +1,4 @@
+import { useI18n } from '../../../i18n/context';
 import { AudioPlayer } from './AudioPlayer';
 
 /** Local preview only: playing or seeking never uploads the recording. */
@@ -12,18 +13,19 @@ export function VoiceDraft({
   busy: boolean;
   onDiscard: () => void;
 }) {
+  const { t } = useI18n();
   return (
-    <section className="voice-draft" aria-label="录音草稿">
+    <section className="voice-draft" aria-label={t('chat.voiceDraftAria')}>
       <div className="voice-draft-heading">
-        <strong>语音草稿</strong>
-        <span>{busy ? '发送中' : '待发送'}</span>
+        <strong>{t('chat.voiceDraftTitle')}</strong>
+        <span>{busy ? t('chat.sendingStatus') : t('chat.readyToSend')}</span>
         <button
           type="button"
           className="voice-draft-discard"
           disabled={busy}
           onClick={onDiscard}
-          aria-label="丢弃录音"
-          title="丢弃录音"
+          aria-label={t('chat.discardRecording')}
+          title={t('chat.discardRecording')}
         >
           <svg
             viewBox="0 0 24 24"
@@ -44,10 +46,10 @@ export function VoiceDraft({
         src={src}
         durationMs={durationMs}
         busy={busy}
-        label="录音试听"
-        idleLabel="仅自己可听"
-        playLabel="试听录音"
-        pauseLabel="暂停试听"
+        label={t('chat.previewVoice')}
+        idleLabel={t('chat.onlyYouCanHear')}
+        playLabel={t('chat.playRecording')}
+        pauseLabel={t('chat.pauseRecording')}
       />
     </section>
   );

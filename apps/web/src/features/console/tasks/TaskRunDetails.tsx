@@ -1,5 +1,6 @@
 import type { TaskLimits, TaskRun } from '@voxel/shared';
 import { useState } from 'react';
+import { useI18n } from '../../../i18n/context';
 import { TaskActionList } from './TaskActionList';
 import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 import {
@@ -7,6 +8,7 @@ import {
   runEnded,
   runStatus,
 } from './presentation/task-plan-presentation';
+
 export function TaskRunDetails({
   run,
   planGoal,
@@ -26,6 +28,7 @@ export function TaskRunDetails({
     limits?: TaskLimits,
   ) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [resume, setResume] = useState(false),
     [cancel, setCancel] = useState(false);
   const [limits, setLimits] = useState(run.snapshot.limits);
@@ -34,8 +37,15 @@ export function TaskRunDetails({
   const inheritedPending =
     !run.startedAt && run.snapshot.limitsMode === 'inherit';
   const active = ['running', 'waiting'].includes(run.status);
+  const sourceLabel =
+    run.source === 'scheduled'
+      ? t('console.plans.runSourceTime')
+      : run.source === 'legacy'
+        ? t('console.plans.runSourceImport')
+        : t('console.plans.runSourceManual');
+
   return (
-    <section className="plans-run-card task-run-detail" aria-label="执行详情">
+    <section className="plans-run-card task-run-detail" aria-label={t('console.plans.runDetailAria')}>
       {!hideHeading && (
         <div className="plans-run-header task-run-heading">
           <span
@@ -65,17 +75,15 @@ export function TaskRunDetails({
         </div>
       )}
       <p className="plans-run-meta-line agent-hint">
-        执行角色：{run.characterName ?? '历史角色'} · 计划修订{' '}
-        {run.planRevision ?? 1} ·{' '}
-        {run.source === 'scheduled'
-          ? '时间触发'
-          : run.source === 'legacy'
-            ? '历史导入'
-            : '手动执行'}
+        {t('console.plans.runCharacterInfo', {
+          character: run.characterName ?? t('console.characters.deletedTag'),
+          rev: run.planRevision ?? 1,
+          source: sourceLabel,
+        })}
       </p>
       {run.snapshot.goal.trim() !== planGoal.trim() && (
         <div className="plans-run-goal-box task-run-goal">
-          <strong>本次目标：</strong>
+          <strong>{t('console.plans.runCurrentGoal')}</strong>
           {run.snapshot.goal}
         </div>
       )}
@@ -86,57 +94,62 @@ export function TaskRunDetails({
       )}
       {run.requiresReassignment && (
         <p className="agent-error" role="alert">
-          原私聊会话已失效，不能继续此执行。请结束本次执行后重新安排。
+          {t('console.characters.staleChatSessionError')}
         </p>
       )}
       <div className="plans-run-report-box task-report">
         <span
           className="plans-run-report-label agents-section-label"
-          title="汇报可能含计划；已执行动作请查看实际动作记录。"
+          title={t('console.plans.runReportTooltip')}
         >
-          AI 角色汇报
+          {t('console.plans.runAgentReport')}
         </span>
-        <p>{run.task?.summary || '尚无汇报'}</p>
+        <p>{run.task?.summary || t('console.plans.noReport')}</p>
       </div>
       <dl className="plans-run-stats task-run-usage">
         <div className="plans-run-stat">
-          <dt>模型调用轮次</dt>
+          <dt>{t('console.characters.statTurns')}</dt>
           <dd>
             {run.task?.calls ?? 0} /{' '}
             {inheritedPending
-              ? '启动时确定'
+              ? t('console.plans.determinedAtStart')
               : limited
                 ? run.snapshot.limits.maxTurns
-                : '不限'}
+                : t('console.characters.unlimited')}
           </dd>
         </div>
         <div className="plans-run-stat">
-          <dt>tokens{run.task?.estimated ? '（估算）' : ''}</dt>
+          <dt>
+            {t('console.characters.statTokens', {
+              estimated: run.task?.estimated ? t('console.characters.statEstimatedTag') : '',
+            })}
+          </dt>
           <dd>
             {run.totalTokens.toLocaleString()} /{' '}
             {inheritedPending
-              ? '启动时确定'
+              ? t('console.plans.determinedAtStart')
               : limited
                 ? run.snapshot.limits.tokenBudget.toLocaleString()
-                : '不限'}
+                : t('console.characters.unlimited')}
           </dd>
         </div>
         <div className="plans-run-stat">
-          <dt>有效执行时间</dt>
+          <dt>{t('console.characters.statDuration')}</dt>
           <dd>
-            {Math.round((run.task?.elapsedMs ?? 0) / 1000)} 秒 /{' '}
-            {inheritedPending
-              ? '启动时确定'
-              : limited
-                ? `${run.snapshot.limits.taskTimeoutMs / 60000} 分钟`
-                : '不限'}
+            {t('console.characters.durationValue', {
+              elapsed: Math.round((run.task?.elapsedMs ?? 0) / 1000),
+              limit: inheritedPending
+                ? t('console.plans.determinedAtStart')
+                : limited
+                  ? t('console.characters.minutesUnit', { min: run.snapshot.limits.taskTimeoutMs / 60000 })
+                  : t('console.characters.unlimited'),
+            })}
           </dd>
         </div>
       </dl>
       {queued && (
         <p className="agent-hint">
-          等待当前活动结束；已合并 {run.coalescedTriggers ?? 0}{' '}
-          次重复触发，尚未消耗额度。
+          {t('console.plans.queuedWaitingMessage', { count: run.coalescedTriggers ?? 0 })}
         </p>
       )}
       <TaskActionList actions={run.actions} />
@@ -144,7 +157,7 @@ export function TaskRunDetails({
         <div className="agents-actions task-detail-actions">
           {active ? (
             <button disabled={busy} onClick={() => void onAction(run, 'pause')}>
-              暂停本次执行
+              {t('console.plans.pauseThisRun')}
             </button>
           ) : !queued ? (
             <button
@@ -156,7 +169,7 @@ export function TaskRunDetails({
                 setLimits(run.snapshot.limits);
               }}
             >
-              继续本次执行
+              {t('console.plans.resumeThisRun')}
             </button>
           ) : null}
           <button
@@ -166,12 +179,12 @@ export function TaskRunDetails({
               setResume(false);
             }}
           >
-            {queued ? '取消待执行项' : '结束本次执行'}
+            {queued ? t('console.plans.cancelQueuedRun') : t('console.plans.endThisRun')}
           </button>
         </div>
       )}
       {!active && !runEnded(run) && blocked && (
-        <p className="agent-hint">{blocked}，暂时不能继续。</p>
+        <p className="agent-hint">{t('console.plans.blockedCannotRun', { reason: blocked })}</p>
       )}
       {resume && (
         <form
@@ -184,32 +197,28 @@ export function TaskRunDetails({
             })();
           }}
         >
-          <p>
-            保留已有进度与用量；继续本次执行不会恢复计划。启用限制时，总额度须高于已用量。
-          </p>
+          <p>{t('console.plans.resumeRunPrompt')}</p>
           {limited ? (
             <TaskBudgetFields
               value={limits}
               onChange={(v) => setLimits({ ...limits, ...v })}
             />
           ) : (
-            <p className="agent-hint">
-              本次执行不设额度限制，继续后仍记录实际用量。
-            </p>
+            <p className="agent-hint">{t('console.plans.resumeNoLimitNote')}</p>
           )}
           <div className="agents-actions task-detail-actions">
             <button className="primary" disabled={busy || !!blocked}>
-              确认并继续
+              {t('console.characters.confirmAndResume')}
             </button>
             <button type="button" onClick={() => setResume(false)}>
-              取消
+              {t('common.cancel')}
             </button>
           </div>
         </form>
       )}
       {cancel && (
         <div className="agents-confirm">
-          <p>结束后无法继续本次进度。已发生的动作和历史记录保留。</p>
+          <p>{t('console.plans.endRunWarning')}</p>
           <div className="agents-actions task-detail-actions">
             <button
               disabled={busy}
@@ -220,9 +229,9 @@ export function TaskRunDetails({
                 })();
               }}
             >
-              确认结束
+              {t('console.plans.confirmEnd')}
             </button>
-            <button onClick={() => setCancel(false)}>返回</button>
+            <button onClick={() => setCancel(false)}>{t('common.back')}</button>
           </div>
         </div>
       )}
