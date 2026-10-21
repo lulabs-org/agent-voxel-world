@@ -55,6 +55,8 @@ export async function invokeGateway(
     }));
   const validateRevision = () => {
     resolveTarget();
+    if (method === 'runs.control' && g.plans.run(p.runId!).status === 'queued')
+      return;
     if (
       method === 'runs.control' ||
       (method === 'plans.control' && p.operation === 'run')

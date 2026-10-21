@@ -8,10 +8,12 @@ export class BudgetExhausted extends AgentRuntimeError {
   }
 }
 
+const chargedThrough = new WeakMap<AICharacterTask, number>();
+
 /** Counts actual provider requests, never scheduler wakes or tool calls. */
 export class RequestBudget {
   readonly usage: AICharacterUsage = { calls: 0, tokens: 0, estimated: false };
-  readonly started = Date.now();
+  started = Date.now();
   private attached?: AICharacterTask;
   private elapsedCharged = 0;
   constructor(
@@ -25,7 +27,11 @@ export class RequestBudget {
     return (
       (this.config.taskTimeoutMs ?? 900000) -
       (this.attached?.elapsedMs ?? this.elapsedCharged) -
-      (Date.now() - this.started - this.elapsedCharged)
+      (Date.now() -
+        Math.max(
+          this.started + this.elapsedCharged,
+          this.attached ? (chargedThrough.get(this.attached) ?? 0) : 0,
+        ))
     );
   }
   check() {
@@ -70,17 +76,39 @@ export class RequestBudget {
   }
   attach(task: AICharacterTask) {
     if (this.attached === task) return;
-    if (this.attached)
-      throw new AgentRuntimeError('不能在同一次运行中重新分配任务预算。', true);
+    if (this.attached) {
+      if (!['completed', 'cancelled'].includes(this.attached.status))
+        throw new AgentRuntimeError('不能转移未结束任务的预算。', true);
+      // The completed request remains charged to the old activity. Only future
+      // requests accrue to the replacement; the character total never resets.
+      this.flushTime();
+      this.started = Date.now();
+      this.elapsedCharged = 0;
+      this.usage.calls = 0;
+      this.usage.tokens = 0;
+      this.usage.estimated = false;
+    }
     this.attached = task;
-    task.elapsedMs += this.elapsedCharged;
+    const through = this.started + this.elapsedCharged;
+    task.elapsedMs += Math.max(
+      0,
+      through - Math.max(this.started, chargedThrough.get(task) ?? 0),
+    );
+    chargedThrough.set(task, Math.max(through, chargedThrough.get(task) ?? 0));
     task.calls += this.usage.calls;
     task.tokens += this.usage.tokens;
     task.estimated ||= this.usage.estimated;
   }
   flushTime() {
     const elapsed = Date.now() - this.started;
-    if (this.attached) this.attached.elapsedMs += elapsed - this.elapsedCharged;
+    if (this.attached) {
+      const from = Math.max(
+        this.started + this.elapsedCharged,
+        chargedThrough.get(this.attached) ?? 0,
+      );
+      this.attached.elapsedMs += Math.max(0, Date.now() - from);
+      chargedThrough.set(this.attached, Date.now());
+    }
     this.elapsedCharged = elapsed;
   }
 }

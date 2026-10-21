@@ -41,11 +41,25 @@ export class TaskPlanService {
     p.revision = (p.revision ?? 1) + 1;
     p.updatedAt = Date.now();
   }
+  cancelQueued(id: string, reason: string) {
+    for (const run of this.runs.filter(
+      (r) => r.planId === id && r.status === 'queued',
+    )) {
+      run.status = 'cancelled';
+      run.reason = reason;
+      run.finishedAt = Date.now();
+    }
+  }
   reassign(id: string, agent: { id: string; name: string }) {
     const p = this.get(id);
     if (p.state === 'archived') throw new AppError('已归档计划不能改派。', 409);
-    if (this.unfinished(id))
+    if (
+      this.runs.some(
+        (r) => r.planId === id && r.status !== 'queued' && !endedRun(r),
+      )
+    )
       throw new AppError('请先结束该计划所有未结束的执行。', 409);
+    this.cancelQueued(id, '计划已重新指派。');
     p.characterId = agent.id;
     p.characterName = agent.name;
     p.state = 'paused';
@@ -59,6 +73,8 @@ export class TaskPlanService {
     if (plan.state === 'archived') throw new AppError('计划已归档。');
     if (operation === 'resume' && !plan.characterId)
       throw new AppError('请先指派执行角色。', 409);
+    if (operation === 'pause' || operation === 'archive')
+      this.cancelQueued(id, '计划已暂停或归档。');
     if (operation === 'pause') {
       plan.state = 'paused';
       plan.reason = '计划已暂停，本次执行不受影响。';

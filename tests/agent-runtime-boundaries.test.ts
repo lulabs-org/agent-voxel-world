@@ -34,20 +34,17 @@ const graph = new Map(
 );
 
 describe('agent runtime dependency boundaries', () => {
-  it('keeps conversation effects and task control in separate adapters', () => {
-    const conversation = readFileSync(
-      resolve(runtime, 'pi/conversation-tools.ts'),
+  it('routes all decisions through one character runner and keeps policy in task services', () => {
+    const coordinator = readFileSync(
+      resolve(runtime, 'runtime/agent-coordinator.ts'),
       'utf8',
     );
-    expect(conversation).not.toContain('AgentSession');
-    expect(conversation).not.toContain('executeTaskActions');
-    const runner = readFileSync(
-      resolve(runtime, 'runtime/conversation-runner.ts'),
-      'utf8',
-    );
-    expect(runner).not.toMatch(
-      /from ['"].*(?:actions\/|action-executor|task-runner)/,
-    );
+    expect(coordinator).toContain('CharacterRunner');
+    for (const path of graph.keys()) {
+      expect(path).not.toMatch(
+        /(?:conversation-runner|task-runner|conversation-tools)\.ts$/,
+      );
+    }
     const taskTools = readFileSync(resolve(runtime, 'pi/tools.ts'), 'utf8');
     expect(taskTools).not.toContain('.command(');
     expect(taskTools).not.toContain('.commit(');

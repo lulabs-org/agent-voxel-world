@@ -534,7 +534,7 @@ try {
     await api(`/tasks/${capabilityPlan.id}/runs`)
   ).json();
   assert.equal(
-    (await api(`/task-runs/${capabilityRuns.items[0].id}/pause`, 'POST', {}))
+    (await api(`/task-runs/${capabilityRuns.items[0].id}/cancel`, 'POST', {}))
       .status,
     200,
   );

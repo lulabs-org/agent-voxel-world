@@ -50,6 +50,7 @@ export function planDraft(plan: TaskPlanDraft): TaskPlanDraft {
     timing,
     timeZone,
     limits,
+    limitsMode: plan.limitsMode,
     totalTokenBudget,
   });
 }

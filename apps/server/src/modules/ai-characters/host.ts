@@ -6,6 +6,7 @@ import {
 } from '@voxel/shared';
 import {
   AgentAttention,
+  recordEvent,
   AgentRuntimeError,
   TaskService,
   type AgentConfig,
@@ -100,6 +101,36 @@ export class AICharacterHost {
             return;
           if (!job.attention.accept(event, session.room.sessionId)) return;
 
+          const enqueueMessage = () => {
+            const envelope = recordEvent(job.memory, {
+              id: `chat:${job.attention.generation}:${event.actor}:${event.seq}`,
+              kind: 'chat',
+              state: 'pending',
+              at: event.at,
+              audience:
+                (event.data as ChatData).scope === 'public'
+                  ? 'public'
+                  : event.actor,
+              actor: event.actor,
+              message: event,
+            });
+            void ctx
+              .save()
+              .then(() => {
+                if (job.session !== session || ctx.closing()) return;
+                if (!job.attention.enqueue(event)) {
+                  envelope.state = 'unknown';
+                  log('消息队列已满，当前消息未接收。');
+                  ctx.persist();
+                  return;
+                }
+                if (['idle', 'failed'].includes(job.view.status)) {
+                  log('收到玩家消息，处理一次唤醒。');
+                  ctx.wake(job);
+                }
+              })
+              .catch(() => log('消息保存失败，未启动执行。'));
+          };
           const command = (event.data as ChatData).text
             .trim()
             .replace(/^@[^\n]+?\s+(?=(?:暂停|停止|取消|别建))/u, '')
@@ -118,9 +149,7 @@ export class AICharacterHost {
                 message: event,
               });
             } catch {
-              if (!job.attention.enqueue(event))
-                log('消息队列已满，当前消息未接收。');
-              if (['idle', 'failed'].includes(job.view.status)) ctx.wake(job);
+              enqueueMessage();
               return;
             }
             void ctx
@@ -131,8 +160,18 @@ export class AICharacterHost {
                 `world-${job.attention.generation}-${event.seq}`,
                 event,
               )
-              .then(() =>
-                aiCharacterPermissions(job.view).chat
+              .then(() => {
+                recordEvent(job.memory, {
+                  id: `control:${job.attention.generation}:${event.seq}`,
+                  kind: 'control',
+                  state: 'done',
+                  at: event.at,
+                  audience: event.actor,
+                  actor: event.actor,
+                  detail: command,
+                });
+                ctx.persist();
+                return aiCharacterPermissions(job.view).chat
                   ? session.request('chat', {
                       text: command.startsWith('取消')
                         ? '任务已取消，我会留在这里待命。'
@@ -140,20 +179,13 @@ export class AICharacterHost {
                       scope: 'private',
                       recipients: [event.actor],
                     })
-                  : undefined,
-              )
+                  : undefined;
+              })
               .catch(() => {});
             return;
           }
 
-          if (!job.attention.enqueue(event)) {
-            log('消息队列已满，当前消息未接收。');
-            return;
-          }
-          if (['idle', 'failed'].includes(job.view.status)) {
-            log('收到玩家消息，处理一次唤醒。');
-            ctx.wake(job);
-          }
+          enqueueMessage();
         };
 
         session.room.onMessage(
@@ -192,6 +224,11 @@ export class AICharacterHost {
         await ctx.dependencies.runner(config, provider).run({
           session: job.session,
           config,
+          defaults: {
+            ...job.view,
+            ...provider.inference,
+            apiKey: provider.apiKey,
+          },
           signal: job.abort.signal,
           memory: job.memory,
           attention: job.attention,

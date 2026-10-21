@@ -105,6 +105,12 @@ export function validatePlan(
     throw new AppError('执行限制开关必须为布尔值。');
   }
 
+  if (
+    v.limitsMode !== undefined &&
+    !['inherit', 'override'].includes(v.limitsMode)
+  )
+    throw new AppError('额度来源无效。');
+
   // Hidden fields do not prevent saving an unlimited task; retain valid values for later use.
   const quota = (value: unknown, fallback: number, min: number, max: number) =>
     v.limits?.enabled === false &&
@@ -120,8 +126,10 @@ export function validatePlan(
     goal: v.goal.trim(),
     timing,
     timeZone: v.timeZone,
+    limitsMode:
+      v.limitsMode ?? (previous || 'limits' in value ? 'override' : 'inherit'),
     limits: {
-      enabled: v.limits?.enabled !== false,
+      enabled: v.limitsMode === 'inherit' || v.limits?.enabled !== false,
       maxTurns: quota(v.limits?.maxTurns, DEFAULT_TASK_LIMITS.maxTurns, 1, 200),
       tokenBudget: quota(
         v.limits?.tokenBudget,

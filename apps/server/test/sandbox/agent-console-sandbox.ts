@@ -38,7 +38,7 @@ try {
             .at(-1)?.content;
           const text = typeof input === 'string' ? input : input?.[0]?.text;
           const context = JSON.parse(text || '{}');
-          if (body.tools.some((t: any) => t.function.name === 'reply'))
+          if (context.currentRequest)
             return toolResponse([
               { name: 'reply', arguments: { text: '你好，我在这里。' } },
             ]);

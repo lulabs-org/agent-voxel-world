@@ -236,8 +236,28 @@ export class AICharacterOrchestrator {
             .find((s) => s.id === view.voiceServiceId)?.name,
           task: memory.task,
           taskExecution: run
-            ? { runId: run.id, limits: run.snapshot.limits }
+            ? {
+                runId: run.id,
+                limits: run.snapshot.limits,
+                source: run.source,
+                action: memory.activeAction
+                  ? {
+                      id: memory.activeAction.id,
+                      name: memory.activeAction.name,
+                      status: memory.activeAction.status,
+                    }
+                  : undefined,
+              }
             : undefined,
+          queuedTasks: this.plans.runs
+            .filter((r) => r.characterId === view.id && r.status === 'queued')
+            .sort((a, b) => a.scheduledAt - b.scheduledAt)
+            .map((r) => ({
+              id: r.id,
+              goal: r.snapshot.goal,
+              scheduledAt: r.scheduledAt,
+              coalescedTriggers: r.coalescedTriggers ?? 0,
+            })),
           usage: memory.usage,
           lastResponse: memory.lastResponse,
           taskRequiresReassignment: !!memory.audienceExpired,

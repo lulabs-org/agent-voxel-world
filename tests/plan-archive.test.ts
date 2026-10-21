@@ -160,7 +160,7 @@ it('migrates v1 ownership without losing execution checkpoints, history or reque
   try {
     await writeFile(path, original);
     const migrated = (await readAICharacterArchive(path))!;
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect(migrated).not.toHaveProperty('agents');
     expect(migrated.characters[0]).toMatchObject({
       id: 'a',
@@ -193,15 +193,15 @@ it('migrates v1 ownership without losing execution checkpoints, history or reque
       expect(resource).not.toHaveProperty('agentName');
     }
     expect(migrated.requests).toEqual(legacy.requests);
-    expect(await readFile(path + '.before-ai-characters-v2.bak', 'utf8')).toBe(
-      original,
-    );
+    expect(
+      await readFile(path + '.before-character-events-v3.bak', 'utf8'),
+    ).toBe(original);
     await writeAICharacterArchive(path, migrated);
     expect(await readAICharacterArchive(path)).toEqual(migrated);
     expect(migrateArchive(migrated)).toEqual(migrated);
-    expect(await readFile(path + '.before-ai-characters-v2.bak', 'utf8')).toBe(
-      original,
-    );
+    expect(
+      await readFile(path + '.before-character-events-v3.bak', 'utf8'),
+    ).toBe(original);
     expect(JSON.stringify(legacy)).toBe(original);
   } finally {
     await rm(dir, { recursive: true, force: true });

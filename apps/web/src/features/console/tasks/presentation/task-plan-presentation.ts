@@ -2,6 +2,7 @@ import type { TaskPlan, TaskRun } from '@voxel/shared';
 export const runEnded = (run: TaskRun) =>
   ['completed', 'cancelled', 'skipped', 'missed'].includes(run.status);
 export const runStatus: Record<TaskRun['status'], string> = {
+  queued: '排队中',
   running: '执行中',
   waiting: '等待条件',
   paused: '已暂停',

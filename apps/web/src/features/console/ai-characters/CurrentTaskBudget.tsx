@@ -1,7 +1,7 @@
 import type { AICharacterView, TaskLimits } from '@voxel/shared';
 import { useState } from 'react';
-import { displayedTaskIdentity, tasksApi } from '../tasks/api';
-import { TaskBudgetFields } from '../tasks/TaskBudgetFields';
+import { displayedTaskIdentity, controlTaskRun } from '../execution/api';
+import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 
 export function CurrentTaskBudget({
   job,
@@ -33,9 +33,38 @@ export function CurrentTaskBudget({
     !job.sessionId ||
     ['stopped', 'stopping', 'joining', 'failed'].includes(job.status);
   const blocked = disabled || busy || offline || !!job.taskRequiresReassignment;
+  const control = async (operation: 'pause' | 'cancel') => {
+    setBusy(true);
+    setError('');
+    try {
+      await controlTaskRun(
+        execution.runId,
+        operation,
+        {},
+        displayedTaskIdentity(job),
+      );
+      setDraft(undefined);
+      await onUpdated();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '操作失败，请重试。');
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <section className="agents-progress" aria-label="当前任务预算">
       <h4>当前任务：{task.goal}</h4>
+      <p className="agent-hint">
+        来源：
+        {execution.source === 'chat'
+          ? '玩家聊天'
+          : execution.source === 'scheduled'
+            ? '定时计划'
+            : '手动安排'}
+        {execution.action
+          ? ` · 动作：${({ house: '建房', build: '建造', goto: '移动', follow: '跟随' } as Record<string, string>)[execution.action.name] ?? execution.action.name}（${({ running: '执行中', completed: '已完成', failed: '失败', unknown: '待确认', paused: '已暂停', cancelled: '已取消' } as Record<string, string>)[execution.action.status] ?? execution.action.status}）`
+          : ''}
+      </p>
       {task.reason && <p role="status">{task.reason}</p>}
       <dl className="plans-run-stats task-run-usage">
         <div>
@@ -62,8 +91,26 @@ export function CurrentTaskBudget({
         </div>
       </dl>
       <p className="agent-hint">
-        以上为本次任务用量，继续时不会清零。新任务可在“任务计划”中设置执行额度。
+        以上为本次任务用量，继续时不会清零。新任务使用角色默认额度，也可在计划中覆盖。
       </p>
+      {!['completed', 'cancelled'].includes(task.status) && (
+        <div className="agents-actions">
+          {['running', 'waiting'].includes(task.status) && (
+            <button
+              disabled={disabled || busy || offline}
+              onClick={() => void control('pause')}
+            >
+              暂停当前任务
+            </button>
+          )}
+          <button
+            disabled={disabled || busy || offline}
+            onClick={() => void control('cancel')}
+          >
+            取消当前任务
+          </button>
+        </div>
+      )}
       {resumable && !draft && (
         <button
           disabled={blocked}
@@ -104,7 +151,7 @@ export function CurrentTaskBudget({
             setBusy(true);
             setError('');
             try {
-              await tasksApi.controlRun(
+              await controlTaskRun(
                 execution.runId,
                 'resume',
                 { ...limits },

@@ -269,7 +269,7 @@ describe('Pi world tool runtime', () => {
     await first;
   });
   it('yields at tool boundary when another human message arrives', async () => {
-    const f = fixture([[move, move]]);
+    const f = fixture([[move, move], [reply()], [complete()]]);
     f.session.move.mockImplementation((x) => {
       if (x) {
         f.world.self.x += 0.1;
@@ -277,8 +277,8 @@ describe('Pi world tool runtime', () => {
       }
     });
     await f.run();
-    expect(f.request).toHaveBeenCalledTimes(1);
-    expect(f.attention.pending).toBe(true);
+    expect(f.request).toHaveBeenCalledTimes(3);
+    expect(f.attention.pending).toBe(false);
     expect(f.world.self.x).toBeCloseTo(0.1);
   });
   it('cannot finish in the same model turn as a world mutation', async () => {
@@ -723,11 +723,8 @@ it('rebuilds task context after a goal update without carrying old tool calls', 
   const taskMessages = JSON.parse(
     String(f.request.mock.calls[3][1]!.body),
   ).messages;
-  expect(
-    taskMessages.filter(
-      (m: any) => m.role === 'assistant' || m.role === 'tool',
-    ),
-  ).toEqual([]);
+  expect(JSON.stringify(taskMessages)).not.toContain('task-context-marker');
+  expect(JSON.stringify(taskMessages)).toContain('revise_task');
   expect(f.memory.task?.status).toBe('completed');
 });
 
@@ -755,10 +752,10 @@ it('stops the loop if the host cannot durably create a task', async () => {
 });
 
 it.each(['none', 'cancelled'] as const)(
-  'rejects a bare promise and lets the model start navigation with a %s prior task',
+  'rejects world effects before a task is started with a %s prior task',
   async (prior) => {
     const f = fixture([
-      [chat('好的，我这就过去！'), move],
+      [move, chat('好的，我这就过去！')],
       [start('到玩家这里来')],
       [move],
       [chat('已经到达'), complete()],
@@ -773,7 +770,7 @@ it.each(['none', 'cancelled'] as const)(
       'chat',
       expect.objectContaining({ text: '好的，我这就过去！' }),
     );
-    // The goto after the rejected chat in the first batch was also skipped.
+    // The first goto and the following chat were rejected before any task existed.
     expect(f.world.self.x).toBeCloseTo(0.1);
     expect(f.memory.task).toMatchObject({
       goal: '到玩家这里来',
@@ -802,7 +799,7 @@ it('a task acknowledgement cannot end the wake before its world action', async (
   expect(f.memory.task).toMatchObject({ status: 'completed' });
 });
 
-it('exposes disjoint conversation/task tools and hands off only after a durable command', async () => {
+it('exposes the same tools to chat and activity events, with durable task creation before effects', async () => {
   const f = fixture([[start('去 human 身边')], [move], [complete()]]);
   Reflect.deleteProperty(f.memory, 'task');
   f.message('private', 'human', '到我这里来');
@@ -815,16 +812,9 @@ it('exposes disjoint conversation/task tools and hands off only after a durable 
     JSON.parse(String(init!.body)),
   );
   const names = (body: any) => body.tools.map((t: any) => t.function.name);
-  expect(names(bodies[0])).toEqual([
-    'reply',
-    'start_task',
-    'revise_task',
-    'pause_task',
-    'resume_task',
-    'cancel_task',
-  ]);
-  expect(names(bodies[1])).toContain('goto');
-  expect(names(bodies[1])).not.toContain('start_task');
+  expect(names(bodies[0])).toContain('start_task');
+  expect(names(bodies[0])).toContain('goto');
+  expect(names(bodies[1])).toEqual(names(bodies[0]));
   expect(bodies.every((b) => !names(b).includes('update_task'))).toBe(true);
   expect(
     saved.some(
@@ -836,12 +826,12 @@ it('exposes disjoint conversation/task tools and hands off only after a durable 
   expect(f.memory.usage?.calls).toBe(3);
 });
 
-it('accepts at most one command in a message batch', async () => {
+it('supports sequential start and revise commands within the same Pi event', async () => {
   const f = fixture([[start('first'), revise('second')], [complete()]]);
   Reflect.deleteProperty(f.memory, 'task');
   f.message();
   await f.run();
-  expect(f.memory.task?.goal).toBe('first');
+  expect(f.memory.task?.goal).toBe('second');
   expect(f.memory.task?.calls).toBe(2);
 });
 
@@ -893,7 +883,7 @@ it('bounds dialogue requests even when task limits are disabled', async () => {
   });
   f.message();
   await f.run();
-  expect(f.request).toHaveBeenCalledTimes(12);
+  expect(f.request).toHaveBeenCalledTimes(3);
   expect(f.session.move).not.toHaveBeenCalled();
 });
 
@@ -934,4 +924,98 @@ it('rejects stale model effects after a task revision changes', async () => {
   await f.run();
   expect(f.session.move).not.toHaveBeenCalled();
   expect(f.memory.task?.status).toBe('cancelled');
+});
+
+it('answers a progress question while a durable build action continues without duplicate edits', async () => {
+  const f = fixture([
+    [
+      {
+        name: 'build',
+        arguments: { blocks: [{ x: 1, y: 3, z: 0, material: 'wood' }] },
+      },
+    ],
+    [reply('正在施工，进度已保留')],
+    [complete()],
+  ]);
+  f.memory.task!.goal = '放置一个木块';
+  f.memory.task!.owner = 'human';
+  f.memory.task!.privateTo = 'human';
+  const original = f.session.request.getMockImplementation()!;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  f.session.request.mockImplementation(async (type, payload) => {
+    if (type === 'edit') await pending;
+    return original(type, payload);
+  });
+  const run = f.run();
+  await vi.waitFor(() =>
+    expect(f.session.request).toHaveBeenCalledWith('edit', expect.anything()),
+  );
+  expect(f.memory.activeAction).toMatchObject({
+    name: 'build',
+    status: 'running',
+  });
+  f.message('private', 'human', '进度怎么样？');
+  await vi.waitFor(() =>
+    expect(f.session.request).toHaveBeenCalledWith(
+      'chat',
+      expect.objectContaining({ text: '正在施工，进度已保留' }),
+    ),
+  );
+  expect(f.memory.activeAction?.status).toBe('running');
+  release();
+  await run;
+  expect(
+    f.session.request.mock.calls.filter(([type]) => type === 'edit'),
+  ).toHaveLength(1);
+  expect(f.memory.task?.status).toBe('completed');
+  expect(
+    f.memory.inbox?.events.some(
+      (event) => event.kind === 'action_result' && event.state === 'done',
+    ),
+  ).toBe(true);
+});
+
+it('keeps bounded user turns per audience without sharing private conversations', async () => {
+  const f = fixture([
+    [reply('alice-secret')],
+    [reply('bob-answer')],
+    [reply('alice-again')],
+  ]);
+  Reflect.deleteProperty(f.memory, 'task');
+  f.message('private', 'alice', 'alice-question');
+  await f.run();
+  f.message('private', 'bob', 'bob-question');
+  await f.run();
+  expect(String(f.request.mock.calls[1][1]!.body)).not.toContain(
+    'alice-secret',
+  );
+  expect(String(f.request.mock.calls[1][1]!.body)).not.toContain(
+    'alice-question',
+  );
+  f.message('private', 'alice', '还记得吗');
+  await f.run();
+  expect(String(f.request.mock.calls[2][1]!.body)).toContain('alice-question');
+  expect(String(f.request.mock.calls[2][1]!.body)).not.toContain('bob-answer');
+});
+
+it('switches from a cancelled activity to a new one without moving old usage or double counting', async () => {
+  const f = fixture([
+    [{ name: 'cancel_task', arguments: {} }, start('新目标')],
+    [move],
+    [complete()],
+  ]);
+  const previous = f.memory.task!;
+  previous.calls = 5;
+  previous.tokens = 500;
+  f.message('private', 'human', '停止旧任务，开始新目标');
+  await f.run();
+  expect(previous.status).toBe('cancelled');
+  expect(previous.calls).toBe(6);
+  expect(f.memory.task?.goal).toBe('新目标');
+  expect(f.memory.task?.status).toBe('completed');
+  expect(f.memory.task?.calls).toBe(2);
+  expect(f.memory.usage?.calls).toBe(3);
 });

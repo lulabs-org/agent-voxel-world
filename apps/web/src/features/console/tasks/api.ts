@@ -1,21 +1,13 @@
+import type { TaskPlan, TaskPlanDraft, TaskRunPage } from '@voxel/shared';
 import type {
-  AICharacterView,
-  TaskPlan,
-  TaskPlanDraft,
-  TaskRunPage,
-} from '@voxel/shared';
-import type {
-  PublicAICharacterView,
   PublicPlanView,
   RpcParams,
   TaskIdentity,
 } from '@voxel/gateway-protocol';
 import { consoleFetch } from '../request';
 
-export const displayedTaskIdentity = (
-  view?: AICharacterView,
-): TaskIdentity | null =>
-  (view as PublicAICharacterView | undefined)?.taskIdentity ?? null;
+export { displayedTaskIdentity } from '../execution/api';
+import { controlTaskRun } from '../execution/api';
 
 export type PlanPage = {
   items: PublicPlanView[];
@@ -102,17 +94,5 @@ export const tasksApi = {
     );
   },
 
-  controlRun: (
-    runId: string,
-    operation: string,
-    value: Record<string, unknown> = {},
-    expectedTask: TaskIdentity | null = null,
-  ) =>
-    consoleFetch(
-      `/task-runs/${encodeURIComponent(runId)}/${encodeURIComponent(operation)}`,
-      {
-        method: 'POST',
-        body: { ...value, expectedTask },
-      },
-    ),
+  controlRun: controlTaskRun,
 };

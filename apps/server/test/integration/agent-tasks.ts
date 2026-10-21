@@ -385,7 +385,7 @@ try {
       'sender receives acknowledgement',
     );
     if (!['completed', 'cancelled'].includes(current().task?.status ?? ''))
-      await controlRun('pause');
+      await controlRun('cancel');
     await createTask('等待附近方块变化');
     await until(() => current().task?.status === 'waiting');
     const waitingCalls = calls;
@@ -438,6 +438,7 @@ try {
     await until(() => calls === beforeLoop + 3 && current().status === 'idle');
     await controlRun('pause');
     const beforeSlow = calls;
+    await controlRun('cancel');
     await createTask('慢请求测试');
     await until(() => calls === beforeSlow + 1);
     await say('暂停');
@@ -462,6 +463,7 @@ try {
       intervalMs: 1000,
     });
     const beforeBatch = calls;
+    await controlManagedRun(manager, job.id, 'cancel');
     await startTask(manager, job.id, { goal: '批次成功' });
     await until(() => current().task?.status === 'completed');
     assert.equal(
@@ -496,6 +498,7 @@ try {
           .map((b) => b.y),
       ) + 0.5;
     await delay(300);
+    await controlManagedRun(manager, job.id, 'cancel');
     await startTask(manager, job.id, { goal: '批次受阻' });
     await until(() => current().task?.status === 'needs_input');
     assert.equal(
@@ -506,6 +509,7 @@ try {
     Object.assign(player, position);
 
     const beforePause = calls;
+    await controlManagedRun(manager, job.id, 'cancel');
     await startTask(manager, job.id, { goal: '批次暂停' });
     await until(
       () =>

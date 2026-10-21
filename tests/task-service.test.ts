@@ -167,3 +167,32 @@ it('backs up and migrates current and historical runtimes while preserving uncer
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+it('counts overlapping activity model/action time once and excludes a later paused interval', async () => {
+  const { vi } = await import('vitest');
+  let now = 1000;
+  const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+  try {
+    const task = newTask('building');
+    const total = { calls: 0, tokens: 0, estimated: false };
+    const action = new RequestBudget(config, total, task);
+    now = 1100;
+    action.flushTime();
+    const question = new RequestBudget(config, total);
+    now = 1200;
+    question.flushTime();
+    action.flushTime();
+    question.attach(task);
+    now = 1300;
+    question.flushTime();
+    action.flushTime();
+    expect(task.elapsedMs).toBe(300);
+    now = 10000;
+    const resumed = new RequestBudget(config, total, task);
+    now = 10100;
+    resumed.flushTime();
+    expect(task.elapsedMs).toBe(400);
+  } finally {
+    clock.mockRestore();
+  }
+});

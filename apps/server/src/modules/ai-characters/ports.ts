@@ -16,7 +16,7 @@ export type RestoredAICharacterRecord = AICharacterView & {
 };
 
 export type AICharacterArchive = {
-  version: 2;
+  version: 2 | 3;
   characters: RestoredAICharacterRecord[];
   plans: TaskPlan[];
   runs: StoredRun[];

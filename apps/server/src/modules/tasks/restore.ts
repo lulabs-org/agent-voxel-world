@@ -31,6 +31,17 @@ export function restoreTaskExecution(
   job: TaskExecutionState,
   migrating: boolean,
 ) {
+  if (job.memory.activeAction?.status === 'running')
+    job.memory.activeAction.status = 'unknown';
+  // World-session recipients cannot survive a restart. Retain audit, never replay old chat.
+  for (const event of job.memory.inbox?.events ?? []) {
+    if (event.kind === 'chat' || event.state === 'processing')
+      event.state = 'unknown';
+  }
+  if (job.memory.exchanges) {
+    const publicHistory = job.memory.exchanges.public;
+    job.memory.exchanges = publicHistory ? { public: publicHistory } : {};
+  }
   job.memory.previous = restoreBatchHistory(job.memory.previous);
   restorePiCheckpoint(job.memory);
   if (
@@ -70,7 +81,18 @@ export function restoreTaskExecution(
   for (const run of job.ledger.runs.filter(
     (r) => r.characterId === job.view.id,
   )) {
-    if (run.runtime) restorePiCheckpoint(run.runtime);
+    if (run.runtime) {
+      restorePiCheckpoint(run.runtime);
+      if (run.runtime.activeAction?.status === 'running')
+        run.runtime.activeAction.status = 'unknown';
+      for (const event of run.runtime.inbox?.events ?? [])
+        if (event.kind === 'chat' || event.state === 'processing')
+          event.state = 'unknown';
+      if (run.runtime.exchanges) {
+        const publicHistory = run.runtime.exchanges.public;
+        run.runtime.exchanges = publicHistory ? { public: publicHistory } : {};
+      }
+    }
     for (const action of run.actions ?? [])
       if (action.status === 'executing') action.status = 'unknown';
     if (run.runtime?.previous)

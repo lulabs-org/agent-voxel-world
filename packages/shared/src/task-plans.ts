@@ -19,6 +19,8 @@ export type TaskPlanDraft = {
   timing: TaskTiming;
   timeZone: string;
   limits: TaskLimits;
+  /** Missing on existing plans means an explicit override. */
+  limitsMode?: 'inherit' | 'override';
   totalTokenBudget: number;
 };
 export type TaskPlan = TaskPlanDraft & {
@@ -43,10 +45,13 @@ export type TaskRun = {
   characterName?: string;
   source: 'scheduled' | 'manual' | 'chat' | 'legacy';
   scheduledAt: number;
+  eventId?: string;
+  coalescedTriggers?: number;
+  lastTriggerAt?: number;
   startedAt?: number;
   finishedAt?: number;
   snapshot: TaskPlanDraft;
-  status: AICharacterTaskStatus | 'failed' | 'missed' | 'skipped';
+  status: AICharacterTaskStatus | 'queued' | 'failed' | 'missed' | 'skipped';
   reason: string;
   task?: AICharacterTask;
   totalTokens: number;

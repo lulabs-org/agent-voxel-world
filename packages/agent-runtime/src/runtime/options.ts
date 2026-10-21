@@ -6,6 +6,7 @@ import type { AgentAttention } from './attention';
 export type RunOptions = {
   session: AgentSession;
   config: AgentConfig;
+  defaults?: AgentConfig;
   signal: AbortSignal;
   memory: AgentRunState;
   attention?: AgentAttention;

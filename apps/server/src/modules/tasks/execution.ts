@@ -15,6 +15,7 @@ import {
 } from './model';
 import {
   newTask,
+  recordEvent,
   TaskService,
   AgentRuntimeError,
   type AgentRunState,
@@ -46,6 +47,14 @@ export function taskBusy(job: TaskExecutionState) {
 }
 
 export function captureTask(job: TaskExecutionState) {
+  for (const event of job.memory.inbox?.events ?? []) {
+    if (event.kind !== 'plan' || event.state !== 'pending') continue;
+    const run = job.ledger.runs.find((r) => r.id === event.runId);
+    if (!run || endedRun(run)) {
+      event.state = 'done';
+      event.detail = run?.reason ?? '排队提交未完成。';
+    }
+  }
   if (!job.memory.task) return;
   new TaskService(job.memory).lease();
   let run = currentRun(job);
@@ -153,6 +162,7 @@ export async function commitExecution<T>(
   if (job.taskMutating || job.updating || job.controlling)
     throw new AppError('任务状态正在更新，请稍候。', 409);
   captureTask(job);
+  const memoryBeforeChange = job.memory;
   const before = {
     plans: structuredClone(
       job.ledger.plans.filter((p) => p.characterId === job.view.id),
@@ -192,7 +202,7 @@ export async function commitExecution<T>(
       ...before.requests,
     };
     job.currentRunId = before.currentRunId;
-    if (swapsExecution) {
+    if (swapsExecution && job.memory !== memoryBeforeChange) {
       job.memory = before.memory;
       job.view = before.view;
     } else captureTask(job);
@@ -231,7 +241,8 @@ export function reserveRun(
         r.planId === plan.id &&
         r.planRevision === (plan.revision ?? 1) &&
         r.source === source &&
-        r.scheduledAt === at,
+        (r.scheduledAt === at ||
+          (r.scheduledAt < at && (r.lastTriggerAt ?? 0) >= at)),
     )
   )
     return undefined;
@@ -245,14 +256,92 @@ export function reserveRun(
     if (!isRepeating(plan.timing)) plan.state = 'completed';
     return undefined;
   }
-  const task = newTask(plan.goal);
+  const pending = job.ledger.runs.find(
+    (r) => r.id !== run.id && r.planId === plan.id && r.status === 'queued',
+  );
+  if (pending && source === 'scheduled') {
+    job.ledger.runs.pop();
+    if ((pending.lastTriggerAt ?? pending.scheduledAt) >= at) return undefined;
+    pending.coalescedTriggers = (pending.coalescedTriggers ?? 0) + 1;
+    pending.lastTriggerAt = at;
+    return undefined;
+  }
+  run.status = 'queued';
+  run.reason = '等待角色完成当前任务。';
+  run.eventId = `plan:${plan.id}:${plan.revision ?? 1}:${at}`;
+  recordEvent(job.memory, {
+    id: run.eventId,
+    kind: 'plan',
+    state: 'pending',
+    at,
+    audience: 'public',
+    characterId: job.view.id,
+    planId: plan.id,
+    runId: run.id,
+    detail: run.snapshot.goal,
+  });
+  return startQueuedRun(job, run.id);
+}
+
+/** A paused or blocked task still owns the role's activity slot. */
+export function startQueuedRun(job: TaskExecutionState, id: string) {
+  const run = job.ledger.run(id);
+  if (
+    run.status !== 'queued' ||
+    !job.online ||
+    job.updating ||
+    job.controlling ||
+    active(job.view.status) ||
+    (job.memory.task &&
+      !['completed', 'cancelled'].includes(job.memory.task.status))
+  )
+    return;
+  if (
+    job.ledger.runs.some(
+      (r) =>
+        r.characterId === job.view.id &&
+        r.status === 'queued' &&
+        r.id !== run.id &&
+        r.scheduledAt < run.scheduledAt,
+    )
+  )
+    return;
+  const task = newTask(run.snapshot.goal);
+  if (run.snapshot.limitsMode === 'inherit')
+    run.snapshot.limits = {
+      maxTurns: job.view.maxTurns,
+      tokenBudget: job.view.tokenBudget ?? 50000,
+      taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
+    };
   run.task = task;
   run.runtime = { task };
   run.startedAt = task.startedAt;
+  run.status = 'running';
+  run.reason = '';
   job.currentRunId = run.id;
-  job.memory = { task, usage: job.memory.usage };
+  job.memory = {
+    task,
+    usage: job.memory.usage,
+    exchanges: job.memory.exchanges,
+    inbox: job.memory.inbox,
+  };
+  const lease = new TaskService(job.memory).lease();
+  const event = recordEvent(job.memory, {
+    id: run.eventId ?? `run:${run.id}`,
+    kind: 'plan',
+    state: 'pending',
+    at: run.scheduledAt,
+    audience: 'public',
+    runId: run.id,
+    detail: run.snapshot.goal,
+  });
+  Object.assign(event, {
+    taskId: lease.id,
+    revision: lease.revision,
+    characterId: job.view.id,
+    planId: run.planId,
+  });
   job.view.status = 'idle';
-  Object.assign(job.view, plan.limits, { goal: plan.goal });
   return run.id;
 }
 
@@ -282,8 +371,7 @@ export async function executeTaskPlanControl(
     if (prior) return runView(prior);
     if (job.ledger.unfinished(planId))
       throw new AppError('请先结束该计划的未完成执行。', 409);
-    if (!job.online || taskBusy(job))
-      throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
+    if (!job.online) throw new AppError('角色离线，请先上线。', 409);
     if (hasPlanTokenLimit(plan) && plan.spentTokens >= plan.totalTokenBudget)
       throw new AppError('请先追加计划累计额度。');
     let runId: string | undefined;
@@ -291,14 +379,18 @@ export async function executeTaskPlanControl(
       job,
       () => {
         runId = reserveRun(job, plan, 'manual', Date.now());
-        currentRun(job)!.requestId = requestId;
+        job.ledger.runs.at(-1)!.requestId = requestId;
       },
       save,
       schedule,
       true,
     );
     if (runId) launch(job);
-    return runView(currentRun(job)!);
+    return runView(
+      job.ledger.runs.find(
+        (r) => r.planId === planId && r.requestId === requestId,
+      )!,
+    );
   }
   return commitExecution(
     job,
@@ -323,6 +415,33 @@ export async function executeTaskRunControl(
 ) {
   captureTask(job);
   const run = job.ledger.runs.find((r) => r.id === runId);
+  if (run?.characterId === job.view.id && run.status === 'queued') {
+    if (operation !== 'cancel')
+      throw new AppError('排队项只能取消，不能提前启动。', 409);
+    return commitExecution(
+      job,
+      () => {
+        run.status = 'cancelled';
+        run.reason = '待执行项已取消。';
+        recordEvent(job.memory, {
+          id: `control:${run.id}:cancel`,
+          kind: 'control',
+          state: 'done',
+          at: Date.now(),
+          audience: 'public',
+          characterId: job.view.id,
+          runId: run.id,
+          detail: '取消待执行项',
+        });
+        run.finishedAt = Date.now();
+        const plan = job.ledger.plans.find((p) => p.id === run.planId);
+        if (plan && syncPlanStateFromRun(plan, run)) job.ledger.touch(plan);
+        return runView(run);
+      },
+      save,
+      schedule,
+    );
+  }
   if (!run || run.characterId !== job.view.id || !run.runtime?.task)
     throw new AppError('执行记录不存在或不可继续。', 404);
   if (endedRun(run)) throw new AppError('执行已结束，请重新执行任务。');
@@ -354,6 +473,12 @@ export async function executeTaskRunControl(
   if (operation !== 'resume') throw new AppError('执行操作无效。');
   if (!job.online || taskBusy(job))
     throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
+  if (
+    job.currentRunId !== runId &&
+    job.memory.task &&
+    !['completed', 'cancelled'].includes(job.memory.task.status)
+  )
+    throw new AppError('请先结束当前执行，再恢复历史执行。', 409);
   if (run.runtime.audienceExpired)
     throw new AppError('原私聊会话已失效，请重新通过聊天发起。', 409);
   const plan = job.ledger.plans.find((p) => p.id === run.planId);
@@ -405,9 +530,20 @@ export async function executeTaskRunControl(
         },
       );
       job.currentRunId = run.id;
-      Object.assign(job.view, run.snapshot.limits, {
-        goal: run.snapshot.goal,
+      const lease = new TaskService(job.memory).lease();
+      recordEvent(job.memory, {
+        id: `control:${run.id}:${lease.revision}:resume`,
+        kind: 'control',
+        state: 'pending',
+        at: Date.now(),
+        audience: job.memory.task?.privateTo ?? 'public',
+        characterId: job.view.id,
+        runId: run.id,
+        taskId: lease.id,
+        revision: lease.revision,
+        detail: '人工继续执行，保留原进度和用量。',
       });
+
       run.status = 'running';
       job.view.status = 'idle';
       delete run.finishedAt;
@@ -474,7 +610,11 @@ export async function beginChatExecution(
   try {
     state.currentRunId = undefined;
     captureTask(state);
-    Object.assign(config, DEFAULT_TASK_LIMITS);
+    Object.assign(config, {
+      maxTurns: state.view.maxTurns,
+      tokenBudget: state.view.tokenBudget ?? 50000,
+      taskTimeoutMs: state.view.taskTimeoutMs ?? 900000,
+    });
     await save();
   } catch (error) {
     const failed = state.currentRunId;

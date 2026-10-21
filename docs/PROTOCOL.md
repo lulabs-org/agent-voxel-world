@@ -71,7 +71,7 @@ Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照
 
 ## 托管 Agent 任务调度
 
-同一角色只有一个模型与动作执行槽，单次唤醒可包含多轮工具调用。聊天经过 ConversationRunner，不创建任务计划；控制台工作创建独立计划，再以启动快照交给现有运行时。详细管理协议见 [Agent Gateway](AGENT_GATEWAY.md)。
+同一角色只有一个模型槽和一个冲突动作，长动作期间可回答消息；单次事件可包含多轮工具调用。聊天、计划触发和动作结果统一经过 CharacterRunner。计划忙时生成 queued 执行，实际开始时保存额度快照；聊天执行不创建任务计划。详细管理协议见 [Agent Gateway](AGENT_GATEWAY.md)。
 
 `AICharacterView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 characterId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
 

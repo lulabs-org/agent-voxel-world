@@ -1,7 +1,7 @@
 import type { TaskLimits, TaskRun } from '@voxel/shared';
 import { useState } from 'react';
 import { TaskActionList } from './TaskActionList';
-import { TaskBudgetFields } from './TaskBudgetFields';
+import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 import {
   planTime,
   runEnded,
@@ -30,6 +30,9 @@ export function TaskRunDetails({
     [cancel, setCancel] = useState(false);
   const [limits, setLimits] = useState(run.snapshot.limits);
   const limited = run.snapshot.limits.enabled !== false;
+  const queued = run.status === 'queued';
+  const inheritedPending =
+    !run.startedAt && run.snapshot.limitsMode === 'inherit';
   const active = ['running', 'waiting'].includes(run.status);
   return (
     <section className="plans-run-card task-run-detail" aria-label="执行详情">
@@ -91,7 +94,7 @@ export function TaskRunDetails({
           className="plans-run-report-label agents-section-label"
           title="汇报可能含计划；已执行动作请查看实际动作记录。"
         >
-          Agent 汇报
+          AI 角色汇报
         </span>
         <p>{run.task?.summary || '尚无汇报'}</p>
       </div>
@@ -100,28 +103,42 @@ export function TaskRunDetails({
           <dt>模型调用轮次</dt>
           <dd>
             {run.task?.calls ?? 0} /{' '}
-            {limited ? run.snapshot.limits.maxTurns : '不限'}
+            {inheritedPending
+              ? '启动时确定'
+              : limited
+                ? run.snapshot.limits.maxTurns
+                : '不限'}
           </dd>
         </div>
         <div className="plans-run-stat">
           <dt>tokens{run.task?.estimated ? '（估算）' : ''}</dt>
           <dd>
             {run.totalTokens.toLocaleString()} /{' '}
-            {limited
-              ? run.snapshot.limits.tokenBudget.toLocaleString()
-              : '不限'}
+            {inheritedPending
+              ? '启动时确定'
+              : limited
+                ? run.snapshot.limits.tokenBudget.toLocaleString()
+                : '不限'}
           </dd>
         </div>
         <div className="plans-run-stat">
           <dt>有效执行时间</dt>
           <dd>
             {Math.round((run.task?.elapsedMs ?? 0) / 1000)} 秒 /{' '}
-            {limited
-              ? `${run.snapshot.limits.taskTimeoutMs / 60000} 分钟`
-              : '不限'}
+            {inheritedPending
+              ? '启动时确定'
+              : limited
+                ? `${run.snapshot.limits.taskTimeoutMs / 60000} 分钟`
+                : '不限'}
           </dd>
         </div>
       </dl>
+      {queued && (
+        <p className="agent-hint">
+          等待当前活动结束；已合并 {run.coalescedTriggers ?? 0}{' '}
+          次重复触发，尚未消耗额度。
+        </p>
+      )}
       <TaskActionList actions={run.actions} />
       {!runEnded(run) && (
         <div className="agents-actions task-detail-actions">
@@ -129,7 +146,7 @@ export function TaskRunDetails({
             <button disabled={busy} onClick={() => void onAction(run, 'pause')}>
               暂停本次执行
             </button>
-          ) : (
+          ) : !queued ? (
             <button
               className="primary"
               disabled={busy || !!blocked || run.requiresReassignment}
@@ -141,7 +158,7 @@ export function TaskRunDetails({
             >
               继续本次执行
             </button>
-          )}
+          ) : null}
           <button
             disabled={busy}
             onClick={() => {
@@ -149,7 +166,7 @@ export function TaskRunDetails({
               setResume(false);
             }}
           >
-            结束本次执行
+            {queued ? '取消待执行项' : '结束本次执行'}
           </button>
         </div>
       )}

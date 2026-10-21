@@ -2,7 +2,7 @@ import { PlanService } from './service';
 import { TaskScheduler } from './scheduler';
 import { validatePlan } from './validation';
 import { newPlan, nextOccurrence, duePlans, runView, endedRun } from './model';
-import { TaskService, type TaskLease } from '@voxel/agent-runtime';
+import { TaskService, recordEvent, type TaskLease } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
 import { CommandRouter } from '../../common/command-router';
 import { hasPlanTokenLimit, isRepeating } from '@voxel/shared';
@@ -17,6 +17,7 @@ import {
   getTaskPlans,
   getTaskRuns,
   reserveRun,
+  startQueuedRun,
   taskBusy,
   executeTaskPlanControl,
   executeTaskRunControl,
@@ -136,8 +137,8 @@ export class TaskCoordinator {
     if (priorId)
       return structuredClone(job.ledger.plans.find((p) => p.id === priorId)!);
     const draft = validatePlan(value);
-    if (draft.timing.kind === 'immediate' && (!job.online || taskBusy(job)))
-      throw new AppError('请先让角色上线并结束或暂停当前执行。', 409);
+    if (draft.timing.kind === 'immediate' && !job.online)
+      throw new AppError('请先让角色上线。', 409);
     let runId: string | undefined;
     const plan = await commitExecution(
       job,
@@ -174,6 +175,9 @@ export class TaskCoordinator {
       throw new AppError('计划正在提交，请稍后重试。', 409);
     this.changingPlans.add(planId);
     const before = structuredClone(this.plans.get(planId));
+    const beforeRuns = structuredClone(
+      this.plans.runs.filter((r) => r.planId === planId),
+    );
     try {
       const value = change();
       await this.host.save();
@@ -181,6 +185,10 @@ export class TaskCoordinator {
     } catch (e) {
       this.plans.plans[this.plans.plans.findIndex((p) => p.id === planId)] =
         before;
+      this.plans.runs = [
+        ...this.plans.runs.filter((r) => r.planId !== planId),
+        ...beforeRuns,
+      ];
       throw e;
     } finally {
       this.changingPlans.delete(planId);
@@ -301,6 +309,20 @@ export class TaskCoordinator {
           message ? { kind: 'player', message } : { kind: 'operator' },
           { ...state.view, apiKey: '' },
         );
+      const lease = new TaskService(state.memory).lease();
+      recordEvent(state.memory, {
+        id: `control:${runId}:${lease.revision}:${operation}`,
+        kind: 'control',
+        state: 'done',
+        at: Date.now(),
+        audience: task?.privateTo ?? 'public',
+        actor: message?.actor,
+        characterId: state.view.id,
+        runId,
+        taskId: lease.id,
+        revision: lease.revision,
+        detail: operation,
+      });
       captureTask(state);
       await this.host.save();
       return runView(state.ledger.run(runId));
@@ -373,16 +395,11 @@ export class TaskCoordinator {
       const due = duePlans(job.ledger, now).filter(
         (p) => p.characterId === job.view.id,
       );
-      let selected = false;
+
       for (const plan of due) {
         if (this.changingPlans.has(plan.id)) continue;
         const at = plan.nextRunAt!;
-        const skip =
-          selected || taskBusy(job) || this.plans.unfinished(plan.id)
-            ? '角色忙碌，本次触发已跳过。'
-            : !job.online
-              ? '角色离线，本次触发已错过。'
-              : undefined;
+        const skip = !job.online ? '角色离线，本次触发已错过。' : undefined;
         let runId: string | undefined;
         await commitExecution(
           job,
@@ -406,9 +423,29 @@ export class TaskCoordinator {
           !skip,
         );
         if (runId) {
-          selected = true;
           this.host.launch(job.view.id);
         }
+      }
+      const queued = job.ledger.runs
+        .filter((r) => r.characterId === job.view.id && r.status === 'queued')
+        .sort(
+          (a, b) => a.scheduledAt - b.scheduledAt || a.id.localeCompare(b.id),
+        );
+      if (
+        queued.length &&
+        job.online &&
+        !taskBusy(job) &&
+        (!job.memory.task ||
+          ['completed', 'cancelled'].includes(job.memory.task.status))
+      ) {
+        const runId = await commitExecution(
+          job,
+          () => startQueuedRun(job, queued[0].id),
+          () => this.host.save(),
+          (j) => this.host.schedule(j.view.id),
+          true,
+        );
+        if (runId) this.host.launch(job.view.id);
       }
     }
   }

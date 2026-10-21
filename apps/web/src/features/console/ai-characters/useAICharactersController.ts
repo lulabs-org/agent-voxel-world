@@ -125,6 +125,9 @@ export function useAICharactersController(
         {
           ...profile,
           model: selected.defaultModel,
+          maxTurns,
+          tokenBudget,
+          taskTimeoutMs,
           ...(editingAgent
             ? {}
             : {

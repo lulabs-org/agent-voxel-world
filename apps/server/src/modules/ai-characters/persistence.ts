@@ -81,7 +81,7 @@ export class AICharacterPersistence {
       currentRunId: jobs.get(view.id)?.currentRunId,
     }));
     const snapshot: AICharacterArchive = {
-      version: 2,
+      version: 3,
       characters: records,
       plans: structuredClone(plans.plans),
       runs: structuredClone(plans.runs),

@@ -13,7 +13,7 @@ export interface GatewayTarget {
   };
   readonly plans: {
     get(id: string): { id: string; characterId?: string };
-    run(id: string): { id: string; characterId?: string };
+    run(id: string): { id: string; characterId?: string; status?: string };
     assertRevision(id: string, expectedRevision?: number): void;
   };
   publicList(): any[];

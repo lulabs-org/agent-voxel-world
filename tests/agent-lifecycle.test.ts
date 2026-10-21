@@ -740,6 +740,10 @@ it('joining a stopped character preserves the task without executing or resettin
     calls: 1,
   });
   await startTask(m, created.id, { goal: 'A fresh task' });
+  expect(m.list()[0].queuedTasks).toHaveLength(1);
+  expect(m.list()[0].task?.status).toBe('paused');
+  await controlRun(m, created.id, 'cancel');
+  await m.tasks.dispatchDue();
   await vi.waitFor(() => expect(decide).toHaveBeenCalledTimes(2));
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   expect(m.list()[0].task?.goal).toBe('A fresh task');
@@ -956,7 +960,7 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
     tokenBudget: 20000,
     taskTimeoutMs: 180000,
   });
-  expect(m.list()[0]).toMatchObject({
+  expect(m.list()[0].taskExecution?.limits).toMatchObject({
     maxTurns: 2,
     tokenBudget: 20000,
     taskTimeoutMs: 180000,
@@ -969,7 +973,7 @@ it('applies task budgets on assignment and renewal, rejecting invalid budgets be
   manager = undefined;
   const restored = setup(fakeSession());
   await restored.load();
-  expect(restored.list()[0]).toMatchObject({
+  expect(restored.list()[0].taskExecution?.limits).toMatchObject({
     maxTurns: 2,
     tokenBudget: 20000,
     taskTimeoutMs: 180000,
@@ -1099,17 +1103,19 @@ it('aborts an active decision and blocks concurrent join/delete before removal c
 });
 
 it('keeps a stopped character recoverable when deletion cannot be persisted', async () => {
-  const { mkdir } = await import('node:fs/promises');
+  const { mkdir, rename } = await import('node:fs/promises');
   const m = setup(fakeSession());
   const job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
-  const blocked = `${store.path}.agents.json.tmp`;
+  const blocked = `${store.path}.agents.json`;
+  await rename(blocked, blocked + '.fixture-backup');
   await mkdir(blocked);
   try {
     await expect(m.remove(job.id)).rejects.toThrow();
     expect(m.list()[0]).toMatchObject({ id: job.id, status: 'stopped' });
   } finally {
     await rm(blocked, { recursive: true, force: true });
+    await rename(blocked + '.fixture-backup', blocked);
   }
 });
 

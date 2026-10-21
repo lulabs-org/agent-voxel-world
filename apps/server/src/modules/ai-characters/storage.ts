@@ -1,4 +1,5 @@
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { readFile, rename, writeFile, unlink } from 'node:fs/promises';
 import { isRepeating, DEFAULT_TASK_LIMITS } from '@voxel/shared';
 import { AppError } from '../../common/errors';
 import type {
@@ -13,9 +14,13 @@ export async function writeAICharacterArchive(
   records: AICharacterArchive,
 ): Promise<void> {
   const data = JSON.stringify(records, null, 2);
-  const temp = `${archivePath}.tmp`;
-  await writeFile(temp, data, { mode: 0o600 });
-  await rename(temp, archivePath);
+  const temp = `${archivePath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temp, data, { mode: 0o600, flag: 'wx' });
+    await rename(temp, archivePath);
+  } finally {
+    await unlink(temp).catch(() => {});
+  }
 }
 
 export async function readAICharacterArchive(
@@ -34,9 +39,9 @@ export async function readAICharacterArchive(
     throw new AppError('无法读取 Agent 记录。', 500);
   }
   const migrated = migrateArchive(saved);
-  if (Array.isArray(saved) || saved.version === 1) {
+  if (Array.isArray(saved) || saved.version < 3) {
     await writeFile(
-      `${archivePath}.before-ai-characters-v2.bak`,
+      `${archivePath}.before-character-events-v3.bak`,
       await readFile(archivePath),
       { mode: 0o600, flag: 'wx' },
     ).catch((error) => {
@@ -60,7 +65,7 @@ export function migrateArchive(
   if (!Array.isArray(saved)) {
     if (
       !saved ||
-      ![1, 2].includes(saved.version) ||
+      ![1, 2, 3].includes(saved.version) ||
       !Array.isArray(saved.version === 1 ? saved.agents : saved.characters) ||
       !Array.isArray(saved.plans) ||
       !Array.isArray(saved.runs) ||
@@ -71,7 +76,7 @@ export function migrateArchive(
     const copy: AICharacterArchive =
       saved.version === 1
         ? {
-            version: 2,
+            version: 3,
             characters: structuredClone(saved.agents),
             plans: saved.plans.map((plan) => {
               const converted = migrateBinding(plan);
@@ -83,11 +88,14 @@ export function migrateArchive(
             requests: structuredClone(saved.requests),
           }
         : structuredClone(saved);
+    copy.version = 3;
+    for (const plan of copy.plans) plan.limitsMode ??= 'override';
+    for (const run of copy.runs) run.snapshot.limitsMode ??= 'override';
     validateArchive(copy);
     return copy;
   }
   const result: AICharacterArchive = {
-    version: 2,
+    version: 3,
     characters: [],
     plans: [],
     runs: [],
@@ -144,7 +152,13 @@ export function migrateArchive(
             goal: task.goal,
             timing: { kind: 'immediate' },
             timeZone: 'UTC',
-            limits: { ...DEFAULT_TASK_LIMITS },
+            limits: {
+              ...DEFAULT_TASK_LIMITS,
+              maxTurns: a.maxTurns ?? DEFAULT_TASK_LIMITS.maxTurns,
+              tokenBudget: a.tokenBudget ?? DEFAULT_TASK_LIMITS.tokenBudget,
+              taskTimeoutMs:
+                a.taskTimeoutMs ?? DEFAULT_TASK_LIMITS.taskTimeoutMs,
+            },
             totalTokenBudget: 500000,
           },
           task.startedAt,
@@ -169,6 +183,8 @@ export function migrateArchive(
     delete a.taskBook;
     result.characters.push(a);
   }
+  for (const plan of result.plans) plan.limitsMode ??= 'override';
+  for (const run of result.runs) run.snapshot.limitsMode ??= 'override';
   validateArchive(result);
   return result;
 }

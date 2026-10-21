@@ -99,7 +99,18 @@ export type AICharacterView = AICharacterSettings & {
   logTimes?: (number | null)[];
   task?: AICharacterTask;
   /** Limits of the current execution, which may differ from role defaults. */
-  taskExecution?: { runId: string; limits: TaskLimits };
+  taskExecution?: {
+    runId: string;
+    limits: TaskLimits;
+    source?: string;
+    action?: { id: string; name: string; status: string };
+  };
+  queuedTasks?: {
+    id: string;
+    goal: string;
+    scheduledAt: number;
+    coalescedTriggers: number;
+  }[];
   usage?: AICharacterUsage;
   lastResponse?: string;
   /** The original private recipient no longer exists; the task must be reassigned. */

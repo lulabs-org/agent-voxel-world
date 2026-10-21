@@ -1,4 +1,8 @@
-import type { TaskBudget } from './model';
+import type { AICharacterSettings } from '@voxel/shared';
+type TaskBudget = Pick<
+  AICharacterSettings,
+  'maxTurns' | 'tokenBudget' | 'taskTimeoutMs'
+>;
 export function TaskBudgetFields({
   value: agent,
   onChange: setAgent,

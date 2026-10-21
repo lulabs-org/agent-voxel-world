@@ -19,8 +19,8 @@ flowchart TD
   Registry --> Host
   Host --> Runner[AgentRunner / Coordinator]
   Player[可信世界消息] --> Host
-  Runner --> Conversation[ConversationRunner]
-  Runner --> Task[TaskRunner / ActionExecutor]
+  Runner --> Decision[CharacterRunner / Pi]
+  Decision --> Task[ActionExecutor]
   Conversation --> Rules[TaskService]
   Task --> World[世界动作和结果验证]
   Host --> Archive[注入的存档适配器]
@@ -39,7 +39,7 @@ flowchart TD
 - `apps/server/src/modules/audio/tts/agent-speech.ts`：世界内语音合成队列、空间听众筛选与音频缓存，由 `WorldRoom` 装配并管理生命周期。
 - `apps/server/src/modules/audio/routes.ts`：音频 HTTP 装配入口，挂载管理鉴权并组合各路由。ASR 配置与转写路由归属 `audio/asr`，语音服务与 Piper 路由归属 `audio/tts`；跨模块能力查询保留在 `audio/capabilities.routes.ts`。跨领域删除操作通过回调注入。
 
-Gateway 按程序规则路由。消息意图仍由 ConversationRunner 判断；网关没有模型分类请求。每个角色的模型和动作串行，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。
+Gateway 按程序规则路由。消息意图由统一 CharacterRunner 中的 Pi 判断；网关没有模型分类请求。每个角色只有一个模型槽及一个冲突动作，长动作期间可回答消息，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。
 
 世界消息队列容量 8，满时拒绝新消息并记录原因。快捷暂停/取消保留原玩家身份和私聊范围；成功后不再送入模型。连接代次与事件序号共同防止重复处理。普通聊天不恢复暂停、受阻或预算耗尽任务。
 
@@ -127,7 +127,7 @@ pnpm agent:ctl watch <characterId>
 
 ## 存档与部署
 
-同一路径的存档升级为 v2 聚合对象：`{version:2, characters, plans, runs, requests}`。角色仅保存当前执行关联，计划与历史独立保存；runtime 仍为 v2。整个对象通过临时文件加原子替换一次提交，不存在第二份计划库。
+同一路径的存档升级为 v3 聚合对象：`{version:3, characters, plans, runs, requests}`。角色仅保存当前执行关联，计划与历史独立保存；任务身份仍为 v2，Pi 检查点为 v3。整个对象通过临时文件加原子替换一次提交，不存在第二份计划库。
 
 首次加载旧角色数组前独占创建 `.before-task-plan-module-v1.bak`，已有备份不覆盖；备份、迁移或校验失败阻止升级写入。原计划/执行 ID、累计用量、检查点和按原角色作用域记录的 requestId 保留。纯聊天自动生成的计划转为无 planId 执行；混合或来源不明的历史保留，聊天执行不出现在计划历史。完成迁移和保存后才启动恢复与调度。
 
@@ -145,4 +145,4 @@ Nginx 代理覆盖 `/ai-characters`、`/providers`、`/tasks`、`/task-runs`、`
 
 角色 HTTP 入口为 `/ai-characters`，管理 WebSocket 为 `/ai-characters/gateway`。任务计划、执行历史、查询参数和 RPC 使用 `characterId` / `characterName`，改派使用 `targetCharacterId`；RPC 方法为 `characters.*`，协议版本为 2。旧 HTTP 路径和 RPC v1 不再接受，客户端与服务端需一起升级。共享类型为 `AICharacterSettings` / `AICharacterView`，底层 `AgentRunner`、`AgentRunState` 和 `@voxel/agent-runtime` 继续表示执行引擎。
 
-为发现已有数据，磁盘文件仍使用 `<providers.path>.agents.json`。加载 v1 对象或更早的数组存档时，先保存 `.before-ai-characters-v2.bak` 原始备份，再将角色集合和计划／执行的归属字段转换为 v2；ID、当前执行、历史、用量、请求去重键与运行时 checkpoint 保留。后续保存只写新字段，重复启动不会重复迁移。管理员令牌环境变量、文件位置和浏览器会话键保持兼容。
+为发现已有数据，磁盘文件仍使用 `<providers.path>.agents.json`。加载 v1 对象或更早的数组存档时，先保存 `.before-character-events-v3.bak` 原始备份，再将角色集合和计划／执行的归属字段转换为 v3；ID、当前执行、历史、用量、请求去重键与运行时 checkpoint 保留。后续保存只写新字段，重复启动不会重复迁移。管理员令牌环境变量、文件位置和浏览器会话键保持兼容。

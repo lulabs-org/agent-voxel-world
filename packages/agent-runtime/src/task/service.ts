@@ -102,7 +102,7 @@ export class TaskService {
           : undefined,
       );
       for (const key of Object.keys(memory))
-        if (key !== 'usage' && key !== 'lastChatAt')
+        if (!['usage', 'lastChatAt', 'exchanges', 'inbox'].includes(key))
           delete (memory as Record<string, unknown>)[key];
       memory.task = task;
       this.lease();
@@ -123,6 +123,9 @@ export class TaskService {
     }
     this.lease();
     memory.identity!.revision++;
+    if (memory.activeAction?.status === 'running')
+      memory.activeAction.status =
+        command.type === 'pause' ? 'paused' : 'cancelled';
     // The old transcript may contain queued tool calls against the old revision.
     if (memory.pi) memory.pi.messages = [];
     if (command.type === 'revise') {

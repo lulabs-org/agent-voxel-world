@@ -51,3 +51,6 @@ export { AgentRunner, type RunOptions } from './runtime/agent-runner';
 export { restorePiCheckpoint } from './pi/checkpoint';
 
 export { TaskService, type TaskCommand, type TaskLease } from './task/service';
+
+export { recordEvent } from './runtime/event-inbox';
+export type { CharacterEvent } from './task/state';

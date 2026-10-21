@@ -138,9 +138,8 @@ export function TaskPlans({
     ? '请先指派执行角色'
     : !job.sessionId
       ? '角色尚未上线'
-      : ['joining', 'stopping', 'running'].includes(job.status) ||
-          ['running', 'waiting'].includes(job.task?.status ?? '')
-        ? '角色正在执行其他工作'
+      : ['joining', 'stopping'].includes(job.status)
+        ? '角色正在上线或下线'
         : '';
   const locked = busy || disabled;
 
@@ -377,7 +376,7 @@ export function TaskPlans({
                   {plan.nextRunAt
                     ? `下次计划执行：${planTime(plan.nextRunAt, plan.timeZone)}`
                     : plan.state === 'completed'
-                      ? '该一次性计划已全部执行完毕。'
+                      ? '本次安排已结束，可手动重新执行。'
                       : plan.state === 'paused'
                         ? '计划当前处于暂停状态，不会自动触发。'
                         : plan.state === 'archived'
@@ -463,9 +462,11 @@ export function TaskPlans({
                     <small>次记录</small>
                   </strong>
                   <span className="plans-usage-meta">
-                    {plan.limits.enabled !== false
-                      ? `单次上限：${plan.limits.maxTurns} 轮调用 / ${(plan.limits.tokenBudget ?? 50000).toLocaleString()} tokens`
-                      : '单次执行不限调用与额度'}
+                    {plan.limitsMode === 'inherit'
+                      ? '继承角色默认额度，执行开始时确定'
+                      : plan.limits.enabled !== false
+                        ? `单次上限：${plan.limits.maxTurns} 轮调用 / ${(plan.limits.tokenBudget ?? 50000).toLocaleString()} tokens`
+                        : '单次执行不限调用与额度'}
                   </span>
                 </div>
               </div>
@@ -522,7 +523,10 @@ export function TaskPlans({
                     编辑计划
                   </button>
                   <button
-                    disabled={locked || runs.some((r) => !runEnded(r))}
+                    disabled={
+                      locked ||
+                      runs.some((r) => r.status !== 'queued' && !runEnded(r))
+                    }
                     onClick={() => {
                       setReassign(!reassign);
                       setTarget('');
@@ -531,7 +535,10 @@ export function TaskPlans({
                     改派角色
                   </button>
                   <button
-                    disabled={locked || runs.some((r) => !runEnded(r))}
+                    disabled={
+                      locked ||
+                      runs.some((r) => r.status !== 'queued' && !runEnded(r))
+                    }
                     onClick={() => void control('archive')}
                   >
                     归档计划

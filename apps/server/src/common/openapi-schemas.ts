@@ -52,6 +52,11 @@ const planProperties = {
       },
     ],
   },
+  limitsMode: {
+    ...text,
+    enum: ['inherit', 'override'],
+    description: '新计划默认继承角色额度；已有计划缺省为显式覆盖。',
+  },
   limits: {
     type: 'object',
     properties: {

@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Observation } from '@voxel/agent-runtime';
-import {
-  piPrompt,
-  piInput,
-  conversationPrompt,
-} from '../packages/agent-runtime/src/pi/prompts';
+import { piPrompt, piInput } from '../packages/agent-runtime/src/pi/prompts';
 import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
 import type { AgentConfig } from '@voxel/agent-runtime';
 function buildMessages(
@@ -98,7 +94,7 @@ describe('agent prompt boundary', () => {
     );
     expect(payload.observation.events).toEqual(input.events.slice(-12));
     expect(payload.previous).toEqual(previous);
-    expect(messages[0].content).toContain('AUTOMATIC TASK');
+    expect(messages[0].content).toContain('UNIFIED CHARACTER');
     expect(messages[0].content).toContain('"place":false');
     expect(input).toEqual(before);
   });
@@ -110,9 +106,9 @@ describe('agent prompt boundary', () => {
     input.self.name = maliciousText;
     input.attention = { ...input.events[19], data: { text: maliciousText } };
     const messages = buildMessages(input, null, { allowEdits: true });
-    expect(
-      conversationPrompt(agentConfig({ DEEPSEEK_API_KEY: 'fixture' })),
-    ).toContain('NEW HUMAN MESSAGE');
+    expect(piPrompt(agentConfig({ DEEPSEEK_API_KEY: 'fixture' }))).toContain(
+      'UNIFIED CHARACTER',
+    );
     expect(messages[0].content).toContain('Use build');
     expect(messages[0].content).toContain('never edit bedrock');
     expect(messages[0].content).toContain(

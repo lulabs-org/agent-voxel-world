@@ -33,6 +33,21 @@ export function AICharacterLogViewer({
         disabled={disabled}
         onUpdated={onUpdated}
       />
+      {!!job.queuedTasks?.length && (
+        <section className="agents-progress" aria-label="待执行任务">
+          <h4>待执行任务</h4>
+          <ol>
+            {job.queuedTasks.map((run) => (
+              <li key={run.id}>
+                {run.goal} · 已合并 {run.coalescedTriggers} 次触发
+              </li>
+            ))}
+          </ol>
+          <p className="agent-hint">
+            当前活动完成或结束后依次执行；暂停期间继续等待。
+          </p>
+        </section>
+      )}
       {job.lastResponse && (
         <div className="agents-progress">
           <span className="agents-section-label">最近回复</span>

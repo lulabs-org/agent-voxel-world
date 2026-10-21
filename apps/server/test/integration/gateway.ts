@@ -295,32 +295,33 @@ try {
     },
     { commandId: 'second-execution' },
   );
-  await until(() => server.characters.list()[0].task?.status === 'waiting');
-  const newer = await c.request<any>('characters.get', {
-    characterId: first.id,
-  });
-  await c.request(
-    'runs.control',
-    { runId, operation: 'pause', expectedTask: newer.taskIdentity },
-    { commandId: 'pause-old-run' },
-  );
-  assert.equal(
-    server.characters.list()[0].task?.status,
-    'waiting',
-    'controlling an older run must not pause the current run',
-  );
-  const concurrentHistory = await c.request<any>('runs.list', {
+  assert.equal(server.characters.list()[0].task?.status, 'paused');
+  const queuedHistory = await c.request<any>('runs.list', {
     planId: concurrentPlan.id,
   });
+  assert.equal(queuedHistory.items[0].status, 'queued');
+  assert.equal(queuedHistory.items[0].task, undefined);
+  await assert.rejects(
+    c.request(
+      'runs.control',
+      {
+        runId: queuedHistory.items[0].id,
+        operation: 'resume',
+        expectedTask: task.taskIdentity,
+      },
+      { commandId: 'reject-early-start' },
+    ),
+  );
   await c.request(
     'runs.control',
     {
-      runId: concurrentHistory.items[0].id,
+      runId: queuedHistory.items[0].id,
       operation: 'cancel',
-      expectedTask: newer.taskIdentity,
+      expectedTask: task.taskIdentity,
     },
-    { commandId: 'cancel-second-execution' },
+    { commandId: 'cancel-queued' },
   );
+  assert.equal(server.characters.list()[0].task?.status, 'paused');
   const updated = await c.request<any>('characters.get', {
     characterId: first.id,
   });

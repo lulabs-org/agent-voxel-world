@@ -51,6 +51,7 @@ export function TaskPlanEditor({
         timing: { kind: 'immediate' },
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         limits: { ...DEFAULT_TASK_LIMITS },
+        limitsMode: 'inherit',
         totalTokenBudget: 500000,
       },
   );
@@ -72,9 +73,8 @@ export function TaskPlanEditor({
     ? '请选择执行角色'
     : !target.sessionId
       ? '角色尚未上线'
-      : ['joining', 'stopping', 'running'].includes(target.status) ||
-          ['running', 'waiting'].includes(target.task?.status ?? '')
-        ? '角色正在执行其他工作'
+      : ['joining', 'stopping'].includes(target.status)
+        ? '角色正在上线或下线'
         : '';
   return (
     <form
@@ -312,37 +312,57 @@ export function TaskPlanEditor({
             {draft.timing.kind === 'interval'
               ? ' · 以创建时刻为起点，首次在一个间隔后执行。'
               : ''}
-            {repeating ? ' 每次独立执行，忙碌或离线时跳过，不补跑。' : ''}
+            {repeating
+              ? ' 忙碌时排队，同一计划最多一个待执行项；离线错过不补跑。'
+              : ''}
           </p>
         </div>
         <div className="characters-form-section">
           <h4>执行限制与资源预算</h4>
-          <TaskLimitSettings
-            value={draft.limits}
-            onChange={(limits) => setDraft({ ...draft, limits })}
-          >
-            {repeating && (
-              <label style={{ marginTop: 14 }}>
-                计划累计 token 额度
-                <input
-                  type="number"
-                  required
-                  min={Math.max(1000, plan?.spentTokens ?? 0)}
-                  max={1000000000}
-                  value={draft.totalTokenBudget}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      totalTokenBudget: e.target.valueAsNumber,
-                    })
-                  }
-                />
-                <small>
-                  所有执行（含手动执行）共用此额度，用尽后暂停计划。
-                </small>
-              </label>
-            )}
-          </TaskLimitSettings>
+          <label>
+            <input
+              type="checkbox"
+              checked={draft.limitsMode === 'inherit'}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  limitsMode: e.target.checked ? 'inherit' : 'override',
+                })
+              }
+            />
+            使用角色默认执行额度
+          </label>
+          {draft.limitsMode === 'inherit' && (
+            <p className="agent-hint">开始执行时读取角色默认额度并保存快照。</p>
+          )}
+          {draft.limitsMode !== 'inherit' && (
+            <>
+              <TaskLimitSettings
+                value={draft.limits}
+                onChange={(limits) => setDraft({ ...draft, limits })}
+              />
+            </>
+          )}
+          {repeating && (
+            <label style={{ marginTop: 14 }}>
+              计划累计 token 额度
+              <input
+                type="number"
+                required
+                min={Math.max(1000, plan?.spentTokens ?? 0)}
+                max={1000000000}
+                value={draft.totalTokenBudget}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    totalTokenBudget: e.target.valueAsNumber,
+                  })
+                }
+              />
+              <small>所有执行（含手动执行）共用此额度，用尽后暂停计划。</small>
+            </label>
+          )}
+
           {plan && (
             <p className="agent-hint">
               仅影响未来执行。已有执行的目标、进度和额度保持原样。

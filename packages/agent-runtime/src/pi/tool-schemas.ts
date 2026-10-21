@@ -13,7 +13,10 @@ const block = Type.Object({
 });
 export const toolSchemas = {
   observe: Type.Object({}),
-  chat: Type.Object({ text: Type.String({ minLength: 1, maxLength: 240 }) }),
+  chat: Type.Object({
+    text: Type.String({ minLength: 1, maxLength: 240 }),
+    relatedToTask: Type.Optional(Type.Boolean()),
+  }),
   goto: Type.Object({
     x: Type.Number({ minimum: -11.7, maximum: 11.7 }),
     y: Type.Number({ minimum: 0.5, maximum: 15.6 }),
@@ -55,7 +58,10 @@ const reply = Type.String({ minLength: 1, maxLength: 240 });
 const goal = Type.String({ minLength: 1, maxLength: 2000 });
 const command = { reply: Type.Optional(reply) };
 export const conversationToolSchemas = {
-  reply: Type.Object({ text: reply }),
+  reply: Type.Object({
+    text: reply,
+    relatedToTask: Type.Optional(Type.Boolean()),
+  }),
   start_task: Type.Object({ goal, ...command }),
   revise_task: Type.Object({ goal, ...command }),
   pause_task: Type.Object(command),

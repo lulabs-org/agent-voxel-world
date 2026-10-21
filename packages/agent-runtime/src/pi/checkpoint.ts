@@ -32,7 +32,7 @@ export function restorePiCheckpoint(memory: AgentRunState) {
   const identity = new TaskService(memory).lease();
   if (
     !saved ||
-    saved.version !== 2 ||
+    ![2, 3].includes(saved.version) ||
     saved.taskId !== identity.id ||
     saved.revision !== identity.revision ||
     saved.taskStartedAt !== memory.task.startedAt ||
@@ -61,7 +61,7 @@ export function updatePiCheckpoint(
   }
   const identity = new TaskService(memory).lease();
   memory.pi = {
-    version: 2,
+    version: 3,
     taskId: identity.id,
     revision: identity.revision,
     taskStartedAt: memory.task.startedAt,

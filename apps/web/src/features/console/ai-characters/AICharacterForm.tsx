@@ -4,6 +4,7 @@ import {
   AI_CHARACTER_SKILLS,
   aiCharacterPermissions,
 } from '@voxel/shared';
+import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 import type { ConsoleController } from '../useConsoleController';
 import { aiCharacterPresentation } from './presentation/agent-presentation';
 
@@ -330,6 +331,16 @@ export function AICharacterForm(
               : '待命时不主动调用模型；执行任务和回复消息会产生模型用量。'}{' '}
             云端模型与语音按服务商规则计费。
           </p>
+          <section aria-label="角色默认执行额度">
+            <h4>默认执行额度</h4>
+            <p className="agent-hint">
+              聊天发起的任务和继承设置的计划使用这些额度。修改只影响之后开始的执行。
+            </p>
+            <TaskBudgetFields
+              value={agent}
+              onChange={(limits) => setAgent({ ...agent, ...limits })}
+            />
+          </section>
           <div className="agents-form-footer">
             <button type="button" onClick={cancel}>
               取消
