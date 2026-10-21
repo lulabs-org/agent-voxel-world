@@ -2,7 +2,7 @@ import cors from 'cors';
 import { env } from '../../../config/env';
 import { createOriginGuard } from '../../../common/middleware/origin-guard';
 import { asyncRoute } from '../../../common/middleware/async-route';
-import { assertJsonBody } from '../../../common/middleware/json-body';
+import { assertJsonRequest } from '../../../common/middleware/require-json';
 import { errorHandler } from '../../../common/middleware/error-handler';
 import express, { type Express, type Request, type Response } from 'express';
 import { AsrSettingsStore } from './asr-settings';
@@ -42,7 +42,7 @@ export function installAsrRoutes(
   const route = (fn: (req: Request, res: Response) => unknown) =>
     asyncRoute((req, res) => {
       try {
-        assertJsonBody(req);
+        assertJsonRequest(req);
       } catch {
         throw new AppError('请使用 JSON 请求。', 415);
       }
