@@ -1,4 +1,8 @@
-import { resolvePermissions, type AICharacterPermissions } from '@voxel/shared';
+import {
+  resolvePermissions,
+  type AICharacterPermissions,
+  type Material,
+} from '@voxel/shared';
 import { inBounds, key, distance } from '@voxel/shared';
 import { setTimeout as pause } from 'node:timers/promises';
 import type {
@@ -9,29 +13,57 @@ import type {
   BuildResult,
 } from '../contracts';
 
-export const BUILD_STEP_MS = 125;
+const BUILD_STEP_MS = 125;
+const MAX_BATCH_BLOCKS = 64;
+const OBSERVATION_LIMIT = 500;
+const MATERIALS: ReadonlySet<string> = new Set<Material>([
+  'grass',
+  'dirt',
+  'stone',
+  'wood',
+]);
+const DOORS: ReadonlySet<string> = new Set(['north', 'south', 'east', 'west']);
+const RETRYABLE_FAILURES: ReadonlySet<string> = new Set([
+  'out-of-reach',
+  'occupied',
+  'player-occupied',
+  'unsupported',
+  'empty',
+]);
 
-export const MAX_BATCH_BLOCKS = 64;
+// ─── helpers ───────────────────────────────────────────────
 
-export function parsePlannedEdit(value: unknown): PlannedEdit {
+function assertIntInRange(
+  value: unknown,
+  lo: number,
+  hi: number,
+  msg: string,
+): void {
+  if (!Number.isInteger(value) || Number(value) < lo || Number(value) > hi)
+    throw Error(msg);
+}
+
+function parsePlannedEdit(value: unknown): PlannedEdit {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw Error('方块参数无效。');
   const a = value as PlannedEdit;
   if (
     !inBounds(a) ||
     a.y === 0 ||
-    (a.material !== null &&
-      !['grass', 'dirt', 'stone', 'wood'].includes(a.material))
+    (a.material !== null && !MATERIALS.has(a.material))
   )
     throw Error('方块参数无效。');
   return { x: a.x, y: a.y, z: a.z, material: a.material };
 }
+
+type HouseAction = Extract<BuildAction, { type: 'house' }>;
 
 export function parseBuildAction(
   a: Record<string, unknown>,
   allowEdits: boolean | AICharacterPermissions,
 ): BuildAction {
   const permissions = resolvePermissions(allowEdits);
+
   if (a.type === 'build') {
     if (
       !Array.isArray(a.blocks) ||
@@ -48,41 +80,48 @@ export function parseBuildAction(
       throw Error('同一批次不能重复修改同一位置。');
     return { type: 'build', blocks };
   }
+
+  // house
   if (!permissions.place) throw Error('方块修改未开启：缺少放置权限。');
   const origin = parsePlannedEdit(a);
-  if (
-    a.type !== 'house' ||
-    origin.material === null ||
-    !Number.isInteger(a.width) ||
-    Number(a.width) < 3 ||
-    Number(a.width) > 7 ||
-    !Number.isInteger(a.depth) ||
-    Number(a.depth) < 3 ||
-    Number(a.depth) > 7 ||
-    !Number.isInteger(a.height) ||
-    Number(a.height) < 4 ||
-    Number(a.height) > 6 ||
-    !['north', 'south', 'east', 'west'].includes(String(a.door ?? 'south'))
-  )
-    throw Error('房屋尺寸或门的方向无效。');
-  const house: BuildAction = {
+  const sizeMsg = '房屋尺寸或门的方向无效。';
+  if (a.type !== 'house' || origin.material === null) throw Error(sizeMsg);
+  assertIntInRange(a.width, 3, 7, sizeMsg);
+  assertIntInRange(a.depth, 3, 7, sizeMsg);
+  assertIntInRange(a.height, 4, 6, sizeMsg);
+  if (!DOORS.has(String(a.door ?? 'south'))) throw Error(sizeMsg);
+
+  const house: HouseAction = {
     type: 'house',
     ...origin,
     material: origin.material,
     width: Number(a.width),
     depth: Number(a.depth),
     height: Number(a.height),
-    door: (a.door ?? 'south') as 'north' | 'south' | 'east' | 'west',
+    door: String(a.door ?? 'south') as HouseAction['door'],
   };
-  // Validate the entire footprint before any block can be changed.
   houseBlocks(house).forEach(parsePlannedEdit);
   return house;
 }
 
+function isDoorway(a: HouseAction, x: number, y: number, z: number): boolean {
+  if (y !== 1 && y !== 2) return false;
+  const midX = Math.floor(a.width / 2);
+  const midZ = Math.floor(a.depth / 2);
+  switch (a.door) {
+    case 'north':
+      return z === 0 && x === midX;
+    case 'south':
+      return z === a.depth - 1 && x === midX;
+    case 'west':
+      return x === 0 && z === midZ;
+    case 'east':
+      return x === a.width - 1 && z === midZ;
+  }
+}
+
 /** Compact blueprint: foundation, hollow walls, two-block doorway, flat roof. */
-export function houseBlocks(
-  a: Extract<BuildAction, { type: 'house' }>,
-): PlannedEdit[] {
+export function houseBlocks(a: HouseAction): PlannedEdit[] {
   const blocks: PlannedEdit[] = [];
   for (let y = 0; y < a.height; y++)
     for (let z = 0; z < a.depth; z++)
@@ -90,17 +129,7 @@ export function houseBlocks(
         const slab = y === 0 || y === a.height - 1;
         const wall =
           x === 0 || x === a.width - 1 || z === 0 || z === a.depth - 1;
-        const doorway =
-          (y === 1 || y === 2) &&
-          ((a.door === 'north' && z === 0 && x === Math.floor(a.width / 2)) ||
-            (a.door === 'south' &&
-              z === a.depth - 1 &&
-              x === Math.floor(a.width / 2)) ||
-            (a.door === 'west' && x === 0 && z === Math.floor(a.depth / 2)) ||
-            (a.door === 'east' &&
-              x === a.width - 1 &&
-              z === Math.floor(a.depth / 2)));
-        if (slab || (wall && !doorway))
+        if (slab || (wall && !isDoorway(a, x, y, z)))
           blocks.push({
             x: a.x + x,
             y: a.y + y,
@@ -123,6 +152,7 @@ export async function executeBuild(
   let observation = await session.request<Observation>('observe');
   let revision = observation.revision;
   let known = new Map(observation.blocks.map((b) => [key(b), b.material]));
+
   const result: BuildResult = {
     ok: false,
     total: blocks.length,
@@ -133,21 +163,24 @@ export async function executeBuild(
     note: '',
   };
   const save = () => checkpoint(structuredClone(result));
-  const resolved = async (block: PlannedEdit) => {
+  const resolve = async (block: PlannedEdit) => {
     result.remaining = result.remaining.filter((b) => key(b) !== key(block));
     await save();
   };
   await save();
+
+  // Pre-flight: reject house if interior is occupied.
   if (action.type === 'house') {
     const shell = new Set(blocks.map(key));
+    const { x: ox, y: oy, z: oz, width: w, height: h, depth: d } = action;
     const obstruction = observation.blocks.find(
       (b) =>
-        b.x >= action.x &&
-        b.x < action.x + action.width &&
-        b.y >= action.y &&
-        b.y < action.y + action.height &&
-        b.z >= action.z &&
-        b.z < action.z + action.depth &&
+        b.x >= ox &&
+        b.x < ox + w &&
+        b.y >= oy &&
+        b.y < oy + h &&
+        b.z >= oz &&
+        b.z < oz + d &&
         !shell.has(key(b)),
     );
     if (obstruction) {
@@ -165,22 +198,22 @@ export async function executeBuild(
       return result;
     }
   }
+
   progress(`开始连续建造 · ${blocks.length} 个方块 · 无需逐块推理`);
-  for (let index = 0; index < blocks.length; index++) {
-    signal.throwIfAborted();
-    const block = blocks[index]!;
-    // Skip confirmed matching placements or removals proven empty within the observation cutoff.
+
+  /** Attempt a single block edit; returns 'ok', 'skipped', or a failure string. */
+  async function attemptBlock(
+    block: PlannedEdit,
+  ): Promise<'ok' | 'skipped' | string> {
+    const bk = key(block);
     if (
-      (block.material !== null && known.get(key(block)) === block.material) ||
+      (block.material !== null && known.get(bk) === block.material) ||
       (block.material === null &&
-        !known.has(key(block)) &&
+        !known.has(bk) &&
         observedEmpty(observation, block))
-    ) {
-      result.skipped++;
-      await resolved(block);
-      continue;
-    }
-    if (index > 0) await pause(BUILD_STEP_MS, undefined, { signal });
+    )
+      return 'skipped';
+
     let failure: string | undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
       signal.throwIfAborted();
@@ -190,52 +223,50 @@ export async function executeBuild(
       result.uncertain = [];
       await save();
       revision = reply.revision;
+
       if (reply.ok) {
-        if (block.material === null) known.delete(key(block));
-        else known.set(key(block), block.material);
-        result.completed++;
-        await resolved(block);
-        failure = undefined;
-        break;
+        if (block.material === null) known.delete(bk);
+        else known.set(bk, block.material);
+        return 'ok';
       }
+
       failure = reply.error ?? 'unknown';
       if ((failure === 'conflict' || failure === 'occupied') && attempt === 0) {
         observation = await session.request<Observation>('observe');
         revision = observation.revision;
         known = new Map(observation.blocks.map((b) => [key(b), b.material]));
-        if (
-          block.material !== null &&
-          known.get(key(block)) === block.material
-        ) {
-          result.skipped++;
-          await resolved(block);
-          failure = undefined;
-          break;
-        }
+        if (block.material !== null && known.get(bk) === block.material)
+          return 'skipped';
         if (failure === 'occupied') break;
         await pause(BUILD_STEP_MS, undefined, { signal });
       } else break;
     }
-    if (failure) {
-      result.failures.push({ block, error: failure });
+    return failure ?? 'unknown';
+  }
+
+  for (let i = 0; i < blocks.length; i++) {
+    signal.throwIfAborted();
+    const block = blocks[i]!;
+    if (i > 0) await pause(BUILD_STEP_MS, undefined, { signal });
+
+    const outcome = await attemptBlock(block);
+    if (outcome === 'skipped') {
+      result.skipped++;
+      await resolve(block);
+    } else if (outcome === 'ok') {
+      result.completed++;
+      await resolve(block);
+    } else {
+      result.failures.push({ block, error: outcome });
       await save();
-      if (
-        ![
-          'out-of-reach',
-          'occupied',
-          'player-occupied',
-          'unsupported',
-          'empty',
-        ].includes(failure)
-      ) {
-        break;
-      }
+      if (!RETRYABLE_FAILURES.has(outcome)) break;
     }
-    if ((index + 1) % 8 === 0)
+    if ((i + 1) % 8 === 0)
       progress(
         `建造进度 · 新建/移除 ${result.completed} · 已存在 ${result.skipped} · 待处理 ${result.remaining.length}`,
       );
   }
+
   result.ok = result.remaining.length === 0;
   result.note = `建造${result.ok ? '完成' : '未完成'}：${result.completed} 个已修改，${result.skipped} 个已存在，${result.remaining.length} 个待处理。`;
   if (!result.ok)
@@ -248,13 +279,12 @@ export async function executeBuild(
 /** Absence is evidence only inside the observed radius AND the nearest-block cutoff. */
 export function observedEmpty(observation: Observation, block: PlannedEdit) {
   const d = distance(observation.self, block);
+  const maxDist = Math.max(
+    ...observation.blocks.map((b) => distance(observation.self, b)),
+  );
   return (
     d <= observation.radius &&
     !observation.blocks.some((b) => key(b) === key(block)) &&
-    (observation.blocks.length < 500 ||
-      d <
-        Math.max(
-          ...observation.blocks.map((b) => distance(observation.self, b)),
-        ))
+    (observation.blocks.length < OBSERVATION_LIMIT || d < maxDist)
   );
 }
