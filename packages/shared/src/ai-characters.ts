@@ -66,13 +66,13 @@ export type AICharacterView = AICharacterSettings & {
   id: string;
   providerName: string;
   status:
-  | 'joining'
-  | 'running'
-  | 'idle'
-  | 'stopping'
-  | 'stopped'
-  | 'completed'
-  | 'failed';
+    | 'joining'
+    | 'running'
+    | 'idle'
+    | 'stopping'
+    | 'stopped'
+    | 'completed'
+    | 'failed';
   createdAt: number;
   sessionId?: string;
   logs: string[];

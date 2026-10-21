@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import '../agents.css';
+import './ai-characters.css';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterDetail } from './AICharacterDetail';
 import { AICharacterForm } from './AICharacterForm';

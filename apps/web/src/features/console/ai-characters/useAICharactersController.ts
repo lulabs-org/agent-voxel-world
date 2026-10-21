@@ -149,8 +149,18 @@ export function useAICharactersController(
       );
       setJobs(await aiCharactersApi.listAgents());
       setSelectedAgentId(saved.id);
-      if (editingAgent) setAgent(saved);
-      setShowAgentForm(false);
+      if (editingAgent) {
+        setAgent({
+          ...saved,
+          taskLimitsEnabled: saved.taskLimitsEnabled ?? false,
+          model: selected.defaultModel,
+          goal: saved.task?.goal ?? saved.goal,
+        });
+        setEditingAgent(saved.id);
+        setShowAgentForm(true);
+      } else {
+        setShowAgentForm(false);
+      }
       setNotice(
         editingAgent
           ? 'AI 角色设置已保存。'
