@@ -1,4 +1,4 @@
-import { REACH, type Block, type Material } from '@voxel/shared';
+import { LIMIT, REACH, type Block, type Material } from '@voxel/shared';
 import * as THREE from 'three';
 import { Connection } from '../network/connection';
 import { isInteractiveTarget } from './controls/input-target';
@@ -14,7 +14,12 @@ const colors = {
 export class WorldScene {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(70, 1, 0.1, 150);
+  camera = new THREE.PerspectiveCamera(
+    70,
+    1,
+    0.1,
+    Math.max(150, Math.round(LIMIT * 10)),
+  );
   private meshes: THREE.InstancedMesh[] = [];
   private avatars = new Map<string, VoxelAvatar>();
   private keys = new Set<string>();
@@ -38,13 +43,18 @@ export class WorldScene {
     this.renderer.domElement.setAttribute('aria-label', '3D voxel world');
     host.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color(0xc6e2e7);
-    this.scene.fog = new THREE.Fog(0xc6e2e7, 25, 65);
+    this.scene.fog = new THREE.Fog(
+      0xc6e2e7,
+      Math.round(LIMIT * 2),
+      Math.round(LIMIT * 5),
+    );
     this.scene.add(new THREE.HemisphereLight(0xdff7ff, 0x536339, 2.5));
     const sun = new THREE.DirectionalLight(0xffecc6, 3);
-    sun.position.set(14, 25, 10);
+    sun.position.set(LIMIT * 0.8, LIMIT * 1.2, LIMIT * 0.5);
     this.scene.add(sun);
+    const seaSize = Math.max(150, Math.round(LIMIT * 16));
     const sea = new THREE.Mesh(
-      new THREE.PlaneGeometry(150, 150),
+      new THREE.PlaneGeometry(seaSize, seaSize),
       new THREE.MeshStandardMaterial({ color: 0x7aaeb6, roughness: 0.5 }),
     );
     sea.rotation.x = -Math.PI / 2;

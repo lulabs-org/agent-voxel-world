@@ -1,6 +1,6 @@
 export const WORLD_ID = 'meadow';
 export const PROTOCOL_VERSION = 1;
-export const LIMIT = 12;
+export const LIMIT = 24;
 export const MAX_Y = 15;
 export const REACH = 6;
 export type Material = 'grass' | 'dirt' | 'stone' | 'wood';

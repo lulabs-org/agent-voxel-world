@@ -9,6 +9,7 @@ import {
   type Observation,
   type Session,
 } from '@voxel/agent-runtime';
+import { LIMIT } from '@voxel/shared';
 
 const observation: Observation = {
   id: 'obs',
@@ -85,7 +86,7 @@ describe('bounded multi-block construction', () => {
     for (const bad of [
       { ...house, width: 8 },
       { ...house, height: 3 },
-      { ...house, x: 11 },
+      { ...house, x: LIMIT - 1 },
       { ...house, material: null },
       { ...house, door: 'bad' },
       { ...house, y: 14 },
