@@ -1,13 +1,21 @@
+import { useI18n } from '../../i18n';
+
 interface ControlsHelpProps {
   onClose: () => void;
 }
 
 export function ControlsHelp({ onClose }: ControlsHelpProps) {
+  const { t } = useI18n();
+
   return (
-    <section id="controls-help" className="controls-help" aria-label="操作帮助">
+    <section
+      id="controls-help"
+      className="controls-help"
+      aria-label={t('hud.controlsHelp')}
+    >
       <div className="chat-title">
-        <strong>操作帮助</strong>
-        <button aria-label="关闭操作帮助" onClick={onClose}>
+        <strong>{t('hud.controlsHelp')}</strong>
+        <button aria-label={t('hud.closeHelp')} onClick={onClose}>
           ×
         </button>
       </div>
@@ -16,40 +24,41 @@ export function ControlsHelp({ onClose }: ControlsHelpProps) {
           <dt>
             <kbd>W A S D</kbd>
           </dt>
-          <dd>移动</dd>
+          <dd>{t('hud.controls.move')}</dd>
         </div>
         <div>
           <dt>
             <kbd>Space</kbd>
           </dt>
-          <dd>跳跃</dd>
+          <dd>{t('hud.controls.jump')}</dd>
         </div>
         <div>
-          <dt>点击画面</dt>
-          <dd>锁定鼠标视角</dd>
+          <dt>{t('hud.controls.clickScreen')}</dt>
+          <dd>{t('hud.controls.lockPointer')}</dd>
         </div>
         <div>
           <dt>
             <kbd>Esc</kbd>
           </dt>
-          <dd>释放鼠标 / 收起当前面板</dd>
+          <dd>{t('hud.controls.releaseCursor')}</dd>
         </div>
         <div>
-          <dt>鼠标左键 / 右键</dt>
-          <dd>移除 / 放置方块</dd>
+          <dt>{t('hud.controls.mouseAction')}</dt>
+          <dd>{t('hud.controls.breakPlaceAction')}</dd>
         </div>
         <div>
-          <dt>数字键 1–4 / 点击材料栏</dt>
-          <dd>切换方块材质</dd>
+          <dt>{t('hud.controls.switchMaterialKey')}</dt>
+          <dd>{t('hud.controls.switchMaterialAction')}</dd>
         </div>
         <div>
           <dt>
             <kbd>Enter</kbd>
           </dt>
-          <dd>打开聊天</dd>
+          <dd>{t('hud.controls.openChat')}</dd>
         </div>
       </dl>
-      <p>瞄准 6 格内的方块进行搭建。</p>
+      <p>{t('hud.controls.rangeHint')}</p>
     </section>
   );
 }
+

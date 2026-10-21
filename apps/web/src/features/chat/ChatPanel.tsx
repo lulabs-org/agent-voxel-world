@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useI18n } from '../../i18n';
 import type { Connection } from '../../network/connection';
 import { mentionQuery } from './chat-mentions';
 import { ChatMessages } from './components/ChatMessages';
@@ -16,7 +17,9 @@ export function ChatPanel({
   onExpandedChange: (expanded: boolean) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
+  const { t } = useI18n();
   const controller = useChatController(connection, expanded);
+
   const {
     collapsed,
     setCollapsedAt,
@@ -93,7 +96,7 @@ export function ChatPanel({
         } else close();
       }}
       className={`chat enhanced-chat${collapsed ? ' is-collapsed' : ''}${picker ? ' is-picking' : ''}${picker?.source === 'button' ? ' picker-manual' : ''}`}
-      aria-label="世界聊天"
+      aria-label={t('chat.ariaLabel')}
     >
       <div className="chat-peek" hidden={!collapsed}>
         {connection.chats.slice(-3).map((message) => (
@@ -105,14 +108,14 @@ export function ChatPanel({
             <span>
               <strong>{message.data.name}</strong> ·{' '}
               {message.data.scope === 'private'
-                ? '私聊'
+                ? t('chat.private')
                 : message.data.scope === 'nearby'
-                  ? '附近语音'
-                  : '群聊'}
+                  ? t('chat.nearby')
+                  : t('chat.public')}
             </span>
             <span>
               {message.data.kind === 'audio'
-                ? '♪ 语音消息 · 点击查看'
+                ? t('chat.audioMessage')
                 : message.data.text}
             </span>
           </button>
@@ -120,51 +123,53 @@ export function ChatPanel({
         <button
           ref={entry}
           className="chat-entry"
-          aria-label={`展开世界聊天${unread ? `，${unread} 条未读` : ''}`}
+          aria-label={t('chat.expandAria', {
+            unread: unread ? `，${t('chat.unreadCount', { count: unread })}` : '',
+          })}
           aria-expanded={expanded}
           onClick={() => onExpandedChange(true)}
         >
-          聊天 <kbd>Enter</kbd>
+          {t('chat.chatEntry')} <kbd>Enter</kbd>
           {unread > 0 && (
             <span className="unread-count" aria-live="polite">
-              {unread} 条未读
+              {t('chat.unreadCount', { count: unread })}
             </span>
           )}
         </button>
       </div>
       <div className="chat-expanded" hidden={collapsed}>
         <div className="chat-title">
-          <strong>世界聊天</strong>
-          <div className="chat-scope" role="group" aria-label="发送方式">
+          <strong>{t('chat.title')}</strong>
+          <div className="chat-scope" role="group" aria-label={t('chat.sendMode')}>
             <button
               type="button"
-              aria-label="群聊 · 所有人"
+              aria-label={t('chat.publicLabel')}
               aria-pressed={scope === 'public'}
               disabled={busy}
-              title="所有玩家和 Agent 都能收到"
+              title={t('chat.publicDesc')}
               onClick={() => setScope('public')}
             >
-              群聊
+              {t('chat.public')}
             </button>
             <button
               type="button"
-              aria-label="私聊 · 仅 @ 对象"
+              aria-label={t('chat.privateLabel')}
               aria-pressed={scope === 'private'}
               disabled={busy}
-              title="仅发送给选中的 @ 对象"
+              title={t('chat.privateDesc')}
               onClick={() => {
                 setScope('private');
                 if (!recipients.length) openPicker();
               }}
             >
-              私聊
+              {t('chat.private')}
             </button>
           </div>
           <button
             className="dock-collapse"
-            aria-label="收起世界聊天"
+            aria-label={t('chat.collapse')}
             aria-expanded={true}
-            title={busy ? '处理结束后可收起' : '收起聊天'}
+            title={busy ? t('chat.busyCollapse') : t('chat.unbusyCollapse')}
             disabled={busy}
             onClick={close}
           >
@@ -175,7 +180,7 @@ export function ChatPanel({
         {recipients.length > 0 && (
           <div className="chat-recipients" aria-label="已选对象">
             <span className="recipient-label">
-              {scope === 'private' ? '发送给' : '提醒'}
+              {scope === 'private' ? t('chat.sendTo') : t('chat.remind')}
             </span>
             {recipients.map((p) => (
               <button
@@ -184,12 +189,12 @@ export function ChatPanel({
                 onClick={() =>
                   setRecipients((r) => r.filter((x) => x.id !== p.id))
                 }
-                aria-label={`移除接收者 ${p.name}`}
+                aria-label={t('chat.removeRecipient', { name: p.name })}
               >
                 @{p.name}
                 {connection.players.some((x) => x.id === p.id && x.connected)
                   ? ''
-                  : '（离线）'}{' '}
+                  : t('chat.offlineTag')}{' '}
                 ×
               </button>
             ))}
@@ -197,7 +202,7 @@ export function ChatPanel({
               type="button"
               disabled={busy}
               onClick={openPicker}
-              aria-label="添加接收者"
+              aria-label={t('chat.addRecipient')}
             >
               ＋
             </button>
@@ -225,12 +230,14 @@ export function ChatPanel({
           }}
         >
           {clip ? (
-            <span className="chat-audio-caption">试听满意后，再发送</span>
+            <span className="chat-audio-caption">
+              {t('chat.previewAudioCaption')}
+            </span>
           ) : (
             <div className="chat-input-wrap">
               <input
                 ref={input}
-                aria-label="Chat message"
+                aria-label={t('chat.inputAria')}
                 role="combobox"
                 aria-autocomplete="list"
                 aria-expanded={picker?.source === 'input'}
@@ -243,9 +250,9 @@ export function ChatPanel({
                 placeholder={
                   scope === 'private'
                     ? recipients.length
-                      ? '发送私聊消息…'
-                      : '先选择私聊对象…'
-                    : '说点什么，@ 选择玩家…'
+                      ? t('chat.placeholderPrivate')
+                      : t('chat.placeholderPickFirst')
+                    : t('chat.placeholderPublic')
                 }
                 disabled={busy || !!clip}
                 value={text}
@@ -276,8 +283,8 @@ export function ChatPanel({
               (!clip && !text.trim()) ||
               (scope === 'private' && !recipients.length)
             }
-            aria-label={clip ? '发送语音' : '发送消息'}
-            title={clip ? '发送语音' : '发送消息'}
+            aria-label={clip ? t('chat.sendAudio') : t('chat.send')}
+            title={clip ? t('chat.sendAudio') : t('chat.send')}
           >
             <svg
               viewBox="0 0 24 24"
@@ -294,7 +301,11 @@ export function ChatPanel({
               <path d="m21 3-6.5 18-4-7.5L3 9.5 21 3Z" />
               <path d="m10.5 13.5 5-5" />
             </svg>
-            {clip && <span>{mode === 'sending' ? '发送中…' : '发送语音'}</span>}
+            {clip && (
+              <span>
+                {mode === 'sending' ? t('chat.sending') : t('chat.sendAudio')}
+              </span>
+            )}
           </button>
         </form>
         <div className="chat-tools">
@@ -307,7 +318,7 @@ export function ChatPanel({
                 } else recorder.finish();
               }}
             >
-              结束录音
+              {t('chat.endRecording')}
             </button>
           ) : (
             !clip && (
@@ -316,48 +327,52 @@ export function ChatPanel({
                   disabled={!connected || busy || !!clip}
                   onClick={() => record('text')}
                 >
-                  语音转文字
+                  {t('chat.voiceToText')}
                 </button>
                 <button
                   disabled={!connected || busy || !!clip}
                   onClick={() => record('audio')}
                 >
-                  录语音
+                  {t('chat.recordVoice')}
                 </button>
               </>
             )
           )}
-          {busy && mode !== 'sending' && <button onClick={cancel}>取消</button>}
+          {busy && mode !== 'sending' && (
+            <button onClick={cancel}>{t('common.cancel')}</button>
+          )}
           {busy && mode === 'sending' && clip && (
-            <button onClick={() => upload.current?.abort()}>取消发送</button>
+            <button onClick={() => upload.current?.abort()}>
+              {t('chat.cancelSending')}
+            </button>
           )}
           {!busy && (
             <button
-              aria-label="选择要 @ 的玩家或 Agent"
+              aria-label={t('chat.pickMentionAria')}
               aria-expanded={picker !== null}
               aria-controls="chat-mentions"
               onClick={openPicker}
             >
-              @ 选人
+              {t('chat.pickMention')}
             </button>
           )}
         </div>
         <small className="chat-help chat-scope-help">
           {scope === 'private'
-            ? '仅已选对象可收到，接收者会保留用于连续私聊。'
+            ? t('chat.helpPrivate')
             : recipients.length
-              ? '所有人可见，已选对象会被提醒；Agent 可被唤醒。'
-              : '所有人可见，输入 @ 或点击选人来提醒对方。'}
+              ? t('chat.helpPublicMention')
+              : t('chat.helpPublic')}
         </small>
         {partial && (
           <p className="speech-interim" role="status">
-            临时字幕 · {partial}
+            {t('chat.interimCaption', { text: partial })}
           </p>
         )}
         {overflow && (
           <div className="speech-interim">
             <label>
-              待发送的已确认句子
+              {t('chat.pendingConfirmedSentence')}
               <textarea readOnly value={overflow} rows={2} />
             </label>
             <button
@@ -366,10 +381,10 @@ export function ChatPanel({
                 setText(overflow);
                 setOverflow('');
                 setError('');
-                setStatus('已填入，请确认后发送。');
+                setStatus(t('chat.fillNotice'));
               }}
             >
-              填入空白输入框
+              {t('chat.fillBlankInput')}
             </button>
           </div>
         )}

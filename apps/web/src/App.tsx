@@ -11,6 +11,8 @@ import {
   useGameShortcuts,
   useHudController,
 } from './features/hud';
+import { useI18n } from './i18n';
+
 import { SpatialVoicePanel } from './features/voice';
 import {
   LobbyCard,
@@ -22,9 +24,11 @@ import { releasePointerLock } from './graphics/controls/pointer-lock';
 import { useViewportAdjust } from './hooks/useViewportAdjust';
 import type { Connection } from './network/connection';
 export function App({ connection }: { connection: Connection }) {
+  const { t } = useI18n();
   const [consoleEntry, setConsoleEntry] = useState<{
     initialTab?: 'characters';
   } | null>(null);
+
   const { narrow, shortViewport, mainRef } = useViewportAdjust();
   const hud = useHudController(narrow);
   const {
@@ -116,10 +120,12 @@ export function App({ connection }: { connection: Connection }) {
           <div className="crosshair">+</div>
           {target && (
             <div className="target">
-              {MATERIAL_LABELS[target.material]}
+              {t(`hud.materials.${target.material}`) ||
+                MATERIAL_LABELS[target.material]}
               {showCoordinates && ` · ${target.x}, ${target.y}, ${target.z}`}
             </div>
           )}
+
         </>
       )}
 

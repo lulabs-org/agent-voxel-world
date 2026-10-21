@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '../../i18n';
 import type { Connection } from '../../network/connection';
 import { PresenceSubscription } from '../../network/world-presence';
 
@@ -11,6 +12,7 @@ export function WorldPanel({
   hidden?: boolean;
   onClose?: () => void;
 }) {
+  const { t } = useI18n();
   const [presence] = useState(() => new PresenceSubscription());
   const [, render] = useState(0);
   useEffect(() => {
@@ -34,52 +36,56 @@ export function WorldPanel({
     <aside
       id="world-panel"
       className="panel world-panel"
-      aria-label="世界实时玩家数据"
+      aria-label={t('worldPanel.ariaLabel')}
       hidden={hidden}
     >
       {onClose && (
         <button
           className="panel-close"
-          aria-label="收起玩家面板"
+          aria-label={t('worldPanel.closeAria')}
           onClick={onClose}
         >
-          收起 ×
+          {t('worldPanel.collapse')}
         </button>
       )}
-      <div className="eyebrow">THE MEADOW · 共享世界</div>
-      <h1>谁在这里</h1>
+      <div className="eyebrow">{t('worldPanel.eyebrow')}</div>
+      <h1>{t('worldPanel.title')}</h1>
       <div className={`presence-status ${status}`} role="status">
         <i />
         {status === 'live'
-          ? '实时更新 · 每秒同步'
+          ? t('worldPanel.statusLive')
           : status === 'loading'
-            ? '正在获取世界状态…'
-            : '同步中断 · 正在重连'}
+            ? t('worldPanel.statusLoading')
+            : t('worldPanel.statusReconnecting')}
       </div>
       {status === 'reconnecting' && (
         <p className="presence-notice">
           {data
-            ? '以下为最后一次收到的数据，暂未更新。'
-            : '世界服务暂不可用，在线人数未知。'}
+            ? t('worldPanel.reconnectingWithData')
+            : t('worldPanel.reconnectingNoData')}
         </p>
       )}
       <div className="stats">
         <div>
           <strong>{data ? humans : '—'}</strong>
-          <small>在线玩家</small>
+          <small>{t('worldPanel.onlineHumans')}</small>
         </div>
         <div>
           <strong>{data ? agents : '—'}</strong>
-          <small>在线代理</small>
+          <small>{t('worldPanel.onlineAgents')}</small>
         </div>
       </div>
       <p className="world-occupancy">
         {data
-          ? `在线 ${humans + agents} / ${data.capacity} · 重连中 ${reconnecting}`
-          : '等待玩家列表'}
+          ? t('worldPanel.occupancy', {
+              count: humans + agents,
+              capacity: data.capacity,
+              reconnecting,
+            })
+          : t('worldPanel.waitingPlayerList')}
       </p>
       <div className="rule" />
-      <div className="eyebrow">玩家列表</div>
+      <div className="eyebrow">{t('worldPanel.playerList')}</div>
       <div className="player-list">
         {players.map((p) => (
           <div className={`player ${p.connected ? '' : 'away'}`} key={p.id}>
@@ -90,44 +96,54 @@ export function WorldPanel({
                   : '●'}
               </span>
               {p.name}
-              {p.id === selfId ? ' · 你' : ''}
+              {p.id === selfId ? t('worldPanel.you') : ''}
             </div>
             <small>
               {p.kind === 'ai-agent'
-                ? 'AI 代理'
+                ? t('worldPanel.aiAgent')
                 : p.kind === 'scripted-agent'
-                  ? '脚本代理'
-                  : '玩家'}{' '}
-              · {p.connected ? '在线' : '重连中'}
+                  ? t('worldPanel.scriptedAgent')
+                  : t('worldPanel.player')}{' '}
+              ·{' '}
+              {p.connected
+                ? t('worldPanel.online')
+                : t('worldPanel.reconnecting')}
             </small>
             <small className="player-position">
-              位置 {p.x.toFixed(1)}, {p.y.toFixed(1)}, {p.z.toFixed(1)}
+              {t('worldPanel.position', {
+                x: p.x.toFixed(1),
+                y: p.y.toFixed(1),
+                z: p.z.toFixed(1),
+              })}
             </small>
           </div>
         ))}
         {data && players.length === 0 && (
           <p>
             {status === 'live'
-              ? '当前暂无在线玩家，进入世界成为第一位探索者。'
-              : '上次同步时没有玩家。'}
+              ? t('worldPanel.noPlayersLive')
+              : t('worldPanel.noPlayersCached')}
           </p>
         )}
       </div>
       <div className="world-membership">
         {connection.status === 'connected'
-          ? '你已进入世界'
+          ? t('worldPanel.memberConnected')
           : connection.status === 'lobby'
-            ? '你尚未进入世界 · 可查看实时玩家'
-            : '你的游戏连接正在恢复'}
+            ? t('worldPanel.memberLobby')
+            : t('worldPanel.memberReconnecting')}
       </div>
       <div className="storage">
-        世界版本 {data?.revision ?? '—'} ·{' '}
-        {data
-          ? data.persistence === 'memory'
-            ? '临时存储'
-            : '持久存储'
-          : '等待同步'}
+        {t('worldPanel.worldVersion', {
+          revision: data?.revision ?? '—',
+          storage: data
+            ? data.persistence === 'memory'
+              ? t('worldPanel.storageMemory')
+              : t('worldPanel.storageDatabase')
+            : t('worldPanel.storageWaiting'),
+        })}
       </div>
     </aside>
   );
 }
+

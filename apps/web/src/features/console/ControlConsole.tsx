@@ -1,25 +1,27 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
-import {
-  openGateway,
-  closeGateway,
-  gatewayState,
-  onGatewayState,
-  clearGatewayToken,
-  getGatewayToken,
-  gatewayError,
-} from '../../network/gateway';
-import { TaskPlans } from './tasks/TaskPlans';
-import { GatewayAccess } from './GatewayAccess';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
+import { useI18n } from '../../i18n';
 import type { Connection } from '../../network/connection';
+import {
+  clearGatewayToken,
+  closeGateway,
+  gatewayError,
+  gatewayState,
+  getGatewayToken,
+  onGatewayState,
+  openGateway,
+} from '../../network/gateway';
 import { SpeechRecognitionPanel } from '../voice';
 import { AICharacterList } from './ai-characters/AICharacterList';
 import { ConsoleHelp } from './ConsoleHelp';
+import { GatewayAccess } from './GatewayAccess';
 import { ProviderEditor } from './providers/ProviderEditor';
+import { TaskPlans } from './tasks/TaskPlans';
 import { useConsoleController } from './useConsoleController';
 import { VoiceServices } from './voice/VoiceServices';
+
 type ConsoleProps = {
   connection: Connection;
   open: boolean;
@@ -32,6 +34,7 @@ export function ControlConsole({
   initialTab,
   onClose,
 }: ConsoleProps) {
+  const { t } = useI18n();
   const status = useSyncExternalStore(onGatewayState, gatewayState);
   const gatewayFailure = useSyncExternalStore(onGatewayState, gatewayError);
   const savedToken = useSyncExternalStore(onGatewayState, getGatewayToken);
@@ -85,25 +88,27 @@ export function ControlConsole({
       <div className="agent-chrome">
         <div className="agent-heading">
           <div>
-            <div className="eyebrow">WORLD CONSOLE</div>
+            <div className="eyebrow">{t('console.eyebrow')}</div>
             <div className="console-title-row">
-              <h2 id="agent-title">控制台</h2>
+              <h2 id="agent-title">{t('console.title')}</h2>
               <span
                 role="status"
                 className={`console-status-pill ${status === 'ready' ? 'console-connected' : 'console-reconnecting'}`}
               >
-                {status === 'ready' ? '已连接' : '连接中断，正在重新同步…'}
+                {status === 'ready'
+                  ? t('console.connected')
+                  : t('console.reconnecting')}
               </span>
             </div>
-            <p>管理 AI 角色、连接模型服务，设置语音交流。</p>
+            <p>{t('console.description')}</p>
           </div>
           <div className="console-heading-actions">
             <Button className="console-exit-btn" onClick={clearGatewayToken}>
-              退出管理
+              {t('console.exitAdmin')}
             </Button>
             <ConsoleHelp />
-            <Button aria-label="关闭控制台" onClick={onClose}>
-              关闭 ×
+            <Button aria-label={t('console.closeAria')} onClick={onClose}>
+              {t('console.close')}
             </Button>
           </div>
         </div>
@@ -121,13 +126,13 @@ export function ControlConsole({
               setNotice('');
             }}
           >
-            AI 角色
+            {t('console.tabs.characters')}
           </button>
           <button
             aria-pressed={tab === 'plans'}
             onClick={() => setTab('plans')}
           >
-            任务计划
+            {t('console.tabs.plans')}
           </button>
           <button
             aria-pressed={tab === 'providers'}
@@ -136,19 +141,20 @@ export function ControlConsole({
               editProvider(selected ?? providers[0]);
             }}
           >
-            模型服务
+            {t('console.tabs.providers')}
           </button>
           <button
             aria-pressed={tab === 'voice'}
             onClick={() => setTab('voice')}
           >
-            文本转语音（TTS）
+            {t('console.tabs.voice')}
           </button>
           <button aria-pressed={tab === 'asr'} onClick={() => setTab('asr')}>
-            语音识别（ASR）
+            {t('console.tabs.asr')}
           </button>
         </nav>
       </div>
+
       <div className="agent-body" ref={body}>
         <fieldset
           disabled={status !== 'ready'}
@@ -197,7 +203,7 @@ export function ControlConsole({
                 type="button"
                 className="console-toast-dismiss"
                 onClick={() => setNotice('')}
-                aria-label="关闭提示"
+                aria-label={t('common.close')}
               >
                 <X size={14} />
               </button>
@@ -211,12 +217,13 @@ export function ControlConsole({
                 type="button"
                 className="console-toast-dismiss"
                 onClick={() => setError('')}
-                aria-label="关闭错误"
+                aria-label={t('common.close')}
               >
                 <X size={14} />
               </button>
             </div>
           )}
+
         </div>
       )}
     </Dialog>

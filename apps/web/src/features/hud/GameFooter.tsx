@@ -1,4 +1,5 @@
 import type { Material } from '@voxel/shared';
+import { useI18n } from '../../i18n';
 import { MATERIALS, MATERIAL_LABELS } from './hud-input';
 
 interface GameFooterProps {
@@ -14,34 +15,42 @@ export function GameFooter({
   onSelectMaterial,
   onEditBlock,
 }: GameFooterProps) {
+  const { t } = useI18n();
+  const getMaterialLabel = (m: Material) =>
+    t(`hud.materials.${m}`) || MATERIAL_LABELS[m];
+
   return (
     <footer className="game-footer" data-hud>
       <span className="material-name" aria-live="polite">
-        {MATERIAL_LABELS[material]}
+        {getMaterialLabel(material)}
       </span>
-      <div className="hotbar" role="group" aria-label="方块材料">
-        {MATERIALS.map((m, i) => (
-          <button
-            key={m}
-            aria-label={`${i + 1} ${MATERIAL_LABELS[m]}`}
-            title={`${i + 1} · ${MATERIAL_LABELS[m]}`}
-            aria-pressed={material === m}
-            onClick={() => onSelectMaterial(m)}
-          >
-            <span className={`swatch ${m}`} />
-            <small>{i + 1}</small>
-          </button>
-        ))}
+      <div className="hotbar" role="group" aria-label={t('hud.blockMaterials')}>
+        {MATERIALS.map((m, i) => {
+          const label = getMaterialLabel(m);
+          return (
+            <button
+              key={m}
+              aria-label={`${i + 1} ${label}`}
+              title={`${i + 1} · ${label}`}
+              aria-pressed={material === m}
+              onClick={() => onSelectMaterial(m)}
+            >
+              <span className={`swatch ${m}`} />
+              <small>{i + 1}</small>
+            </button>
+          );
+        })}
       </div>
-      <small className="build-hint">左键拆除 · 右键放置</small>
+      <small className="build-hint">{t('hud.buildHint')}</small>
       <div className="build-actions">
         <button disabled={!isConnected} onClick={() => onEditBlock(false)}>
-          拆除
+          {t('hud.breakBlock')}
         </button>
         <button disabled={!isConnected} onClick={() => onEditBlock(true)}>
-          放置
+          {t('hud.placeBlock')}
         </button>
       </div>
     </footer>
   );
 }
+

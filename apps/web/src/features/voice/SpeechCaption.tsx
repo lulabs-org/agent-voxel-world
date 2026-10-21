@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ActiveSpeech } from '../../audio/spatial/agent-speech-playback';
 import type { SpeechAnchor } from '../../graphics/speech-anchor';
+import { useI18n } from '../../i18n';
 import { speechPages } from './speech-caption-text';
 import './speech-caption.css';
+
 
 type Props = {
   speech: ActiveSpeech | undefined;
@@ -16,6 +18,7 @@ export function SpeechCaption({ speech, anchor }: Props) {
 }
 
 function ActiveCaption({ speech, anchor }: Props & { speech: ActiveSpeech }) {
+  const { t } = useI18n();
   const element = useRef<HTMLDivElement>(null);
   const pages = useMemo(() => speechPages(speech.text), [speech.text]);
   const [page, setPage] = useState(0);
@@ -85,7 +88,11 @@ function ActiveCaption({ speech, anchor }: Props & { speech: ActiveSpeech }) {
     >
       <div className="speech-caption-heading">
         <strong>{speech.name}</strong>
-        <span>{speech.scope === 'private' ? '私聊' : '附近语音'}</span>
+        <span>
+          {speech.scope === 'private'
+            ? t('voice.captionPrivate')
+            : t('voice.captionNearby')}
+        </span>
         {pages.length > 1 && (
           <span className="speech-caption-page">
             {page + 1}/{pages.length}
@@ -96,3 +103,4 @@ function ActiveCaption({ speech, anchor }: Props & { speech: ActiveSpeech }) {
     </div>
   );
 }
+
