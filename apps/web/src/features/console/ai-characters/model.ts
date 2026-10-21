@@ -1,4 +1,5 @@
 import type { AICharacterSettings } from '@voxel/shared';
+
 export const initialAICharacter: AICharacterSettings = {
   providerId: '',
   model: '',
@@ -9,6 +10,7 @@ export const initialAICharacter: AICharacterSettings = {
   intervalMode: 'fixed',
   intervalMinMs: 4000,
   intervalMaxMs: 8000,
+  taskLimitsEnabled: false,
   maxTurns: 100,
   tokenBudget: 50000,
   taskTimeoutMs: 900000,

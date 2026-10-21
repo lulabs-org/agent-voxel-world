@@ -133,7 +133,7 @@ try {
       await api('/ai-characters', 'POST', {
         providerId: 'deepseek',
         name: 'AI',
-        maxTurns: 201,
+        maxTurns: 1001,
       })
     ).status,
     400,

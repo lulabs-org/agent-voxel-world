@@ -22,7 +22,7 @@ export function TaskBudgetFields({
           <input
             type="number"
             min={1}
-            max={200}
+            max={1000}
             required
             value={agent.maxTurns}
             onChange={(e) =>
@@ -38,7 +38,7 @@ export function TaskBudgetFields({
           <input
             type="number"
             min={1000}
-            max={1000000}
+            max={100000000}
             required
             value={agent.tokenBudget ?? 50000}
             onChange={(e) =>
@@ -54,7 +54,7 @@ export function TaskBudgetFields({
           <input
             type="number"
             min={1}
-            max={120}
+            max={360}
             required
             value={(agent.taskTimeoutMs ?? 900000) / 60000}
             onChange={(e) =>

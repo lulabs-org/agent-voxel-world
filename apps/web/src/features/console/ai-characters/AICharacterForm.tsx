@@ -180,8 +180,8 @@ export function AICharacterForm(
                           skills: event.target.checked
                             ? [...(agent.skills ?? []), skill.id]
                             : (agent.skills ?? []).filter(
-                                (id) => id !== skill.id,
-                              ),
+                              (id) => id !== skill.id,
+                            ),
                         })
                       }
                     />
@@ -270,10 +270,10 @@ export function AICharacterForm(
                     voiceReplies: event.target.checked,
                     voiceServiceId: event.target.checked
                       ? voiceServices.find(
-                          (service) => service.id === agent.voiceServiceId,
-                        )?.id ||
-                        voiceServices[0]?.id ||
-                        ''
+                        (service) => service.id === agent.voiceServiceId,
+                      )?.id ||
+                      voiceServices[0]?.id ||
+                      ''
                       : agent.voiceServiceId,
                   })
                 }
@@ -300,10 +300,10 @@ export function AICharacterForm(
                   {!voiceServices.some(
                     (service) => service.id === agent.voiceServiceId,
                   ) && (
-                    <option value={agent.voiceServiceId || ''} disabled>
-                      请选择可用的音色服务
-                    </option>
-                  )}
+                      <option value={agent.voiceServiceId || ''} disabled>
+                        请选择可用的音色服务
+                      </option>
+                    )}
                   {voiceServices.map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.name} · {service.voice || '自动音色'}
@@ -331,15 +331,33 @@ export function AICharacterForm(
               : '待命时不主动调用模型；执行任务和回复消息会产生模型用量。'}{' '}
             云端模型与语音按服务商规则计费。
           </p>
-          <section aria-label="角色默认执行额度">
-            <h4>默认执行额度</h4>
-            <p className="agent-hint">
-              聊天发起的任务和继承设置的计划使用这些额度。修改只影响之后开始的执行。
-            </p>
-            <TaskBudgetFields
-              value={agent}
-              onChange={(limits) => setAgent({ ...agent, ...limits })}
-            />
+          <section className="task-limits" aria-label="角色默认执行额度">
+            <label className="task-limits-toggle">
+              <input
+                type="checkbox"
+                checked={!!agent.taskLimitsEnabled}
+                onChange={(e) =>
+                  setAgent({ ...agent, taskLimitsEnabled: e.target.checked })
+                }
+              />
+              <span>设置默认执行额度</span>
+            </label>
+            {agent.taskLimitsEnabled ? (
+              <>
+                <p className="agent-hint">
+                  聊天发起的任务和继承设置的计划使用这些额度。修改只影响之后开始的执行。
+                </p>
+                <TaskBudgetFields
+                  value={agent}
+                  onChange={(limits) => setAgent({ ...agent, ...limits })}
+                />
+              </>
+            ) : (
+              <p className="agent-hint">
+                未设置默认执行额度，任务执行将不限制调用次数、tokens
+                和执行时长。
+              </p>
+            )}
           </section>
           <div className="agents-form-footer">
             <button type="button" onClick={cancel}>

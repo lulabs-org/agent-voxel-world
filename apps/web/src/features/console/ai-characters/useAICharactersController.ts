@@ -69,6 +69,7 @@ export function useAICharactersController(
       job
         ? {
             ...job,
+            taskLimitsEnabled: job.taskLimitsEnabled ?? false,
             model:
               providers.find((p) => p.id === job.providerId)?.defaultModel ??
               '',
@@ -112,6 +113,7 @@ export function useAICharactersController(
         maxTokens,
         thinking,
         reasoningEffort,
+        taskLimitsEnabled,
         maxTurns,
         tokenBudget,
         taskTimeoutMs,
@@ -125,12 +127,14 @@ export function useAICharactersController(
         {
           ...profile,
           model: selected.defaultModel,
+          taskLimitsEnabled: !!taskLimitsEnabled,
           maxTurns,
           tokenBudget,
           taskTimeoutMs,
           ...(editingAgent
             ? {}
             : {
+                taskLimitsEnabled: !!taskLimitsEnabled,
                 maxTurns,
                 tokenBudget,
                 taskTimeoutMs,

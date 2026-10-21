@@ -62,17 +62,17 @@ const planProperties = {
     type: 'object',
     properties: {
       enabled: { type: 'boolean', default: true },
-      maxTurns: { ...integer, minimum: 1, maximum: 200, default: 100 },
+      maxTurns: { ...integer, minimum: 1, maximum: 1000, default: 100 },
       tokenBudget: {
         ...integer,
         minimum: 1000,
-        maximum: 1000000,
+        maximum: 100000000,
         default: 50000,
       },
       taskTimeoutMs: {
         ...integer,
         minimum: 60000,
-        maximum: 7200000,
+        maximum: 21600000,
         default: 900000,
       },
     },
@@ -106,9 +106,10 @@ const agentProfileProperties = {
   intervalMs: { ...integer, minimum: 1000, maximum: 60000 },
   intervalMinMs: { ...integer, minimum: 1000, maximum: 60000 },
   intervalMaxMs: { ...integer, minimum: 1000, maximum: 60000 },
-  maxTurns: { ...integer, minimum: 1, maximum: 200 },
-  tokenBudget: { ...integer, minimum: 1000, maximum: 1000000 },
-  taskTimeoutMs: { ...integer, minimum: 1000, maximum: 7200000 },
+  taskLimitsEnabled: { type: 'boolean', default: true },
+  maxTurns: { ...integer, minimum: 1, maximum: 1000 },
+  tokenBudget: { ...integer, minimum: 1000, maximum: 100000000 },
+  taskTimeoutMs: { ...integer, minimum: 1000, maximum: 21600000 },
 };
 
 const profileTaskExclusion = {

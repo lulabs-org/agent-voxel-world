@@ -130,18 +130,23 @@ export function validatePlan(
       v.limitsMode ?? (previous || 'limits' in value ? 'override' : 'inherit'),
     limits: {
       enabled: v.limitsMode === 'inherit' || v.limits?.enabled !== false,
-      maxTurns: quota(v.limits?.maxTurns, DEFAULT_TASK_LIMITS.maxTurns, 1, 200),
+      maxTurns: quota(
+        v.limits?.maxTurns,
+        DEFAULT_TASK_LIMITS.maxTurns,
+        1,
+        1000,
+      ),
       tokenBudget: quota(
         v.limits?.tokenBudget,
         DEFAULT_TASK_LIMITS.tokenBudget,
         1000,
-        1000000,
+        100000000,
       ),
       taskTimeoutMs: quota(
         v.limits?.taskTimeoutMs,
         DEFAULT_TASK_LIMITS.taskTimeoutMs,
         60000,
-        7200000,
+        21600000,
       ),
     },
     totalTokenBudget: quota(v.totalTokenBudget, 500000, 1000, 1000000000),

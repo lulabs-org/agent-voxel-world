@@ -11,7 +11,7 @@ describe('CLI environment configuration', () => {
     });
     for (const env of [
       { AGENT_MAX_TURNS: '0' },
-      { AGENT_MAX_TURNS: '201' },
+      { AGENT_MAX_TURNS: '1001' },
       { AGENT_INTERVAL_MS: '10' },
       { AGENT_ALLOW_EDITS: 'yes' },
     ])

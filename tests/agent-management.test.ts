@@ -132,7 +132,7 @@ describe('provider configuration boundary', () => {
       model: 'deepseek-flash',
     });
     for (const invalid of [
-      { maxTurns: 201 },
+      { maxTurns: 1001 },
       { intervalMs: 0 },
       { allowEdits: 'true' },
       { reasoningEffort: ['high'] },

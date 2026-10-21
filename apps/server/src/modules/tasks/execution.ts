@@ -59,6 +59,7 @@ export function captureTask(job: TaskExecutionState) {
       timing: { kind: 'immediate' as const },
       timeZone: 'UTC',
       limits: {
+        enabled: job.view.taskLimitsEnabled !== false,
         maxTurns: job.view.maxTurns,
         tokenBudget: job.view.tokenBudget ?? 50000,
         taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
@@ -303,6 +304,7 @@ export function startQueuedRun(job: TaskExecutionState, id: string) {
   const task = newTask(run.snapshot.goal);
   if (run.snapshot.limitsMode === 'inherit')
     run.snapshot.limits = {
+      enabled: job.view.taskLimitsEnabled !== false,
       maxTurns: job.view.maxTurns,
       tokenBudget: job.view.tokenBudget ?? 50000,
       taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
@@ -604,10 +606,13 @@ export async function beginChatExecution(
   try {
     state.currentRunId = undefined;
     captureTask(state);
+    const limitsEnabled = state.view.taskLimitsEnabled !== false;
     Object.assign(config, {
-      maxTurns: state.view.maxTurns,
-      tokenBudget: state.view.tokenBudget ?? 50000,
-      taskTimeoutMs: state.view.taskTimeoutMs ?? 900000,
+      maxTurns: limitsEnabled ? state.view.maxTurns : Infinity,
+      tokenBudget: limitsEnabled ? (state.view.tokenBudget ?? 50000) : Infinity,
+      taskTimeoutMs: limitsEnabled
+        ? (state.view.taskTimeoutMs ?? 900000)
+        : Infinity,
     });
     await save();
   } catch (error) {

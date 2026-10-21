@@ -9,6 +9,7 @@ export type ProviderInference = Pick<
   AICharacterSettings,
   'timeoutMs' | 'maxTokens' | 'thinking' | 'reasoningEffort'
 >;
+
 export type ProviderView = {
   /** Absent in legacy services until inference settings are saved. */
   inference?: ProviderInference;
@@ -21,6 +22,7 @@ export type ProviderView = {
   jsonMode: boolean;
   tokenField: 'max_tokens' | 'max_completion_tokens';
 };
+
 export type AICharacterSettings = {
   providerId: string;
   model: string;
@@ -30,6 +32,8 @@ export type AICharacterSettings = {
   roleDescription?: string;
   /** Legacy compatibility only; task continuation is decided from progress. */
   continuous: boolean;
+  /** Whether execution limits are enabled for this role. Missing means enabled. */
+  taskLimitsEnabled?: boolean;
   /** Maximum model calls per task, not a target number of turns. */
   maxTurns: number;
   tokenBudget?: number;
@@ -62,13 +66,13 @@ export type AICharacterView = AICharacterSettings & {
   id: string;
   providerName: string;
   status:
-    | 'joining'
-    | 'running'
-    | 'idle'
-    | 'stopping'
-    | 'stopped'
-    | 'completed'
-    | 'failed';
+  | 'joining'
+  | 'running'
+  | 'idle'
+  | 'stopping'
+  | 'stopped'
+  | 'completed'
+  | 'failed';
   createdAt: number;
   sessionId?: string;
   logs: string[];

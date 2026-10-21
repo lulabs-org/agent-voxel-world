@@ -66,9 +66,9 @@ export function agentConfig(env = process.env): AgentConfig {
     name: (env.AGENT_NAME?.trim() || 'DeepSeek · AI').slice(0, 24),
     allowEdits: env.AGENT_ALLOW_EDITS === 'true',
     voiceReplies: env.AGENT_VOICE_REPLIES === 'true',
-    maxTurns: integer('AGENT_MAX_TURNS', 100, 1, 200),
-    tokenBudget: integer('AGENT_TOKEN_BUDGET', 50000, 1000, 1000000),
-    taskTimeoutMs: integer('AGENT_TASK_TIMEOUT_MS', 900000, 1000, 7200000),
+    maxTurns: integer('AGENT_MAX_TURNS', 100, 1, 1000),
+    tokenBudget: integer('AGENT_TOKEN_BUDGET', 50000, 1000, 100000000),
+    taskTimeoutMs: integer('AGENT_TASK_TIMEOUT_MS', 900000, 1000, 21600000),
     intervalMs: integer('AGENT_INTERVAL_MS', 3000, 1000, 60000),
     timeoutMs,
   };

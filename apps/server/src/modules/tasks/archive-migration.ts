@@ -11,7 +11,13 @@ import type { TaskSnapshot } from './snapshots';
 
 type LegacyTaskOwner = Pick<
   AICharacterView,
-  'id' | 'name' | 'task' | 'maxTurns' | 'tokenBudget' | 'taskTimeoutMs'
+  | 'id'
+  | 'name'
+  | 'task'
+  | 'taskLimitsEnabled'
+  | 'maxTurns'
+  | 'tokenBudget'
+  | 'taskTimeoutMs'
 > & {
   runtime?: AgentRunState;
   taskBook?: TaskBook;
@@ -73,6 +79,7 @@ export function migrateCharacterTasks(
           timeZone: 'UTC',
           limits: {
             ...DEFAULT_TASK_LIMITS,
+            enabled: a.taskLimitsEnabled !== false,
             maxTurns: a.maxTurns ?? DEFAULT_TASK_LIMITS.maxTurns,
             tokenBudget: a.tokenBudget ?? DEFAULT_TASK_LIMITS.tokenBudget,
             taskTimeoutMs: a.taskTimeoutMs ?? DEFAULT_TASK_LIMITS.taskTimeoutMs,
