@@ -13,6 +13,8 @@ export default defineConfig(
       'artifacts/**',
       '.data/**',
       '.pnpm-store/**',
+      'docs/.vitepress/cache/**',
+      'docs/.vitepress/dist/**',
     ],
   },
   {

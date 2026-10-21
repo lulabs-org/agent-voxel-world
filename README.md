@@ -1,190 +1,129 @@
 # Agent Voxel World
 
-独立的本地多人 3D 体素原型：TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma。
+独立的本地多人 3D 体素游戏原型：TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma。
+
+> [!TIP]
+> 本项目配套了完整的在线开发与设计文档。更多深入架构、通信协议及 AI Agent 接入细节请参阅 [📚 文档中心](docs/index.md)（支持 `pnpm --filter docs dev` 本地预览）。
+
+---
+
+## 核心特性
+
+- 🤖 **大模型 AI 玩家**：支持 DeepSeek 等大语言模型，具备自主观察、空间移动、多轮推理规划与方块编辑能力。
+- 🎙️ **附近空间语音与实时转写**：内置 Whisper ASR 语音识别与 Piper 离线 TTS 语音合成，支持基于 3D 距离与朝向的衰减混音，并在断句后向附近玩家与 Agent 自动广播转写字幕。
+- 🧱 **权威多人世界**：Three.js 实例化体素渲染，由 Node.js / Colyseus 服务端权威执行物理移动、速度、射线碰撞、重力及方块相邻支撑校验。
+- 🔌 **Agent Gateway 管理中枢**：提供独立的 HTTP/WebSocket 协议端点，统一管理 AI 角色生命周期、任务计划队列、状态回执与 Token 预算保护。
+
+---
 
 ## 快速运行
 
-环境要求：Node 22.13+、pnpm 10、PostgreSQL 17 二进制。macOS 默认使用 `/opt/homebrew/opt/postgresql@17/bin`，其他路径通过 `PG_BIN` 指定。无需 Docker 或云账号。
+### 1. 本地开发环境
+
+环境要求：Node 22.13+、pnpm 10、PostgreSQL 17 二进制。无需云账号即可完整运行。
 
 ```sh
+# 1. 安装依赖
 pnpm install --frozen-lockfile
+
+# 2. 准备数据库并启动迁移
 pnpm db:generate
-pnpm db:start
-pnpm db:migrate
+pnpm db:start      # 在本地端口 55432 启动独立 PostgreSQL
+pnpm db:migrate    # 执行 Prisma 数据迁移
+
+# 3. 启动前端与服务端开发环境
 pnpm dev
-# 另一个终端（运行 AI 玩家或测试机器人）：
-pnpm agent:ai    # 或运行无 AI 的测试机器人：pnpm agent:mock
+
+# 4. 在另一个终端启动 AI 玩家（或无 AI 的测试机器人）
+pnpm agent:ai      # 测试机器人：pnpm agent:mock
 ```
 
-打开 http://127.0.0.1:5173 ，用两个独立浏览器上下文输入不同昵称进入。服务只绑定 `127.0.0.1:2567`。`pnpm db:start` 只在本项目 `.data/postgres` 初始化数据库，在端口 55432 启动，创建被 Git 忽略的 `.env`，绝不覆盖已有 `.env`。端口被占用或数据目录没有项目标记时拒绝启动。开发用凭据仅适用于本地测试。
+启动后在浏览器中打开 http://127.0.0.1:5173，可用两个独立无痕窗口以不同昵称加入世界测试多人互动。
 
-停止前端/服务端用 Ctrl+C；停止独立数据库用 `pnpm db:stop`。再次 `pnpm db:start` 使用原数据。不要删除 `.data`，除非有意丢弃这个原型的世界。
+> 数据库内存回退、排错诊断及详细步骤请参阅 [快速开始指南](docs/guide/getting-started.md)。
 
-如果没有 `DATABASE_URL`，服务器明确进入 `memory` 模式：刷新页面仍读取活跃房间，但服务重启会丢失编辑。配置了数据库但连接失败时，启动失败，绝不悄悄切成内存模式。
+### 2. Docker 一键全栈部署
 
-`pnpm dev` 不会自动启动数据库。后端会在监听端口前检查数据库连接及世界表，失败时显示中文原因和处理命令，不再输出重复的 Prisma 启动堆栈。若提示无法连接 `127.0.0.1:55432`，请手动运行 `pnpm db:start`，然后重启 `pnpm dev`；若提示表结构未准备好，请先确认数据库配置再运行 `pnpm db:migrate`。Vite 显示 `ready` 只表示前端就绪，后端启动失败时仍无法进入世界。未配置数据库时会明确警告内存模式不保留重启后的编辑。
-
-## Docker 容器化部署
-
-本项目支持使用 Docker Compose 进行一键全栈容器化部署，包含 PostgreSQL 17 数据库、Node 后端服务（自动执行迁移并启动 Colyseus/Express）以及 Web 前端（Nginx 静态托管与统一反向代理）。
-
-### 1. 一键启动
+本项目提供开箱即用的 Docker Compose 编排，包含 Web 前端、Node 后端、PostgreSQL 数据库以及内置的 Speaches 语音容器（Whisper ASR + Piper TTS）：
 
 ```sh
-# 使用 pnpm 快捷脚本
+# 一键启动所有服务
 pnpm docker:up
+# 或：docker compose up -d --build
 
-# 或直接使用 Docker Compose 原生命令
-docker compose up -d --build
+# 停止容器服务
+pnpm docker:down
 ```
 
 启动完成后：
-
-- **Web 前端**：打开浏览器访问 `http://localhost`（默认 80 端口，前端通过 Nginx 自动反代 API 与 WebSocket）
+- **Web 前端**：访问 `http://localhost`
 - **Swagger API 文档**：访问 `http://localhost:2567/api-docs`
-- **数据库**：PostgreSQL 数据自动持久化在 `voxel_postgres_data` 数据卷中，宿主机端口 `55432`
-- **语音服务 ASR / TTS**：内置共享 `voxel-speech`（Speaches，Compose 服务名 `speech`）容器，CPU 使用 int8 推理，模型缓存在 `voxel_whisper_cache` 卷中。Whisper 首次识别需要联网下载模型，下载后可离线识别；模型加载后常驻内存，避免空闲后重复冷启动。
-- **Piper TTS**：控制台选择中文 Huayan / 超文 Chaowen 或英文 Lessac，点击“安装模型”，安装后可离线合成。旧 macOS 服务自动迁移，保留 Agent 绑定；原配置备份为 `voice-services.json.pre-piper.bak`。
-- **服务配置**：模型、ASR 与 TTS 配置保存在 `voxel_server_data` 卷中，重建容器会保留。旧部署升级前，请先备份旧容器的 `/app/.data` 并迁入该卷。
 
-录音需要允许浏览器和系统的麦克风权限。通过本机 `http://localhost` 或 HTTPS 访问；局域网 HTTP 地址无法使用麦克风。若内置浏览器一直等待授权，可在 Chrome / Edge 打开同一地址，或使用“用音频文件测试”。连续录音未识别到讲话时会继续监听；首次模型加载可能较慢，整句识别最多等待约 100 秒。
+> 详细容器配置、旧版本升级与麦克风权限排查请参阅 [Docker 部署文档](docs/guide/getting-started.md#docker-容器化部署)。
 
-从旧版本升级时，先停止并移除旧语音容器，再启动新服务（不要删除数据卷）：
+---
 
-```sh
-docker stop voxel-whisper
-docker rm voxel-whisper
-docker compose up -d --build
-```
+## 游戏操作
 
-新服务保留网络别名 `whisper`，继续使用 `voxel_whisper_cache` 卷。统一地址由 `SPEECH_API_URL` 配置；ASR 可用 `WHISPER_API_URL` 覆盖，Piper 可用 `PIPER_API_URL` 覆盖。Piper 未设置统一地址时兼容旧 `WHISPER_API_URL`。`SPEECH_PORT` 优先于旧 `WHISPER_PORT`，默认 `8000`。
+| 动作 | 操作方式 | 说明 |
+|------|---------|------|
+| **视角控制** | 鼠标点击画面锁定，`Esc` 释放 | 鼠标指针控制朝向与仰角 |
+| **角色移动** | `W` / `A` / `S` / `D` | 前后左右移动 |
+| **跳跃** | `Space` | 垂直起跳（支持攀爬一格台阶） |
+| **方块编辑** | 准星对准 6 格内方块，左键破坏，右键放置 | 支持底部 UI 快捷放置/移除与材质选择 |
+| **文字聊天** | 界面左下角聊天框 | 支持群聊广播与 `@玩家昵称` 私聊 |
+| **附近语音** | 语音控制面板 | 支持麦克风发言、空间音效收听与语音转文字 |
 
-### 2. 常用管理命令
+---
 
-```sh
-# 查看运行日志（含迁移与启动状态）
-pnpm docker:logs
-# 或：docker compose logs -f
+## 仓库结构
 
-# 停止并移除容器
-pnpm docker:down
-# 或：docker compose down
-
-# 停止并清理所有数据卷（清空世界、服务配置和语音模型缓存）
-docker compose down -v
-```
-
-### 3. 自定义配置（可选）
-
-如需修改端口或注入模型 API Key，可参考 `.env.docker.example` 创建或在环境中设置：
-
-- `WEB_PORT`：前端访问端口（默认 80）
-- `DEEPSEEK_API_KEY`：DeepSeek Agent API 密钥
-- `WEB_ORIGIN`：跨域 Origin 允许列表（默认为 `*` 允许所有网络地址访问）
-
-## 操作
-
-- 点击画面锁定鼠标；WASD 移动、Space 跳跃、鼠标转向，Esc 释放。
-- 中央准星选择 6 格以内的方块；左键移除、右键放置。也可使用底部 Remove / Place block 按钮；点击材质卡选择方块。
-- 地形碰撞、重力、速度、编辑距离、基岩保护、玩家占用、相邻支撑和版本冲突均由服务器校验。
-- 聊天支持群聊、@ 私聊、语音转文字和语音消息；附近语音可独立开启麦克风与收听，按距离和朝向调节音量，并自动分段转写给附近玩家与 Agent。详见 [聊天与空间语音](docs/CHAT.md)。开启 Agent 的语音回复后，附近已开启收听的玩家可听到它的声音，私聊只对指定对象播放。玩家位置以 20Hz 权威更新，画面进行插值。
-- 页面刷新自动使用当前标签页的昵称和重连令牌；异常断线 20 秒内可保留身份，超时或服务器重启则重新入房。
-- 控制台的“文本转语音（TTS）”管理本机、百炼及兼容接口的音色，支持保存、试听和 Agent 绑定。“语音识别（ASR）”支持自托管 Whisper 与阿里云百炼实时识别，可配置地域、模型与服务端密钥，试用临时字幕及逐句确认；聊天与附近语音继续使用 Whisper。详见 [语音配置](docs/VOICE.md)。
-
-## 验证
-
-```sh
-pnpm check             # 全仓 ESLint、类型、单元及 DOM 回归测试、所有应用构建
-pnpm lint              # 检查应用、共享包、脚本、测试和配置文件
-pnpm lint:fix          # 自动修复可修复的全仓 lint 问题
-pnpm test:integration  # 随机端口、临时存档中的世界协议集成测试
-pnpm format:check
-```
-
-ESLint 由根目录 `eslint.config.js` 统一配置，`apps/server`、`apps/web`、`packages/agent-runtime` 和 `packages/shared` 也可通过 `pnpm --filter <包名> lint` 单独检查。TypeScript 使用推荐规则和 Promise 检查；前端增加 Hooks 调用顺序与依赖检查，Node、浏览器和 AudioWorklet 分别配置环境。生成目录、依赖、运行数据和测试产物不参与 lint；格式由 Prettier 负责。
-
-集成测试在随机端口和临时存档中启动两个 SDK 玩家和一个脚本 Agent，检查并发编辑仅一方成功、三方同步、非法动作拒绝、聊天、断线恢复、持久化模式及 mock 字幕打断。真实双浏览器和服务重启记录见 [验证记录](docs/VALIDATION.md)。测试只修改临时测试世界，结束后清理。
-
-## 结构
-
-- `apps/web`：按 feature 拆分的 React UI、Three.js 实例化体素、插值、重连。目录、依赖边界及浏览器验收见 [Web 架构](apps/web/README.md)。
-- `apps/server`：Colyseus 单一权威世界、事务存储、语音 provider 接口。
-- `apps/server/prisma`：PostgreSQL schema 和可重放迁移。
-- `scripts/agent`：脚本测试机器人（Scout）、独立 AI 玩家与管理命令行入口，保留所有 `pnpm agent:*` 命令。
-- `packages/shared` 的管理子入口：Web/CLI 共用 HTTP 管理接口和 WebSocket 状态通知；托管核心在服务端领域模块中。详见 [Agent 管理接口](docs/AGENT_GATEWAY.md)。
-- `packages/agent-runtime`：CLI 与服务端共用的会话客户端、动作、模型规划和任务运行时，通过 `@voxel/agent-runtime` 引用。
-- AI 玩家：配置 `DEEPSEEK_API_KEY` 或 `AGENT_API_KEY` 后运行 `pnpm agent:ai`，支持观察、移动、聊天和显式开启的方块编辑。使用 Pi 模型适配与工具循环，支持思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
-- `packages/shared`：协议、确定性地形、物理与校验。
-
-服务端按领域组织，HTTP 装配与网络生命周期分离，生产和集成测试共用服务器工厂。详细边界见 [服务端架构](apps/server/README.md)。
+项目采用 pnpm workspace 单体多包架构：
 
 ```text
-apps/server/
-├── prisma/                 # schema 与 migrations
-├── src/
-│   ├── index.ts            # 环境加载、监听与信号处理
-│   ├── app.ts              # createApp：HTTP 路由装配
-│   ├── server.ts           # createServer：依赖、房间与连接生命周期
-│   ├── config/             # 环境配置、校验与稳定的数据路径
-│   ├── common/             # 通用错误、校验、命令队列与 Origin 判断
-│   ├── http/               # HTTP 装配、中间件、管理策略、健康检查与文档路由
-│   ├── openapi/            # OpenAPI schema 与 Swagger 扫描
-│   ├── transport/          # Socket 路由类型与 Gateway / ASR / Colyseus 分发
-│   ├── persistence/        # 角色与任务联合存档、迁移和提交
-│   └── modules/
-│       ├── ai-characters/  # 角色生命周期、唤醒、执行与配置
-│       ├── providers/      # 模型提供商配置与模型目录
-│       ├── tasks/          # 任务计划、调度、执行控制与历史
-│       ├── management/     # 管理命令回执、错误与事件
-│       ├── gateway/        # 管理令牌与 WebSocket 通知
-│       ├── audio/          # asr、tts、session 与音频路由
-│       ├── chat/           # 聊天、附件、票据与 HTTP 路由
-│       ├── realtime/       # 实时会话、百炼适配器与离线协议模拟器
-│       └── world/          # 权威房间、Schema、存储与世界路由
-└── test/
-    ├── helpers/            # createTestServer：隔离状态的生产装配
-    ├── integration/        # 独立临时世界中的集成脚本
-    └── sandbox/            # 独立沙盒启动入口
+agent-voxel-world/
+├── apps/
+│   ├── server/            # Colyseus 权威世界、HTTP 管理 API 与持久化存储
+│   └── web/               # React 18 + Three.js 客户端、大厅与控制台 UI
+├── packages/
+│   ├── shared/            # 前后端共用的世界协议、物理计算与确定性地形
+│   └── agent-runtime/     # CLI 与服务端共用的 Agent 决策与任务调度运行时
+├── docs/                  # 基于 VitePress 的官方文档库
+└── scripts/               # 本地数据库控制、Agent 管理 CLI 等运维脚本
 ```
 
-`pnpm test:voice:services`、`pnpm test:agents`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:agent:tasks` 和 `pnpm test:agent:deepseek` 指向服务端集成脚本，使用隔离世界和固定模型响应。实时会话集成与沙盒命令见 [百炼实时语音](docs/ALIYUN_REALTIME.md)。这些脚本由 `tsx` 显式运行，不进入默认 Vitest 扫描；根目录 `pnpm test:integration` 也在独立临时世界中运行。
+更深入的领域架构分层、模块依赖契约与设计限制，请参阅 [项目架构与代码组织](docs/guide/architecture.md)。
 
-`pnpm --filter @voxel/server test` 运行服务端就近测试。`pnpm test:navigation:live` 需要显式提供模型配置，会产生真实模型调用；启动方式与验收范围见 [验证记录](docs/VALIDATION.md)。
+---
 
-前端按功能与基础设施组织：
+## 文档索引
 
-```text
-apps/web/src/
-├── main.tsx                # React 挂载与单个世界连接的热更新清理
-├── App.tsx                 # 大厅、游戏场景与面板装配
-├── features/
-│   ├── console/            # 控制台、表单、任务卡片、状态控制器与 API
-│   ├── chat/               # 消息、选人、录音草稿、状态控制器与 API
-│   ├── voice/              # 语音面板、能力查询与实时语音样式
-│   └── world/              # 在线玩家面板
-├── graphics/               # Three.js 场景、角色与名称牌
-├── audio/                  # 采集、播放、转写及 PCM Worklet
-├── network/                # 服务地址、连接与在线状态订阅
-└── styles/                 # 全局样式
+| 板块 | 文档 | 说明 |
+|------|------|------|
+| **入门指南** | [快速开始](docs/guide/getting-started.md) | 环境搭建、本地开发、Docker 部署与常见排错 |
+| **系统架构** | [架构与代码组织](docs/guide/architecture.md) | 前后端模块拆分、生命周期、限制与设计边界 |
+| **协议规范** | [协议与扩展边界](docs/protocol/overview.md) | 权威世界状态同步、输入校验与扩展约束 |
+| | [聊天与附近语音](docs/protocol/chat.md) | 空间音频 WebRTC 信令、麦克风转写与广播流程 |
+| **AI Agent** | [接入 AI 玩家](docs/agent/players.md) | DeepSeek 模型接入、推理工具链与任务执行循环 |
+| | [Agent Gateway](docs/agent/gateway.md) | 管理令牌、HTTP 控制端点与 WebSocket 状态订阅 |
+| | [统一事件运行时](docs/agent/runtime.md) | 任务执行器、检查点持久化与预算配额保护 |
+| **语音服务** | [语音服务管理](docs/voice/setup.md) | Whisper ASR 与 Piper TTS 模型安装与配置 |
+| | [百炼实时语音](docs/voice/aliyun-realtime.md) | 阿里云百炼实时对话协议与离线模拟验证 |
+| **变更记录** | [验证记录](docs/changelog/validation.md) | 浏览器双端回归、网络异常恢复与功能验收记录 |
+| | [Pi 架构迁移](docs/changelog/pi-migration.md) | Agent 运行时架构演进记录 |
+
+---
+
+## 质量验证
+
+```sh
+pnpm check             # 全仓类型检查、ESLint、单元测试与构建
+pnpm lint              # 源码规范检查
+pnpm test:integration  # 多客户端世界协议集成测试
+pnpm format:check      # 代码格式检查
 ```
 
-功能的 HTTP 请求由对应 `api.ts` 管理；通用 HTTP/WebSocket 地址统一从 `network/endpoints.ts` 解析。音频基础设施保留自身的流处理与请求取消。组件不从录音模块获取服务地址，也不直接发起 HTTP 请求。单元测试可以就近维护，已有跨模块回归测试仍保留在根目录 `tests/`。
-
-控制台状态由 `useConsoleController` 持有，表单和任务卡片通过参数与回调交互；语音面板在切换分类或关闭控制台时保持挂载。`useChatController` 管理选人、录音与发送状态，并在断线或卸载时清理采集与上传。`pcm-worklet.js` 与加载它的 `realtime-audio.ts` 同目录。开发、独立预览与根目录测试继续使用相对导入，不要求路径别名。
-
-`output/`、`dist/` 和 `node_modules/` 不参与源码类型检查；历史临时验收文件不属于正式源码。
-
-## 范围和限制
-
-这是本地单进程、单世界、最多 16 会话的原型，不是完整 Minecraft。地形 25×25、高度上限 15；没有背包、合成、战斗、账户鉴权、反作弊运营、多人分片或生产部署。方块编辑持久化，玩家位置、聊天、事件和语音会话暂不持久化。事件环形缓存保留最近 100 条，观察返回最近 30 条当前会话有权接收的事件。
-
-Agent 观察是以自身为中心半径 8 的距离裁剪，最多 500 个最近方块，不做遮挡/视锥裁剪；这是结构化场景接口，并非模型视觉。Agent 与人类共用同一移动和编辑校验。Scout 脚本 Agent 没有 LLM；DeepSeek AI 玩家由模型决策，两者都没有额外管理权限。协议见 [接口文档](docs/PROTOCOL.md)。
-
-语音方案已支持 `mock`、`browser` 和 `ollama`。回声不是 AI；Ollama 需预先安装并配置。聊天语音识别由服务器 Whisper 处理，控制台另支持阿里云百炼实时 ASR 试用和云端 TTS。云端凭据仅保存在服务端，不能放 `VITE_*`。
-
-### 在大厅创建 AI 玩家
-
-首次打开控制台先输入管理员令牌（可用 `pnpm agent:ctl auth show` 读取本地令牌文件），再点击 **模型服务** 配置接口，再到 **Agent 玩家 → 创建 Agent** 设置昵称、模型与能力。默认创建后加入世界待命，也可选择立即执行任务。角色工作区将任务、角色设置和运行记录分开；离开世界保留设置和进度，再次加入待命不会自动重跑旧任务。已有 DeepSeek 环境变量会在首次启动管理服务时导入。Agent 先由独立对话循环回复或接受任务，再由任务循环通过 Pi 顺序调用世界工具，一次唤醒可在预算内持续多轮推理，逐步观察，失败停止后续工具；按任务进展自主继续或停止，普通消息在动作边界插入，空闲不调用模型。支持固定/随机轮询、任务暂停/继续/取消、进度与 token 用量，以及高级预算保护。详见 [AI 玩家接入](docs/AGENT_PLAYERS.md)。
+---
 
 ## 开源协议
 

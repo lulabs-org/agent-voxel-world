@@ -117,9 +117,9 @@ pnpm voice:setup
 # 在 .env 中配置 WHISPER_BIN=whisper-cli
 ```
 
-模型位于 `.data/voice/ggml-base.bin`，也可以设置 `WHISPER_MODEL`、`WHISPER_BIN`、`FFMPEG_BIN`。Whisper、模型文件和 FFmpeg 部署在项目服务器上，玩家电脑无需安装。录音使用浏览器麦克风权限并上传至项目服务器识别；使用方式见 [聊天与附近语音](CHAT.md)。
+模型位于 `.data/voice/ggml-base.bin`，也可以设置 `WHISPER_MODEL`、`WHISPER_BIN`、`FFMPEG_BIN`。Whisper、模型文件和 FFmpeg 部署在项目服务器上，玩家电脑无需安装。录音使用浏览器麦克风权限并上传至项目服务器识别；使用方式见 [聊天与附近语音](../protocol/chat)。
 
-原来的回声、Ollama、Mock 和百炼实时对话实验入口已从控制台移除。Ollama 仍可作为 Agent 思考模型；百炼实时对话协议保留独立开发验收，见 [实时语音协议](ALIYUN_REALTIME.md)，它不作为本轮 Agent TTS 服务。
+原来的回声、Ollama、Mock 和百炼实时对话实验入口已从控制台移除。Ollama 仍可作为 Agent 思考模型；百炼实时对话协议保留独立开发验收，见 [实时语音协议](aliyun-realtime)，它不作为本轮 Agent TTS 服务。
 
 ## 接口与验证
 

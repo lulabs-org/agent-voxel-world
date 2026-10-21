@@ -11,3 +11,5 @@ artifacts/
 .playwright-cli/
 output/
 .vscode/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
