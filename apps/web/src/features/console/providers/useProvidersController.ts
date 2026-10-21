@@ -58,7 +58,7 @@ export function useProvidersController(
       abort.abort();
       modelRequest.current?.abort();
     };
-  }, [open]);
+  }, [open, setError]);
   const readModels = async (id: string) => {
     modelRequest.current?.abort();
     const abort = new AbortController();

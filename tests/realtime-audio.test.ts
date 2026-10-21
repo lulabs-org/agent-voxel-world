@@ -46,8 +46,11 @@ describe('realtime browser audio', () => {
     expect(() => pcmFloats('!')).toThrow();
   });
   it('schedules at 24kHz, stops all sources, and rejects stalled playback', () => {
-    const sources: any[] = [];
-    const context: any = {
+    const sources: {
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
+    }[] = [];
+    const context = {
       state: 'running',
       currentTime: 2,
       destination: {},
@@ -67,7 +70,7 @@ describe('realtime browser audio', () => {
         return s;
       },
     };
-    const player = new PCMPlayer(context);
+    const player = new PCMPlayer(context as unknown as AudioContext);
     player.play(Buffer.alloc(4800).toString('base64'));
     player.play(Buffer.alloc(4800).toString('base64'));
     expect(context.createBuffer.mock.calls[0][2]).toBe(24000);
@@ -81,7 +84,8 @@ describe('realtime browser audio', () => {
     'worklet resamples %iHz across render boundaries to 16kHz PCM',
     (rate) => {
       const chunks: ArrayBuffer[] = [];
-      let Constructor: any;
+      type Processor = new () => { process(inputs: Float32Array[][]): boolean };
+      let Constructor!: Processor;
       runInNewContext(
         readFileSync(
           new URL('../apps/web/src/audio/core/pcm-worklet.js', import.meta.url),
@@ -92,7 +96,7 @@ describe('realtime browser audio', () => {
           AudioWorkletProcessor: class {
             port = { postMessage: (chunk: ArrayBuffer) => chunks.push(chunk) };
           },
-          registerProcessor: (_: string, c: any) => (Constructor = c),
+          registerProcessor: (_: string, c: Processor) => (Constructor = c),
         },
       );
       const processor = new Constructor();

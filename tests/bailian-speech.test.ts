@@ -9,9 +9,9 @@ function setup() {
     bufferedAmount: 0,
     send: vi.fn(),
     close: vi.fn(),
-    onmessage: undefined as any,
-    onclose: undefined as any,
-    onerror: undefined as any,
+    onmessage: undefined as undefined | ((event: { data: string }) => void),
+    onclose: undefined as undefined | (() => void),
+    onerror: undefined as undefined | (() => void),
   };
   const events: LiveSpeechEvents = {
     onPartial: vi.fn(),
@@ -28,7 +28,7 @@ function setup() {
     connect,
   );
   const message = (value: object) =>
-    socket.onmessage({ data: JSON.stringify(value) });
+    socket.onmessage!({ data: JSON.stringify(value) });
   return { socket, events, session, message, connect };
 }
 afterEach(() => {
@@ -63,7 +63,7 @@ it('cancels pending startup and ignores late results', async () => {
   t.session.cancel();
   await ready;
   t.message({ type: 'final', text: 'late' });
-  t.socket.onclose();
+  t.socket.onclose!();
   expect(t.events.onFinal).not.toHaveBeenCalled();
   expect(t.events.onError).not.toHaveBeenCalled();
   expect(vi.getTimerCount()).toBe(0);
@@ -72,7 +72,7 @@ it('fails visibly on disconnect and bounds finalization', async () => {
   const t = setup();
   t.message({ type: 'ready' });
   await t.session.ready;
-  t.socket.onclose();
+  t.socket.onclose!();
   expect(t.events.onError).toHaveBeenCalledWith(
     expect.stringContaining('中断'),
   );

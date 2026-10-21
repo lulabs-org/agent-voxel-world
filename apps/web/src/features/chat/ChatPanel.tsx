@@ -72,7 +72,7 @@ export function ChatPanel({
       });
     } else if (wasExpanded.current) entry.current?.focus();
     wasExpanded.current = expanded;
-  }, [expanded]);
+  }, [expanded, input, controller.list]);
   const close = () => {
     if (busy) return;
     setCollapsedAt(connection.chats.at(-1)?.seq ?? 0);
@@ -303,7 +303,7 @@ export function ChatPanel({
               onClick={() => {
                 if (mode === 'dictating') {
                   setMode('transcribing');
-                  dictation.finish();
+                  void dictation.finish();
                 } else recorder.finish();
               }}
             >

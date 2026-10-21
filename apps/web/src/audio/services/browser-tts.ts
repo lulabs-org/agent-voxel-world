@@ -56,7 +56,8 @@ export function speakBrowserText(
       signal.removeEventListener('abort', abort);
       utterance.onend = utterance.onerror = null;
       if (current === owner) current = undefined;
-      error ? reject(error) : resolve();
+      if (error) reject(error);
+      else resolve();
     };
     const owner = {
       cancel: () => {

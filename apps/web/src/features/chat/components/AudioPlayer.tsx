@@ -46,8 +46,10 @@ export function AudioPlayer({
   }, [busy]);
   useEffect(() => {
     const player = audio.current;
+    // Keep the counter ref, so cleanup invalidates the latest pending operation.
+    const pending = operation;
     return () => {
-      operation.current++;
+      pending.current++;
       player?.pause();
     };
   }, []);

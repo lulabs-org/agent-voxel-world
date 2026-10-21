@@ -73,7 +73,11 @@ export function GatewayAccess({
                 aria-label="管理员令牌"
                 aria-invalid={!!error}
               />
-              <Button type="submit" className="primary" disabled={!token.trim()}>
+              <Button
+                type="submit"
+                className="primary"
+                disabled={!token.trim()}
+              >
                 解锁
               </Button>
             </div>
@@ -95,7 +99,3 @@ export function GatewayAccess({
     </Dialog>
   );
 }
-
-
-
-

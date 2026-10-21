@@ -1,33 +1,18 @@
 // Deterministic decision adapter for existing domain-policy fixtures. No production inference.
 import type { Planner } from './decision-fixture';
 import { aiCharacterPermissions } from '@voxel/shared';
-import type { AICharacterTask, ChatData } from '@voxel/shared';
+import type { AICharacterTask } from '@voxel/shared';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   AgentSession,
-  Observation,
   AgentConfig,
-  AgentAction,
 } from '../../packages/agent-runtime/src/contracts';
 import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/attention';
-import {
-  newTask,
-  type AgentRunState,
-} from '../../packages/agent-runtime/src/task/state';
-import { executeBatch } from '../../packages/agent-runtime/src/actions/batch';
-import { parseDecision } from './decision-decision';
+import type { AgentRunState } from '../../packages/agent-runtime/src/task/state';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
-import {
-  houseBlocks,
-  observedEmpty,
-} from '../../packages/agent-runtime/src/actions/building';
-import { key } from '@voxel/shared';
 import { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
 
-import {
-  worldSignature,
-  prepareDecision,
-} from '../../packages/agent-runtime/src/task/observation';
+import { prepareDecision } from '../../packages/agent-runtime/src/task/observation';
 import { cap } from '../../packages/agent-runtime/src/task/budget';
 import { applyTaskDecision } from './decision-apply';
 export { worldSignature } from '../../packages/agent-runtime/src/task/observation';
@@ -40,7 +25,7 @@ export async function runTaskStep(
   memory: AgentRunState,
   attention?: AgentAttention,
   log: (message: string) => void = () => {},
-  checkpoint: () => any = () => {},
+  checkpoint: () => void | Promise<void> = () => {},
   hooks?: {
     beforeNewTask?: (
       task: AICharacterTask,
@@ -49,7 +34,7 @@ export async function runTaskStep(
   },
 ) {
   const addressed = attention?.take();
-  let task = memory.task;
+  const task = memory.task;
   if (!addressed && !['running', 'waiting'].includes(task?.status ?? ''))
     return;
   if (!addressed && task) {
@@ -64,7 +49,6 @@ export async function runTaskStep(
   const prepared = await prepareDecision(session, memory, signal, addressed);
   if (!prepared) return;
   const { observation, context } = prepared;
-  const started = Date.now();
   memory.usage ??= { calls: 0, tokens: 0, estimated: false };
 
   let chargedTask = !addressed ? task : undefined;
@@ -96,7 +80,7 @@ export async function runTaskStep(
       log('消息处理回执未送达。');
     }
   };
-  let phase = '获取模型决策';
+  const phase = '获取模型决策';
   try {
     if (!planner.managesRequests) budget.begin();
     const input = await planner.decide(

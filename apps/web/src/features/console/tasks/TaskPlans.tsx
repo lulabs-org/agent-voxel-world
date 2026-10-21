@@ -70,8 +70,8 @@ export function TaskPlans({
         const current = selected
           ? await tasksApi.get(selected, abort.signal)
           : undefined;
-        let history: TaskRun[] = [],
-          next: number | undefined;
+        const history: TaskRun[] = [];
+        let next: number | undefined;
         if (selected) {
           let offset = 0;
           do {
@@ -556,12 +556,16 @@ export function TaskPlans({
               {reassign && (
                 <form
                   className="agent-form plans-drawer-card"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    try {
-                      await mutate(() => tasksApi.reassign(plan, target));
-                      setReassign(false);
-                    } catch {}
+                  onSubmit={(e) => {
+                    void (async () => {
+                      e.preventDefault();
+                      try {
+                        await mutate(() => tasksApi.reassign(plan, target));
+                        setReassign(false);
+                      } catch {
+                        // mutate has already displayed the failure; keep the editor open.
+                      }
+                    })();
                   }}
                 >
                   <h4>改派执行角色</h4>

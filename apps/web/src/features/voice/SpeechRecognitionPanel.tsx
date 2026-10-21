@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   BailianSpeechSession,
   BrowserRecognitionSession,
@@ -35,6 +35,10 @@ export function SpeechRecognitionPanel({
   const isWhisper = asr.draft.provider === 'whisper';
   const whisperServiceId =
     asr.selected?.provider === 'whisper' ? service : undefined;
+  const selectedModel =
+    asr.selected && asr.selected.provider !== 'browser'
+      ? asr.selected.model
+      : undefined;
   const fileTestId = useId();
   const [showFileTest, setShowFileTest] = useState(false);
   const [partial, setPartial] = useState('');
@@ -51,10 +55,10 @@ export function SpeechRecognitionPanel({
   const [error, setError] = useState('');
   const [text, setText] = useState('');
   const ownsMicrophone = useRef(false);
-  const release = () => {
+  const release = useCallback(() => {
     if (ownsMicrophone.current) connection.voiceLabRecording = false;
     ownsMicrophone.current = false;
-  };
+  }, [connection]);
   const stop = () => {
     recorder.cancel();
     live.cancel();
@@ -75,7 +79,7 @@ export function SpeechRecognitionPanel({
       setPartial('');
       release();
     };
-  }, [active, connection, recorder, live, browser, service]);
+  }, [active, connection, recorder, live, browser, service, release]);
   useEffect(() => {
     if (!active || !isWhisper) return;
     const abort = new AbortController();
@@ -109,15 +113,7 @@ export function SpeechRecognitionPanel({
       clearTimeout(timeout);
       abort.abort();
     };
-  }, [
-    active,
-    isWhisper,
-    retry,
-    whisperServiceId,
-    asr.selected && asr.selected.provider !== 'browser'
-      ? asr.selected.model
-      : undefined,
-  ]);
+  }, [active, isWhisper, retry, whisperServiceId, selectedModel]);
   const busy = state !== 'idle';
   const ready =
     active &&

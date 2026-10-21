@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  parseChatRoute,
-  spatialMix,
-  type Player,
-  type WorldEvent,
-} from '@voxel/shared';
+import { parseChatRoute, spatialMix, type Player } from '@voxel/shared';
 import { visibleEvent } from '../apps/server/src/modules/chat/visibility';
 import { WorldChat } from '../apps/server/src/modules/chat/chat';
 import {

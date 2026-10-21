@@ -4,13 +4,7 @@ type Props = Pick<
   ChatController,
   'connection' | 'text' | 'scope' | 'recipients' | 'list'
 >;
-export function ChatMessages({
-  connection,
-  text,
-  scope,
-  recipients,
-  list,
-}: Props) {
+export function ChatMessages({ connection, list }: Props) {
   return (
     <div className="messages" ref={list} aria-live="polite">
       {connection.chats.map((e) => (

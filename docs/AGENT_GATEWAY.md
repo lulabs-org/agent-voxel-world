@@ -109,6 +109,6 @@ Nginx 代理覆盖 `/ai-characters`、`/providers`、`/tasks`、`/task-runs`、`
 
 ## 验证入口
 
-`pnpm check` 检查类型、单元回归和构建。`pnpm test:gateway` 验证真实 HTTP/通知 WebSocket、鉴权、命令回执、任务修订、独立计划、断线后托管继续和 CLI 退出；`pnpm test:integration` 验证世界协议。两项集成使用随机端口和临时存档，不修改本地开发世界。真实模型、浏览器和 Docker 验证分别记录，fixture 测试不代替真实模型验收。
+`pnpm check` 检查全仓 lint、类型、单元回归和构建。`pnpm test:gateway` 验证真实 HTTP/通知 WebSocket、鉴权、命令回执、任务修订、独立计划、断线后托管继续和 CLI 退出；`pnpm test:integration` 验证世界协议。两项集成使用随机端口和临时存档，不修改本地开发世界。真实模型、浏览器和 Docker 验证分别记录，fixture 测试不代替真实模型验收。
 
 本次不修改存档格式、管理员令牌环境变量、文件路径和浏览器会话键。

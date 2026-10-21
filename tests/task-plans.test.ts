@@ -654,7 +654,7 @@ it('owns plans independently, reassigns with revision guards and retains executo
   await expect(
     manager.tasks.controlTaskPlan(a, p.id, 'pause', {}),
   ).rejects.toThrow('已改变');
-  const page = (await manager.tasks.planPage({})) as any;
+  const page = await manager.tasks.planPage({});
   expect(page.items).toHaveLength(1);
   expect(page.items[0].characterId).toBe(b);
   await manager.tasks.controlTaskPlan(b, p.id, 'run', {
@@ -735,16 +735,16 @@ it('filters global plans and controls plan state independently of a chat task re
   await manager.tasks.controlTaskPlan(undefined, p.id, 'pause', {
     expectedPlanRevision: p.revision,
   });
-  const result = (await manager.tasks.planPage({
+  const result = await manager.tasks.planPage({
     search: '巡查',
     state: 'paused',
     timing: 'daily',
     characterId: a,
-  })) as any;
+  });
   expect(result.items).toHaveLength(1);
-  const none = (await manager.tasks.planPage({
+  const none = await manager.tasks.planPage({
     search: '不存在',
-  })) as any;
+  });
   expect(none.total).toBe(0);
 });
 

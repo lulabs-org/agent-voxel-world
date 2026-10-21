@@ -38,7 +38,7 @@ export class Session {
   private id = 0;
   private roomOpen = false;
   private closing?: Promise<void>;
-  private pending = new Map<string, (value: any) => void>();
+  private pending = new Map<string, (value: unknown) => void>();
 
   /** Discover active world room via HTTP, connect over WebSocket, and wait for initial snapshot. */
   async join(name: string, kind = 'scripted-agent') {
@@ -99,7 +99,7 @@ export class Session {
       }, 5000);
       this.pending.set(id, (value) => {
         clearTimeout(timer);
-        resolve(value);
+        resolve(value as T);
       });
       this.room.send('action', { id, type, payload });
     });

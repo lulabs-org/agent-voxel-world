@@ -26,7 +26,7 @@ export class WorldScene {
   private highlight: THREE.LineSegments;
   private selected?: { block: Block; normal: THREE.Vector3 };
   material: Material = 'wood';
-  onTarget = (target: TargetBlock | null) => {};
+  onTarget = (_target: TargetBlock | null) => {};
   constructor(
     private host: HTMLDivElement,
     private connection: Connection,

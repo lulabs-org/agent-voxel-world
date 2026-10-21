@@ -9,7 +9,6 @@ import type {
 } from '../apps/server/src/modules/tasks/execution-port';
 
 function fixture() {
-  let state: TaskExecutionState;
   let afterInterrupt = async () => {};
   const save = vi.fn(async () => {});
   const stopped = vi.fn();
@@ -34,7 +33,7 @@ function fixture() {
     assertWritable: () => {},
   };
   const tasks = new TaskCoordinator(host);
-  state = {
+  const state: TaskExecutionState = {
     view: {
       id: 'actor',
       name: 'Fixture',

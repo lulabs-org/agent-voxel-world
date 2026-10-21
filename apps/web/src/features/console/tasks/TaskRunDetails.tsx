@@ -176,10 +176,12 @@ export function TaskRunDetails({
       {resume && (
         <form
           className="agent-form agents-confirm"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await onAction(run, 'resume', limits);
-            setResume(false);
+          onSubmit={(e) => {
+            void (async () => {
+              e.preventDefault();
+              await onAction(run, 'resume', limits);
+              setResume(false);
+            })();
           }}
         >
           <p>
@@ -211,9 +213,11 @@ export function TaskRunDetails({
           <div className="agents-actions task-detail-actions">
             <button
               disabled={busy}
-              onClick={async () => {
-                await onAction(run, 'cancel');
-                setCancel(false);
+              onClick={() => {
+                void (async () => {
+                  await onAction(run, 'cancel');
+                  setCancel(false);
+                })();
               }}
             >
               确认结束

@@ -242,14 +242,18 @@ it('toggles voice during inference without restarting the agent or making anothe
 });
 it('updates saved settings without inference, protects identity, validates inputs and persists', async () => {
   const s = fakeSession(),
-    decide = vi.fn(async () => ({
-      actions: [{ type: 'wait' as const }],
-      task: {
-        intent: 'continue' as const,
-        status: 'completed' as const,
-        summary: '测试决策',
-      },
-    }));
+    decide = vi.fn(
+      async (): Promise<
+        import('./support/decision-contracts').AgentDecision
+      > => ({
+        actions: [{ type: 'wait' as const }],
+        task: {
+          intent: 'continue' as const,
+          status: 'completed' as const,
+          summary: '测试决策',
+        },
+      }),
+    );
   const m = setup(s, decide),
     job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
@@ -311,14 +315,18 @@ it('task errors leave a joined character online until explicitly closed', async 
 it('closing while join is pending cannot leave an orphan player or start inference', async () => {
   let resolve!: () => void;
   const s = fakeSession(new Promise<void>((r) => (resolve = r))),
-    decide = vi.fn(async () => ({
-      actions: [{ type: 'wait' as const }],
-      task: {
-        intent: 'continue' as const,
-        status: 'completed' as const,
-        summary: '测试决策',
-      },
-    }));
+    decide = vi.fn(
+      async (): Promise<
+        import('./support/decision-contracts').AgentDecision
+      > => ({
+        actions: [{ type: 'wait' as const }],
+        task: {
+          intent: 'continue' as const,
+          status: 'completed' as const,
+          summary: '测试决策',
+        },
+      }),
+    );
   const m = setup(s, decide),
     job = m.create({ ...settings, goal: '' });
   await vi.waitFor(() => expect(s.join).toHaveBeenCalled());
@@ -487,14 +495,18 @@ it('pausing pending inference drops late edits and does not close the character'
 
 it('expired private task audiences cannot be resumed after server restart', async () => {
   const s = fakeSession(),
-    decide = vi.fn(async () => ({
-      actions: [{ type: 'wait' as const }],
-      task: {
-        intent: 'continue' as const,
-        status: 'completed' as const,
-        summary: '测试决策',
-      },
-    }));
+    decide = vi.fn(
+      async (): Promise<
+        import('./support/decision-contracts').AgentDecision
+      > => ({
+        actions: [{ type: 'wait' as const }],
+        task: {
+          intent: 'continue' as const,
+          status: 'completed' as const,
+          summary: '测试决策',
+        },
+      }),
+    );
   const m = setup(s, decide),
     job = await createWithTask(m, settings);
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
@@ -507,7 +519,7 @@ it('expired private task audiences cannot be resumed after server restart', asyn
       goal: 'private goal',
       summary: 'waiting',
     },
-  } as any);
+  });
   s.onEvent!({
     seq: 1,
     at: Date.now(),

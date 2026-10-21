@@ -36,7 +36,11 @@ export class Connection {
   }
   voiceLabRecording = false;
   stopSpatialInput = () => {};
-  onSpatialSignal: (value: any) => void = () => {};
+  onSpatialSignal: (value: {
+    from: string;
+    description?: RTCSessionDescriptionInit;
+    candidate?: RTCIceCandidateInit;
+  }) => void = () => {};
   onAgentSpeech: (value: AgentSpeechEvent) => void = () => {};
   private replies = new Map<
     string,
@@ -69,7 +73,7 @@ export class Connection {
   }
   onChange = () => {};
   onBlocks = () => {};
-  onVoice = (value: unknown) => {};
+  onVoice = (_value: unknown) => {};
   onRealtime: (value: RealtimeEvent) => void = () => {};
   onRealtimeReset = () => {};
   private counter = 0;

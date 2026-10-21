@@ -8,12 +8,16 @@ import { DemoSocket } from '../apps/server/src/modules/realtime/demo-socket';
 import type { RealtimeEvent } from '@voxel/shared/realtime';
 class Socket extends EventEmitter {
   bufferedAmount = 0;
-  sent: any[] = [];
+  sent: {
+    type: string;
+    session: { tools: { function: { name: string } }[] };
+    item: { output: string };
+  }[] = [];
   send(s: string) {
     this.sent.push(JSON.parse(s));
   }
   close = vi.fn();
-  receive(event: any) {
+  receive(event: unknown) {
     this.emit('message', JSON.stringify(event));
   }
 }
@@ -66,7 +70,7 @@ describe('Bailian offline protocol', () => {
       tools: [],
     });
     expect(
-      setup().socket.sent[0].session.tools.map((t: any) => t.function.name),
+      setup().socket.sent[0].session.tools.map((t) => t.function.name),
     ).toEqual(['observe_scene', 'propose_block_edit']);
   });
   it('validates audio, byte duration and turn order', () => {
@@ -144,7 +148,7 @@ describe('Bailian offline protocol', () => {
       arguments: '{}',
     });
     expect(observe).not.toHaveBeenCalled();
-    expect(socket.sent.at(-1).item.output).toContain('tool-not-allowed');
+    expect(socket.sent.at(-1)!.item.output).toContain('tool-not-allowed');
   });
   it('closes on interruption, suppresses late audio, never reflects upstream secrets', () => {
     const { session, socket, events } = setup();
@@ -155,7 +159,7 @@ describe('Bailian offline protocol', () => {
     socket.receive({ type: 'response.audio.delta', delta: 'AAA=' });
     expect(events).toHaveLength(count);
     expect(socket.close).toHaveBeenCalledOnce();
-    expect(socket.sent.at(-1).type).toBe('response.cancel');
+    expect(socket.sent.at(-1)!.type).toBe('response.cancel');
     const other = setup();
     other.socket.receive({
       type: 'error',

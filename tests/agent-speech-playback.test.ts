@@ -27,29 +27,33 @@ function setup() {
     players: [speaker],
     self,
     chatToken: 'private-token',
-  } as any;
+  };
   let listening = true;
-  const gains: any[] = [],
-    pans: any[] = [],
-    sources: any[] = [];
+  const gains: (ReturnType<typeof node> & {
+      gain: ReturnType<typeof param>;
+    })[] = [],
+    pans: (ReturnType<typeof node> & { pan: ReturnType<typeof param> })[] = [],
+    sources: (ReturnType<typeof node> & {
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
+      onended: (() => void) | null;
+    })[] = [];
   const param = () => ({ value: 0, setTargetAtTime: vi.fn() });
   const node = () => ({
-    connect: vi.fn(function (this: any) {
-      return this;
-    }),
+    connect: vi.fn().mockReturnThis(),
     disconnect: vi.fn(),
   });
   const context = {
     state: 'running',
     currentTime: 0,
     destination: {},
-    decodeAudioData: vi.fn(async () => ({})),
+    decodeAudioData: vi.fn(async (): Promise<unknown> => ({})),
     createBufferSource: () => {
       const source = {
         ...node(),
         start: vi.fn(),
         stop: vi.fn(),
-        onended: null,
+        onended: null as (() => void) | null,
       };
       sources.push(source);
       return source;
@@ -64,15 +68,15 @@ function setup() {
       pans.push(pan);
       return pan;
     },
-  } as any;
+  };
   const fetchAudio = vi.fn(
     async (_url: RequestInfo | URL, _init?: RequestInit) =>
       ({ ok: true, arrayBuffer: async () => new ArrayBuffer(10) }) as Response,
   );
   const changed = vi.fn();
   const player = new AgentSpeechPlayback(
-    link,
-    () => context,
+    link as unknown as ConstructorParameters<typeof AgentSpeechPlayback>[0],
+    () => context as unknown as AudioContext,
     () => listening,
     changed,
     fetchAudio,
@@ -113,7 +117,7 @@ it('loads with auth, starts once, and updates volume/pan as players move and tur
   );
   s.self.x = 4;
   s.player.update();
-  expect(s.pans[0].pan.setTargetAtTime.mock.lastCall[0]).toBeLessThan(0);
+  expect(s.pans[0].pan.setTargetAtTime.mock.lastCall![0]).toBeLessThan(0);
   s.self.z = 30;
   s.player.update();
   expect(s.gains[0].gain.setTargetAtTime).toHaveBeenLastCalledWith(0, 0, 0.04);

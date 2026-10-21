@@ -94,12 +94,14 @@ docker compose down -v
 ## 验证
 
 ```sh
-pnpm check             # 服务端 ESLint、类型、规则和语音测试、所有应用构建
-pnpm lint              # 仅检查 apps/server 的源码和测试
-pnpm lint:fix          # 自动修复可修复的服务端 lint 问题
+pnpm check             # 全仓 ESLint、类型、单元及 DOM 回归测试、所有应用构建
+pnpm lint              # 检查应用、共享包、脚本、测试和配置文件
+pnpm lint:fix          # 自动修复可修复的全仓 lint 问题
 pnpm test:integration  # 随机端口、临时存档中的世界协议集成测试
 pnpm format:check
 ```
+
+ESLint 由根目录 `eslint.config.js` 统一配置，`apps/server`、`apps/web`、`packages/agent-runtime` 和 `packages/shared` 也可通过 `pnpm --filter <包名> lint` 单独检查。TypeScript 使用推荐规则和 Promise 检查；前端增加 Hooks 调用顺序与依赖检查，Node、浏览器和 AudioWorklet 分别配置环境。生成目录、依赖、运行数据和测试产物不参与 lint；格式由 Prettier 负责。
 
 集成测试在随机端口和临时存档中启动两个 SDK 玩家和一个脚本 Agent，检查并发编辑仅一方成功、三方同步、非法动作拒绝、聊天、断线恢复、持久化模式及 mock 字幕打断。真实双浏览器和服务重启记录见 [验证记录](docs/VALIDATION.md)。测试只修改临时测试世界，结束后清理。
 

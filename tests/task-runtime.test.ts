@@ -45,7 +45,14 @@ function fixture() {
   const memory: AgentRunState = {};
   const attention = new AgentAttention();
   const planner = {
-    decide: vi.fn<(...args: any[]) => Promise<AgentDecision>>(),
+    decide:
+      vi.fn<
+        (
+          ...args: Parameters<
+            import('./support/decision-fixture').Planner['decide']
+          >
+        ) => Promise<AgentDecision>
+      >(),
     lastUsage: { tokens: 100, estimated: false },
   };
   let seq = 0;
@@ -129,7 +136,11 @@ describe('task-driven wake decisions', () => {
     await f.step();
     expect(f.planner.decide).toHaveBeenCalledTimes(2);
     expect(
-      f.planner.decide.mock.calls[1][1].previous.results[0].result.ok,
+      (
+        f.planner.decide.mock.calls[1][1] as {
+          previous: { results: { result: { ok: boolean } }[] };
+        }
+      ).previous.results[0].result.ok,
     ).toBe(true);
     expect(f.memory.task).toMatchObject({ status: 'completed', calls: 2 });
     expect(f.session.request).toHaveBeenLastCalledWith(
@@ -144,8 +155,12 @@ describe('task-driven wake decisions', () => {
     f.message('在做什么', 'public', 'other');
     f.planner.decide.mockResolvedValue(decision('reply', 'completed'));
     await f.step();
-    expect(f.planner.decide.mock.calls[0][1].task).toBeUndefined();
-    expect(f.planner.decide.mock.calls[0][1].previous).toBeUndefined();
+    expect(
+      (f.planner.decide.mock.calls[0][1] as { task?: unknown }).task,
+    ).toBeUndefined();
+    expect(
+      (f.planner.decide.mock.calls[0][1] as { previous?: unknown }).previous,
+    ).toBeUndefined();
     expect(f.memory.previous).toEqual({ secret: true });
     expect(f.memory.task.status).toBe('running');
     expect(f.memory.task.calls).toBe(0);
@@ -159,7 +174,9 @@ describe('task-driven wake decisions', () => {
       decision('update', 'running', { goal: 'build house, door east' }),
     );
     await f.step();
-    expect(f.planner.decide.mock.calls[0][1].previous).toEqual({
+    expect(
+      (f.planner.decide.mock.calls[0][1] as { previous?: unknown }).previous,
+    ).toEqual({
       progress: 12,
     });
     expect(f.memory.task).toMatchObject({
@@ -492,7 +509,9 @@ it('reports the rejected intent to the next decision without changing the task o
   expect(f.memory.lastResponse).toContain('intent=continue');
   expect(f.memory.task.goal).toBe('走到玩家身边');
   f.planner.decide.mockImplementationOnce(async (_observation, context) => {
-    expect(context.decisionError).toContain('intent=continue');
+    expect(context).toMatchObject({
+      decisionError: expect.stringContaining('intent=continue'),
+    });
     return decision('continue', 'completed');
   });
   await f.step();

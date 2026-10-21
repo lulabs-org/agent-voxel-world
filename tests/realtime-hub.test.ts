@@ -1,7 +1,9 @@
 import { it, expect, vi } from 'vitest';
 import { RealtimeHub } from '../apps/server/src/modules/realtime/hub';
 it('cancels a pending demo handshake by owner request without accessing configuration', async () => {
-  const events: any[] = [],
+  const events: (import('@voxel/shared/realtime').RealtimeEvent & {
+      owner: string;
+    })[] = [],
     config = vi.fn(() => {
       throw Error('configuration must stay untouched');
     });

@@ -1,6 +1,6 @@
 import type { AICharacterView } from '@voxel/shared';
 import { aiCharacterPermissions } from '@voxel/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterForm } from './AICharacterForm';
 import { AICharacterLogViewer } from './AICharacterLogViewer';
@@ -31,10 +31,14 @@ export function AICharacterDetail(
     setError,
   } = props;
   const [view, setView] = useState<'settings' | 'activity'>('settings');
+  const initializedAgent = useRef<string | undefined>(undefined);
   useEffect(() => {
+    // Polling updates must not replace an in-progress editor draft.
+    if (initializedAgent.current === job.id) return;
+    initializedAgent.current = job.id;
     openAgentEditor(job);
     setView('settings');
-  }, [job.id]);
+  }, [job, openAgentEditor]);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const state = aiCharacterPresentation(job);

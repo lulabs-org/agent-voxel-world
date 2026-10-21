@@ -8,7 +8,10 @@ import {
 export type SocketLike = {
   send(data: string): void;
   close(): void;
-  addEventListener(type: string, listener: (event: any) => void): void;
+  addEventListener(
+    type: string,
+    listener: (event: { type: string; data?: unknown }) => void,
+  ): void;
 };
 export type ClientState =
   | 'closed'
@@ -205,7 +208,7 @@ export async function managementRequest<T>(
     throw error;
   }
   if (response.status === 204) return undefined as T;
-  let data: any;
+  let data: unknown;
   try {
     data = await response.json();
   } catch {
@@ -214,7 +217,12 @@ export async function managementRequest<T>(
   }
   if (!response.ok)
     throw new ManagementError(
-      typeof data?.error === 'string' ? data.error : '管理请求失败。',
+      data &&
+      typeof data === 'object' &&
+      'error' in data &&
+      typeof data.error === 'string'
+        ? data.error
+        : '管理请求失败。',
       'HTTP_ERROR',
       response.status,
     );

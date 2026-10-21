@@ -165,7 +165,9 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
   );
 
   await tasksApi.control(
-    { id: 'p', characterId: 'agent-1', revision: 3 } as any,
+    { id: 'p', characterId: 'agent-1', revision: 3 } as Parameters<
+      typeof tasksApi.control
+    >[0],
     'run',
     { requestId: 'stable' },
     identity,
@@ -184,7 +186,9 @@ it('routes task plan queries and controls through HTTP REST endpoints', async ()
   );
 
   await tasksApi.reassign(
-    { id: 'p', characterId: 'agent-1', revision: 3 } as any,
+    { id: 'p', characterId: 'agent-1', revision: 3 } as Parameters<
+      typeof tasksApi.control
+    >[0],
     'agent-2',
   );
   expect(http).toHaveBeenLastCalledWith(

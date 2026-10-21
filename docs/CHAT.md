@@ -36,7 +36,7 @@ Agent 发出聊天文字后，服务器按绑定服务合成一次音频，再�
 
 ## 验证
 
-- `pnpm check`：类型、单元测试、构建。
+- `pnpm check`：全仓 lint、类型、单元测试、构建。
 - `pnpm test:chat`：临时内存世界中的四客户端联调，覆盖真人/Agent 公私聊路由、观察历史隔离、音频 ACL、凭证轮换、信令开关及静止朝向；音频转换和转写使用固定测试实现，不调用云模型。
 - `pnpm test:agent:voice`：临时世界验证 Agent 语音分发、私聊下载权限、收听开关与撤销；默认固定音频。安装 Piper 模型后用 `REAL_TTS=1 pnpm test:agent:voice` 验证真实 Piper 合成，不调用聊天模型。
 - 浏览器验收另使用合成音频，通过真实 MediaRecorder、WebRTC 和 Web Audio 验证录音、双端传输、距离/朝向增益及关闭资源；中文合成语音经真实 FFmpeg / 本机 Whisper 验证听写和语音消息。合成测试不等同于跨设备麦克风或跨 NAT 验收。

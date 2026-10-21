@@ -1,5 +1,11 @@
 import type { Player } from '@voxel/shared';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import { ClipRecorder, LiveRecorder } from '../../../audio';
 import type { Connection } from '../../../network/connection';
 import { chatApi } from '../api';
@@ -7,9 +13,10 @@ import { consumeMention, mentionQuery } from '../chat-mentions';
 export function useChatController(connection: Connection, expanded = true) {
   const collapsed = !expanded;
   const [collapsedAt, setCollapsedAt] = useState(0);
+  const latestChatSeq = connection.chats.at(-1)?.seq ?? 0;
   useEffect(() => {
-    if (expanded) setCollapsedAt(connection.chats.at(-1)?.seq ?? 0);
-  }, [expanded, connection.chats.at(-1)?.seq]);
+    if (expanded) setCollapsedAt(latestChatSeq);
+  }, [expanded, latestChatSeq]);
   const unread = collapsed
     ? connection.chats.filter(
         (entry) =>
@@ -66,12 +73,13 @@ export function useChatController(connection: Connection, expanded = true) {
   useEffect(() => {
     if (picker?.source === 'button') search.current?.focus();
   }, [picker?.source]);
+  const pickerQuery = picker?.query;
   useEffect(() => {
-    if (!picker) return;
+    if (pickerQuery === undefined) return;
     panel.current
       ?.querySelector('[role=option][aria-selected=true]')
       ?.scrollIntoView({ block: 'nearest' });
-  }, [choice, picker?.query]);
+  }, [choice, pickerQuery]);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if (!panel.current?.contains(event.target as Node)) setPicker(null);
@@ -88,7 +96,7 @@ export function useChatController(connection: Connection, expanded = true) {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [clip]);
-  const cancel = () => {
+  const cancel = useCallback(() => {
     dictation.cancel();
     recorder.cancel();
     upload.current?.abort();
@@ -96,10 +104,10 @@ export function useChatController(connection: Connection, expanded = true) {
     setMode('idle');
     setPartial('');
     setStatus('');
-  };
+  }, [connection, dictation, recorder]);
   useEffect(() => {
     if (!connected) cancel();
-  }, [connected]);
+  }, [connected, cancel]);
   useEffect(
     () => () => {
       dictation.cancel();

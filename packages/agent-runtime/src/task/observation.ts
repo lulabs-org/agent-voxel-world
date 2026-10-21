@@ -32,7 +32,7 @@ export async function prepareDecision(
   signal: AbortSignal,
   addressed?: import('@voxel/shared').WorldEvent,
 ) {
-  let task = memory.task;
+  const task = memory.task;
   const raw = await session.observe();
   signal.throwIfAborted();
   if (

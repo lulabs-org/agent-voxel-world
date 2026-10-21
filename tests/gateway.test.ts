@@ -95,13 +95,19 @@ describe('gateway command boundary', () => {
 });
 class FakeSocket implements SocketLike {
   readyState = 1;
-  listeners = new Map<string, ((e: any) => void)[]>();
-  sent: any[] = [];
-  addEventListener(t: string, f: (e: any) => void) {
+  listeners = new Map<
+    string,
+    ((e: { type: string; data?: unknown }) => void)[]
+  >();
+  sent: { type: string }[] = [];
+  addEventListener(
+    t: string,
+    f: (e: { type: string; data?: unknown }) => void,
+  ) {
     this.listeners.set(t, [...(this.listeners.get(t) ?? []), f]);
   }
-  emit(t: string, e: any = {}) {
-    for (const f of this.listeners.get(t) ?? []) f(e);
+  emit(t: string, e: { data?: unknown } = {}) {
+    for (const f of this.listeners.get(t) ?? []) f({ type: t, ...e });
   }
   send(raw: string) {
     this.sent.push(JSON.parse(raw));
@@ -117,7 +123,7 @@ class FakeSocket implements SocketLike {
 class ServerSocket extends EventEmitter {
   readyState = 1;
   bufferedAmount = 0;
-  frames: any[] = [];
+  frames: import('@voxel/shared/management').ManagementFrame[] = [];
   closeCode?: number;
   send(raw: string) {
     this.frames.push(JSON.parse(raw));
@@ -131,13 +137,16 @@ class ServerSocket extends EventEmitter {
     this.emit('message', Buffer.from(JSON.stringify(value)), false);
   }
 }
-function serverSocket(gateway: any, origin = 'http://localhost') {
+function serverSocket(
+  gateway: Partial<Parameters<typeof gatewaySocket>[0]>,
+  origin = 'http://localhost',
+) {
   const socket = new ServerSocket();
   gatewaySocket(
-    gateway,
+    gateway as Parameters<typeof gatewaySocket>[0],
     new GatewayAuth('fixture-gateway-token-for-tests', ['http://localhost']),
-    socket as any,
-    { headers: { origin } } as any,
+    socket as unknown as Parameters<typeof gatewaySocket>[2],
+    { headers: { origin } } as Parameters<typeof gatewaySocket>[3],
   );
   return socket;
 }

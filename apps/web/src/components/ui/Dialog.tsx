@@ -9,9 +9,12 @@ export function Dialog({
   id,
   initialFocus,
   onCancel,
+  preventScroll: _preventScroll,
   ...props
-}: Omit<ComponentProps<'dialog'>, 'open' | 'ref'> & {
+}: Omit<ComponentProps<typeof RadixDialog.Content>, 'ref' | 'onCancel'> & {
   open: boolean;
+  onClose?: ComponentProps<'dialog'>['onClose'];
+  onCancel?: (event: Pick<Event, 'preventDefault' | 'stopPropagation'>) => void;
   initialFocus?: RefObject<HTMLElement | null>;
   preventScroll?: boolean;
 }) {
@@ -20,7 +23,7 @@ export function Dialog({
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen && onCancel) {
-          onCancel({} as any);
+          onCancel(new Event('cancel', { cancelable: true }));
         }
       }}
     >
@@ -37,15 +40,15 @@ export function Dialog({
           }}
           onEscapeKeyDown={(e) => {
             if (onCancel) {
-              onCancel(e as any);
+              onCancel(e);
             }
           }}
           onPointerDownOutside={(e) => {
             if (onCancel) {
-              onCancel(e as any);
+              onCancel(e);
             }
           }}
-          {...(props as any)}
+          {...props}
         >
           {children}
         </RadixDialog.Content>

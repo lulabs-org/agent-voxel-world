@@ -38,8 +38,12 @@
   animation: dialog-fade-in 0.15s ease-out;
 }
 @keyframes dialog-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .agent-heading {
   display: flex;
@@ -640,7 +644,9 @@
   background: #ffffff;
   border: 1px solid #d2ded0;
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(22, 56, 47, 0.15), 0 2px 8px rgba(22, 56, 47, 0.08);
+  box-shadow:
+    0 10px 30px rgba(22, 56, 47, 0.15),
+    0 2px 8px rgba(22, 56, 47, 0.08);
   color: var(--color-text);
   font-size: 12px;
   z-index: 9999;

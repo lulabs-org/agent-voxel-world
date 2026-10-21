@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +38,9 @@ try {
     stdio: 'ignore',
   });
   running = true;
-} catch {}
+} catch {
+  // A nonzero status means the owned database still needs to be started.
+}
 if (!running) {
   await new Promise((resolve, reject) => {
     const probe = createServer();

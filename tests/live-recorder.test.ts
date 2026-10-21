@@ -30,12 +30,15 @@ function setup() {
     close = vi.fn(async () => {});
   vi.stubGlobal('window', { isSecureContext: true });
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: media } });
-  const node: any = {
+  const node = {
     connect: () => node,
     disconnect: vi.fn(),
     gain: { value: 1 },
+    onprocessorerror: undefined as (() => void) | undefined,
     port: {
-      onmessage: null,
+      onmessage: null as
+        | null
+        | ((event: { data: ArrayBuffer | { flushed: boolean } }) => void),
       postMessage: vi.fn(() => {
         node.port.onmessage?.({ data: new Uint8Array(1600).buffer });
         node.port.onmessage?.({ data: { flushed: true } });
@@ -152,7 +155,7 @@ it('reports capture failure and closes tracks without committing a partial sente
     live = new LiveRecorder(),
     e = events();
   await live.start('zh', e);
-  t.node.onprocessorerror();
+  t.node.onprocessorerror!();
   await flush();
   expect(t.track.stop).toHaveBeenCalledOnce();
   expect(e.onError).toHaveBeenCalledWith(expect.stringContaining('中断'));

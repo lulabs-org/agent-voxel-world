@@ -29,7 +29,7 @@ it('migrates pure chat independently, preserves mixed/manual plans, IDs, request
     mc = newRun(mixed, 102, 'chat');
   Object.assign(mixed, { agentId: 'a', agentName: 'A' });
   Object.assign(m, { agentId: 'a', agentName: 'A' });
-  const records: any[] = [
+  const records = [
     {
       id: 'a',
       name: 'A',
@@ -52,7 +52,9 @@ it('migrates pure chat independently, preserves mixed/manual plans, IDs, request
       },
     },
   ];
-  const result = migrateArchive(records);
+  const result = migrateArchive(
+    records as unknown as Parameters<typeof migrateArchive>[0],
+  );
   expect(result.plans.map((p) => p.id)).toEqual([mixed.id, legacy.id]);
   expect(result.plans[0]).toMatchObject({
     characterId: 'a',
@@ -96,9 +98,11 @@ it('backs up the old archive once and atomically writes the independent envelope
   }
 });
 it('rejects duplicate identities, dangling current runs and unsupported envelopes before execution', () => {
-  expect(() => migrateArchive([{ id: 'same' }, { id: 'same' }] as any)).toThrow(
-    '标识',
-  );
+  expect(() =>
+    migrateArchive([{ id: 'same' }, { id: 'same' }] as unknown as Parameters<
+      typeof migrateArchive
+    >[0]),
+  ).toThrow('标识');
   expect(() =>
     migrateArchive({
       version: 99,
@@ -106,7 +110,7 @@ it('rejects duplicate identities, dangling current runs and unsupported envelope
       plans: [],
       runs: [],
       requests: {},
-    } as any),
+    } as unknown as Parameters<typeof migrateArchive>[0]),
   ).toThrow('格式');
   expect(() =>
     migrateArchive({
@@ -115,7 +119,7 @@ it('rejects duplicate identities, dangling current runs and unsupported envelope
       plans: [],
       runs: [],
       requests: {},
-    } as any),
+    } as unknown as Parameters<typeof migrateArchive>[0]),
   ).toThrow('当前执行');
 });
 

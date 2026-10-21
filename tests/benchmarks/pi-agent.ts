@@ -1,3 +1,6 @@
+import type { Edit } from '@voxel/shared';
+import type { AgentSession } from '@voxel/agent-runtime';
+import type { SavedProvider } from '../../apps/server/src/modules/providers/provider-validation';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -17,7 +20,7 @@ const providers = JSON.parse(
     'utf8',
   ),
 );
-const provider = providers.find((p: any) =>
+const provider = providers.find((p: SavedProvider) =>
   process.env.PI_BENCHMARK_PROVIDER
     ? p.id === process.env.PI_BENCHMARK_PROVIDER
     : p.type === 'deepseek',
@@ -45,7 +48,14 @@ const config = {
   thinking: 'disabled' as const,
 };
 const cases = ['chat', 'move', 'build', 'correction', 'wait', 'update'];
-const results: any[] = [];
+const results: {
+  name: string;
+  repeat: number;
+  success: boolean;
+  ms: number;
+  usage: AgentRunState['usage'];
+  status: string | undefined;
+}[] = [];
 for (const name of cases)
   for (let repeat = 0; repeat < 5; repeat++) {
     const o: Observation = {
@@ -101,7 +111,8 @@ for (const name of cases)
         o.self.z += z * 0.1;
         moved ||= !!(x || z);
       },
-      request: async (type: string, p: any) => {
+      request: async (type: string, input?: unknown) => {
+        const p = input as Edit & { text: string };
         if (type === 'observe') return structuredClone(o);
         if (type === 'chat') chats.push(p.text);
         if (type === 'edit') {
@@ -155,7 +166,10 @@ for (const name of cases)
           );
         else
           await runner.run({
-            session: session as any,
+            session: {
+              ...session,
+              request: session.request as AgentSession['request'],
+            },
             config,
             signal: new AbortController().signal,
             memory,
@@ -177,7 +191,9 @@ for (const name of cases)
         )
           break;
       }
-    } catch {}
+    } catch {
+      // A failed run is recorded by the success criteria below.
+    }
     const at = (x: number, m: string) =>
       o.blocks.some(
         (b) => b.x === x && b.y === 3 && b.z === 0 && b.material === m,

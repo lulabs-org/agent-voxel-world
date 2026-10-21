@@ -46,7 +46,8 @@ export async function applyTaskDecision(
   } catch (error) {
     throw new AgentRuntimeError((error as Error).message);
   }
-  let { actions, task: d } = parsed;
+  let { actions } = parsed;
+  const { task: d } = parsed;
   const { addressed } = prepared;
   const service = new TaskService(memory);
   const save = async () => {

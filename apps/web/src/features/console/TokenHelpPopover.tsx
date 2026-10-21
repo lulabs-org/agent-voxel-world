@@ -58,7 +58,7 @@ export function TokenHelpPopover() {
               <button
                 type="button"
                 className={`console-token-copy-btn${copied ? ' copied' : ''}`}
-                onClick={handleCopy}
+                onClick={() => void handleCopy()}
               >
                 {copied ? (
                   <>
@@ -76,7 +76,11 @@ export function TokenHelpPopover() {
           <p className="console-token-popover-footer">
             若非本机运行，请联系服务器管理员获取。
           </p>
-          <Popover.Arrow className="console-token-popover-arrow" width={10} height={5} />
+          <Popover.Arrow
+            className="console-token-popover-arrow"
+            width={10}
+            height={5}
+          />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

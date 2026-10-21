@@ -1,3 +1,4 @@
+import type { Edit } from '@voxel/shared';
 import { parseDecision } from './support/decision-decision';
 import type { AgentDecision } from './support/decision-contracts';
 import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
@@ -64,30 +65,43 @@ function fixture() {
     },
   };
   const observe = vi.fn(async () => structuredClone(world));
-  const request = vi.fn(async (type: string, payload?: any): Promise<any> => {
-    if (type === 'observe') return observe();
-    if (type === 'edit') {
-      if (payload.revision !== world.revision)
-        return { ok: false, revision: world.revision, error: 'conflict' };
-      world.blocks = world.blocks.filter(
-        (b) => !(b.x === payload.x && b.y === payload.y && b.z === payload.z),
-      );
-      if (payload.material)
-        world.blocks.push({
-          x: payload.x,
-          y: payload.y,
-          z: payload.z,
-          material: payload.material,
-        });
-      world.revision++;
-    }
-    return { id: 'result', ok: true, revision: world.revision };
-  });
+  const request = vi.fn(
+    async (
+      type: string,
+      payload?: Edit & { revision?: number },
+    ): Promise<
+      | Observation
+      | { id?: string; ok: boolean; error?: string; revision: number }
+    > => {
+      if (type === 'observe') return observe();
+      if (type === 'edit') {
+        if (payload!.revision !== world.revision)
+          return { ok: false, revision: world.revision, error: 'conflict' };
+        world.blocks = world.blocks.filter(
+          (b) =>
+            !(b.x === payload!.x && b.y === payload!.y && b.z === payload!.z),
+        );
+        if (payload!.material)
+          world.blocks.push({
+            x: payload!.x,
+            y: payload!.y,
+            z: payload!.z,
+            material: payload!.material,
+          });
+        world.revision++;
+      }
+      return { id: 'result', ok: true, revision: world.revision };
+    },
+  );
   const sendMove = vi.fn((x: number, z: number) => {
     world.self.x += x / 2;
     world.self.z += z / 2;
   });
-  const session: AgentSession = { observe, request, move: sendMove };
+  const session: AgentSession = {
+    observe,
+    request: request as AgentSession['request'],
+    move: sendMove,
+  };
   const abort = new AbortController();
   const history: BatchResult[] = [];
   const builds: BuildResult[] = [];
@@ -198,7 +212,7 @@ describe('sequential batch effects', () => {
     expect(
       f.request.mock.calls
         .filter(([t]) => t === 'edit')
-        .map(([, p]) => p.revision),
+        .map(([, p]) => p!.revision),
     ).toEqual([1, 2]);
     expect(f.observe).toHaveBeenCalledTimes(3);
     expect(
@@ -251,7 +265,7 @@ describe('sequential batch effects', () => {
   });
   it('aborts an in-flight request immediately and ignores late responses', async () => {
     const f = fixture();
-    let release!: (value: any) => void;
+    let release!: (value: Awaited<ReturnType<typeof f.request>>) => void;
     f.request.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -315,7 +329,7 @@ describe('sequential batch effects', () => {
     );
     const original = f.request.getMockImplementation()!;
     f.request.mockImplementation(async (t, p) => {
-      if (t === 'edit' && p.x === 2) {
+      if (t === 'edit' && p!.x === 2) {
         setTimeout(() => f.abort.abort(), 0);
         return new Promise(() => {});
       }
@@ -344,7 +358,7 @@ describe('sequential batch effects', () => {
     const f = fixture();
     const original = f.request.getMockImplementation()!;
     f.request.mockImplementation((t, p) =>
-      t === 'edit' && p.x === 1
+      t === 'edit' && p!.x === 1
         ? Promise.resolve({
             ok: false,
             error: 'out-of-reach',
@@ -402,7 +416,9 @@ function runtimeFixture() {
       memory,
       attention,
       () => {},
-      () => saved.push(structuredClone(memory)),
+      () => {
+        saved.push(structuredClone(memory));
+      },
     );
   return { ...f, memory, attention, planner, message, step, saved };
 }
@@ -434,7 +450,8 @@ describe('batch task lifecycle', () => {
     expect(f.memory.task?.status).toBe('completed');
     expect(f.planner.decide).toHaveBeenCalledTimes(2);
     expect(
-      (f.planner.decide.mock.calls[1][1] as any).previous.results,
+      (f.planner.decide.mock.calls[1][1] as { previous: BatchResult }).previous
+        .results,
     ).toHaveLength(3);
   });
   it('interrupts at a boundary, handles the greeting, and replans instead of replaying the tail', async () => {
@@ -661,7 +678,7 @@ it('does not repeat already empty deletions when resuming a larger original buil
   ]);
   expect(batch.ok).toBe(true);
   expect(
-    f.request.mock.calls.filter(([t]) => t === 'edit').map(([, p]) => p.x),
+    f.request.mock.calls.filter(([t]) => t === 'edit').map(([, p]) => p!.x),
   ).toEqual([2]);
   expect(f.builds.at(-1)).toMatchObject({
     skipped: 1,

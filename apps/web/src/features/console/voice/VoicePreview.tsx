@@ -1,5 +1,5 @@
 import type { VoiceServiceView } from '@voxel/shared';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { speakBrowserText } from '../../../audio';
 import { voiceApi } from './api';
 import { voicePreviewSamples } from './voice-preview-samples';
@@ -23,20 +23,21 @@ export function VoicePreview({
   const [url, setUrl] = useState('');
   const request = useRef<AbortController | undefined>(undefined);
   const audio = useRef<HTMLAudioElement>(null);
-  const stop = () => {
+  const stop = useCallback(() => {
     request.current?.abort();
     audio.current?.pause();
     setUrl('');
     setBusy(false);
     setStatus('');
-  };
+  }, []);
   useEffect(() => {
     stop();
+    const player = audio.current;
     return () => {
       request.current?.abort();
-      audio.current?.pause();
+      player?.pause();
     };
-  }, [serviceId, active, disabled]);
+  }, [serviceId, active, disabled, stop]);
   useEffect(() => {
     if (!url) return;
     void audio.current

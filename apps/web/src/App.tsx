@@ -93,7 +93,7 @@ export function App({ connection }: { connection: Connection }) {
               setName(value);
             }}
             error={connection.joinError}
-            onJoin={joinWorld}
+            onJoin={() => void joinWorld()}
             onCreateAgent={() => openConsole('characters')}
           />
         )}

@@ -57,7 +57,7 @@ export const tasksApi = {
     });
   },
 
-  delete: (planId: string, characterId?: string) =>
+  delete: (planId: string, _characterId?: string) =>
     consoleFetch<void>(`/tasks/${encodeURIComponent(planId)}`, {
       method: 'DELETE',
     }),

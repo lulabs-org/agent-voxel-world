@@ -25,6 +25,7 @@ export function parseDecision(
   } catch (error) {
     throw Error(
       `动作字段不符合约定（类型、参数或权限）：${error instanceof Error ? error.message : ''}`,
+      { cause: error },
     );
   }
   let task;

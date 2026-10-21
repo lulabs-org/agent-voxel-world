@@ -136,38 +136,42 @@ export function CurrentTaskBudget({
       {draft && resumable && (
         <form
           className="agent-form agents-confirm"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const limits = draft.limits;
-            if (
-              limited &&
-              (limits.maxTurns <= task.calls ||
-                limits.tokenBudget <= task.tokens ||
-                limits.taskTimeoutMs <= task.elapsedMs)
-            ) {
-              setError('各项总额度必须高于本次任务的已用量，请调整后再继续。');
-              return;
-            }
-            setBusy(true);
-            setError('');
-            try {
-              await controlTaskRun(
-                execution.runId,
-                'resume',
-                { ...limits },
-                draft.expectedTask,
-              );
-              setDraft(undefined);
-              await onUpdated();
-            } catch (cause) {
-              setError(
-                cause instanceof Error
-                  ? cause.message
-                  : '继续任务失败，请重试。',
-              );
-            } finally {
-              setBusy(false);
-            }
+          onSubmit={(event) => {
+            void (async () => {
+              event.preventDefault();
+              const limits = draft.limits;
+              if (
+                limited &&
+                (limits.maxTurns <= task.calls ||
+                  limits.tokenBudget <= task.tokens ||
+                  limits.taskTimeoutMs <= task.elapsedMs)
+              ) {
+                setError(
+                  '各项总额度必须高于本次任务的已用量，请调整后再继续。',
+                );
+                return;
+              }
+              setBusy(true);
+              setError('');
+              try {
+                await controlTaskRun(
+                  execution.runId,
+                  'resume',
+                  { ...limits },
+                  draft.expectedTask,
+                );
+                setDraft(undefined);
+                await onUpdated();
+              } catch (cause) {
+                setError(
+                  cause instanceof Error
+                    ? cause.message
+                    : '继续任务失败，请重试。',
+                );
+              } finally {
+                setBusy(false);
+              }
+            })();
           }}
         >
           <p>

@@ -55,7 +55,7 @@ queued 项没有运行时任务和用量；按首次到期时间启动。暂停�
 
 ## 验证
 
-- `pnpm check`：类型、单元测试、生产构建。
+- `pnpm check`：全仓 lint、类型、单元测试、生产构建。
 - `pnpm test:agent:tasks`、`pnpm test:agents`、`pnpm test:gateway`、`pnpm test:navigation`：临时隔离世界。
 - `pnpm --filter @voxel/server exec tsx test/integration/character-events-live.ts`：默认使用本机 Ollama qwen3:8b，在临时世界验证聊天建造、计划建造、持续跟随、期间问答和立即停止。最多 24 次真实请求，结果保存到 `output/unified-events/live-model.json`。可通过 EVENTS_MODEL / EVENTS_MODEL_URL 指定本机模型；不读取用户服务密钥。
 - Docker 构建与浏览器验收分别记录，不能用单元测试代替。任何写世界的测试必须指定隔离实例，不使用当前用户世界。

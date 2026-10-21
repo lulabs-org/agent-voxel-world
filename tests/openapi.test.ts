@@ -1,18 +1,39 @@
 import { expect, it } from 'vitest';
 import { swaggerSpec } from '../apps/server/src/openapi/swagger';
 
-const spec = swaggerSpec as any;
-const operations = Object.entries(spec.paths).flatMap(
-  ([path, item]: [string, any]) =>
-    Object.entries(item)
-      .filter(([method]) =>
-        ['get', 'post', 'put', 'patch', 'delete'].includes(method),
-      )
-      .map(([method, operation]) => ({
-        path,
-        method,
-        operation: operation as any,
-      })),
+type Schema = {
+  $ref?: string;
+  enum?: string[];
+  properties: Record<string, Schema>;
+  not: { anyOf: unknown[] };
+};
+type Operation = {
+  tags?: string[];
+  security?: Record<string, string[]>[];
+  description?: string;
+  parameters: { name: string; schema: Schema }[];
+  responses?: Record<string, unknown>;
+  requestBody: { content: Record<string, { schema: Schema }> };
+};
+const spec = swaggerSpec as {
+  paths: Record<string, Record<string, Operation>>;
+  servers?: unknown[];
+  security?: unknown;
+  components: {
+    securitySchemes: Record<string, { scheme: string }>;
+    schemas: Record<string, Schema>;
+  };
+};
+const operations = Object.entries(spec.paths).flatMap(([path, item]) =>
+  Object.entries(item)
+    .filter(([method]) =>
+      ['get', 'post', 'put', 'patch', 'delete'].includes(method),
+    )
+    .map(([method, operation]) => ({
+      path,
+      method,
+      operation,
+    })),
 );
 
 it('includes agent and task endpoints from domain routes.ts files', () => {
@@ -89,14 +110,20 @@ it('provides path parameters, request bodies and successful responses, and resol
         operation.requestBody?.content['application/json'].schema,
       ).toBeDefined();
   }
-  function visit(value: any) {
+  function visit(value: unknown) {
     if (!value || typeof value !== 'object') return;
-    if (value.$ref) {
+    if ('$ref' in value && typeof value.$ref === 'string') {
       expect(value.$ref.startsWith('#/')).toBe(true);
       const target = value.$ref
         .slice(2)
         .split('/')
-        .reduce((node: any, key: string) => node?.[key], spec);
+        .reduce<unknown>(
+          (node, key) =>
+            node && typeof node === 'object'
+              ? (node as Record<string, unknown>)[key]
+              : undefined,
+          spec,
+        );
       expect(target, value.$ref).toBeDefined();
     }
     for (const item of Object.values(value)) visit(item);
@@ -104,13 +131,13 @@ it('provides path parameters, request bodies and successful responses, and resol
   visit(spec);
   expect(
     spec.paths['/tasks/{planId}/{operation}'].post.parameters.find(
-      (p: any) => p.name === 'operation',
-    ).schema.enum,
+      (p) => p.name === 'operation',
+    )!.schema.enum,
   ).toEqual(['run', 'pause', 'resume', 'archive', 'extend']);
   expect(
     spec.paths['/task-runs/{runId}/{operation}'].post.parameters.find(
-      (p: any) => p.name === 'operation',
-    ).schema.enum,
+      (p) => p.name === 'operation',
+    )!.schema.enum,
   ).toEqual(['pause', 'resume', 'cancel']);
 });
 

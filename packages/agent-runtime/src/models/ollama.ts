@@ -1,3 +1,11 @@
+type ToolCall = { id: string; function: { name: string; arguments: string } };
+type CompletionMessage = {
+  role: string;
+  content?: string | { text?: string }[] | null;
+  tool_calls?: ToolCall[];
+  name?: string;
+  tool_call_id: string;
+};
 /** Keep Pi's tool loop while using Ollama's native context/thinking controls. */
 export async function ollamaCompletion(
   input: Parameters<typeof fetch>[0],
@@ -8,7 +16,7 @@ export async function ollamaCompletion(
 ) {
   const body = JSON.parse(String(init.body));
   const names = new Map<string, string>();
-  const messages = body.messages.map((message: any) => {
+  const messages = body.messages.map((message: CompletionMessage) => {
     for (const call of message.tool_calls ?? [])
       names.set(call.id, call.function.name);
     return {
@@ -16,11 +24,9 @@ export async function ollamaCompletion(
       content:
         typeof message.content === 'string'
           ? message.content
-          : (message.content ?? [])
-              .map((part: any) => part.text ?? '')
-              .join(''),
+          : (message.content ?? []).map((part) => part.text ?? '').join(''),
       ...(message.tool_calls && {
-        tool_calls: message.tool_calls.map((call: any) => ({
+        tool_calls: message.tool_calls.map((call) => ({
           id: call.id,
           type: 'function',
           function: {
@@ -69,15 +75,20 @@ export async function ollamaCompletion(
     role: 'assistant',
     content: value.message.content ?? '',
     reasoning_content: value.message.thinking ?? '',
-    tool_calls: calls.map((call: any, index: number) => ({
-      index,
-      id: `${id}-${index}`,
-      type: 'function',
-      function: {
-        name: call.function.name,
-        arguments: JSON.stringify(call.function.arguments),
-      },
-    })),
+    tool_calls: calls.map(
+      (
+        call: { function: { name: string; arguments: unknown } },
+        index: number,
+      ) => ({
+        index,
+        id: `${id}-${index}`,
+        type: 'function',
+        function: {
+          name: call.function.name,
+          arguments: JSON.stringify(call.function.arguments),
+        },
+      }),
+    ),
   };
   const chunks = [
     { id, choices: [{ index: 0, delta, finish_reason: null }] },

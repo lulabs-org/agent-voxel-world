@@ -79,29 +79,33 @@ export function TaskPlanEditor({
   return (
     <form
       className="agent-form task-plan-editor"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setError('');
-        const values = new FormData(e.currentTarget);
-        let timing = draft.timing;
-        if (timing.kind === 'daily' || timing.kind === 'weekly')
-          timing = {
-            ...timing,
-            time: String(values.get('calendarTime') ?? timing.time),
-          };
-        if (timing.kind === 'once') {
-          const [date, time] = String(values.get('executeAt') ?? at).split('T');
-          const instant =
-            date && time
-              ? wallClockInstant(date, time, draft.timeZone)
-              : undefined;
-          if (instant === undefined) {
-            setError('该日期或时间在此时区不存在，请重新选择。');
-            return;
+      onSubmit={(e) => {
+        void (async () => {
+          e.preventDefault();
+          setError('');
+          const values = new FormData(e.currentTarget);
+          let timing = draft.timing;
+          if (timing.kind === 'daily' || timing.kind === 'weekly')
+            timing = {
+              ...timing,
+              time: String(values.get('calendarTime') ?? timing.time),
+            };
+          if (timing.kind === 'once') {
+            const [date, time] = String(values.get('executeAt') ?? at).split(
+              'T',
+            );
+            const instant =
+              date && time
+                ? wallClockInstant(date, time, draft.timeZone)
+                : undefined;
+            if (instant === undefined) {
+              setError('该日期或时间在此时区不存在，请重新选择。');
+              return;
+            }
+            timing = { kind: 'once', at: instant };
           }
-          timing = { kind: 'once', at: instant };
-        }
-        await onSave({ ...draft, timing }, requestId, characterId);
+          await onSave({ ...draft, timing }, requestId, characterId);
+        })();
       }}
     >
       <div className="console-panel-heading plans-editor-heading">

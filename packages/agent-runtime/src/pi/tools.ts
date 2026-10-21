@@ -43,7 +43,12 @@ export function createTaskTools(o: {
         ? 'Complete only after prior results confirm the goal.'
         : `Execute ${name} for the current task.`,
     execute: async (id, value) => {
-      const args = value as Record<string, any>;
+      const args = value as Record<string, unknown> & {
+        condition: 'world' | 'players';
+        reason: string;
+        summary: string;
+        question: string;
+      };
       o.signal.throwIfAborted();
       o.service.assertCurrent(o.lease);
       if (o.state.terminal || o.state.skipBatch || o.shouldYield())

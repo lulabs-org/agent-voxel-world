@@ -59,7 +59,7 @@ export function useAICharactersController(
       abort.abort();
       stop();
     };
-  }, [open, initialTab]);
+  }, [open, initialTab, jobsRevision, mutation]);
   const openAgentEditor = (job?: AICharacterView) => {
     resetModels();
     setEditingAgent(job?.id);

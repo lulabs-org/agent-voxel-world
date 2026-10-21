@@ -16,7 +16,7 @@ it('never requests a microphone by default; pending permission cancellation stop
     self: { id: 'a' },
     chatRecording: false,
     action: vi.fn(),
-  } as any;
+  } as unknown as ConstructorParameters<typeof SpatialVoice>[0];
   const voice = new SpatialVoice(link, vi.fn(), capture);
   expect(capture).not.toHaveBeenCalled();
   const starting = voice.startMic();
@@ -43,7 +43,7 @@ it('disconnection stops active spatial microphone tracks', async () => {
     self: { id: 'a' },
     chatRecording: false,
     action: vi.fn(),
-  } as any;
+  } as unknown as ConstructorParameters<typeof SpatialVoice>[0];
   const voice = new SpatialVoice(link, vi.fn(), async () => stream);
   await voice.startMic();
   expect(voice.state.sending).toBe(true);

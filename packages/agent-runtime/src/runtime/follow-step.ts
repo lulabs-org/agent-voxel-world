@@ -87,28 +87,32 @@ export async function runFollowStep(options: FollowOptions) {
   } finally {
     clearTimeout(timer);
     session.move(0, 0, false);
-    if (!service.current(lease)) return;
-    task.elapsedMs += Date.now() - started;
-    if (task.elapsedMs >= (config.taskTimeoutMs ?? 900000) && !signal.aborted) {
-      task.status = 'budget';
-      task.reason = '跟随任务执行时间预算已耗尽。';
+    if (service.current(lease)) {
+      task.elapsedMs += Date.now() - started;
+      if (
+        task.elapsedMs >= (config.taskTimeoutMs ?? 900000) &&
+        !signal.aborted
+      ) {
+        task.status = 'budget';
+        task.reason = '跟随任务执行时间预算已耗尽。';
+      }
+      if (task.status === 'blocked' && memory.activeAction?.name === 'follow') {
+        const action = memory.activeAction;
+        action.status = 'failed';
+        action.result = follow.lastResult ?? task.reason;
+        recordEvent(memory, {
+          id: `action:${action.id}:${lease.revision}`,
+          kind: 'action_result',
+          state: 'pending',
+          at: Date.now(),
+          audience: task.privateTo ?? 'public',
+          taskId: lease.id,
+          revision: lease.revision,
+          actionId: action.id,
+          detail: task.reason,
+        });
+      }
+      await options.checkpoint?.();
     }
-    if (task.status === 'blocked' && memory.activeAction?.name === 'follow') {
-      const action = memory.activeAction;
-      action.status = 'failed';
-      action.result = follow.lastResult ?? task.reason;
-      recordEvent(memory, {
-        id: `action:${action.id}:${lease.revision}`,
-        kind: 'action_result',
-        state: 'pending',
-        at: Date.now(),
-        audience: task.privateTo ?? 'public',
-        taskId: lease.id,
-        revision: lease.revision,
-        actionId: action.id,
-        detail: task.reason,
-      });
-    }
-    await options.checkpoint?.();
   }
 }

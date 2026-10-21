@@ -1,3 +1,5 @@
+import type { AgentSession, AgentAction, Result } from '@voxel/agent-runtime';
+import type { Edit } from '@voxel/shared';
 import { describe, it, expect, vi } from 'vitest';
 import {
   AgentRunner,
@@ -35,10 +37,10 @@ vi.mock(
     ...(await original<
       typeof import('../packages/agent-runtime/src/actions/navigation/controller')
     >()),
-    navigate: async (session: any, action: any, observation: Observation) => {
+    navigate: async (session: AgentSession, action: AgentAction) => {
       session.move(1, 0, false);
       session.move(0, 0, false);
-      const fresh = await session.request('observe');
+      const fresh = await session.request<Observation>('observe');
       return {
         ok: true,
         status: 'arrived',
@@ -85,18 +87,21 @@ function fixture(replies: { name: string; arguments: unknown }[][]) {
       world.self.x += x * 0.1;
       world.self.z += z * 0.1;
     }),
-    request: vi.fn(async (type: string, p: any) => {
-      if (type === 'observe') return structuredClone(world) as any;
-      if (type === 'edit') {
-        world.blocks = world.blocks.filter(
-          (b) => b.x !== p.x || b.y !== p.y || b.z !== p.z,
-        );
-        if (p.material)
-          world.blocks.push({ x: p.x, y: p.y, z: p.z, material: p.material });
-        world.revision++;
-      }
-      return { ok: true, id: 'r', revision: world.revision };
-    }),
+    request: vi.fn(
+      async (type: string, input?: unknown): Promise<Observation | Result> => {
+        const p = input as Edit;
+        if (type === 'observe') return structuredClone(world);
+        if (type === 'edit') {
+          world.blocks = world.blocks.filter(
+            (b) => b.x !== p.x || b.y !== p.y || b.z !== p.z,
+          );
+          if (p.material)
+            world.blocks.push({ x: p.x, y: p.y, z: p.z, material: p.material });
+          world.revision++;
+        }
+        return { ok: true, id: 'r', revision: world.revision };
+      },
+    ),
   };
   let index = 0;
   const request = vi.fn<typeof fetch>(async () =>
@@ -106,7 +111,10 @@ function fixture(replies: { name: string; arguments: unknown }[][]) {
   const checkpoint = vi.fn(async () => {});
   const run = () =>
     new AgentRunner(undefined, request).run({
-      session,
+      session: {
+        ...session,
+        request: session.request as AgentSession['request'],
+      },
       config,
       signal: abort.signal,
       memory,
@@ -313,7 +321,7 @@ describe('Pi world tool runtime', () => {
             },
           ],
           stopReason: 'toolUse',
-        } as any,
+        } as NonNullable<AgentRunState['pi']>['messages'][number],
       ],
       inFlight: { id: 'x', name: 'chat', state: 'executing' },
     };
@@ -359,7 +367,10 @@ describe('Pi provider and recovery boundaries', () => {
     ];
     const request = vi.fn<typeof fetch>(async () => responses.shift()!);
     await new AgentRunner(localEndpoint, request).run({
-      session: f.session,
+      session: {
+        ...f.session,
+        request: f.session.request as AgentSession['request'],
+      },
       config: f.config,
       signal: f.abort.signal,
       memory: f.memory,
@@ -380,7 +391,10 @@ describe('Pi provider and recovery boundaries', () => {
       nativeResponse([], 'edit x=2'),
     );
     await new AgentRunner(localEndpoint, request).run({
-      session: f.session,
+      session: {
+        ...f.session,
+        request: f.session.request as AgentSession['request'],
+      },
       config: f.config,
       signal: f.abort.signal,
       memory: f.memory,
@@ -396,7 +410,10 @@ describe('Pi provider and recovery boundaries', () => {
     const f = fixture([]);
     const request = vi.fn<typeof fetch>(async () => nativeResponse([], 'done'));
     await new AgentRunner(localEndpoint, request).run({
-      session: f.session,
+      session: {
+        ...f.session,
+        request: f.session.request as AgentSession['request'],
+      },
       config: { ...f.config, maxTurns: 1 },
       signal: f.abort.signal,
       memory: f.memory,
@@ -442,7 +459,10 @@ describe('Pi provider and recovery boundaries', () => {
         },
         request,
       ).run({
-        session: f.session,
+        session: {
+          ...f.session,
+          request: f.session.request as AgentSession['request'],
+        },
         config: f.config,
         signal: f.abort.signal,
         memory: f.memory,
@@ -482,7 +502,10 @@ describe('Pi provider and recovery boundaries', () => {
         new Response('test-secret private upstream body', { status: 401 }),
     );
     await new AgentRunner(undefined, request).run({
-      session: f.session,
+      session: {
+        ...f.session,
+        request: f.session.request as AgentSession['request'],
+      },
       config: f.config,
       signal: f.abort.signal,
       memory: f.memory,
@@ -607,7 +630,7 @@ it('later chat cannot erase an unresolved world failure and allow completion', a
     id: 'r',
     revision: 1,
     error: 'unsupported',
-  } as any);
+  });
   await f.run();
   expect(f.memory.task?.status).toBe('blocked');
   expect(f.memory.pendingEffects).toBeDefined();
@@ -696,7 +719,7 @@ it('stops repeated world failures even when unrelated world revisions keep chang
   const f = fixture([[edit], [edit], [edit], [edit]]);
   f.session.request.mockImplementation(async (type: string) =>
     type === 'observe'
-      ? (structuredClone(f.world) as any)
+      ? structuredClone(f.world)
       : { ok: false, error: 'conflict', id: 'r', revision: ++f.world.revision },
   );
   await f.run();
@@ -734,7 +757,10 @@ it('stops the loop if the host cannot durably create a task', async () => {
   f.message();
   await expect(
     new AgentRunner(undefined, f.request).run({
-      session: f.session,
+      session: {
+        ...f.session,
+        request: f.session.request as AgentSession['request'],
+      },
       config: f.config,
       signal: f.abort.signal,
       memory: f.memory,
@@ -811,7 +837,8 @@ it('exposes the same tools to chat and activity events, with durable task creati
   const bodies = f.request.mock.calls.map(([, init]) =>
     JSON.parse(String(init!.body)),
   );
-  const names = (body: any) => body.tools.map((t: any) => t.function.name);
+  const names = (body: { tools: { function: { name: string } }[] }) =>
+    body.tools.map((t) => t.function.name);
   expect(names(bodies[0])).toContain('start_task');
   expect(names(bodies[0])).toContain('goto');
   expect(names(bodies[1])).toEqual(names(bodies[0]));
