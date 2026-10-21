@@ -1,28 +1,22 @@
 import { describe, it, expect, vi } from 'vitest';
+import { CommandRouter } from '../apps/server/src/common/command-router';
 import {
-  CommandRouter,
-  AgentGateway,
-} from '../apps/server/src/modules/gateway';
-import { AICharacterOrchestrator } from '../apps/server/src/modules/ai-characters';
+  ManagementError,
+  MANAGEMENT_EVENTS_VERSION,
+} from '@voxel/shared/management';
 import {
-  parseConnect,
-  parseRequest,
-  GatewayError,
-} from '@voxel/gateway-protocol';
-import {
-  GatewayClient,
+  ManagementEvents,
+  managementRequest,
   UnknownOutcome,
   type SocketLike,
-} from '@voxel/gateway-client';
-import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
+} from '@voxel/shared/management-client';
 import { gatewaySocket } from '../apps/server/src/modules/gateway/socket';
+import { AICharacterEvents } from '../apps/server/src/modules/ai-characters/events';
 import { EventEmitter } from 'node:events';
 import { GatewayAuth } from '../apps/server/src/modules/gateway/auth';
 import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readFileSync, readdirSync } from 'node:fs';
-
 describe('gateway command boundary', () => {
   it('coalesces concurrent commands and rejects reused IDs with different payloads', async () => {
     const router = new CommandRouter();
@@ -78,88 +72,6 @@ describe('gateway command boundary', () => {
     expect(router.get('bad').state).toBe('unknown');
     clock.mockRestore();
   });
-  it('validates handshake, method parameters and write IDs', () => {
-    expect(() =>
-      parseConnect({ type: 'connect', version: 1, client: 'web', token: 'x' }),
-    ).toThrow();
-    expect(() =>
-      parseRequest({
-        type: 'req',
-        id: 'old-method',
-        method: 'agents.list',
-        params: {},
-      }),
-    ).toThrow();
-    expect(() =>
-      parseRequest({
-        type: 'req',
-        id: 'old-field',
-        method: 'characters.get',
-        params: { agentId: 'a' },
-      }),
-    ).toThrow('未知请求参数');
-    expect(() =>
-      parseRequest({
-        type: 'req',
-        id: '1',
-        method: 'characters.delete',
-        params: { characterId: 'a' },
-      }),
-    ).toThrow('commandId');
-    expect(() =>
-      parseRequest({
-        type: 'req',
-        id: '1',
-        method: 'characters.get',
-        params: { characterId: 'a', authority: 'operator' },
-      }),
-    ).toThrow();
-    expect(() =>
-      parseRequest({
-        type: 'req',
-        id: '1',
-        method: 'plans.control',
-        commandId: 'c',
-        params: { characterId: 'a', planId: 'p', operation: 'destroy' },
-      }),
-    ).toThrow();
-  });
-  it.each(['tasks.assign', 'tasks.pause', 'tasks.resume', 'tasks.cancel'])(
-    'rejects removed agent-scoped task method %s',
-    (method) => {
-      expect(() =>
-        parseRequest({
-          type: 'req',
-          id: 'removed',
-          commandId: 'removed',
-          method,
-          params: {
-            characterId: 'character',
-            expectedTask: null,
-            value: { goal: 'wrong' },
-          },
-        }),
-      ).toThrow('网关请求格式无效');
-    },
-  );
-  it('requires a run ID for execution control instead of inferring the current task', () => {
-    const request = {
-      type: 'req',
-      id: 'control',
-      commandId: 'control',
-      method: 'runs.control',
-      params: {
-        characterId: 'character',
-        operation: 'pause',
-        expectedTask: null,
-      },
-    };
-    expect(() => parseRequest(request)).toThrow('缺少执行标识');
-    expect(
-      parseRequest({ ...request, params: { ...request.params, runId: 'run' } })
-        .method,
-    ).toBe('runs.control');
-  });
   it('generates private stable credentials and never treats wildcard Origin as authorization', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'gateway-auth-'));
     try {
@@ -202,173 +114,6 @@ class FakeSocket implements SocketLike {
     this.emit('message', { data: JSON.stringify(value) });
   }
 }
-async function connected() {
-  const socket = new FakeSocket(),
-    client = new GatewayClient({
-      url: 'ws://test',
-      token: () => 'secret',
-      socket: () => socket,
-      reconnect: false,
-    });
-  const ready = client.connect();
-  socket.emit('open');
-  socket.frame({
-    type: 'connected',
-    version: 2,
-    gatewayEpoch: 'epoch',
-    capabilities: [],
-  });
-  await ready;
-  return { client, socket };
-}
-describe('gateway client recovery', () => {
-  it('rejects an older server instead of sending new commands over an incompatible protocol', async () => {
-    const socket = new FakeSocket();
-    const client = new GatewayClient({
-      url: 'ws://test',
-      token: () => 'secret',
-      socket: () => socket,
-      reconnect: false,
-    });
-    const result = expect(client.connect()).rejects.toThrow('协议版本不兼容');
-    socket.emit('open');
-    socket.frame({
-      type: 'connected',
-      version: 1,
-      gatewayEpoch: 'old',
-      capabilities: [],
-    });
-    await result;
-    client.close();
-  });
-  it('correlates out-of-order responses and never resends a disconnected mutation', async () => {
-    const { client, socket } = await connected();
-    const a = client.request('characters.list'),
-      b = client.request('providers.list');
-    await Promise.resolve();
-    const req = socket.sent.filter((v) => v.type === 'req');
-    socket.frame({ type: 'res', id: req[1].id, ok: true, result: ['b'] });
-    socket.frame({ type: 'res', id: req[0].id, ok: true, result: ['a'] });
-    expect(await a).toEqual(['a']);
-    expect(await b).toEqual(['b']);
-    const write = client.request(
-      'characters.create',
-      { value: {} },
-      { commandId: 'stable' },
-    );
-    await Promise.resolve();
-    socket.close();
-    await expect(write).rejects.toBeInstanceOf(UnknownOutcome);
-    expect(socket.sent.filter((v) => v.commandId === 'stable')).toHaveLength(1);
-    client.close();
-  });
-  it('authentication failure closes the client without retrying', async () => {
-    const socket = new FakeSocket(),
-      client = new GatewayClient({
-        url: 'ws://test',
-        token: () => 'wrong',
-        socket: () => socket,
-      });
-    const ready = client.connect();
-    socket.emit('open');
-    socket.frame({
-      type: 'error',
-      error: { code: 'UNAUTHORIZED', status: 401, message: 'denied' },
-    });
-    await expect(ready).rejects.toBeInstanceOf(GatewayError);
-    expect(client.state).toBe('unauthorized');
-    client.close();
-  });
-  it('requires contiguous event sequences and closes on a gap', async () => {
-    const { client, socket } = await connected();
-    const event = vi.fn();
-    client.onEvent(event);
-    socket.frame({
-      type: 'event',
-      subscriptionId: 's',
-      seq: 1,
-      event: 'snapshot',
-      data: {},
-    });
-    socket.frame({
-      type: 'event',
-      subscriptionId: 's',
-      seq: 3,
-      event: 'changed',
-      data: {},
-    });
-    expect(event).toHaveBeenCalledTimes(1);
-    expect(socket.readyState).toBe(3);
-    client.close();
-  });
-});
-it('keeps protocol/client browser safe and hosted core independent of applications and transports', () => {
-  function files(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory()
-        ? files(`${dir}/${e.name}`)
-        : e.name.endsWith('.ts')
-          ? [`${dir}/${e.name}`]
-          : [],
-    );
-  }
-  for (const pkg of ['gateway-protocol', 'gateway-client'])
-    for (const file of files(`packages/${pkg}/src`)) {
-      const s = readFileSync(file, 'utf8');
-      expect(s, file).not.toMatch(/from ['"].*(?:apps\/|express|['"]ws['"])/);
-      expect(s, file).not.toMatch(
-        /from ['"](?:node:|@earendil|@voxel\/agent-runtime)/,
-      );
-    }
-});
-
-it('does not acknowledge a failed creation, publish unsaved state or enter the world', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'gateway-storage-'));
-  const providers = new ProviderStore(join(directory, 'providers.json'));
-  await providers.load({ DEEPSEEK_API_KEY: 'fixture-only' });
-  const world = vi.fn();
-  let fail = true;
-  const orchestrator = new AICharacterOrchestrator(
-    providers,
-    'ws://fixture',
-    {
-      session: world,
-      runner: () => ({ run: async () => {} }),
-      models: async () => [],
-    },
-    undefined,
-    {
-      load: async () => undefined,
-      save: async () => {
-        if (fail) throw Error('disk full');
-      },
-    },
-  );
-  const gateway = new AgentGateway(orchestrator);
-  const events = vi.fn();
-  gateway.events.on(events);
-  try {
-    await expect(
-      gateway.dispatch(
-        'characters.create',
-        {
-          value: { providerId: 'deepseek', name: 'Failure' },
-        },
-        'fail-create',
-      ),
-    ).rejects.toThrow();
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(world).not.toHaveBeenCalled();
-    expect(events).not.toHaveBeenCalled();
-    expect(await gateway.dispatch('characters.list', {})).toEqual([]);
-    expect(gateway.commands.get('fail-create').state).toBe('rejected');
-  } finally {
-    fail = false;
-    await gateway.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
 class ServerSocket extends EventEmitter {
   readyState = 1;
   bufferedAmount = 0;
@@ -391,7 +136,6 @@ function serverSocket(gateway: any, origin = 'http://localhost') {
   gatewaySocket(
     gateway,
     new GatewayAuth('fixture-gateway-token-for-tests', ['http://localhost']),
-    'epoch',
     socket as any,
     { headers: { origin } } as any,
   );
@@ -399,50 +143,10 @@ function serverSocket(gateway: any, origin = 'http://localhost') {
 }
 const hello = {
   type: 'connect',
-  version: 2,
+  version: MANAGEMENT_EVENTS_VERSION,
   client: 'web',
   token: 'fixture-gateway-token-for-tests',
 };
-it('buffers changes during a subscription snapshot and disconnects slow clients', async () => {
-  const { AICharacterEvents } = await import(
-    '../apps/server/src/modules/ai-characters'
-  );
-  const events = new AICharacterEvents();
-  let resolve!: (value: unknown) => void;
-  const gateway = {
-    events,
-    dispatch: vi.fn(
-      () =>
-        new Promise((r) => {
-          resolve = r;
-        }),
-    ),
-  };
-  const socket = serverSocket(gateway);
-  socket.frame(hello);
-  socket.frame({
-    type: 'req',
-    id: 's',
-    method: 'gateway.subscribe',
-    params: { scope: 'character', characterId: 'a' },
-  });
-  events.publish('characters', ['a']);
-  resolve({ id: 'a' });
-  await vi.waitFor(() =>
-    expect(socket.frames.filter((f) => f.type === 'event')).toHaveLength(2),
-  );
-  expect(
-    socket.frames
-      .filter((f) => f.type === 'event')
-      .map((f) => [f.event, f.seq]),
-  ).toEqual([
-    ['snapshot', 1],
-    ['changed', 2],
-  ]);
-  socket.bufferedAmount = 1048577;
-  events.publish('characters', ['a']);
-  expect(socket.closeCode).toBe(1013);
-});
 it('rejects missing handshake, unsupported version, Origin, malformed/oversize frames and handshake timeout', () => {
   vi.useFakeTimers();
   try {
@@ -472,108 +176,131 @@ it('rejects missing handshake, unsupported version, Origin, malformed/oversize f
     vi.useRealTimers();
   }
 });
-it('restores an initially interrupted subscription after reconnect without sending writes', async () => {
+
+it('sends refresh then ordered changes, rejects commands and cleans up subscriptions', () => {
+  const events = new AICharacterEvents();
+  const socket = serverSocket(events);
+  socket.frame(hello);
+  events.publish('characters', ['a']);
+  expect(
+    socket.frames
+      .filter((f) => f.type === 'event')
+      .map((f) => [f.event, f.seq]),
+  ).toEqual([
+    ['snapshot', 1],
+    ['changed', 2],
+  ]);
+  socket.frame({
+    type: 'req',
+    method: 'characters.delete',
+    params: { characterId: 'a' },
+  });
+  expect(socket.closeCode).toBe(1008);
+  const count = socket.frames.length;
+  events.publish('characters', ['a']);
+  expect(socket.frames).toHaveLength(count);
+  const slow = serverSocket(events);
+  slow.frame(hello);
+  slow.bufferedAmount = 1048577;
+  events.publish('characters', ['a']);
+  expect(slow.closeCode).toBe(1013);
+});
+
+it('reconnects notifications after an initial failure and never sends commands', async () => {
   const sockets: FakeSocket[] = [];
-  const client = new GatewayClient({
+  const client = new ManagementEvents({
     url: 'ws://fixture',
     token: () => 'fixture',
     socket: () => {
-      const socket = new FakeSocket();
-      sockets.push(socket);
-      return socket;
+      const s = new FakeSocket();
+      sockets.push(s);
+      return s;
     },
   });
   try {
-    const first = client.subscribe({ scope: 'characters' });
+    const first = client.connect();
     sockets[0].close();
     await expect(first).rejects.toThrow();
-    const connected = client.connect();
+    const second = client.connect();
     sockets[1].emit('open');
-    sockets[1].frame({
-      type: 'connected',
-      version: 2,
-      gatewayEpoch: 'new',
-      capabilities: [],
-    });
-    await connected;
-    await vi.waitFor(() =>
-      expect(
-        sockets[1].sent.some((f) => f.method === 'gateway.subscribe'),
-      ).toBe(true),
-    );
-    const request = sockets[1].sent.find(
-      (f) => f.method === 'gateway.subscribe',
-    );
-    sockets[1].frame({
-      type: 'res',
-      id: request.id,
-      ok: true,
-      result: { subscriptionId: 'new-sub' },
-    });
-    expect(sockets[1].sent.filter((f) => f.type === 'req')).toHaveLength(1);
+    sockets[1].frame({ type: 'connected', version: MANAGEMENT_EVENTS_VERSION });
+    await second;
+    expect(sockets[1].sent.map((v) => v.type)).toEqual(['connect']);
+    const changes = vi.fn();
+    client.onEvent(changes);
+    sockets[1].frame({ type: 'event', event: 'snapshot', seq: 1, data: null });
+    sockets[1].frame({ type: 'event', event: 'changed', seq: 3, data: {} });
+    expect(changes).toHaveBeenCalledTimes(1);
+    expect(sockets[1].readyState).toBe(3);
   } finally {
     client.close();
   }
 });
 
-it('queries an unknown command after a new gateway epoch without replaying the mutation', async () => {
-  const sockets: FakeSocket[] = [];
-  const client = new GatewayClient({
+it.each([401, 403])(
+  'stops reconnecting when authentication fails (%s)',
+  async (status) => {
+    vi.useFakeTimers();
+    const socket = new FakeSocket();
+    const factory = vi.fn(() => socket);
+    const client = new ManagementEvents({
+      url: 'ws://fixture',
+      token: () => 'wrong',
+      socket: factory,
+    });
+    try {
+      const ready = client.connect();
+      socket.frame({
+        type: 'error',
+        error: { status, code: 'UNAUTHORIZED', message: 'denied' },
+      });
+      await expect(ready).rejects.toBeInstanceOf(ManagementError);
+      expect(client.state).toBe('unauthorized');
+      vi.advanceTimersByTime(15000);
+      expect(factory).toHaveBeenCalledTimes(1);
+    } finally {
+      client.close();
+      vi.useRealTimers();
+    }
+  },
+);
+it('rejects incompatible notification versions', async () => {
+  const socket = new FakeSocket();
+  const client = new ManagementEvents({
     url: 'ws://fixture',
-    token: () => 'fixture',
-    reconnect: false,
-    socket: () => {
-      const socket = new FakeSocket();
-      sockets.push(socket);
-      return socket;
-    },
+    token: () => '',
+    socket: () => socket,
   });
+  const ready = client.connect();
+  socket.frame({ type: 'connected', version: 2 });
+  await expect(ready).rejects.toThrow('协议版本不兼容');
+  client.close();
+});
+it('never retries a write with an uncertain HTTP outcome and retains the receipt ID', async () => {
+  const http = vi.fn().mockRejectedValue(new TypeError('network closed'));
+  vi.stubGlobal('fetch', http);
   try {
-    const first = client.connect();
-    sockets[0].emit('open');
-    sockets[0].frame({
-      type: 'connected',
-      version: 2,
-      gatewayEpoch: 'old',
-      capabilities: [],
-    });
-    await first;
-    const write = client.request(
-      'characters.create',
-      { value: {} },
-      { commandId: 'uncertain' },
-    );
-    await Promise.resolve();
-    sockets[0].close();
-    await expect(write).rejects.toBeInstanceOf(UnknownOutcome);
-    const second = client.connect();
-    sockets[1].emit('open');
-    sockets[1].frame({
-      type: 'connected',
-      version: 2,
-      gatewayEpoch: 'new',
-      capabilities: [],
-    });
-    await second;
-    await vi.waitFor(() =>
-      expect(sockets[1].sent.some((f) => f.method === 'commands.get')).toBe(
-        true,
-      ),
-    );
-    const query = sockets[1].sent.find((f) => f.method === 'commands.get');
-    sockets[1].frame({
-      type: 'res',
-      id: query.id,
-      ok: true,
-      result: { state: 'unknown' },
-    });
-    await vi.waitFor(() =>
-      expect(client.outcomes.get('uncertain')).toEqual({ state: 'unknown' }),
-    );
-    expect(
-      sockets[1].sent.filter((f) => f.method === 'characters.create'),
-    ).toHaveLength(0);
+    await expect(
+      managementRequest('/tasks', {
+        token: 'fixture',
+        method: 'POST',
+        body: {},
+        commandId: 'stable',
+      }),
+    ).rejects.toMatchObject({ commandId: 'stable' });
+    expect(http).toHaveBeenCalledTimes(1);
+    expect(http.mock.calls[0][1].headers['Idempotency-Key']).toBe('stable');
+    const abort = new AbortController();
+    abort.abort();
+    await expect(
+      managementRequest('/tasks', {
+        token: 'fixture',
+        method: 'POST',
+        signal: abort.signal,
+      }),
+    ).rejects.not.toBeInstanceOf(UnknownOutcome);
+    expect(http).toHaveBeenCalledTimes(1);
   } finally {
-    client.close();
+    vi.unstubAllGlobals();
   }
 });

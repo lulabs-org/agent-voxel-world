@@ -255,7 +255,7 @@ import {
   newTask,
   type AgentRunState,
 } from '@voxel/agent-runtime';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import { toolResponse } from './support/pi-response';
 import { toolSchemas } from '../packages/agent-runtime/src/pi/tool-schemas';
 import { worldView } from '../packages/agent-runtime/src/pi/prompts';
@@ -285,7 +285,7 @@ it('follows across host wakes with no extra model calls, hysteresis, pause/resum
   w.players([player]);
   const memory: AgentRunState = { task: newTask('跟随玩家') };
   const config = {
-    ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+    ...testAgentConfig(),
     maxTurns: 20,
     taskTimeoutMs: 60000,
   };
@@ -371,7 +371,7 @@ it('runs come-here through native tools and only completes after observed arriva
     ),
   );
   const config = {
-    ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+    ...testAgentConfig(),
     taskTimeoutMs: 60000,
   };
   await physics(w, () =>
@@ -440,7 +440,7 @@ it('stops follow on revoked movement permission, expired time budget, and checkp
       },
     };
     const config = {
-      ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+      ...testAgentConfig(),
       permissions: {
         move: kind !== 'permission',
         chat: true,
@@ -508,7 +508,7 @@ it('cancels stored follow through authorized task control and rejects premature 
   );
   await new AgentRunner(undefined, request).run({
     session: w.session,
-    config: agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+    config: testAgentConfig(),
     signal: signal(),
     memory,
     attention,

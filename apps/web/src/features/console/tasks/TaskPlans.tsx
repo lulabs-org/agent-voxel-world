@@ -5,7 +5,7 @@ import type {
   TaskLimits,
   TaskRun,
 } from '@voxel/shared';
-import type { PublicPlanView, RpcParams } from '@voxel/gateway-protocol';
+import type { PublicPlanView, PlanQueryFilter } from '@voxel/shared/management';
 import { refreshOnGatewayChange } from '../../../network/gateway';
 import { tasksApi, displayedTaskIdentity, type PlanPage } from './api';
 import { TaskPlanEditor } from './TaskPlanEditor';
@@ -42,7 +42,7 @@ export function TaskPlans({
   active: boolean;
   disabled: boolean;
 }) {
-  const [filters, setFilters] = useState<RpcParams>({});
+  const [filters, setFilters] = useState<PlanQueryFilter>({});
   const [page, setPage] = useState<PlanPage>({ items: [], total: 0 });
   const [selected, setSelected] = useState<string>();
   const [plan, setPlan] = useState<PublicPlanView>();
@@ -120,7 +120,7 @@ export function TaskPlans({
     }
   };
 
-  const changeFilter = (value: RpcParams) => {
+  const changeFilter = (value: PlanQueryFilter) => {
     setFilters((old) => ({ ...old, ...value, offset: 0 }));
   };
 
@@ -238,7 +238,7 @@ export function TaskPlans({
                   aria-pressed={(filters.state ?? '') === value}
                   onClick={() =>
                     changeFilter({
-                      state: (value as RpcParams['state']) || undefined,
+                      state: (value as PlanQueryFilter['state']) || undefined,
                     })
                   }
                 >

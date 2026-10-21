@@ -16,7 +16,7 @@ import {
   type BatchResult,
   type BuildResult,
 } from '@voxel/agent-runtime';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 
 const task = {
   intent: 'continue',
@@ -39,7 +39,7 @@ const move: AgentAction = {
   durationMs: 100,
 };
 const config = () => ({
-  ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+  ...testAgentConfig(),
   allowEdits: true,
   timeoutMs: 2000,
 });

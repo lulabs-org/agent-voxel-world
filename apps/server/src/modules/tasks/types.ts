@@ -1,6 +1,5 @@
 import type { AgentRunState } from '@voxel/agent-runtime';
 import type { TaskPlan, TaskRun } from '@voxel/shared';
-import type { RpcParams } from '@voxel/gateway-protocol';
 
 /**
  * 运行时任务运行快照及上下文
@@ -23,15 +22,7 @@ export type TaskBook = {
   requests?: Record<string, string>;
 };
 
-/**
- * 全局或 Agent 任务计划的分页与搜索过滤参数
- */
-export interface PlanQueryFilter {
-  state?: RpcParams['state'];
-  offset?: number;
-  search?: string;
-  characterId?: string;
-}
+export type { PlanQueryFilter } from '@voxel/shared/management';
 
 /**
  * 计划控制操作类型

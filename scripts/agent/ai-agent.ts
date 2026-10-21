@@ -7,9 +7,9 @@ import {
   AgentRuntimeError,
   runAgent,
 } from '@voxel/agent-runtime';
-import { agentConfig } from './agent-config';
+import { agentConfig } from './config';
 
-const envPath = fileURLToPath(new URL('../../../../.env', import.meta.url));
+const envPath = fileURLToPath(new URL('../../.env', import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
 const abort = new AbortController();
 let session: Session | undefined;

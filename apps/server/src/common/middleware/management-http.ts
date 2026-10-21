@@ -1,5 +1,6 @@
+import { publicError } from '../management-error';
 import express, { type RequestHandler } from 'express';
-import { identifier, publicError } from '@voxel/gateway-protocol';
+import { identifier } from '@voxel/shared/management';
 import { AppError } from '../errors';
 import { requireJsonBody } from './json-body';
 import { errorHandler } from './error-handler';

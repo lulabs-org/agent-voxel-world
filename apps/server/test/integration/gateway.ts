@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { createTestServer } from '../helpers/test-server';
-import { GatewayClient, type SocketLike } from '@voxel/gateway-client';
+import { ManagementEvents } from '@voxel/shared/management-client';
+import { HttpManagementProbe } from '../helpers/management-probe';
 import { Session, until } from '@voxel/agent-runtime';
 const token = 'fixture-gateway-token-for-tests',
   origin = 'http://127.0.0.1:5188';
@@ -23,14 +24,18 @@ const server = await createTestServer({
     }),
   },
 });
-const clients: GatewayClient[] = [];
+const clients: HttpManagementProbe[] = [];
 const connect = (secret = token) => {
-  const c = new GatewayClient({
-    url: server.url + '/ai-characters/gateway',
-    token: () => secret,
-    socket: (u) => new WebSocket(u, { origin }) as unknown as SocketLike,
-    reconnect: false,
-  });
+  const c = new HttpManagementProbe(
+    server.httpUrl,
+    secret,
+    new ManagementEvents({
+      url: server.url + '/ai-characters/gateway',
+      token: () => secret,
+      socket: (url) => new WebSocket(url, { origin }),
+      reconnect: false,
+    }),
+  );
   clients.push(c);
   return c;
 };
@@ -54,7 +59,7 @@ const cli = (...args: string[]) =>
         'tsx',
         fileURLToPath(
           new URL(
-            '../../../agent-cli/src/cli/agent-control.ts',
+            '../../../../scripts/agent/agent-control.ts',
             import.meta.url,
           ),
         ),
@@ -126,9 +131,9 @@ try {
   bad.close();
   const c = connect(),
     other = connect();
-  await Promise.all([c.connect(), other.connect()]);
   const events: any[] = [];
   other.onEvent((e) => events.push(e));
+  await Promise.all([c.connect(), other.connect()]);
   await other.subscribe({ scope: 'all' });
   await until(() => events.length > 0);
   const value = {
@@ -349,7 +354,7 @@ try {
         'tsx',
         fileURLToPath(
           new URL(
-            '../../../agent-cli/src/cli/agent-control.ts',
+            '../../../../scripts/agent/agent-control.ts',
             import.meta.url,
           ),
         ),
@@ -386,7 +391,7 @@ try {
         'tsx',
         fileURLToPath(
           new URL(
-            '../../../agent-cli/src/cli/agent-control.ts',
+            '../../../../scripts/agent/agent-control.ts',
             import.meta.url,
           ),
         ),
@@ -495,7 +500,7 @@ try {
     `/tasks`,
     'POST',
     { ...draft, characterId: first.id, requestId: 'global-plan' },
-    'global-plan',
+    'global-plan-retry',
   );
   assert.equal(duplicatePlan.status, 201);
   assert.equal((await duplicatePlan.json()).id, planned.id);
@@ -558,7 +563,7 @@ try {
   );
   unsubscribePlans();
   console.log(
-    'PASS Gateway: authenticated RPC/HTTP parity, RPC command deduplication and persistent plan request IDs, revision conflicts, global plans/reassignment/deletion, subscriptions, task controls, disconnect survival, CLI state and exit.',
+    'PASS Management: authenticated HTTP commands and notifications, command deduplication and persistent plan request IDs, revision conflicts, global plans/reassignment/deletion, subscriptions, task controls, disconnect survival, CLI state and exit.',
   );
 } finally {
   for (const c of clients) c.close();

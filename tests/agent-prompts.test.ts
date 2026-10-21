@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Observation } from '@voxel/agent-runtime';
 import { piPrompt, piInput } from '../packages/agent-runtime/src/pi/prompts';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import type { AgentConfig } from '@voxel/agent-runtime';
 function buildMessages(
   o: Observation,
@@ -9,7 +9,7 @@ function buildMessages(
   options: Partial<AgentConfig>,
 ) {
   const config = {
-    ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+    ...testAgentConfig(),
     ...options,
   };
   return [
@@ -106,9 +106,7 @@ describe('agent prompt boundary', () => {
     input.self.name = maliciousText;
     input.attention = { ...input.events[19], data: { text: maliciousText } };
     const messages = buildMessages(input, null, { allowEdits: true });
-    expect(piPrompt(agentConfig({ DEEPSEEK_API_KEY: 'fixture' }))).toContain(
-      'UNIFIED CHARACTER',
-    );
+    expect(piPrompt(testAgentConfig())).toContain('UNIFIED CHARACTER');
     expect(messages[0].content).toContain('Use build');
     expect(messages[0].content).toContain('never edit bedrock');
     expect(messages[0].content).toContain(

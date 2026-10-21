@@ -1,3 +1,4 @@
+import { ManagementCommands } from '../../common/management-command';
 import type { Express } from 'express';
 import type { ProviderPort } from './provider-port';
 import { asyncRoute as route } from '../../common/middleware/async-route';
@@ -15,6 +16,7 @@ export type ProviderRouteDependencies = {
 export function installProviderRoutes(
   app: Express,
   providers: ProviderRouteDependencies,
+  commands: ManagementCommands,
 ) {
   /**
    * @openapi
@@ -58,8 +60,11 @@ export function installProviderRoutes(
   app.post(
     '/providers',
     route(async (req, res) => {
-      const result = await providers.store.save(req.body);
-      providers.changed();
+      const result = await commands.execute(req, 'providers', async () => {
+        const value = await providers.store.save(req.body);
+        providers.changed();
+        return value;
+      });
       res.status(201).json(result);
     }),
   );
@@ -92,11 +97,14 @@ export function installProviderRoutes(
   app.put(
     '/providers/:id',
     route(async (req, res) => {
-      const result = await providers.store.save(
-        req.body,
-        String(req.params.id),
-      );
-      providers.changed();
+      const result = await commands.execute(req, 'providers', async () => {
+        const value = await providers.store.save(
+          req.body,
+          String(req.params.id),
+        );
+        providers.changed();
+        return value;
+      });
       res.json(result);
     }),
   );
@@ -123,8 +131,10 @@ export function installProviderRoutes(
   app.delete(
     '/providers/:id',
     route(async (req, res) => {
-      await providers.remove(String(req.params.id));
-      providers.changed();
+      await commands.execute(req, 'providers', async () => {
+        await providers.remove(String(req.params.id));
+        providers.changed();
+      });
       res.sendStatus(204);
     }),
   );

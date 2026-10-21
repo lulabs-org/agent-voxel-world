@@ -1,7 +1,7 @@
 import { parseTaskDirective } from './support/decision-directive';
 import type { AgentDecision } from './support/decision-contracts';
 import { runTaskStep } from './support/decision-step';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AgentAttention,
@@ -12,7 +12,7 @@ import {
 } from '@voxel/agent-runtime';
 
 const cfg = () => ({
-  ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+  ...testAgentConfig(),
   allowEdits: true,
   maxTurns: 30,
   timeoutMs: 1000,

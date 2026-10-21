@@ -7,7 +7,7 @@ import { initialAICharacter } from './ai-characters/model';
 import { freshProvider } from './providers/model';
 
 vi.mock('../../network/gateway', () => ({
-  gatewayRequest: vi.fn(),
+  getGatewayToken: () => 'fixture-token',
   adminHeaders: () => ({ Authorization: 'Bearer fixture-token' }),
 }));
 
@@ -36,7 +36,7 @@ it('routes provider queries and mutations through HTTP REST endpoints', async ()
     'https://world.example/providers',
     expect.objectContaining({
       method: 'GET',
-      signal,
+      signal: expect.any(AbortSignal),
       headers: expect.objectContaining({
         Authorization: 'Bearer fixture-token',
       }),
@@ -46,7 +46,7 @@ it('routes provider queries and mutations through HTTP REST endpoints', async ()
   await providersApi.listModels('custom/provider', signal);
   expect(http).toHaveBeenLastCalledWith(
     'https://world.example/providers/custom%2Fprovider/models',
-    expect.objectContaining({ method: 'GET', signal }),
+    expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }),
   );
 
   const value = freshProvider('compatible');
@@ -88,7 +88,7 @@ it('routes agent operations through HTTP REST endpoints', async () => {
   await aiCharactersApi.listAgents(signal);
   expect(http).toHaveBeenLastCalledWith(
     'https://world.example/ai-characters',
-    expect.objectContaining({ method: 'GET', signal }),
+    expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }),
   );
 
   const { goal: _goal, ...profile } = initialAICharacter;
@@ -219,7 +219,7 @@ it('retains authenticated HTTP voice management and actionable HTTP errors', asy
   expect(http).toHaveBeenCalledWith(
     'https://world.example/voice/tts/piper/models',
     expect.objectContaining({
-      signal,
+      signal: expect.any(AbortSignal),
       headers: expect.objectContaining({
         Authorization: 'Bearer fixture-token',
       }),
@@ -237,7 +237,7 @@ it('uses the TTS domain for service CRUD, model installation and binary preview'
   await voiceApi.listVoiceServices(signal);
   expect(http).toHaveBeenLastCalledWith(
     'https://world.example/voice/tts/services',
-    expect.objectContaining({ method: 'GET', signal }),
+    expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }),
   );
   const draft = {
     type: 'browser' as const,
@@ -270,7 +270,7 @@ it('uses the TTS domain for service CRUD, model installation and binary preview'
     expect.objectContaining({
       method: 'POST',
       body: '{"model":"fixture-model"}',
-      signal,
+      signal: expect.any(AbortSignal),
     }),
   );
   http.mockResolvedValueOnce(
@@ -283,7 +283,7 @@ it('uses the TTS domain for service CRUD, model installation and binary preview'
     'https://world.example/voice/tts/services/custom%2Fvoice/preview',
     expect.objectContaining({
       method: 'POST',
-      signal,
+      signal: expect.any(AbortSignal),
       headers: expect.objectContaining({
         Authorization: 'Bearer fixture-token',
       }),

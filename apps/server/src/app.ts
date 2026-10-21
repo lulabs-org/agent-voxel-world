@@ -1,3 +1,5 @@
+import { ManagementCommands } from './common/management-command';
+import { identifier } from '@voxel/shared/management';
 import type { GatewayAuth } from './modules/gateway/auth';
 import express from 'express';
 import type { ServerConfig } from './config';
@@ -35,6 +37,7 @@ export function createApp(deps: {
   world: () => WorldRoom | undefined;
 }) {
   const app = express();
+  const commands = new ManagementCommands();
   const origin = deps.config.webOrigin;
   // Preserve permissive public route CORS; protected routes enforce their own policy.
   app.use((req, res, next) => {
@@ -49,6 +52,7 @@ export function createApp(deps: {
     '/providers',
     '/tasks',
     '/task-runs',
+    '/management',
   ];
   app.use(managementPaths, deps.gatewayAuth.middleware, ...managementBody);
   installAudioRoutes(app, {
@@ -59,14 +63,25 @@ export function createApp(deps: {
     voiceServices: deps.voiceServices,
     removeVoiceService: (id) => deps.characters.removeVoiceService(id),
   });
-  installAICharacterRoutes(app, deps.characters);
-  installProviderRoutes(app, {
-    store: deps.characters.providers,
-    models: (id) => deps.characters.models(id),
-    remove: (id) => deps.characters.removeProvider(id),
-    changed: () => deps.characters.events.publish('providers'),
+  installAICharacterRoutes(app, deps.characters, commands);
+  installProviderRoutes(
+    app,
+    {
+      store: deps.characters.providers,
+      models: (id) => deps.characters.models(id),
+      remove: (id) => deps.characters.removeProvider(id),
+      changed: () => deps.characters.events.publish('providers'),
+    },
+    commands,
+  );
+  installTaskRoutes(app, deps.characters.tasks, commands);
+  app.get('/management/commands/:id', (req, res) => {
+    if (!identifier(req.params.id)) {
+      res.status(400).json({ error: '命令标识无效。' });
+      return;
+    }
+    res.json(commands.get(req.params.id));
   });
-  installTaskRoutes(app, deps.characters.tasks);
   installWorldRoutes(app, () => deps.world()?.roomId ?? '');
   installChatRoutes(
     app,

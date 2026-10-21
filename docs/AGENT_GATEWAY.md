@@ -1,47 +1,35 @@
-# Agent Gateway
+# Agent 管理接口
 
-Gateway 与世界服务使用同一进程和端口。管理连接位于 `/ai-characters/gateway`，角色的 Colyseus 世界连接独立于管理连接。关闭控制台或 CLI watch 不会停止托管角色；`stop` 会让角色离开世界。
+Web 与命令行共用领域 HTTP 接口。`/ai-characters/gateway` WebSocket 只发送状态变化通知，不再接收业务命令。管理连接与角色的 Colyseus 世界连接独立；关闭控制台或 CLI watch 不会停止托管角色，`stop` 才会让角色离开世界。
 
 ```mermaid
 flowchart TD
   Web[Web 控制台] --> HTTP[领域 HTTP 路由]
-  CLI[agent:ctl] --> Client[GatewayClient]
-  Client --> RPC[WebSocket RPC /ai-characters/gateway]
-  HTTP --> Plans
-  RPC --> Router[CommandRouter]
-  Router --> Registry[AICharacterRegistry]
-  Scheduler[Agent 唤醒与跟随调度] --> Host[AICharacterHost]
-  Router --> Plans[TaskCoordinator 计划与执行]
-  Plans --> Port[TaskHostPort 宿主端口]
-  Port --> Host
-  Timer[TaskScheduler 时间触发] --> Plans
-  Plans --> Archive
-  Registry --> Host
-  Host --> Runner[AgentRunner / Coordinator]
-  Player[可信世界消息] --> Host
-  Runner --> Decision[CharacterRunner / Pi]
-  Decision --> Task[ActionExecutor]
-  Conversation --> Rules[TaskService]
-  Task --> World[世界动作和结果验证]
-  Host --> Archive[注入的存档适配器]
-  Archive --> Events[保存后发布 AICharacterEvents]
-  Events --> RPC
+  CLI[agent:ctl] --> HTTP
+  HTTP --> Commands[HTTP 命令去重与回执]
+  Commands --> Characters[AICharacterManager]
+  Commands --> Tasks[TaskCoordinator]
+  Commands --> Providers[ProviderStore]
+  Tasks --> Host[TaskHostPort / Agent 宿主]
+  Characters --> Host
+  Host --> Runtime[AgentRunner / Pi]
+  Host --> Archive[存档]
+  Archive --> Events[保存后的变化通知]
+  Events --> WS[通知 WebSocket]
+  WS --> Web
+  WS --> CLI
 ```
 
-## 包边界
+## 代码归属
 
-- `packages/gateway-protocol`：浏览器安全的 RPC v2 类型、公开视图和参数校验，仅依赖共享业务类型。
-- `packages/gateway-client`：宿主注入 socket；处理握手、请求关联、超时、订阅序号、重连和未确认命令查询。不会自动重发写请求。
-- `apps/server/src/modules/gateway`：令牌、RPC 命令分发与 socket 适配；HTTP 路由由各领域维护并在 app.ts 装配。
-- `apps/server/src/modules/providers`：`provider-store.ts`（模型提供商配置持久化）、`provider-validation.ts`、`provider-port.ts`、`providers.routes.ts`。
-- `apps/server/src/modules/tasks`：`coordinator.ts`（TaskCoordinator：计划、运行控制与调度）、`execution.ts`（执行状态、预算、聊天运行与历史）、`restore.ts`（任务恢复、私聊失效、未知动作与错过调度处理）、`execution-port.ts`（TaskHostPort / TaskExecutionState）、`model.ts`、`service.ts`、`scheduler.ts`、`port.ts`（HTTP 适配服务）、`routes.ts`。
-- `apps/server/src/modules/ai-characters`：`orchestrator.ts`（Agent 核心编排调度器）、`manager.ts`（生产依赖注入）、`host.ts`（AICharacterHost 宿主执行器）、`execution-adapter.ts`（任务状态与宿主能力的窄接口适配）、`storage.ts`（存档文件适配）、`routes.ts`（HTTP 路由）。各类校验与实体紧密内聚在各自领域模块中。
-- `apps/server/src/modules/audio/tts/agent-speech.ts`：世界内语音合成队列、空间听众筛选与音频缓存，由 `WorldRoom` 装配并管理生命周期。
-- `apps/server/src/modules/audio/routes.ts`：音频 HTTP 装配入口，挂载管理鉴权并组合各路由。ASR 配置与转写路由归属 `audio/asr`，语音服务与 Piper 路由归属 `audio/tts`；跨模块能力查询保留在 `audio/capabilities.routes.ts`。跨领域删除操作通过回调注入。
-
-Gateway 按程序规则路由。消息意图由统一 CharacterRunner 中的 Pi 判断；网关没有模型分类请求。每个角色只有一个模型槽及一个冲突动作，长动作期间可回答消息，跨角色可并行，在线上限仍为 4。命令提交按角色排队；执行中的模型请求不占据提交队列。暂停、取消、离开、删除在通过前置校验后立即发出取消信号，再等待执行退出和状态保存。
-
-世界消息队列容量 8，满时拒绝新消息并记录原因。快捷暂停/取消保留原玩家身份和私聊范围；成功后不再送入模型。连接代次与事件序号共同防止重复处理。普通聊天不恢复暂停、受阻或预算耗尽任务。
+- `packages/shared/src/management.ts`：管理公开视图、任务查询条件、命令回执和通知帧。通过 `@voxel/shared/management` 引用，避免与世界协议版本混淆。
+- `packages/shared/src/management-client.ts`：浏览器和 Node 共用的 HTTP 请求、通知重连。通过 `@voxel/shared/management-client` 引用；没有业务 RPC 方法表。
+- `apps/server/src/modules/gateway`：管理员令牌与通知 socket。没有另一套业务命令分发器。
+- `apps/server/src/common/management-command.ts`：HTTP 写命令使用同一份有界回执与提交队列。
+- `apps/server/src/modules/ai-characters`、`tasks`、`providers`：各自的 HTTP 路由和业务规则。任务修订检查归属 Tasks。
+- `scripts/agent`：独立 AI 玩家、脚本机器人与管理 CLI。根目录 `pnpm agent`、`agent:ai`、`agent:mock`、`agent:ctl` 命令保留。
+- `scripts/agent/config.ts`：独立 AI 玩家的环境变量解析。普通测试使用 `tests/support/agent-config.ts` 的独立配置，运行时只接收 `AgentConfig`。
+- `apps/server/test/integration/world-client.ts`：原 CLI 集成检查，在随机端口和临时存档中运行。
 
 ## 授权和配置
 
@@ -49,60 +37,38 @@ Gateway 按程序规则路由。消息意图由统一 CharacterRunner 中的 Pi 
 
 浏览器 Origin 必须在 `AGENT_GATEWAY_ALLOWED_ORIGINS` 逗号分隔列表中，禁止 `*`。未设置时使用明确的 `WEB_ORIGIN`；若游戏配置为通配，则仅使用固定本机开发 Origin。Docker 默认允许 `http://localhost` 与 `http://127.0.0.1`，其他域名和端口需显式配置。无 Origin 的 CLI 仍需令牌。
 
-Web 首次进入控制台输入令牌，按服务地址保存在当前标签页的 sessionStorage，可以清除；认证失败停止重连。每个控制台共享一个 socket，切换分类不会创建新管理连接。断线保留最后数据、禁用写操作，重连重新订阅快照。Agent/任务不再通过两秒轮询刷新。
+Web 首次进入控制台输入令牌，按服务地址保存在当前标签页的 sessionStorage，可以清除；认证失败停止重连。每个控制台共享一个 socket，切换分类不会创建新管理连接。断线保留最后数据、禁用写操作，重连后通过 HTTP 重新读取快照。Agent/任务不再通过两秒轮询刷新。
 
-HTTP `/ai-characters`、`/providers`、`/tasks`、`/task-runs`、`/voice/tts/**` 与 `/voice/asr/services` 管理接口要求 `Authorization: Bearer <token>`。ASR/TTS 配置仍用 HTTP；实际音频和游戏通道保持原有玩家会话授权。全局资源已从 `/ai-characters` 前缀迁出；前端与 HTTP 客户端须同步升级，业务参数和响应结构保持原样。
+HTTP `/ai-characters`、`/providers`、`/tasks`、`/task-runs`、`/management`、`/voice/tts/**` 与 `/voice/asr/services` 管理接口要求 `Authorization: Bearer <token>`。ASR/TTS 配置仍用 HTTP；实际音频和游戏通道保持原有玩家会话授权。全局资源已从 `/ai-characters` 前缀迁出；前端与 HTTP 客户端须同步升级，业务参数和响应结构保持原样。
 
-## RPC v2
+## HTTP 命令与通知
 
-JSON 文本帧，首帧：
+所有读写操作使用 HTTP：
+
+| 功能                             | 入口                                                  |
+| -------------------------------- | ----------------------------------------------------- |
+| 角色列表、详情、创建、编辑、删除 | `/ai-characters`、`/ai-characters/:id`                |
+| 角色上线、离线、语音配置         | `/ai-characters/:id/join`、`stop`、`voice`            |
+| 模型服务管理                     | `/providers`                                          |
+| 计划列表、创建、编辑、改派与控制 | `/tasks`、`/tasks/:planId` 及子路径                   |
+| 执行历史与控制                   | `/tasks/:planId/runs`、`/task-runs/:runId/:operation` |
+| 命令回执                         | `GET /management/commands/:commandId`                 |
+
+角色快照包含 `resourceVersion` 和 `taskIdentity`。控制执行时可带 `expectedTask`（无任务为 null）；修改计划可带 `expectedPlanRevision`，不匹配返回 409。保留旧 HTTP 调用方省略前置条件的行为；管理 CLI 自动读取任务身份再提交控制操作。可选 `characterId` 校验绑定关系，不会将过期请求转向其他角色。
+
+Web 和 CLI 自动给写请求附加 `Idempotency-Key`。同标识、同路径和业务内容的并发请求共享结果，改变业务内容返回 409；任务及计划修订字段作为首次执行的前置条件，不影响已提交命令的重试回执。角色创建等操作在存档完成后才返回成功。进程内保留最多 1024 个已完成回执、有效期 10 分钟；进程重启或过期后回执为 unknown。计划创建的 requestId 另外随存档持久化。
+
+请求超时、取消或响应丢失可能发生在服务端提交之后。客户端不会自动重发写请求，会保留命令标识；Web 在状态同步时查询回执，CLI 可用 `receipt` 查询。成功提交不等于模型执行完成，进度以执行记录为准。
+
+通知首帧为：
 
 ```json
-{ "type": "connect", "version": 2, "client": "web", "token": "<管理员令牌>" }
+{ "type": "connect", "version": 3, "token": "<管理员令牌>" }
 ```
 
-5 秒内未握手关闭连接；输入帧最多 32 KiB。服务端回复 `connected`，包含版本、进程级 `gatewayEpoch`、capabilities。请求格式：
+服务端先回复 `connected`，再发送 `event: snapshot` 的刷新信号（data 为 null），客户端用 HTTP 读取所需资源。后续 `event: changed` 包含变化资源标识。每次连接的 seq 从 1 连续递增，丢失事件时断开重连并重新读取状态；重连不重放业务命令。先注册通知监听再发送刷新信号，避免快照读取期间漏掉变化。
 
-```json
-{ "type": "req", "id": "1", "method": "characters.list", "params": {} }
-```
-
-写请求另带稳定 `commandId`。响应 `type=res` 关联 `id`，用 `ok/result` 或 `ok=false/error` 表达结果。错误包含 code、status、message。成功表示必要业务记录已经保存，模型和世界动作是否完成需读取任务/执行状态。
-
-| 方法                                                                   | 参数概要                                                                                                                                              |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| gateway.status / subscribe / unsubscribe                               | 订阅 scope，可选 characterId、planId；取消订阅传 subscriptionId                                                                                       |
-| commands.get                                                           | commandId                                                                                                                                             |
-| characters.list / get / create / update / join / stop / delete / voice | characterId、value；创建不要求 characterId                                                                                                            |
-| plans.list / get / create / update / control / reassign                | list 支持 offset/search/state/timing/characterId；写入使用 planId、expectedPlanRevision，create 必须指定 characterId，reassign 指定 targetCharacterId |
-| runs.list / control                                                    | list 使用 planId、offset；control 使用 runId、expectedTask 和 pause/resume/cancel，执行角色由记录定位                                                 |
-| providers.list / save / delete / models                                | providerId、value                                                                                                                                     |
-
-value 使用现有 HTTP 的业务对象。runs.control，以及 plans.control 的 run 要求 expectedTask（无当前任务时为 null），来自角色快照的 taskIdentity，字段为 id/revision/startedAt。旧任务修订返回 409。计划编辑、暂停、启用、追加额度和改派使用 expectedPlanRevision，独立于聊天任务修订。HTTP 按 planId/runId 定位资源，可选 characterId 用于绑定一致性检查；RPC 的 expectedTask 和 expectedPlanRevision 不属于 HTTP 的必填参数。
-
-RPC 公开快照带资源版本和任务身份，不公开模型密钥、原始 Pi 上下文和 runtime。订阅支持 all、characters、character、plans、runs、providers。先注册变化监听再读取快照，快照期间的更新暂存；每个订阅从 seq=1 开始连续发送。变化只包含资源标识和版本，详情按需读取。发送积压超过 1 MiB 关闭连接并要求重新同步。
-
-同 commandId、同业务内容的并发请求共享结果；不同内容冲突。进行中的记录不淘汰，已结束记录最多 1,024 条、保留 10 分钟。内部指纹使用摘要，不保留明文密钥。HTTP 校验可选 Idempotency-Key 的格式；该头不会自动提供 RPC 的命令去重语义。任务计划原有 requestId 持久去重继续有效。
-
-连接丢失时写请求显示“结果待确认”；重连先查 commands.get 并重取快照。网关重启或记录过期返回 unknown，不能自动重发。此协议不保证所有写操作跨重启 exactly-once。
-
-## 任务入口迁移
-
-Agent HTTP 只提供配置、加入世界、停止离线、删除与语音绑定。已删除 `/ai-characters/:id/task`、`pause`、`resume`、`cancel`，不保留别名；Gateway 已删除 `tasks.assign/pause/resume/cancel`，握手 capabilities 不再包含它们。
-
-- 即时任务使用 `POST /tasks` 或 RPC `plans.create`，传入 characterId、name、goal、timing.kind=immediate、timeZone；创建成功即启动首次执行，无需再次调用 run。角色须先上线，忙碌时返回冲突，不隐式暂停或替换任务。
-- 后续新增执行使用 `POST /tasks/:planId/run` 或 RPC `plans.control` 的 run；已有执行的暂停、继续、取消使用 `/task-runs/:runId/:operation` 或 RPC `runs.control`。
-- `/tasks/:planId/pause` 只暂停未来调度，当前执行不受影响；resume 恢复定时调度。执行 resume 保留进度与用量，已结束执行应重新 run。
-
-创建与更新角色只写角色配置，不再通过 goal/startTask 隐式创建或替换任务。默认创建后上线待命，joinWorld=false 仅保存离线角色；两种方式都不生成计划或执行，也不自动调用模型。startTask（包括 false）、taskTimeZone 和非空 goal 返回 400 并提示使用 Tasks；空 goal 仅兼容旧请求，不清空已有任务。已有任务的摘要仍可在查询中展示，进度、用量和历史不变。内部执行器的暂停、取消能力供 Tasks 和世界生命周期调用。
-
-## 内部执行边界
-
-Agent 不再提供 resume、assignTask、controlTask 或计划操作转发方法。HTTP 与 Gateway 的 plans/runs 请求直接调用 Tasks 领域端口；内部调用使用 `characters.tasks`。Tasks 负责目标、计划、预算、恢复资格、聊天执行记录与历史，Agent 负责世界连接、消息唤醒、运行器启动和中断退出。
-
-`TaskExecutionState` 只包含执行所需的业务状态与在线标记，不暴露 Session、AbortController、runner 或整个 Agent Job。`TaskHostPort` 提供按角色 ID 启动、调度、验证配置、保存以及“中断并等待运行器退出后提交变更”的能力。Tasks 不依赖 Agent 模块。更换角色配置、离线和关闭产生的任务状态转换复用 Tasks 规则；角色删除与任务归属/历史仍在同一存档事务中提交和回滚。
-
-可信世界消息的暂停/取消携带完整任务身份、玩家消息和命令 ID。Tasks 在中断前及等待退出后重新校验任务身份与私聊发起者权限，再按玩家权限提交；过期命令不能影响新的执行。相同命令 ID 和内容共用回执，不同内容冲突，复用公共 CommandRouter 的有界进程内去重。聊天执行仍无 planId，原私聊归属保留，不转成管理计划；运行器退出时恰好完成的结果不被暂停/取消覆盖。
+5 秒内未握手会关闭连接，输入最多 32 KiB；发送积压超过 1 MiB 会关闭连接要求重新同步。认证失败停止重连。协议版本 3 只提供通知，不兼容旧 RPC v2 客户端；Web、CLI 与服务端需一起升级。原 CLI 的 `--url ws://.../ai-characters/gateway` 仍接受，并转换为同一服务的 HTTP 地址。
 
 ## CLI
 
@@ -113,17 +79,18 @@ pnpm agent:ctl status <characterId>
 pnpm agent:ctl join <characterId>
 pnpm agent:ctl stop <characterId>
 pnpm agent:ctl task create <characterId> --goal '到指定位置等待'
-pnpm agent:ctl run pause <runId> --agent <characterId>
-pnpm agent:ctl run resume <runId> --agent <characterId>
-pnpm agent:ctl run cancel <runId> --agent <characterId>
+pnpm agent:ctl run pause <runId> --character <characterId>
+pnpm agent:ctl run resume <runId> --character <characterId>
+pnpm agent:ctl run cancel <runId> --character <characterId>
 pnpm agent:ctl plans [characterId]
 pnpm agent:ctl runs <characterId> <planId>
 pnpm agent:ctl watch <characterId>
+pnpm agent:ctl receipt <commandId>
 ```
 
-即时任务通过 `plans.create` 创建并启动一次执行；从返回的计划 ID 使用 `runs` 查询 runId。`run` 命令必须提供 runId 和 `--agent`，后者用于读取当前任务修订并校验执行角色，不能替代 runId。暂停计划只停止后续调度，暂停执行使用 `runs.control`；恢复执行不创建新任务，也不会自动上线角色，需先执行 `join`。
+`--agent` 作为 `--character` 的兼容别名保留。即时任务创建后启动一次执行；恢复执行保留原 runId、进度和用量，不自动上线角色。计划暂停只停止后续调度，暂停当前执行使用 `run pause`。
 
-所有管理命令支持 `--url`、`--token-file`、`--json`。默认地址 `ws://127.0.0.1:2567/ai-characters/gateway`。令牌从环境变量或文件读取，不提供明文 token 命令行选项。auth show 是显式读取本地令牌文件供用户配置页面；不要将输出复制到日志。watch 的 Ctrl+C 只断开客户端。旧 pnpm agent / agent:ai / agent:mock 仍独立运行，Ctrl+C 会退出其自身角色。
+所有管理命令支持 `--url`、`--token-file`、`--json`。默认地址 `http://127.0.0.1:2567`。令牌从环境变量或文件读取；`auth show` 显式读取本地令牌供页面配置。watch 的 Ctrl+C 只断开管理连接，独立 `agent:ai` 和 `agent:mock` 的 Ctrl+C 会退出其自身角色。
 
 ## 存档与部署
 
@@ -135,14 +102,10 @@ pnpm agent:ctl watch <characterId>
 
 存档失败会中断受影响 Agent 并停止其后续世界动作，命令不会返回提交成功；修复存储后重启。查询使用已提交快照。正常关闭停止接收写命令和调度，取消执行、等待退出、保存暂停状态、关闭连接；保留原上线意愿以便下次上线待命。
 
-Nginx 代理覆盖 `/ai-characters`、`/providers`、`/tasks`、`/task-runs`、`/voice`；`/ai-characters/gateway` 保留 Upgrade；同一分发器区分 Gateway、实时 ASR 和 Colyseus。Dockerfile 已包含新增工作区依赖，未增加部署端口或容器。升级切换现用服务属于单独部署步骤。
+Nginx 代理覆盖 `/ai-characters`、`/providers`、`/tasks`、`/task-runs`、`/management`、`/voice`；`/ai-characters/gateway` 保留 Upgrade；同一分发器区分 Gateway、实时 ASR 和 Colyseus。Dockerfile 使用现有 shared 和 agent-runtime 工作区，未增加部署端口或容器。升级切换现用服务属于单独部署步骤。
 
 ## 验证入口
 
-`pnpm check`、`pnpm test:gateway`、现有 Agent/任务/聊天/语音/导航集成；`pnpm test:integration` 已改为随机端口、临时存档的 CLI 协议测试。Gateway 单元测试覆盖去重、按角色串行、边界校验、授权、快照空窗、慢连接、客户端重连和保存失败。浏览器、真实模型及 Docker 证据分别记录在 VALIDATION.md；fixture 通过不代替真实模型验收。
+`pnpm check` 检查类型、单元回归和构建。`pnpm test:gateway` 验证真实 HTTP/通知 WebSocket、鉴权、命令回执、任务修订、独立计划、断线后托管继续和 CLI 退出；`pnpm test:integration` 验证世界协议。两项集成使用随机端口和临时存档，不修改本地开发世界。真实模型、浏览器和 Docker 验证分别记录，fixture 测试不代替真实模型验收。
 
-## AI 角色命名迁移
-
-角色 HTTP 入口为 `/ai-characters`，管理 WebSocket 为 `/ai-characters/gateway`。任务计划、执行历史、查询参数和 RPC 使用 `characterId` / `characterName`，改派使用 `targetCharacterId`；RPC 方法为 `characters.*`，协议版本为 2。旧 HTTP 路径和 RPC v1 不再接受，客户端与服务端需一起升级。共享类型为 `AICharacterSettings` / `AICharacterView`，底层 `AgentRunner`、`AgentRunState` 和 `@voxel/agent-runtime` 继续表示执行引擎。
-
-为发现已有数据，磁盘文件仍使用 `<providers.path>.agents.json`。加载 v1 对象或更早的数组存档时，先保存 `.before-character-events-v3.bak` 原始备份，再将角色集合和计划／执行的归属字段转换为 v3；ID、当前执行、历史、用量、请求去重键与运行时 checkpoint 保留。后续保存只写新字段，重复启动不会重复迁移。管理员令牌环境变量、文件位置和浏览器会话键保持兼容。
+本次不修改存档格式、管理员令牌环境变量、文件路径和浏览器会话键。

@@ -1,5 +1,5 @@
 import { runAgent } from './support/decision-loop';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import { describe, it, expect, vi } from 'vitest';
 import {
   parseAction,
@@ -284,7 +284,7 @@ describe('bounded multi-block construction', () => {
       s as unknown as Session,
       { decide },
       {
-        ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+        ...testAgentConfig(),
         allowEdits: true,
         maxTurns: 3,
         intervalMs: 0,

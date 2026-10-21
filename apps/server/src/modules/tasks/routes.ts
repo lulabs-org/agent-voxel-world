@@ -1,6 +1,7 @@
+import { ManagementCommands } from '../../common/management-command';
 import type { Express, Request, Response } from 'express';
 import { asyncRoute as route } from '../../common/middleware/async-route';
-import type { RpcParams } from '@voxel/gateway-protocol';
+import type { PlanQueryFilter } from '@voxel/shared/management';
 import { TasksService, type TaskPort } from './port';
 
 /**
@@ -9,6 +10,7 @@ import { TasksService, type TaskPort } from './port';
 export function installTaskRoutes(
   app: Express,
   tasksOrService: TaskPort | TasksService,
+  commands: ManagementCommands,
 ) {
   const service =
     tasksOrService instanceof TasksService
@@ -28,45 +30,58 @@ export function installTaskRoutes(
 
   const handleCreatePlan = async (req: Request, res: Response) => {
     const characterId = resolveCharacterId(req) ?? '';
-    const result = await service.createPlan(characterId, req.body ?? {});
+    const result = await commands.execute(req, 'plans', (commandId) =>
+      service.createPlan(characterId, {
+        ...req.body,
+        requestId: req.body?.requestId ?? commandId,
+      }),
+    );
     res.status(201).json(result);
   };
 
   const handleUpdatePlan = async (req: Request, res: Response) => {
-    const result = await service.updatePlan(
-      resolveCharacterId(req),
-      String(req.params.planId),
-      req.body ?? {},
+    const result = await commands.execute(req, 'plans', () =>
+      service.updatePlan(
+        resolveCharacterId(req),
+        String(req.params.planId),
+        req.body ?? {},
+      ),
     );
+
     res.json(result);
   };
 
   const handleDeletePlan = async (req: Request, res: Response) => {
-    await service.deletePlan(
-      resolveCharacterId(req),
-      String(req.params.planId),
+    await commands.execute(req, 'plans', () =>
+      service.deletePlan(resolveCharacterId(req), String(req.params.planId)),
     );
     res.sendStatus(204);
   };
 
   const handleControlPlan = async (req: Request, res: Response) => {
-    const result = await service.controlPlan(
-      resolveCharacterId(req),
-      String(req.params.planId),
-      String(req.params.operation),
-      req.body ?? {},
+    const result = await commands.execute(req, 'plans', (commandId) =>
+      service.controlPlan(
+        resolveCharacterId(req),
+        String(req.params.planId),
+        String(req.params.operation),
+        { ...req.body, requestId: req.body?.requestId ?? commandId },
+      ),
     );
+
     res.json(result);
   };
 
   const handleControlRun = async (req: Request, res: Response) => {
     const characterId = resolveCharacterId(req);
-    const result = await service.controlRun(
-      characterId,
-      String(req.params.runId),
-      String(req.params.operation),
-      req.body ?? {},
+    const result = await commands.execute(req, 'plans', () =>
+      service.controlRun(
+        characterId,
+        String(req.params.runId),
+        String(req.params.operation),
+        req.body ?? {},
+      ),
     );
+
     res.json(result);
   };
 
@@ -133,9 +148,12 @@ export function installTaskRoutes(
     '/tasks',
     route((req, res) => {
       const page = service.listGlobalPlans({
+        timing: req.query.timing
+          ? (String(req.query.timing) as PlanQueryFilter['timing'])
+          : undefined,
         state: (req.query.state
           ? String(req.query.state)
-          : undefined) as RpcParams['state'],
+          : undefined) as PlanQueryFilter['state'],
         offset:
           req.query.offset !== undefined ? Number(req.query.offset) : undefined,
         search: req.query.search ? String(req.query.search) : undefined,
@@ -365,9 +383,12 @@ export function installTaskRoutes(
   app.post(
     '/tasks/:planId/reassign',
     route(async (req, res) => {
-      const result = await service.reassignPlan(
-        String(req.params.planId),
-        String(req.body?.targetCharacterId ?? ''),
+      const result = await commands.execute(req, 'plans', () =>
+        service.reassignPlan(
+          String(req.params.planId),
+          String(req.body?.targetCharacterId ?? ''),
+          req.body ?? {},
+        ),
       );
       res.json(result);
     }),
@@ -423,7 +444,7 @@ export function installTaskRoutes(
     '/tasks/:planId/runs',
     route((req, res) => {
       const result = service.listRuns(
-        undefined,
+        req.query.characterId ? String(req.query.characterId) : undefined,
         String(req.params.planId),
         Number(req.query.offset ?? 0),
         true,

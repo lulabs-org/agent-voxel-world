@@ -7,7 +7,7 @@ import {
   type AgentRunState,
   type Observation,
 } from '@voxel/agent-runtime';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import { toolResponse } from './support/pi-response';
 const complete = () => ({
   name: 'complete_task',
@@ -52,7 +52,7 @@ vi.mock(
 );
 function fixture(replies: { name: string; arguments: unknown }[][]) {
   const config = {
-    ...agentConfig({ DEEPSEEK_API_KEY: 'test-secret' }),
+    ...testAgentConfig({ apiKey: 'test-secret' }),
     permissions: { move: true, chat: true, place: true, remove: true },
     maxTurns: 12,
     timeoutMs: 1000,

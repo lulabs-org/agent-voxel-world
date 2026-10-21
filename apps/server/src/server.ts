@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { GatewayAuth } from './modules/gateway/auth';
 import { gatewaySocket } from './modules/gateway/socket';
 import { createServer as createHttpServer } from 'node:http';
@@ -7,7 +6,6 @@ import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
 import { env, type ServerConfig } from './config';
 import { AICharacterManager } from './modules/ai-characters';
-import { AgentGateway } from './modules/gateway/gateway';
 import { ProviderStore } from './modules/providers/provider-store';
 import { VoiceServiceStore } from './modules/audio/tts/voice-services';
 import { AsrSettingsStore } from './modules/audio/asr/asr-settings';
@@ -35,7 +33,6 @@ export async function createServer(options: ServerOptions = {}) {
   const config = options.config ?? env.readServer();
   await (options.databaseCheck ?? checkStartupDatabase)(config.databaseUrl);
   const gatewayAuth = await GatewayAuth.load(config.gateway);
-  const gatewayEpoch = randomUUID();
   const providers = options.providers ?? new ProviderStore();
   const voiceServices = options.voiceServices ?? new VoiceServiceStore();
   const asrSettings = options.asrSettings ?? new AsrSettingsStore();
@@ -56,7 +53,6 @@ export async function createServer(options: ServerOptions = {}) {
     options.agentDependencies,
     voiceServices,
   );
-  const gateway = new AgentGateway(characters);
   const app = createApp({
     config,
     gatewayAuth,
@@ -77,8 +73,7 @@ export async function createServer(options: ServerOptions = {}) {
     asrSettings,
     options.asrBridge,
     config.webOrigin,
-    (socket, req) =>
-      gatewaySocket(gateway, gatewayAuth, gatewayEpoch, socket, req),
+    (socket, req) => gatewaySocket(characters.events, gatewayAuth, socket, req),
   );
   const server = new Server({
     transport,

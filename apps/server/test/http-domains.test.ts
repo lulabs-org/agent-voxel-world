@@ -1,3 +1,4 @@
+import { rename } from 'node:fs/promises';
 import { expect, it, vi } from 'vitest';
 import { createTestServer } from './helpers/test-server';
 import { LocalSpeech } from '../src/modules/audio/asr/local-speech';
@@ -76,6 +77,7 @@ it('protects each management domain and retains transport policies after path mi
       '/providers',
       '/tasks',
       '/task-runs/missing/pause',
+      '/management/commands/missing',
       '/voice/tts/services',
       '/voice/tts/piper/models',
       '/voice/asr/services',
@@ -242,7 +244,10 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
         })
       ).status,
     ).toBe(201);
-    expect(createPlan).toHaveBeenCalledWith('agent-123', draft);
+    expect(createPlan).toHaveBeenCalledWith('agent-123', {
+      ...draft,
+      requestId: expect.any(String),
+    });
     const run = vi
       .spyOn(server.characters.tasks, 'controlTaskRun')
       .mockResolvedValue({ id: 'run-123' } as any);
@@ -270,7 +275,9 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
         })
       ).status,
     ).toBe(200);
-    expect(reassign).toHaveBeenCalledWith('plan-123', 'agent-456');
+    expect(reassign).toHaveBeenCalledWith('plan-123', 'agent-456', {
+      targetCharacterId: 'agent-456',
+    });
     const voice = await fetch(server.httpUrl + '/voice/tts/services', {
       method: 'POST',
       headers,
@@ -307,6 +314,85 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     }
   } finally {
     vi.restoreAllMocks();
+    await server.close();
+  }
+});
+
+it('returns one persisted result for concurrent HTTP commands and protects receipt lookup', async () => {
+  const server = await createTestServer({ origin });
+  const body = {
+    providerId: 'deepseek',
+    name: 'Receipt fixture',
+    joinWorld: false,
+  };
+  const send = (value = body) =>
+    fetch(server.httpUrl + '/ai-characters', {
+      method: 'POST',
+      headers: { ...headers, 'Idempotency-Key': 'same-create' },
+      body: JSON.stringify(value),
+    });
+  try {
+    const [a, b] = await Promise.all([send(), send()]);
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+    const first = await a.json();
+    expect((await b.json()).id).toBe(first.id);
+    expect(server.characters.publicList()).toHaveLength(1);
+    expect((await send({ ...body, name: 'Different' })).status).toBe(409);
+    const receiptUrl = server.httpUrl + '/management/commands/same-create';
+    expect((await fetch(receiptUrl)).status).toBe(401);
+    const receipt = await (await fetch(receiptUrl, { headers })).json();
+    expect(receipt).toMatchObject({
+      state: 'committed',
+      result: { id: first.id },
+    });
+    expect(JSON.stringify(receipt)).not.toContain('fixture-only');
+    expect(
+      await (
+        await fetch(server.httpUrl + '/management/commands/missing', {
+          headers,
+        })
+      ).json(),
+    ).toEqual({ state: 'unknown' });
+  } finally {
+    await server.close();
+  }
+});
+
+it('does not acknowledge or publish an HTTP creation whose archive cannot be saved', async () => {
+  const session = vi.fn();
+  const server = await createTestServer({
+    origin,
+    agentDependencies: {
+      session,
+      models: async () => [],
+      runner: () => ({ run: async () => {} }),
+    },
+  });
+  const changed = vi.fn();
+  const off = server.characters.events.on(changed);
+  const moved = server.directory + '-unavailable';
+  await rename(server.directory, moved);
+  try {
+    const response = await fetch(server.httpUrl + '/ai-characters', {
+      method: 'POST',
+      headers: { ...headers, 'Idempotency-Key': 'failed-create' },
+      body: JSON.stringify({ providerId: 'deepseek', name: 'Failure fixture' }),
+    });
+    expect(response.status).toBe(500);
+    expect(session).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+    expect(server.characters.publicList()).toEqual([]);
+    const receipt = await (
+      await fetch(server.httpUrl + '/management/commands/failed-create', {
+        headers,
+      })
+    ).json();
+    expect(receipt.state).toBe('rejected');
+    expect(JSON.stringify(receipt)).not.toContain(server.directory);
+  } finally {
+    off();
+    await rename(moved, server.directory);
     await server.close();
   }
 });

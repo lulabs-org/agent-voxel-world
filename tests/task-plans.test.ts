@@ -6,7 +6,6 @@ import { mkdtemp, rm, readFile, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AICharacterManager } from '../apps/server/src/modules/ai-characters';
-import { AgentGateway } from '../apps/server/src/modules/gateway/gateway';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 import {
   DEFAULT_TASK_LIMITS,
@@ -20,10 +19,8 @@ import {
   AgentRuntimeError,
   AgentRunner,
 } from '@voxel/agent-runtime';
-let dir: string,
-  store: ProviderStore,
-  manager: AICharacterManager,
-  gateway: AgentGateway;
+let dir: string, store: ProviderStore, manager: AICharacterManager;
+
 let now: number;
 const response = (
   status: 'completed' | 'running' | 'waiting' = 'completed',
@@ -103,7 +100,6 @@ beforeEach(async () => {
   now = Date.now();
   vi.spyOn(Date, 'now').mockImplementation(() => now);
   manager = build();
-  gateway = new AgentGateway(manager);
 });
 afterEach(async () => {
   await manager.close().catch(() => {});
@@ -635,15 +631,9 @@ it('owns plans independently, reassigns with revision guards and retains executo
   );
   const first = manager.tasks.taskRuns(a, p.id).items[0];
   const before = manager.tasks.publicPlan(p.id);
-  const result = (await gateway.dispatch(
-    'plans.reassign',
-    {
-      planId: p.id,
-      targetCharacterId: b,
-      expectedPlanRevision: before.revision,
-    },
-    'move-plan',
-  )) as any;
+  const result = await manager.tasks.reassignPlan(p.id, b, {
+    expectedPlanRevision: before.revision,
+  });
   expect(result).toMatchObject({
     characterId: b,
     state: 'paused',
@@ -657,24 +647,14 @@ it('owns plans independently, reassigns with revision guards and retains executo
   });
   expect(manager.tasks.taskPlans(a)).toHaveLength(0);
   await expect(
-    gateway.dispatch(
-      'plans.control',
-      {
-        planId: p.id,
-        expectedPlanRevision: before.revision,
-        operation: 'pause',
-      },
-      'stale-plan',
-    ),
+    manager.tasks.controlTaskPlan(undefined, p.id, 'pause', {
+      expectedPlanRevision: before.revision,
+    }),
   ).rejects.toThrow('已改变');
   await expect(
-    gateway.dispatch(
-      'plans.control',
-      { characterId: a, planId: p.id, operation: 'pause' },
-      'old-target',
-    ),
+    manager.tasks.controlTaskPlan(a, p.id, 'pause', {}),
   ).rejects.toThrow('已改变');
-  const page = (await gateway.dispatch('plans.list', {})) as any;
+  const page = (await manager.tasks.planPage({})) as any;
   expect(page.items).toHaveLength(1);
   expect(page.items[0].characterId).toBe(b);
   await manager.tasks.controlTaskPlan(b, p.id, 'run', {
@@ -752,19 +732,17 @@ it('filters global plans and controls plan state independently of a chat task re
     ...draft({ kind: 'daily', time: '09:00' }),
     name: '每天巡查',
   });
-  await gateway.dispatch(
-    'plans.control',
-    { planId: p.id, expectedPlanRevision: p.revision, operation: 'pause' },
-    'pause-definition',
-  );
-  const result = (await gateway.dispatch('plans.list', {
+  await manager.tasks.controlTaskPlan(undefined, p.id, 'pause', {
+    expectedPlanRevision: p.revision,
+  });
+  const result = (await manager.tasks.planPage({
     search: '巡查',
     state: 'paused',
     timing: 'daily',
     characterId: a,
   })) as any;
   expect(result.items).toHaveLength(1);
-  const none = (await gateway.dispatch('plans.list', {
+  const none = (await manager.tasks.planPage({
     search: '不存在',
   })) as any;
   expect(none.total).toBe(0);

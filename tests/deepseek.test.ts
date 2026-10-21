@@ -1,7 +1,7 @@
 import { parseDecision } from './support/decision-decision';
 import { DecisionFixture as ModelPlanner } from './support/decision-fixture';
 import { runAgent } from './support/decision-loop';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import { describe, it, expect, vi } from 'vitest';
 import {
   parseAction,
@@ -13,7 +13,7 @@ import {
 } from '@voxel/agent-runtime';
 
 const config = () => ({
-  ...agentConfig({ DEEPSEEK_API_KEY: 'test-key' }),
+  ...testAgentConfig({ apiKey: 'test-key' }),
   intervalMs: 0,
   timeoutMs: 200,
 });
@@ -43,21 +43,6 @@ const response = (content: string, finish_reason = 'stop') =>
   );
 const signal = () => new AbortController().signal;
 describe('DeepSeek agent boundary', () => {
-  it('requires credentials and bounds the inference budget', () => {
-    expect(() => agentConfig({})).toThrow('DEEPSEEK_API_KEY');
-    expect(config()).toMatchObject({
-      model: 'deepseek-flash',
-      maxTurns: 100,
-      allowEdits: false,
-    });
-    for (const env of [
-      { AGENT_MAX_TURNS: '0' },
-      { AGENT_MAX_TURNS: '201' },
-      { AGENT_INTERVAL_MS: '10' },
-      { AGENT_ALLOW_EDITS: 'yes' },
-    ])
-      expect(() => agentConfig({ DEEPSEEK_API_KEY: 'key', ...env })).toThrow();
-  });
   it.each([
     null,
     [],
@@ -115,10 +100,11 @@ describe('DeepSeek agent boundary', () => {
           '{"actions":[{"type":"wait"}],"task":{"intent":"continue","status":"completed","summary":"测试决策"}}',
         ),
       );
-    const cfg = agentConfig({
-      DEEPSEEK_API_KEY: 'key',
-      DEEPSEEK_THINKING: 'enabled',
-      DEEPSEEK_REASONING_EFFORT: 'high',
+    const cfg = testAgentConfig({
+      apiKey: 'key',
+      thinking: 'enabled',
+      reasoningEffort: 'high',
+      maxTokens: 4096,
     });
     await new ModelPlanner(cfg, request).decide(observation, null, signal());
     expect(JSON.parse(request.mock.calls[0][1]!.body as string)).toMatchObject({
@@ -284,35 +270,6 @@ describe('AI action execution', () => {
 });
 
 describe('continuous and randomized scheduling', () => {
-  it('supports explicit CLI scheduling settings while preserving finite defaults', () => {
-    expect(config()).toMatchObject({
-      continuous: false,
-      intervalMode: 'fixed',
-    });
-    expect(
-      agentConfig({
-        DEEPSEEK_API_KEY: 'fixture',
-        AGENT_CONTINUOUS: 'true',
-        AGENT_INTERVAL_MODE: 'random',
-        AGENT_INTERVAL_MIN_MS: '4000',
-        AGENT_INTERVAL_MAX_MS: '8000',
-      }),
-    ).toMatchObject({
-      continuous: true,
-      intervalMode: 'random',
-      intervalMinMs: 4000,
-      intervalMaxMs: 8000,
-    });
-    for (const env of [
-      { AGENT_CONTINUOUS: 'yes' },
-      { AGENT_INTERVAL_MODE: 'bad' },
-      { AGENT_INTERVAL_MIN_MS: '9000', AGENT_INTERVAL_MAX_MS: '4000' },
-      { AGENT_INTERVAL_MIN_MS: '0' },
-    ])
-      expect(() =>
-        agentConfig({ DEEPSEEK_API_KEY: 'fixture', ...env }),
-      ).toThrow();
-  });
   it('samples inclusive random bounds and preserves fixed intervals', () => {
     const cfg = {
       ...config(),

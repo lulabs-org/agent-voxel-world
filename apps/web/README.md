@@ -16,13 +16,13 @@ src/
 │   └── index.ts              # 现有能力的公共入口
 ├── graphics/
 │   ├── scene.ts              # Three.js 场景与渲染循环
-│   ├── entities/             # Avatar 与名牌
+│   ├── entities/             # Avatar 与 AI 角色实体
 │   └── controls/             # 指针锁与 DOM 输入目标识别
 ├── network/                  # 世界连接、presence、统一地址解析
 ├── features/
 │   ├── chat/                 # 组件、controller、聊天 API
 │   ├── console/
-│   │   ├── agents/           # 角色列表、编辑、轮询、API、展示逻辑
+│   │   ├── characters/        # AI 角色列表、编辑、轮询、API、展示逻辑
 │   │   ├── tasks/            # 任务编辑、执行记录、API、展示逻辑
 │   │   ├── providers/        # 模型服务编辑、模型查询与取消、API
 │   │   ├── voice/            # TTS 服务、预览与配置 API

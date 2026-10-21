@@ -17,7 +17,7 @@ import {
 } from '@voxel/agent-runtime';
 import { key } from '@voxel/shared';
 import { toolResponse } from '../../../../tests/support/pi-response';
-import { agentConfig } from '../../../agent-cli/src/cli/agent-config';
+import { testAgentConfig } from '../../../../tests/support/agent-config';
 
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';
@@ -124,7 +124,7 @@ try {
   await reset();
   const memory: AgentRunState = { task: newTask('持续跟随') };
   const config = {
-    ...agentConfig({ DEEPSEEK_API_KEY: 'fixture' }),
+    ...testAgentConfig(),
     taskTimeoutMs: 60000,
     intervalMs: 60000,
     intervalMode: 'fixed' as const,

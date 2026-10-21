@@ -9,7 +9,7 @@ import {
   type Observation,
   type AgentRunState,
 } from '../../packages/agent-runtime/src/index';
-import { agentConfig } from '../../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from '../support/agent-config';
 // Opt-in: this benchmark sends real requests using a locally configured provider.
 const providers = JSON.parse(
   await readFile(
@@ -34,7 +34,7 @@ const output =
   process.env.PI_BENCHMARK_OUTPUT || 'artifacts/pi-migration/pi-benchmark.json';
 await mkdir(dirname(output), { recursive: true });
 const config = {
-  ...agentConfig({ DEEPSEEK_API_KEY: provider.apiKey }),
+  ...testAgentConfig({ apiKey: provider.apiKey }),
   model: provider.defaultModel,
   maxTurns: 12,
   tokenBudget: 30000,

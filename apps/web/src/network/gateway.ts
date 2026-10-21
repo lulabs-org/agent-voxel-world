@@ -1,11 +1,10 @@
-import { GatewayClient, UnknownOutcome } from '@voxel/gateway-client';
-import type {
-  RpcMethod,
-  RpcParams,
-  TaskIdentity,
-} from '@voxel/gateway-protocol';
-import { serverSocketUrl, gatewaySocketUrl } from './endpoints';
-let client: GatewayClient | undefined;
+import {
+  ManagementEvents,
+  commandReceipt,
+  type UnknownOutcome,
+} from '@voxel/shared/management-client';
+import { serverSocketUrl, gatewaySocketUrl, serverHttpUrl } from './endpoints';
+let client: ManagementEvents | undefined;
 let state = 'closed';
 let failure = '';
 type Change = {
@@ -14,7 +13,6 @@ type Change = {
 };
 const listeners = new Set<() => void>(),
   changes = new Set<(change: Change) => void>();
-const identities = new Map<string, TaskIdentity | null>();
 const notify = () => {
   for (const fn of listeners) fn();
 };
@@ -55,24 +53,51 @@ export function onGatewayChange(fn: (change: Change) => void) {
     changes.delete(fn);
   };
 }
+const uncertain = new Set<string>();
+let reconciling = false;
+export function reportUnknownOutcome(error: UnknownOutcome) {
+  uncertain.add(error.commandId);
+  failure = error.message;
+  notify();
+  void reconcileOutcomes();
+}
+async function reconcileOutcomes() {
+  if (reconciling || !getGatewayToken()) return;
+  reconciling = true;
+  const owner = client;
+  try {
+    for (const id of uncertain) {
+      try {
+        const receipt = await commandReceipt(
+          serverHttpUrl(),
+          getGatewayToken(),
+          id,
+        );
+        if (client !== owner) return;
+        if (receipt.state !== 'pending') uncertain.delete(id);
+        failure =
+          receipt.state === 'committed'
+            ? '先前的操作已提交，请以当前状态为准。'
+            : receipt.state === 'rejected'
+              ? '先前的操作被拒绝，请检查当前状态后重试。'
+              : '先前的操作结果待确认，请根据当前状态决定下一步。';
+        notify();
+      } catch {
+        /* Retry on the next connection or change notification. */
+      }
+    }
+  } finally {
+    reconciling = false;
+  }
+}
 export function openGateway() {
   if (client || !getGatewayToken()) return;
-  const c = new GatewayClient({
+  const c = new ManagementEvents({
     url: gatewaySocketUrl(),
     token: getGatewayToken,
     socket: (url) => new WebSocket(url),
   });
   client = c;
-  c.onOutcome((_id, receipt) => {
-    if (client !== c) return;
-    failure =
-      receipt.state === 'committed'
-        ? '断线前的操作已提交，请以当前状态为准。'
-        : receipt.state === 'rejected'
-          ? '断线前的操作被拒绝，请检查当前状态后重试。'
-          : '断线前的操作结果待确认，请根据当前状态决定下一步。';
-    notify();
-  });
   c.onState((s) => {
     if (client !== c) return;
     state = s === 'connected' ? 'syncing' : s;
@@ -81,13 +106,15 @@ export function openGateway() {
   c.onEvent((e) => {
     if (client !== c) return;
     if (e.event === 'snapshot') {
+      if (!uncertain.size) failure = '';
       state = 'ready';
       notify();
     }
+    void reconcileOutcomes();
     for (const fn of changes)
       fn(e.event === 'changed' ? (e.data as Change) : {});
   });
-  void c.subscribe({ scope: 'all' }).catch((e) => {
+  void c.connect().catch((e) => {
     if (client === c) {
       failure = e.message;
       notify();
@@ -98,57 +125,9 @@ export function closeGateway() {
   const c = client;
   client = undefined;
   c?.close();
+  uncertain.clear();
   state = 'closed';
-  identities.clear();
   notify();
-}
-export async function gatewayRequest<T>(
-  method: RpcMethod,
-  params: RpcParams = {},
-  signal?: AbortSignal,
-  commandId?: string,
-): Promise<T> {
-  if (!client) openGateway();
-  if (!client) throw Error('请先输入管理员令牌。');
-  if (
-    params.expectedTask === undefined &&
-    (method.startsWith('tasks.') ||
-      method === 'runs.control' ||
-      (method === 'plans.control' && params.operation === 'run'))
-  ) {
-    if (!identities.has(params.characterId!)) {
-      const view = await client.request<any>(
-        'characters.get',
-        { characterId: params.characterId },
-        { signal },
-      );
-      identities.set(view.id, view.taskIdentity);
-    }
-    params = {
-      ...params,
-      expectedTask: identities.get(params.characterId!) ?? null,
-    };
-  }
-  try {
-    const value = await client.request<T>(method, params, {
-      signal,
-      commandId,
-    });
-    if (method === 'characters.list')
-      for (const a of value as any[])
-        identities.set(a.id, a.taskIdentity ?? null);
-    if (method === 'characters.get') {
-      const a = value as any;
-      identities.set(a.id, a.taskIdentity ?? null);
-    }
-    return value;
-  } catch (e) {
-    if (e instanceof UnknownOutcome) {
-      failure = e.message;
-      notify();
-    }
-    throw e;
-  }
 }
 /** Coalesce event-triggered reads without polling or losing a change during an active read. */
 export function refreshOnGatewayChange(

@@ -95,19 +95,19 @@ docker compose down -v
 
 ```sh
 pnpm check             # 类型、规则和语音测试、所有应用构建
-pnpm test:integration  # 需要已启动 PostgreSQL + 应用服务；会临时修改本地世界
+pnpm test:integration  # 随机端口、临时存档中的世界协议集成测试
 pnpm format:check
 ```
 
-集成测试启动两个 SDK 玩家和一个脚本 Agent，检查并发编辑仅一方成功、三方同步、非法动作拒绝、聊天、断线恢复、持久化模式及 mock 字幕打断。真实双浏览器和服务重启记录见 [验证记录](docs/VALIDATION.md)。测试默认修改 `(2,3,1)` 并最终移除该方块；请仅在本测试世界运行。
+集成测试在随机端口和临时存档中启动两个 SDK 玩家和一个脚本 Agent，检查并发编辑仅一方成功、三方同步、非法动作拒绝、聊天、断线恢复、持久化模式及 mock 字幕打断。真实双浏览器和服务重启记录见 [验证记录](docs/VALIDATION.md)。测试只修改临时测试世界，结束后清理。
 
 ## 结构
 
 - `apps/web`：按 feature 拆分的 React UI、Three.js 实例化体素、插值、重连。目录、依赖边界及浏览器验收见 [Web 架构](apps/web/README.md)。
 - `apps/server`：Colyseus 单一权威世界、事务存储、语音 provider 接口。
 - `apps/server/prisma`：PostgreSQL schema 和可重放迁移。
-- `apps/agent-cli`：脚本测试机器人（Scout）与 AI Agent CLI 入口、命令行配置、集成检查。
-- `packages/agent-gateway`：同进程托管核心；`gateway-protocol` 和 `gateway-client` 为 Web/CLI 提供共享管理协议与连接。详见 [Agent Gateway](docs/AGENT_GATEWAY.md)。
+- `scripts/agent`：脚本测试机器人（Scout）、独立 AI 玩家与管理命令行入口，保留所有 `pnpm agent:*` 命令。
+- `packages/shared` 的管理子入口：Web/CLI 共用 HTTP 管理接口和 WebSocket 状态通知；托管核心在服务端领域模块中。详见 [Agent 管理接口](docs/AGENT_GATEWAY.md)。
 - `packages/agent-runtime`：CLI 与服务端共用的会话客户端、动作、模型规划和任务运行时，通过 `@voxel/agent-runtime` 引用。
 - AI 玩家：配置 `DEEPSEEK_API_KEY` 或 `AGENT_API_KEY` 后运行 `pnpm agent:ai`，支持观察、移动、聊天和显式开启的方块编辑。使用 Pi 模型适配与工具循环，支持思考模式；启动端口与配置见 [Agent 接入](docs/AGENT_PLAYERS.md)。
 - `packages/shared`：协议、确定性地形、物理与校验。
@@ -137,7 +137,7 @@ apps/server/
     └── sandbox/            # 独立沙盒启动入口
 ```
 
-`pnpm test:voice:services`、`pnpm test:agents`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:agent:tasks` 和 `pnpm test:agent:deepseek` 指向服务端集成脚本，使用隔离世界和固定模型响应。实时会话集成与沙盒命令见 [百炼实时语音](docs/ALIYUN_REALTIME.md)。这些脚本由 `tsx` 显式运行，不进入默认 Vitest 扫描；根目录 `pnpm test:integration` 仍是需要已启动服务的 Agent 客户端集成检查。
+`pnpm test:voice:services`、`pnpm test:agents`、`pnpm test:chat`、`pnpm test:agent:voice`、`pnpm test:agent:tasks` 和 `pnpm test:agent:deepseek` 指向服务端集成脚本，使用隔离世界和固定模型响应。实时会话集成与沙盒命令见 [百炼实时语音](docs/ALIYUN_REALTIME.md)。这些脚本由 `tsx` 显式运行，不进入默认 Vitest 扫描；根目录 `pnpm test:integration` 也在独立临时世界中运行。
 
 `pnpm --filter @voxel/server test` 运行服务端就近测试。`pnpm test:navigation:live` 需要显式提供模型配置，会产生真实模型调用；启动方式与验收范围见 [验证记录](docs/VALIDATION.md)。
 

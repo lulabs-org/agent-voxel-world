@@ -142,7 +142,7 @@ describe('agent runtime dependency boundaries', () => {
     }
     for (const path of [
       ...sources(resolve(root, 'apps/server')),
-      ...sources(resolve(root, 'apps/agent-cli')),
+      ...sources(resolve(root, 'scripts/agent')),
     ]) {
       for (const name of imports(path)) {
         if (name.startsWith('.'))

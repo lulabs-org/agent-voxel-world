@@ -16,13 +16,13 @@
     "db:stop": "node scripts/database.mjs stop",
     "db:generate": "pnpm --filter @voxel/server exec prisma generate",
     "db:migrate": "pnpm --filter @voxel/server exec dotenv -e ../../.env -- prisma migrate deploy",
-    "agent": "pnpm --filter @voxel/agent-cli start",
-    "agent:ai": "pnpm --filter @voxel/agent-cli start:ai",
-    "agent:mock": "pnpm --filter @voxel/agent-cli start:mock",
+    "agent": "tsx scripts/agent/ai-agent.ts",
+    "agent:ai": "tsx scripts/agent/ai-agent.ts",
+    "agent:mock": "tsx scripts/agent/scripted-agent.ts",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "test:integration": "pnpm --filter @voxel/agent-cli test:integration",
+    "test:integration": "pnpm --filter @voxel/server exec tsx test/integration/world-client.ts",
     "format": "prettier --write apps packages scripts tests README.md docs package.json tsconfig.json pnpm-workspace.yaml",
     "format:check": "prettier --check apps packages scripts tests README.md docs package.json tsconfig.json pnpm-workspace.yaml",
     "test:agent:deepseek": "pnpm --filter @voxel/server test:agent:deepseek",
@@ -36,7 +36,7 @@
     "test:navigation": "pnpm --filter @voxel/server exec tsx test/integration/navigation.ts",
     "bench:navigation": "tsx tests/benchmarks/navigation.ts",
     "test:navigation:live": "pnpm --filter @voxel/server exec tsx test/integration/navigation-live-model.ts",
-    "agent:ctl": "pnpm --filter @voxel/agent-cli ctl",
+    "agent:ctl": "tsx scripts/agent/agent-control.ts",
     "test:gateway": "pnpm --filter @voxel/server exec tsx test/integration/gateway.ts"
   },
   "devDependencies": {
@@ -47,7 +47,8 @@
     "typescript": "~5.9.3",
     "vitest": "^3.2.4",
     "@voxel/agent-runtime": "workspace:*",
-    "@voxel/gateway-protocol": "workspace:*",
-    "@voxel/gateway-client": "workspace:*"
+    "@voxel/shared": "workspace:*",
+    "ws": "8.22.0",
+    "@types/ws": "8.18.2"
   }
 }

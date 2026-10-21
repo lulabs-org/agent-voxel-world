@@ -1,4 +1,6 @@
-import type { Express } from 'express';
+import { ManagementCommands } from '../../common/management-command';
+import { AppError } from '../../common/errors';
+import type { Express, Request } from 'express';
 import type { AICharacterManager } from './manager';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 
@@ -8,7 +10,40 @@ import { asyncRoute as route } from '../../common/middleware/async-route';
 export function installAICharacterRoutes(
   app: Express,
   manager: AICharacterManager,
+  commands: ManagementCommands,
 ) {
+  const view = (id: string) => {
+    const value = manager.publicList().find((a) => a.id === id);
+    if (!value) throw new AppError('AI 角色 不存在。', 404);
+    return {
+      ...value,
+      resourceVersion: manager.events.version,
+      taskIdentity: manager.publicIdentity(id) ?? null,
+    };
+  };
+  const write = (req: Request, action: () => unknown | Promise<unknown>) =>
+    commands.execute(
+      req,
+      req.method === 'DELETE' ? 'plans' : String(req.params.id ?? 'registry'),
+      async () => {
+        manager.assertWritable(
+          ['stop'].includes(String(req.path.split('/').at(-1))) ||
+            req.method === 'DELETE'
+            ? undefined
+            : req.params.id,
+        );
+        const since = manager.storageRevision;
+        const result = await action();
+        await manager.flush(since);
+        return result && typeof result === 'object' && 'id' in result
+          ? view(String(result.id))
+          : result;
+      },
+    );
+  app.get(
+    '/ai-characters/:id',
+    route((req, res) => res.json(view(String(req.params.id)))),
+  );
   // ---------------------------------------------------------------------------
   // AI 角色基础与生命周期
   // ---------------------------------------------------------------------------
@@ -29,7 +64,7 @@ export function installAICharacterRoutes(
   app.get(
     '/ai-characters',
     route((_req, res) => {
-      res.json(manager.publicList());
+      res.json(manager.publicList().map((a) => view(a.id)));
     }),
   );
 
@@ -58,8 +93,7 @@ export function installAICharacterRoutes(
   app.post(
     '/ai-characters',
     route(async (req, res) => {
-      const result = await manager.create(req.body);
-      manager.events.publish('characters');
+      const result = await write(req, () => manager.create(req.body));
       res.status(201).json(result);
     }),
   );
@@ -95,8 +129,9 @@ export function installAICharacterRoutes(
   app.put(
     '/ai-characters/:id',
     route(async (req, res) => {
-      const result = await manager.update(String(req.params.id), req.body);
-      manager.events.publish('characters');
+      const result = await write(req, () =>
+        manager.update(String(req.params.id), req.body),
+      );
       res.json(result);
     }),
   );
@@ -126,8 +161,7 @@ export function installAICharacterRoutes(
   app.delete(
     '/ai-characters/:id',
     route(async (req, res) => {
-      await manager.remove(String(req.params.id));
-      manager.events.publish('characters');
+      await write(req, () => manager.remove(String(req.params.id)));
       res.sendStatus(204);
     }),
   );
@@ -155,8 +189,11 @@ export function installAICharacterRoutes(
     '/ai-characters/:id/join',
     route(async (req, res) => {
       const id = String(req.params.id);
-      const result = manager.join(id);
-      await manager.settled(id);
+      const result = await write(req, async () => {
+        const value = manager.join(id);
+        await manager.settled(id);
+        return value;
+      });
       res.json(result);
     }),
   );
@@ -184,8 +221,11 @@ export function installAICharacterRoutes(
     '/ai-characters/:id/stop',
     route(async (req, res) => {
       const id = String(req.params.id);
-      const result = manager.stop(id);
-      await manager.settled(id);
+      const result = await write(req, async () => {
+        const value = manager.stop(id);
+        await manager.settled(id);
+        return value;
+      });
       res.json(result);
     }),
   );
@@ -218,8 +258,9 @@ export function installAICharacterRoutes(
   app.post(
     '/ai-characters/:id/voice',
     route(async (req, res) => {
-      const result = await manager.setVoice(String(req.params.id), req.body);
-      manager.events.publish('characters');
+      const result = await write(req, () =>
+        manager.setVoice(String(req.params.id), req.body),
+      );
       res.json(result);
     }),
   );

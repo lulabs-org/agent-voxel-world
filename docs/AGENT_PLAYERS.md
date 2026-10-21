@@ -6,7 +6,7 @@ CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。�
 
 ## 代码职责与依赖
 
-- `apps/agent-cli`：CLI 与环境变量解析；`apps/server`：存储与传输适配；`packages/agent-gateway`：独立计划、执行记录、角色托管、唤醒和取消。
+- `scripts/agent`：CLI 入口与环境变量解析；`packages/agent-runtime`：接收显式配置的运行时；`apps/server`：存储与传输适配、独立计划、执行记录、角色托管、唤醒和取消。
 - `packages/agent-runtime`：`client` 世界连接、`actions` 动作执行、`task` 任务规则与预算、`models` 模型请求、`pi` 工具与上下文适配、`runtime` 执行编排；[包内架构说明](../packages/agent-runtime/README.md)。
 - 公共入口不读取 `.env`、Pi 全局凭据或开发机器登录状态，也不自动启动 Agent。
 

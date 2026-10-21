@@ -6,7 +6,7 @@ import { TaskService, recordEvent, type TaskLease } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
 import { CommandRouter } from '../../common/command-router';
 import { hasPlanTokenLimit, isRepeating } from '@voxel/shared';
-import type { RpcParams } from '@voxel/gateway-protocol';
+import type { PlanQueryFilter } from '@voxel/shared/management';
 import { object } from '../../common/validation';
 import { AppError } from '../../common/errors';
 import type { TaskExecutionState, TaskHostPort } from './execution-port';
@@ -75,7 +75,29 @@ export class TaskCoordinator {
     };
   }
 
-  planPage(p: RpcParams) {
+  planPage(p: PlanQueryFilter) {
+    if (
+      p.offset !== undefined &&
+      (!Number.isSafeInteger(p.offset) || p.offset < 0)
+    )
+      throw new AppError('分页参数无效。');
+    if (
+      p.search !== undefined &&
+      (typeof p.search !== 'string' || p.search.length > 80)
+    )
+      throw new AppError('搜索条件无效。');
+    if (
+      p.state !== undefined &&
+      !['enabled', 'paused', 'completed', 'archived', 'unassigned'].includes(
+        p.state,
+      )
+    )
+      throw new AppError('计划状态无效。');
+    if (
+      p.timing !== undefined &&
+      !['immediate', 'once', 'interval', 'daily', 'weekly'].includes(p.timing)
+    )
+      throw new AppError('执行方式无效。');
     let all = this.publicPlans(p.characterId, true).filter(
       (plan) =>
         (!p.search ||
@@ -104,7 +126,8 @@ export class TaskCoordinator {
     return p;
   }
 
-  async reassignPlan(id: string, characterId: string) {
+  async reassignPlan(id: string, characterId: string, value: unknown = {}) {
+    this.checkPlanRevision(id, value);
     const agent = this.host.execution(characterId);
     return this.commitPlan(id, () => this.plans.reassign(id, agent.view));
   }
@@ -197,6 +220,7 @@ export class TaskCoordinator {
 
   async updateTaskPlan(id: string | undefined, planId: string, value: unknown) {
     const plan = this.plans.get(planId);
+    this.checkPlanRevision(planId, value);
     if (id) this.plans.assertBinding(planId, id);
     if (plan.state === 'archived') throw new AppError('已归档任务不能修改。');
     const draft = validatePlan(value, Date.now(), plan);
@@ -216,12 +240,14 @@ export class TaskCoordinator {
     value: unknown = {},
   ) {
     if (id) this.plans.assertBinding(planId, id);
+    this.checkPlanRevision(planId, value);
     if (operation !== 'run')
       return this.commitPlan(planId, () =>
         this.plans.control(planId, operation, value),
       );
     const target = this.plans.get(planId).characterId;
     if (!target) throw new AppError('请先指派执行角色。', 409);
+    this.checkTaskRevision(target, value);
     return executeTaskPlanControl(
       this.host.execution(target),
       planId,
@@ -241,6 +267,10 @@ export class TaskCoordinator {
   ) {
     const targetId = id || this.plans.run(runId).characterId;
     if (!targetId) throw new AppError('任务未关联执行角色。', 404);
+    if (this.plans.run(runId).characterId !== targetId)
+      throw new AppError('执行角色不匹配。', 409);
+    if (this.plans.run(runId).status !== 'queued')
+      this.checkTaskRevision(targetId, value);
     const job = this.host.execution(targetId);
     return executeTaskRunControl(
       job,
@@ -253,6 +283,28 @@ export class TaskCoordinator {
       (j) => this.host.launch(j.view.id),
       (op) => this.controlCurrentRun(job, runId, op),
     );
+  }
+
+  private checkPlanRevision(id: string, value: unknown) {
+    const expected = object(value).expectedPlanRevision;
+    if (expected !== undefined)
+      this.plans.assertRevision(id, expected as number);
+  }
+
+  private checkTaskRevision(id: string, value: unknown) {
+    const expected = object(value).expectedTask;
+    if (expected === undefined) return; // Existing HTTP callers may omit preconditions.
+    const current = this.host.execution(id).memory.identity ?? null;
+    if (
+      expected === null
+        ? current !== null
+        : !current ||
+          typeof expected !== 'object' ||
+          (expected as { id?: unknown }).id !== current.id ||
+          (expected as { revision?: unknown }).revision !== current.revision ||
+          (expected as { startedAt?: unknown }).startedAt !== current.startedAt
+    )
+      throw new AppError('任务已改变，请刷新后重试。', 409);
   }
 
   /** Trusted world messages retain their player authority; never promote them to operator commands. */

@@ -1,15 +1,15 @@
+import { publicError } from './management-error';
 import { createHash } from 'node:crypto';
 import {
-  GatewayError,
-  publicError,
-  type RpcErrorData,
-} from '@voxel/gateway-protocol';
+  ManagementError,
+  type ManagementErrorData,
+} from '@voxel/shared/management';
 type Receipt = {
   fingerprint: string;
   at: number;
   state: 'pending' | 'committed' | 'rejected';
   result?: unknown;
-  error?: RpcErrorData;
+  error?: ManagementErrorData;
   promise: Promise<unknown>;
 };
 function canonical(value: unknown): string {
@@ -59,7 +59,7 @@ export class CommandRouter {
       prior = this.receipts.get(id);
     if (prior) {
       if (prior.fingerprint !== fingerprint)
-        throw new GatewayError(
+        throw new ManagementError(
           '同一命令标识不能用于不同操作。',
           'CONFLICT',
           409,

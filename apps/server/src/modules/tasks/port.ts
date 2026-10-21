@@ -19,7 +19,11 @@ export interface TaskPort {
     operation: string,
     value: unknown,
   ): Promise<unknown>;
-  reassignPlan(planId: string, targetCharacterId: string): Promise<unknown>;
+  reassignPlan(
+    planId: string,
+    targetCharacterId: string,
+    value?: unknown,
+  ): Promise<unknown>;
   publicRuns(
     characterId: string | undefined,
     planId: string,
@@ -66,8 +70,8 @@ export class TasksService {
     return this.tasks.controlTaskPlan(characterId, planId, 'delete', {});
   }
 
-  reassignPlan(planId: string, targetCharacterId: string) {
-    return this.tasks.reassignPlan(planId, targetCharacterId);
+  reassignPlan(planId: string, targetCharacterId: string, value?: unknown) {
+    return this.tasks.reassignPlan(planId, targetCharacterId, value);
   }
 
   listRuns(

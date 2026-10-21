@@ -1,9 +1,9 @@
 import type { TaskPlan, TaskPlanDraft, TaskRunPage } from '@voxel/shared';
 import type {
   PublicPlanView,
-  RpcParams,
+  PlanQueryFilter,
   TaskIdentity,
-} from '@voxel/gateway-protocol';
+} from '@voxel/shared/management';
 import { consoleFetch } from '../request';
 
 export { displayedTaskIdentity } from '../execution/api';
@@ -16,7 +16,7 @@ export type PlanPage = {
 };
 
 export const tasksApi = {
-  list: (filters: RpcParams = {}, signal?: AbortSignal) => {
+  list: (filters: PlanQueryFilter = {}, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (filters.state) params.set('state', String(filters.state));
     if (filters.search) params.set('search', String(filters.search));

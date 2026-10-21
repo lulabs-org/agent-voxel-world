@@ -8,11 +8,11 @@ import {
   restorePiCheckpoint,
   type AgentRunState,
 } from '@voxel/agent-runtime';
-import { agentConfig } from '../apps/agent-cli/src/cli/agent-config';
+import { testAgentConfig } from './support/agent-config';
 import { RequestBudget } from '../packages/agent-runtime/src/task/budget';
 import { readAICharacterArchive } from '../apps/server/src/modules/ai-characters';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
-const config = agentConfig({ DEEPSEEK_API_KEY: 'fixture' });
+const config = testAgentConfig();
 const operator = { kind: 'operator' as const };
 
 describe('TaskService revision and commit boundary', () => {
@@ -88,7 +88,7 @@ it('backs up and migrates current and historical runtimes while preserving uncer
   const dir = await mkdtemp(join(tmpdir(), 'agent-v2-migration-'));
   try {
     const providers = new ProviderStore(join(dir, 'providers.json'));
-    await providers.load({ DEEPSEEK_API_KEY: 'fixture' });
+    await providers.load({ apiKey: 'fixture' });
     const task = { ...newTask('old build'), calls: 3, tokens: 600 };
     const runtime: AgentRunState = {
       task,

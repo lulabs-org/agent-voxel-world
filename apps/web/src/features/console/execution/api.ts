@@ -2,7 +2,7 @@ import type { AICharacterView } from '@voxel/shared';
 import type {
   PublicAICharacterView,
   TaskIdentity,
-} from '@voxel/gateway-protocol';
+} from '@voxel/shared/management';
 import { consoleFetch } from '../request';
 export const displayedTaskIdentity = (
   view?: AICharacterView,
