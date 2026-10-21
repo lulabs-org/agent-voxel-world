@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterForm } from './AICharacterForm';
 import { AICharacterLogViewer } from './AICharacterLogViewer';
-import { DeleteAICharacterDialog } from './DeleteAICharacterDialog';
 import { aiCharacterPresentation } from './presentation/agent-presentation';
 import { aiCharactersApi } from './api';
 
@@ -22,7 +21,6 @@ export function AICharacterDetail(
     capacityFull,
     joinAgent,
     stopAgent,
-    deleteAgent,
     openAgentEditor,
     showAgentForm,
     editingAgent,
@@ -40,7 +38,6 @@ export function AICharacterDetail(
     setView('settings');
   }, [job, openAgentEditor]);
   const [confirmLeave, setConfirmLeave] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const state = aiCharacterPresentation(job);
   const editing = showAgentForm && editingAgent === job.id;
   return (
@@ -126,7 +123,6 @@ export function AICharacterDetail(
         <button
           aria-pressed={!editing && view === 'activity'}
           onClick={() => {
-            setConfirmDelete(false);
             setShowAgentForm(false);
             setView('activity');
             setError('');
@@ -137,41 +133,7 @@ export function AICharacterDetail(
         </button>
       </nav>
       {editing ? (
-        <>
-          <AICharacterForm {...props} disabled={disabled || !state.canEdit} />
-          <section className="agents-delete-section" aria-label="删除 AI 角色">
-            <div className="agents-delete-heading">
-              <div>
-                <h4>删除 AI 角色</h4>
-                <p>
-                  删除 AI
-                  角色并取消未结束执行；计划和执行历史保留，相关计划等待重新指派。
-                </p>
-              </div>
-              <button
-                className="agents-delete-button"
-                disabled={disabled || job.status === 'stopping'}
-                onClick={() => {
-                  setConfirmLeave(false);
-                  setError('');
-                  setConfirmDelete(true);
-                }}
-              >
-                删除 AI 角色
-              </button>
-            </div>
-            {confirmDelete && (
-              <DeleteAICharacterDialog
-                name={job.name}
-                busy={props.busy}
-                disabled={disabled || job.status === 'stopping'}
-                error={props.error}
-                onCancel={() => setConfirmDelete(false)}
-                onConfirm={() => void deleteAgent(job)}
-              />
-            )}
-          </section>
-        </>
+        <AICharacterForm {...props} disabled={disabled || !state.canEdit} />
       ) : (
         <AICharacterLogViewer
           job={job}

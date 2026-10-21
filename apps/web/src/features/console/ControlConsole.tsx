@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import {
   openGateway,
   closeGateway,
@@ -161,11 +162,6 @@ export function ControlConsole({
             />
           </div>
           <div className="console-voice" hidden={tab !== 'voice'}>
-            {error && (
-              <p role="alert" className="agent-error">
-                {error}
-              </p>
-            )}
             <VoiceServices
               services={controller.voiceServices}
               onChange={controller.setVoiceServices}
@@ -179,16 +175,6 @@ export function ControlConsole({
             />
           </div>
           <div hidden={tab === 'voice' || tab === 'asr' || tab === 'plans'}>
-            {error && (
-              <p role="alert" className="agent-error">
-                {error}
-              </p>
-            )}
-            {notice && (
-              <p role="status" className="agent-notice">
-                {notice}
-              </p>
-            )}
             {tab === 'providers' ? (
               <ProviderEditor {...controller} />
             ) : (
@@ -200,6 +186,39 @@ export function ControlConsole({
           </div>
         </fieldset>
       </div>
+
+      {(notice || error) && (
+        <div className="console-toast-wrapper" aria-live="polite">
+          {notice && (
+            <div className="console-toast console-toast-notice" role="status">
+              <CheckCircle2 size={16} className="console-toast-icon" />
+              <span className="console-toast-message">{notice}</span>
+              <button
+                type="button"
+                className="console-toast-dismiss"
+                onClick={() => setNotice('')}
+                aria-label="关闭提示"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {error && (
+            <div className="console-toast console-toast-error" role="alert">
+              <AlertCircle size={16} className="console-toast-icon" />
+              <span className="console-toast-message">{error}</span>
+              <button
+                type="button"
+                className="console-toast-dismiss"
+                onClick={() => setError('')}
+                aria-label="关闭错误"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </Dialog>
   );
 }
