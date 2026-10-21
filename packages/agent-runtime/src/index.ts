@@ -25,9 +25,6 @@ export { executeAction } from './actions/execute';
 export { executeBatch } from './actions/batch';
 
 export {
-  BUILD_STEP_MS,
-  MAX_BATCH_BLOCKS,
-  parsePlannedEdit,
   parseBuildAction,
   houseBlocks,
   executeBuild,
