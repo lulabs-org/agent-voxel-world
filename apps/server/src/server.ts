@@ -1,29 +1,37 @@
-import { GatewayAuth } from './modules/gateway/auth';
-import { installGatewaySocket } from './modules/gateway/socket';
 import { once } from 'node:events';
 import { createServer as createHttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { Server, matchMaker } from '@colyseus/core';
+
 import { createApp } from './app';
 import { env, type ServerConfig } from './config';
+import { checkStartupDatabase } from './startup';
+
+import type { SocketRoutes } from './common/socket-routes';
+import { RoutedWebSocketTransport } from './transport/websocket.transport';
+
 import {
   AICharacterManager,
   type AICharacterDependencies,
 } from './modules/ai-characters';
-import { ProviderStore } from './modules/providers/provider-store';
-import { VoiceServiceStore } from './modules/audio/tts/voice-services';
+
 import { AsrSettingsStore } from './modules/audio/asr/asr-settings';
-import { LocalSpeech } from './modules/audio/asr/local-speech';
-import { createVoiceProvider } from './modules/audio/session';
-import { WorldRoom } from './modules/world/room';
-import { WorldStore } from './modules/world/store';
-import { RoutedWebSocketTransport } from './transport/websocket.transport';
-import type { SocketRoutes } from './common/socket-routes';
 import {
   installAsrSocket,
   type AsrBridge,
 } from './modules/audio/asr/asr.socket';
-import { checkStartupDatabase } from './startup';
+import { LocalSpeech } from './modules/audio/asr/local-speech';
+import { createVoiceProvider } from './modules/audio/session';
+import { VoiceServiceStore } from './modules/audio/tts/voice-services';
+
+import { GatewayAuth } from './modules/gateway/auth';
+import { installGatewaySocket } from './modules/gateway/socket';
+
+import { ProviderStore } from './modules/providers/provider-store';
+
+import { WorldRoom } from './modules/world/room';
+import { WorldStore } from './modules/world/store';
 
 export type ServerOptions = {
   config?: ServerConfig;
