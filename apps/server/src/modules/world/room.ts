@@ -134,7 +134,8 @@ export class WorldRoom extends Room<WorldState> {
         value.id.length > 80
       )
         return this.reply(client, '', false, 'invalid-envelope');
-      let { id, type, payload } = value;
+      const { id } = value;
+      let { type, payload } = value;
       if (typeof type === 'string' && type.startsWith('realtime.')) {
         try {
           if (this.state.players.get(client.sessionId)?.kind !== 'human')
@@ -370,7 +371,9 @@ export class WorldRoom extends Room<WorldState> {
         });
         this.event('reconnected', client.sessionId, {});
         return;
-      } catch {}
+      } catch {
+        // Reconnection expired; continue removing the disconnected player.
+      }
     }
     this.state.players.delete(client.sessionId);
     this.bodies.delete(client.sessionId);

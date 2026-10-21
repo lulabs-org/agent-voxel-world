@@ -233,11 +233,17 @@ try {
         (a: { id: string }) => a.id === managed.id,
       );
       assert.equal(saved.runtime.task.status, 'completed');
-      assert(!archive.plans.some((p: any) => p.characterId === managed.id));
+      assert(
+        !archive.plans.some(
+          (p: { characterId?: string }) => p.characterId === managed.id,
+        ),
+      );
       assert(
         archive.runs
-          .filter((r: any) => r.source === 'chat')
-          .every((r: any) => !r.planId),
+          .filter(
+            (r: { source: string; planId?: string }) => r.source === 'chat',
+          )
+          .every((r: { source: string; planId?: string }) => !r.planId),
       );
       assert(
         archive.runs.some(

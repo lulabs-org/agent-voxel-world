@@ -5,7 +5,7 @@ import { CommandRouter } from './command-router';
 /** Shared HTTP write receipts. Reads and event subscriptions never enter this queue. */
 export class ManagementCommands extends CommandRouter {
   constructor(
-    private receiptBody: (body: any) => unknown = (body) => body ?? {},
+    private receiptBody: (body: unknown) => unknown = (body) => body ?? {},
   ) {
     super();
   }

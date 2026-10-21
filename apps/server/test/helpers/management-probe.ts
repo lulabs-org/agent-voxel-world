@@ -25,10 +25,24 @@ export class HttpManagementProbe {
   }
   async request<T = unknown>(
     method: string,
-    p: any = {},
+    p: {
+      characterId?: string;
+      planId?: string;
+      runId?: string;
+      commandId?: string;
+      targetCharacterId?: string;
+      operation?: string;
+      value?: Record<string, unknown>;
+      expectedPlanRevision?: number;
+      expectedTask?: unknown;
+      offset?: number;
+      search?: string;
+      state?: string;
+    } = {},
     options: { commandId?: string } = {},
   ): Promise<T> {
-    const enc = (value: string) => encodeURIComponent(value);
+    const enc = (value: string | undefined) =>
+      encodeURIComponent(String(value));
     const query = (value: object) => {
       const q = new URLSearchParams(
         Object.entries(value)

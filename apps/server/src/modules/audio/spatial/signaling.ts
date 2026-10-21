@@ -21,9 +21,20 @@ export function createSpatialSignaling(
   player: (id: string) => Participant | undefined,
   send: (recipient: string, signal: Signal) => void,
 ) {
-  return (owner: string, payload: any) => {
+  return (
+    owner: string,
+    payload:
+      | {
+          [key: string]: unknown;
+          to?: string;
+          description?: Record<string, unknown>;
+          candidate?: Record<string, unknown>;
+        }
+      | null
+      | undefined,
+  ) => {
     const source = player(owner),
-      target = player(payload?.to);
+      target = payload?.to === undefined ? undefined : player(payload.to);
     if (
       !source?.connected ||
       !target?.connected ||
@@ -38,6 +49,7 @@ export function createSpatialSignaling(
       candidate = payload?.candidate;
     if (
       description &&
+      typeof description.type === 'string' &&
       ['offer', 'answer'].includes(description.type) &&
       typeof description.sdp === 'string' &&
       description.sdp.length <= 12000
@@ -54,7 +66,8 @@ export function createSpatialSignaling(
         (typeof candidate.sdpMid === 'string' &&
           candidate.sdpMid.length < 100)) &&
       (candidate.sdpMLineIndex === null ||
-        Number.isInteger(candidate.sdpMLineIndex))
+        (typeof candidate.sdpMLineIndex === 'number' &&
+          Number.isInteger(candidate.sdpMLineIndex)))
     )
       send(target.id, {
         from: source.id,

@@ -227,7 +227,9 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     }
     const createPlan = vi
       .spyOn(server.characters.tasks, 'createTaskPlan')
-      .mockResolvedValue({ id: 'plan-123' } as any);
+      .mockResolvedValue({ id: 'plan-123' } as Awaited<
+        ReturnType<typeof server.characters.tasks.createTaskPlan>
+      >);
     const draft = {
       characterId: 'agent-123',
       name: 'Plan',
@@ -250,7 +252,9 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     });
     const run = vi
       .spyOn(server.characters.tasks, 'controlTaskRun')
-      .mockResolvedValue({ id: 'run-123' } as any);
+      .mockResolvedValue({ id: 'run-123' } as Awaited<
+        ReturnType<typeof server.characters.tasks.controlTaskRun>
+      >);
     for (const operation of ['pause', 'resume', 'cancel']) {
       expect(
         (
@@ -265,7 +269,9 @@ it('routes resource IDs and request bodies to their owning domain without old Ag
     }
     const reassign = vi
       .spyOn(server.characters.tasks, 'reassignPlan')
-      .mockResolvedValue({ id: 'plan-123' } as any);
+      .mockResolvedValue({ id: 'plan-123' } as Awaited<
+        ReturnType<typeof server.characters.tasks.createTaskPlan>
+      >);
     expect(
       (
         await fetch(server.httpUrl + '/tasks/plan-123/reassign', {

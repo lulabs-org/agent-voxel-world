@@ -6,19 +6,22 @@ export class TaskScheduler {
   constructor(private readonly tick: () => Promise<void>) {}
   start() {
     if (this.timer || this.stopped || this.running) return;
-    this.timer = setTimeout(async () => {
-      this.timer = undefined;
-      this.running = true;
-      try {
-        await this.tick();
-      } catch {
-        /* Persistence errors never dispatch work. */
-      } finally {
-        this.running = false;
-      }
-      this.start();
+    this.timer = setTimeout(() => {
+      void this.runTick();
     }, 1000);
     this.timer.unref();
+  }
+  private async runTick() {
+    this.timer = undefined;
+    this.running = true;
+    try {
+      await this.tick();
+    } catch {
+      /* Persistence errors never dispatch work. */
+    } finally {
+      this.running = false;
+    }
+    this.start();
   }
   close() {
     this.stopped = true;

@@ -6,6 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc --noEmit",
     "start": "tsx src/index.ts",
+    "lint": "eslint src test --max-warnings 0",
+    "lint:fix": "eslint src test --fix --max-warnings 0",
     "format": "prettier --write . --ignore-path ../../.gitignore",
     "format:check": "prettier --check . --ignore-path ../../.gitignore",
     "test:agent:deepseek": "tsx test/integration/deepseek.ts",

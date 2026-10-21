@@ -10,6 +10,8 @@ export class RoutedWebSocketTransport extends WebSocketTransport {
 
   constructor(server: Server, routes: ReadonlyMap<string, SocketHandler>) {
     super({ server, maxPayload: 32768 });
+    // Removing an existing listener never invokes it or consumes its Promise.
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.wss.off('connection', this.onConnection);
     this.wss.on('connection', (socket, req) => {
       const client = Object.assign(socket, { pingCount: 0 });

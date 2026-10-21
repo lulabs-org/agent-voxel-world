@@ -4,7 +4,7 @@
 
 ## 快速运行
 
-环境要求：Node 22、pnpm 10、PostgreSQL 17 二进制。macOS 默认使用 `/opt/homebrew/opt/postgresql@17/bin`，其他路径通过 `PG_BIN` 指定。无需 Docker 或云账号。
+环境要求：Node 22.13+、pnpm 10、PostgreSQL 17 二进制。macOS 默认使用 `/opt/homebrew/opt/postgresql@17/bin`，其他路径通过 `PG_BIN` 指定。无需 Docker 或云账号。
 
 ```sh
 pnpm install --frozen-lockfile
@@ -94,7 +94,9 @@ docker compose down -v
 ## 验证
 
 ```sh
-pnpm check             # 类型、规则和语音测试、所有应用构建
+pnpm check             # 服务端 ESLint、类型、规则和语音测试、所有应用构建
+pnpm lint              # 仅检查 apps/server 的源码和测试
+pnpm lint:fix          # 自动修复可修复的服务端 lint 问题
 pnpm test:integration  # 随机端口、临时存档中的世界协议集成测试
 pnpm format:check
 ```

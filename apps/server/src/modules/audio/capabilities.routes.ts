@@ -1,3 +1,4 @@
+import { asyncRoute } from '../../common/middleware/async-route';
 import cors from 'cors';
 import { env } from '../../config/env';
 import { createOriginGuard } from '../../common/middleware/origin-guard';
@@ -66,31 +67,35 @@ export function installCapabilitiesRoutes(
    *                 agentSpeech:
    *                   type: object
    */
-  app.get('/voice/capabilities', async (req, res) => {
-    try {
-      const selected =
-        req.query.serviceId === undefined
-          ? undefined
-          : asrSettings.get(String(req.query.serviceId));
-      if (selected && selected.provider !== 'whisper')
-        throw new AppError('请选择 Whisper 服务。');
-      let ollamaConfigured = false;
+  app.get(
+    '/voice/capabilities',
+    asyncRoute(async (req, res) => {
       try {
-        createVoiceProvider('ollama');
-        ollamaConfigured = true;
-      } catch {
-        /* Optional. */
+        const selected =
+          req.query.serviceId === undefined
+            ? undefined
+            : asrSettings.get(String(req.query.serviceId));
+        if (selected && selected.provider !== 'whisper')
+          throw new AppError('请选择 Whisper 服务。');
+        let ollamaConfigured = false;
+        try {
+          createVoiceProvider('ollama');
+          ollamaConfigured = true;
+        } catch {
+          /* Optional. */
+        }
+        res.json({
+          local: await speech.status(selected),
+          whisperModels: await listWhisperModels(),
+          ollamaConfigured,
+          agentSpeech: await new PiperModels().status(),
+        });
+      } catch (error) {
+        res.status(error instanceof AppError ? error.status : 500).json({
+          error:
+            error instanceof AppError ? error.message : '无法检查识别服务。',
+        });
       }
-      res.json({
-        local: await speech.status(selected),
-        whisperModels: await listWhisperModels(),
-        ollamaConfigured,
-        agentSpeech: await new PiperModels().status(),
-      });
-    } catch (error) {
-      res.status(error instanceof AppError ? error.status : 500).json({
-        error: error instanceof AppError ? error.message : '无法检查识别服务。',
-      });
-    }
-  });
+    }),
+  );
 }

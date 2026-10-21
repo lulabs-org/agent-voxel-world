@@ -196,8 +196,11 @@ describe('server assembly and lifecycle', () => {
       );
       const sseEnded = (async () => {
         try {
-          while (!(await reader.read()).done) {}
+          while (!(await reader.read()).done) {
+            // Drain the stream until server shutdown closes it.
+          }
         } catch {
+          // Forced shutdown may abort the stream instead of ending it cleanly.
         } finally {
           reader.releaseLock();
         }

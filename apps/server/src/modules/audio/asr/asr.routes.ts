@@ -161,23 +161,29 @@ export function installAsrRoutes(
   );
   app.use(
     '/voice/asr',
-    errorHandler((error) => ({
-      status:
-        error instanceof AppError
-          ? error.status
-          : error.type === 'entity.too.large'
-            ? 413
-            : error.type === 'entity.parse.failed'
-              ? 400
-              : 500,
-      body: {
-        error:
+    errorHandler((error) => {
+      const type =
+        error && typeof error === 'object' && 'type' in error
+          ? error.type
+          : undefined;
+      return {
+        status:
           error instanceof AppError
-            ? error.message
-            : error.type
-              ? '识别配置须为有效 JSON，且不超过 8 KiB。'
-              : '识别服务操作失败，请重试。',
-      },
-    })),
+            ? error.status
+            : type === 'entity.too.large'
+              ? 413
+              : type === 'entity.parse.failed'
+                ? 400
+                : 500,
+        body: {
+          error:
+            error instanceof AppError
+              ? error.message
+              : type
+                ? '识别配置须为有效 JSON，且不超过 8 KiB。'
+                : '识别服务操作失败，请重试。',
+        },
+      };
+    }),
   );
 }

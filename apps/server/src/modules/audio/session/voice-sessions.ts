@@ -18,7 +18,7 @@ export class VoiceSessions {
   start(
     owner: string,
     requestId: string,
-    payload: any,
+    payload: { text?: unknown; provider?: unknown } | null | undefined,
     emit: (event: SessionEvent) => void,
   ) {
     if (

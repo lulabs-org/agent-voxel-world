@@ -1,3 +1,4 @@
+import { asyncRoute } from '../../common/middleware/async-route';
 import cors from 'cors';
 import { env } from '../../config/env';
 import { createOriginGuard } from '../../common/middleware/origin-guard';
@@ -85,7 +86,7 @@ export function installChatRoutes(
   app.post(
     '/chat/audio',
     express.raw({ type: () => true, limit: '1mb' }),
-    async (req, res, next) => {
+    asyncRoute(async (req, res, next) => {
       const chat = res.locals.chat as WorldChat,
         actor = res.locals.actor as string;
       const route = {
@@ -141,7 +142,7 @@ export function installChatRoutes(
         if (started) chat.endUpload(actor);
         res.off('close', cancel);
       }
-    },
+    }),
   );
 
   /**
@@ -253,7 +254,7 @@ export function installChatRoutes(
   app.post(
     ['/chat/spatial/:id', '/chat/spatial/:id/preview'],
     express.raw({ type: () => true, limit: '1mb' }),
-    async (req, res, next) => {
+    asyncRoute(async (req, res, next) => {
       const chat = res.locals.chat as WorldChat,
         actor = res.locals.actor as string,
         id = String(req.params.id);
@@ -291,7 +292,7 @@ export function installChatRoutes(
         if (!partial) chat.endSpatial(actor, id);
         res.off('close', cancel);
       }
-    },
+    }),
   );
 
   /**
@@ -374,7 +375,10 @@ export function installChatRoutes(
       status:
         e instanceof AppError
           ? e.status
-          : e.type === 'entity.too.large'
+          : e &&
+              typeof e === 'object' &&
+              'type' in e &&
+              e.type === 'entity.too.large'
             ? 413
             : 400,
       body: {

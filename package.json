@@ -10,7 +10,9 @@
     "build": "pnpm -r build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "lint": "pnpm --filter @voxel/server lint",
+    "lint:fix": "pnpm --filter @voxel/server lint:fix",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "voice:setup": "node scripts/setup-local-voice.mjs",
     "db:start": "node scripts/database.mjs",
     "db:stop": "node scripts/database.mjs stop",
@@ -23,8 +25,8 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "test:integration": "pnpm --filter @voxel/server exec tsx test/integration/world-client.ts",
-    "format": "prettier --write apps packages scripts tests README.md docs package.json tsconfig.json pnpm-workspace.yaml",
-    "format:check": "prettier --check apps packages scripts tests README.md docs package.json tsconfig.json pnpm-workspace.yaml",
+    "format": "prettier --write apps packages scripts tests README.md docs eslint.config.js package.json tsconfig.json pnpm-workspace.yaml",
+    "format:check": "prettier --check apps packages scripts tests README.md docs eslint.config.js package.json tsconfig.json pnpm-workspace.yaml",
     "test:agent:deepseek": "pnpm --filter @voxel/server test:agent:deepseek",
     "test:agents": "pnpm --filter @voxel/server exec tsx test/integration/agent-management.ts",
     "test:chat": "pnpm --filter @voxel/server exec tsx test/integration/chat.ts",
@@ -40,15 +42,18 @@
     "test:gateway": "pnpm --filter @voxel/server exec tsx test/integration/gateway.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.18.0",
+    "@types/ws": "8.18.2",
+    "@voxel/agent-runtime": "workspace:*",
+    "@voxel/shared": "workspace:*",
     "concurrently": "^9.2.1",
+    "eslint": "^10.13.0",
     "prettier": "3.6.2",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^3.2.4",
-    "@voxel/agent-runtime": "workspace:*",
-    "@voxel/shared": "workspace:*",
-    "ws": "8.22.0",
-    "@types/ws": "8.18.2"
+    "ws": "8.22.0"
   }
 }

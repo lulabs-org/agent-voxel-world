@@ -1,3 +1,4 @@
+import { asyncRoute } from '../../../common/middleware/async-route';
 import cors from 'cors';
 import { env } from '../../../config/env';
 import { createOriginGuard } from '../../../common/middleware/origin-guard';
@@ -80,7 +81,7 @@ export function installTranscribeRoutes(
   app.post(
     '/voice/transcribe',
     express.raw({ type: () => true, limit: MAX_AUDIO_BYTES }),
-    async (req, res) => {
+    asyncRoute(async (req, res) => {
       const controller = new AbortController();
       const cancel = () => {
         if (!res.writableEnded) controller.abort();
@@ -119,12 +120,18 @@ export function installTranscribeRoutes(
         release?.();
         res.off('close', cancel);
       }
-    },
+    }),
   );
   app.use(
     '/voice/transcribe',
     errorHandler((error) => ({
-      status: error.type === 'entity.too.large' ? 413 : 400,
+      status:
+        error &&
+        typeof error === 'object' &&
+        'type' in error &&
+        error.type === 'entity.too.large'
+          ? 413
+          : 400,
       body: { error: '无法读取音频，请使用不超过 5 MiB 的文件。' },
     })),
   );

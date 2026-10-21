@@ -11,7 +11,22 @@ export class RealtimeHub {
     private emit: (owner: string, event: RealtimeEvent) => void,
     private config: () => BailianConfig = () => env.readRealtime(),
   ) {}
-  handle(owner: string, type: string, payload: any) {
+  handle(
+    owner: string,
+    type: string,
+    payload:
+      | {
+          mode?: unknown;
+          request?: unknown;
+          audioConsent?: unknown;
+          sceneConsent?: unknown;
+          session?: unknown;
+          audio?: unknown;
+          text?: unknown;
+        }
+      | null
+      | undefined,
+  ) {
     if (type === 'realtime.start') {
       if (payload?.mode !== 'demo' && payload?.mode !== 'real')
         throw Error('invalid-realtime-mode');
@@ -20,6 +35,7 @@ export class RealtimeHub {
         !/^[a-zA-Z0-9-]{1,80}$/.test(payload.request)
       )
         throw Error('invalid-realtime-request');
+      const request = payload.request;
       const demo = payload.mode === 'demo';
       if (!demo && payload.audioConsent !== true)
         throw Error('explicit-audio-consent-required');
@@ -27,7 +43,7 @@ export class RealtimeHub {
       const session = new BailianSession(
         demo,
         payload.sceneConsent === true ? this.scene(owner) : undefined,
-        (event) => this.emit(owner, { ...event, request: payload.request }),
+        (event) => this.emit(owner, { ...event, request }),
       );
       this.sessions.set(owner, session);
       this.requests.set(owner, payload.request);
@@ -61,7 +77,10 @@ export class RealtimeHub {
     else if (type === 'realtime.stop') this.close(owner);
     else throw Error('unknown-realtime-action');
   }
-  approve(owner: string, payload: any) {
+  approve(
+    owner: string,
+    payload: { session?: unknown; proposalId?: unknown } | null | undefined,
+  ) {
     const session = this.sessions.get(owner);
     if (!session || session.id !== payload?.session)
       throw Error('invalid-realtime-session');

@@ -64,7 +64,10 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 const socket = (serviceId = '', pageOrigin = origin) =>
-  new Promise<{ client: WebSocket; message: any }>((resolve, reject) => {
+  new Promise<{
+    client: WebSocket;
+    message: { type: string; message?: string };
+  }>((resolve, reject) => {
     const client = new WebSocket(
       `${url.replace('http', 'ws')}/voice/asr/realtime?language=zh&serviceId=${encodeURIComponent(serviceId)}`,
       { origin: pageOrigin },

@@ -1,3 +1,10 @@
+import type {
+  PublicAICharacterView,
+  PublicPlanView,
+  PublicRunView,
+  ManagementEvent,
+  CommandReceipt,
+} from '@voxel/shared/management';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -51,7 +58,7 @@ const http = (path: string, method = 'GET', body?: unknown, key?: string) =>
     body: body ? JSON.stringify(body) : undefined,
   });
 const cli = (...args: string[]) =>
-  new Promise<any>((resolve, reject) => {
+  new Promise<{ id: string }>((resolve, reject) => {
     const child = spawn(
       process.execPath,
       [
@@ -131,7 +138,7 @@ try {
   bad.close();
   const c = connect(),
     other = connect();
-  const events: any[] = [];
+  const events: ManagementEvent[] = [];
   other.onEvent((e) => events.push(e));
   await Promise.all([c.connect(), other.connect()]);
   await other.subscribe({ scope: 'all' });
@@ -141,19 +148,22 @@ try {
     name: 'Gateway fixture',
     goal: '',
   };
-  const first = await c.request<any>(
+  const first = await c.request<PublicAICharacterView>(
     'characters.create',
     { value },
     { commandId: 'create-stable' },
   );
-  const duplicateAgent = await c.request<any>(
+  const duplicateAgent = await c.request<PublicAICharacterView>(
     'characters.create',
     { value },
     { commandId: 'create-stable' },
   );
   assert.equal(duplicateAgent.id, first.id);
   assert.equal((await http('/ai-characters')).status, 200);
-  assert.equal((await c.request<any[]>('characters.list')).length, 1);
+  assert.equal(
+    (await c.request<PublicAICharacterView[]>('characters.list')).length,
+    1,
+  );
   await assert.rejects(
     c.request(
       'characters.create',
@@ -162,12 +172,12 @@ try {
     ),
   );
   await until(() => server.characters.list()[0].status === 'idle');
-  const standby = await c.request<any>('characters.get', {
+  const standby = await c.request<PublicAICharacterView>('characters.get', {
     characterId: first.id,
   });
   assert.equal(standby.taskIdentity, null);
   assert.equal(standby.task, undefined);
-  assert.equal((await c.request<any>('plans.list')).total, 0);
+  assert.equal((await c.request<{ total: number }>('plans.list')).total, 0);
   for (const [i, value] of [
     { startTask: true },
     { startTask: false },
@@ -191,27 +201,35 @@ try {
       /Tasks/,
     );
   }
-  assert.equal((await c.request<any[]>('characters.list')).length, 1);
-  assert.equal((await c.request<any>('plans.list')).total, 0);
+  assert.equal(
+    (await c.request<PublicAICharacterView[]>('characters.list')).length,
+    1,
+  );
+  assert.equal((await c.request<{ total: number }>('plans.list')).total, 0);
   const immediate = {
     name: 'Immediate fixture',
     goal: '等待',
     timing: { kind: 'immediate' },
     timeZone: 'UTC',
   };
-  const plan = await c.request<any>(
+  const plan = await c.request<PublicPlanView>(
     'plans.create',
     { characterId: first.id, value: immediate },
     { commandId: 'assign' },
   );
   await until(() => server.characters.list()[0].task?.status === 'waiting');
-  const duplicatePlanCreate = await c.request<any>(
+  const duplicatePlanCreate = await c.request<PublicPlanView>(
     'plans.create',
     { characterId: first.id, value: immediate },
     { commandId: 'assign' },
   );
   assert.equal(duplicatePlanCreate.id, plan.id);
-  const history = await c.request<any>('runs.list', { planId: plan.id });
+  const history = await c.request<{
+    total: number;
+    resourceVersion: number;
+    items: PublicRunView[];
+    active: PublicRunView[];
+  }>('runs.list', { planId: plan.id });
   assert.equal(history.total, 1, 'immediate creation starts exactly one run');
   assert.equal(typeof history.resourceVersion, 'number');
   for (const run of [...history.items, ...history.active]) {
@@ -220,9 +238,12 @@ try {
   }
   const runId = history.items[0].id;
   await server.characters.settled(first.id);
-  const beforeUpdate = await c.request<any>('characters.get', {
-    characterId: first.id,
-  });
+  const beforeUpdate = await c.request<PublicAICharacterView>(
+    'characters.get',
+    {
+      characterId: first.id,
+    },
+  );
   await assert.rejects(
     c.request(
       'characters.update',
@@ -234,13 +255,20 @@ try {
     ),
     /Tasks/,
   );
-  const afterUpdate = await c.request<any>('characters.get', {
+  const afterUpdate = await c.request<PublicAICharacterView>('characters.get', {
     characterId: first.id,
   });
   assert.deepEqual(afterUpdate.task, beforeUpdate.task);
   assert.equal(afterUpdate.name, beforeUpdate.name);
   assert.equal(
-    (await c.request<any>('runs.list', { planId: plan.id })).total,
+    (
+      await c.request<{
+        total: number;
+        resourceVersion: number;
+        items: PublicRunView[];
+        active: PublicRunView[];
+      }>('runs.list', { planId: plan.id })
+    ).total,
     1,
   );
   for (const operation of ['task', 'pause', 'resume', 'cancel']) {
@@ -261,7 +289,7 @@ try {
   ]) {
     await assert.rejects(
       c.request(
-        method as any,
+        method,
         { characterId: first.id },
         { commandId: `removed-${method.replace('.', '-')}` },
       ),
@@ -282,13 +310,14 @@ try {
     ),
   );
   assert.equal(
-    (await c.request<any>('commands.get', { commandId: 'stale' })).state,
+    (await c.request<CommandReceipt>('commands.get', { commandId: 'stale' }))
+      .state,
     'rejected',
   );
-  const task = await c.request<any>('characters.get', {
+  const task = await c.request<PublicAICharacterView>('characters.get', {
     characterId: first.id,
   });
-  const paused = await c.request<any>(
+  const paused = await c.request<PublicRunView>(
     'runs.control',
     { runId, operation: 'pause', expectedTask: task.taskIdentity },
     { commandId: 'pause' },
@@ -297,7 +326,7 @@ try {
   assert.equal(paused.planId, plan.id);
   assert.equal(paused.status, 'paused');
   assert.equal(server.characters.list()[0].task?.status, 'paused');
-  const concurrentPlan = await c.request<any>(
+  const concurrentPlan = await c.request<PublicPlanView>(
     'plans.create',
     {
       characterId: first.id,
@@ -306,7 +335,12 @@ try {
     { commandId: 'second-execution' },
   );
   assert.equal(server.characters.list()[0].task?.status, 'paused');
-  const queuedHistory = await c.request<any>('runs.list', {
+  const queuedHistory = await c.request<{
+    total: number;
+    resourceVersion: number;
+    items: PublicRunView[];
+    active: PublicRunView[];
+  }>('runs.list', {
     planId: concurrentPlan.id,
   });
   assert.equal(queuedHistory.items[0].status, 'queued');
@@ -332,7 +366,7 @@ try {
     { commandId: 'cancel-queued' },
   );
   assert.equal(server.characters.list()[0].task?.status, 'paused');
-  const updated = await c.request<any>('characters.get', {
+  const updated = await c.request<PublicAICharacterView>('characters.get', {
     characterId: first.id,
   });
   await c.request(
@@ -435,7 +469,7 @@ try {
     server.characters.list()[0].sessionId,
     'watch Ctrl+C must not stop the hosted Agent',
   );
-  const latest = await other.request<any>('characters.get', {
+  const latest = await other.request<PublicAICharacterView>('characters.get', {
     characterId: first.id,
   });
   await other.request(
@@ -452,7 +486,12 @@ try {
     'CLI immediate task',
   );
   await until(() => server.characters.list()[0].task?.status === 'waiting');
-  const cliRuns = await other.request<any>('runs.list', { planId: cliPlan.id });
+  const cliRuns = await other.request<{
+    total: number;
+    resourceVersion: number;
+    items: PublicRunView[];
+    active: PublicRunView[];
+  }>('runs.list', { planId: cliPlan.id });
   assert.equal(cliRuns.total, 1);
   const cliRunId = cliRuns.items[0].id;
   await cli('run', 'pause', cliRunId, '--character', first.id);
@@ -479,11 +518,18 @@ try {
   await cli('run', 'cancel', cliRunId, '--character', first.id);
   assert.equal(server.characters.list()[0].task?.status, 'cancelled');
   assert.equal(
-    (await other.request<any>('runs.list', { planId: cliPlan.id })).total,
+    (
+      await other.request<{
+        total: number;
+        resourceVersion: number;
+        items: PublicRunView[];
+        active: PublicRunView[];
+      }>('runs.list', { planId: cliPlan.id })
+    ).total,
     1,
     'resume continues the same run',
   );
-  const second = await other.request<any>(
+  const second = await other.request<PublicAICharacterView>(
     'characters.create',
     { value: { ...value, name: 'Second', joinWorld: false } },
     { commandId: 'second' },
@@ -496,7 +542,7 @@ try {
     limits: { maxSteps: 20, maxTokens: 20000, maxRuntimeMs: 600000 },
     totalTokenBudget: 100000,
   };
-  const planned = await other.request<any>(
+  const planned = await other.request<PublicPlanView>(
     'plans.create',
     { characterId: first.id, value: draft },
     { commandId: 'global-plan' },
@@ -510,11 +556,15 @@ try {
   assert.equal(duplicatePlan.status, 201);
   assert.equal((await duplicatePlan.json()).id, planned.id);
   assert.equal(
-    (await other.request<any>('plans.list', { search: 'Global plan' })).total,
+    (
+      await other.request<{ total: number }>('plans.list', {
+        search: 'Global plan',
+      })
+    ).total,
     1,
   );
   const unsubscribePlans = await other.subscribe({ scope: 'plans' });
-  const assigned = await other.request<any>(
+  const assigned = await other.request<PublicPlanView>(
     'plans.reassign',
     {
       planId: planned.id,
@@ -549,18 +599,29 @@ try {
     { characterId: second.id },
     { commandId: 'delete-second' },
   );
-  const retained = await other.request<any>('plans.get', {
+  const retained = await other.request<PublicPlanView>('plans.get', {
     planId: planned.id,
   });
   assert.equal(retained.characterId, undefined);
   assert.equal(retained.state, 'paused');
   assert.equal(retained.characterName, 'Second');
   assert.equal(
-    (await other.request<any>('plans.list', { state: 'unassigned' })).total,
+    (
+      await other.request<{ total: number }>('plans.list', {
+        state: 'unassigned',
+      })
+    ).total,
     1,
   );
   assert.equal(
-    (await other.request<any>('runs.list', { planId: planned.id })).total,
+    (
+      await other.request<{
+        total: number;
+        resourceVersion: number;
+        items: PublicRunView[];
+        active: PublicRunView[];
+      }>('runs.list', { planId: planned.id })
+    ).total,
     0,
   );
   await until(() =>

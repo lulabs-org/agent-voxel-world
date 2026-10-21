@@ -312,7 +312,7 @@ export class AICharacterOrchestrator {
     };
     this.jobs.set(job.view.id, job);
     if (joinWorld) job.done = this.execute(job, provider, false);
-    this.persist();
+    void this.persist();
     return this.list().find((v) => v.id === job.view.id)!;
   }
 
@@ -339,7 +339,7 @@ export class AICharacterOrchestrator {
     job.attention.clear();
     job.abort = new AbortController();
     job.done = this.execute(job, provider, false);
-    this.persist();
+    void this.persist();
     return this.list().find((v) => v.id === id)!;
   }
 
@@ -544,7 +544,9 @@ export class AICharacterOrchestrator {
       wake: (j) => this.wake(j),
       schedule: (j) => this.schedule(j),
       save: () => this.save(),
-      persist: () => this.persist(),
+      persist: () => {
+        void this.persist();
+      },
     };
     job.host ??= new AICharacterHost(job, ctx);
     return job.host.run(provider, run);
@@ -574,7 +576,7 @@ export class AICharacterOrchestrator {
         delete job.view.sessionId;
         job.view.status = 'stopped';
         markOffline(executionState(job));
-        this.persist();
+        void this.persist();
       })();
     }
     return this.list().find((v) => v.id === job.view.id)!;
@@ -591,13 +593,13 @@ export class AICharacterOrchestrator {
       await job.done;
       const restoreTasks = this.tasks.detachAgent(id, job.view.name);
       this.jobs.delete(id);
-      this.persist();
+      void this.persist();
       try {
         await this.flush();
       } catch (error) {
         restoreTasks();
         this.jobs.set(id, job);
-        this.persist();
+        void this.persist();
         await this.flush().catch(() => {});
         throw error;
       }

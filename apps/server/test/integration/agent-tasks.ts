@@ -1,3 +1,4 @@
+import type { ChatData } from '@voxel/shared';
 import {
   startTask,
   controlRun as controlManagedRun,
@@ -25,7 +26,15 @@ let manager: AICharacterManager | undefined,
   human: Session | undefined,
   other: Session | undefined;
 let calls = 0;
-const prompts: any[] = [];
+type FixturePrompt = {
+  previous: {
+    previous: {
+      results: { status: string; result: { ok: boolean } }[];
+      stopReason?: string;
+    };
+  };
+};
+const prompts: FixturePrompt[] = [];
 try {
   const store = new ProviderStore(join(dir, 'providers.json'));
   await store.load({ DEEPSEEK_API_KEY: 'fixture-only' });
@@ -37,7 +46,7 @@ try {
     prompts.push(prompt);
     const message = prompt.observation.attention?.data.text ?? '';
     const task = prompt.previous.task;
-    let action: any = {
+    let action: unknown = {
       actions: [{ type: 'wait' }],
       task: {
         intent: 'continue',
@@ -327,13 +336,17 @@ try {
     assert.equal(room.blocks.get('2,3,1')?.material, 'wood');
     assert.equal(current().sessionId, identity);
     await until(() =>
-      human!.events.some((e) => (e.data as any).text === '木方块已放好。'),
+      human!.events.some(
+        (e) => (e.data as Partial<ChatData>).text === '木方块已放好。',
+      ),
     );
     assert(
-      !other.events.some((e) => (e.data as any).text === '木方块已放好。'),
+      !other.events.some(
+        (e) => (e.data as Partial<ChatData>).text === '木方块已放好。',
+      ),
       'private task report stays private',
     );
-    assert.equal(prompts.at(-1).previous.previous.results[0].result.ok, true);
+    assert.equal(prompts.at(-1)!.previous.previous.results[0].result.ok, true);
     const beforeFailure = calls;
     await human.request('chat', {
       scope: 'public',
@@ -347,12 +360,12 @@ try {
       human!.events.some(
         (e) =>
           e.actor === identity &&
-          (e.data as any).text?.includes('这条消息处理失败'),
+          (e.data as Partial<ChatData>).text?.includes('这条消息处理失败'),
       ),
     );
     assert(
       !other.events.some((e) =>
-        (e.data as any).text?.includes('这条消息处理失败'),
+        (e.data as Partial<ChatData>).text?.includes('这条消息处理失败'),
       ),
       'failure receipts stay private',
     );
@@ -380,7 +393,7 @@ try {
       human.events.some(
         (e) =>
           e.actor === identity &&
-          (e.data as any).text?.includes('收到。正在靠近玩家'),
+          (e.data as Partial<ChatData>).text?.includes('收到。正在靠近玩家'),
       ),
       'sender receives acknowledgement',
     );
@@ -474,7 +487,7 @@ try {
     assert.equal(room.blocks.get('3,3,0')?.material, 'wood');
     assert.equal(room.blocks.get('3,4,0')?.material, 'wood');
     assert.deepEqual(
-      prompts.at(-1).previous.previous.results.map((r: any) => r.status),
+      prompts.at(-1)!.previous.previous.results.map((r) => r.status),
       ['succeeded', 'succeeded', 'succeeded'],
     );
 
@@ -483,7 +496,7 @@ try {
     assert.equal(room.blocks.get('3,3,1')?.material, 'wood');
     assert.equal(room.blocks.has('3,4,1'), false);
     assert.deepEqual(
-      prompts.at(-1).previous.previous.results.map((r: any) => r.status),
+      prompts.at(-1)!.previous.previous.results.map((r) => r.status),
       ['succeeded', 'failed', 'pending'],
     );
 
@@ -502,10 +515,13 @@ try {
     await startTask(manager, job.id, { goal: '批次受阻' });
     await until(() => current().task?.status === 'needs_input');
     assert.equal(
-      prompts.at(-1).previous.previous.stopReason,
+      prompts.at(-1)!.previous.previous.stopReason,
       'movement_stalled',
     );
-    assert.equal(prompts.at(-1).previous.previous.results[1].status, 'pending');
+    assert.equal(
+      prompts.at(-1)!.previous.previous.results[1].status,
+      'pending',
+    );
     Object.assign(player, position);
 
     const beforePause = calls;
@@ -526,7 +542,7 @@ try {
     );
     const saved = JSON.parse(
       await readFile(join(dir, 'providers.json.agents.json'), 'utf8'),
-    ).characters.find((j: any) => j.id === job.id);
+    ).characters.find((j: { id: string }) => j.id === job.id);
     assert.equal(saved.runtime.previous.results[0].status, 'interrupted');
     assert.equal(saved.runtime.previous.results[1].status, 'pending');
     const beforeBatchRestore = calls;

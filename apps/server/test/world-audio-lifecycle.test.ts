@@ -34,7 +34,7 @@ it('preserves voice actions and closes sessions on replacement, leave and server
     clients.push(a, b);
     await a.join('Voice A', 'human');
     await b.join('Voice B', 'human');
-    const events: any[] = [];
+    const events: unknown[] = [];
     a.room.onMessage('voice', (event) => events.push(event));
     b.room.onMessage('voice', () => {});
     expect((await a.request('voice.start', { text: 'first' })).ok).toBe(true);

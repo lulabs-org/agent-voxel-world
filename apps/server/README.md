@@ -48,7 +48,8 @@ Agent 共用运行时继续位于 `packages/agent-runtime`，不迁入服务端�
 
 ```sh
 pnpm --filter @voxel/server test  # 服务端就近测试与网络生命周期
-pnpm check                       # 全仓类型、单元测试和构建
+pnpm --filter @voxel/server lint  # 服务端源码和测试的 ESLint 检查
+pnpm check                       # 服务端 lint、全仓类型、单元测试和构建
 pnpm test:agents
 pnpm test:agent:tasks
 pnpm test:navigation
@@ -60,6 +61,8 @@ pnpm test:agent:deepseek
 pnpm test:player:names
 pnpm --filter @voxel/server exec tsx test/integration/realtime.ts
 ```
+
+`pnpm lint` / `pnpm lint:fix` 从仓库根目录转发到服务端。根目录 `eslint.config.js` 仅覆盖 `apps/server/src/**/*.ts` 和 `apps/server/test/**/*.ts`（含集成脚本与沙箱），启用 ESLint/TypeScript 推荐规则、未处理 Promise 和异步回调误用检查；零警告才通过。`dist`、`output`、`node_modules` 不参与检查，格式由 Prettier 负责。
 
 以上推理/语音集成默认使用固定响应，仍通过真实 HTTP、WebSocket 与物理执行。真实模型导航需显式运行 `NAVIGATION_PROVIDERS=/absolute/path/providers.json pnpm test:navigation:live`；测试不会自动读取生产凭据，也不修改当前开发世界。结果默认写入 `artifacts/navigation-live-model.json`。
 

@@ -7,7 +7,7 @@ import { SceneTools, type SceneAccess } from './scene-tools';
 
 export interface RealtimeSocket {
   bufferedAmount: number;
-  on(event: string, listener: (...args: any[]) => void): unknown;
+  on(event: string, listener: (...args: unknown[]) => void): unknown;
   send(data: string): void;
   close(): void;
 }
@@ -76,7 +76,7 @@ export class BailianSession {
       throw Error('unsupported-model');
     if (this.demo && dial === productionDial)
       throw Error('demo-transport-required');
-    let token = '';
+    let token: string;
     try {
       token = this.demo ? '' : config.credential();
     } catch {
@@ -189,7 +189,15 @@ export class BailianSession {
     if (this.closed || !this.ready || this.busy)
       throw Error('session-not-listening');
   }
-  private receive(event: any) {
+  private receive(event: {
+    type?: unknown;
+    response?: { id?: unknown; status?: unknown };
+    response_id?: unknown;
+    delta?: unknown;
+    call_id?: unknown;
+    name?: unknown;
+    arguments?: unknown;
+  }) {
     if (event.type === 'error') return this.fail('provider-rejected-request'); // Never reflect provider errors or credentials.
     if (event.type === 'session.updated') {
       clearTimeout(this.handshake);
@@ -238,7 +246,11 @@ export class BailianSession {
       }
     }
   }
-  private tool(event: any) {
+  private tool(event: {
+    call_id?: unknown;
+    name?: unknown;
+    arguments?: unknown;
+  }) {
     if (
       typeof event.call_id !== 'string' ||
       event.call_id.length > 128 ||
@@ -278,14 +290,18 @@ export class BailianSession {
     ) {
       try {
         this.socket.send(JSON.stringify({ type: 'response.cancel' }));
-      } catch {}
+      } catch {
+        // Best-effort close must continue even when the provider socket fails.
+      }
     }
     clearTimeout(this.deadline);
     clearTimeout(this.handshake);
     this.sceneTools.close();
     try {
       this.socket?.close();
-    } catch {}
+    } catch {
+      // Best-effort close must continue even when the provider socket fails.
+    }
     this.event('closed');
   }
 }

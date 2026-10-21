@@ -22,7 +22,7 @@ export class DemoSocket extends EventEmitter implements RealtimeSocket {
     ) {
       const data = JSON.parse(event.item.output);
       const block = data.blocks?.find(
-        (b: any) =>
+        (b: { x: number; y: number; z: number; material: string }) =>
           b.y > 0 &&
           b.material === 'grass' &&
           Math.hypot(b.x - data.self.x, b.z - data.self.z) > 1,

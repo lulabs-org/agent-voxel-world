@@ -23,7 +23,7 @@ export function validateAICharacter(
     ...provider.inference,
   };
   const model = text(input.model, '模型', 128, provider.defaultModel);
-  if (!model || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+\-]{0,127}$/.test(model))
+  if (!model || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,127}$/.test(model))
     throw new AppError('请输入有效模型 ID。');
   if (provider.type === 'ollama' && /cloud/i.test(model))
     throw new AppError('Ollama 请选择已安装在目标服务上的模型。');

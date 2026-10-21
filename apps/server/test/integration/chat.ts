@@ -1,3 +1,4 @@
+import type { ChatData } from '@voxel/shared';
 import { createTestServer } from '../helpers/test-server';
 import assert from 'node:assert/strict';
 import { LocalSpeech } from '../../src/modules/audio/asr/local-speech';
@@ -47,15 +48,23 @@ try {
       })
     ).ok,
   );
-  await until(() => ai.events.some((e) => (e.data as any).text === secret));
+  await until(() =>
+    ai.events.some((e) => (e.data as Partial<ChatData>).text === secret),
+  );
   await delay(100);
-  assert(!out.events.some((e) => (e.data as any).text === secret));
+  assert(
+    !out.events.some((e) => (e.data as Partial<ChatData>).text === secret),
+  );
   for (const s of [a, b, ai])
     assert(
-      (await s.observe()).events.some((e) => (e.data as any).text === secret),
+      (await s.observe()).events.some(
+        (e) => (e.data as Partial<ChatData>).text === secret,
+      ),
     );
   assert(
-    !(await out.observe()).events.some((e) => (e.data as any).text === secret),
+    !(await out.observe()).events.some(
+      (e) => (e.data as Partial<ChatData>).text === secret,
+    ),
   );
   assert(
     !(
@@ -85,9 +94,15 @@ try {
   };
   assert(clip.transcriptAvailable);
   await until(() =>
-    ai.events.some((e) => (e.data as any).audioId === clip.audioId),
+    ai.events.some(
+      (e) => (e.data as Partial<ChatData>).audioId === clip.audioId,
+    ),
   );
-  assert(!out.events.some((e) => (e.data as any).audioId === clip.audioId));
+  assert(
+    !out.events.some(
+      (e) => (e.data as Partial<ChatData>).audioId === clip.audioId,
+    ),
+  );
   for (const s of [a, b, ai])
     assert.equal(
       (
@@ -195,10 +210,12 @@ try {
   );
   await delay(100);
   assert(
-    !ai.events.some((e) => (e.data as any).scope === 'nearby'),
+    !ai.events.some((e) => (e.data as Partial<ChatData>).scope === 'nearby'),
     'Preview must never reach the Agent',
   );
-  assert(!out.events.some((e) => (e.data as any).scope === 'nearby'));
+  assert(
+    !out.events.some((e) => (e.data as Partial<ChatData>).scope === 'nearby'),
+  );
   const forgedPreview = await fetch(
     `${url}/chat/spatial/${ticket.id}/preview`,
     {
@@ -221,13 +238,17 @@ try {
   assert.equal(caption.scope, 'nearby');
   assert(caption.recipients.includes(ids[2]));
   assert(!caption.recipients.includes(ids[3]));
-  await until(() => ai.events.some((e) => (e.data as any).scope === 'nearby'));
+  await until(() =>
+    ai.events.some((e) => (e.data as Partial<ChatData>).scope === 'nearby'),
+  );
   assert(
-    (await ai.observe()).events.some((e) => (e.data as any).scope === 'nearby'),
+    (await ai.observe()).events.some(
+      (e) => (e.data as Partial<ChatData>).scope === 'nearby',
+    ),
   );
   assert(
     !(await out.observe()).events.some(
-      (e) => (e.data as any).scope === 'nearby',
+      (e) => (e.data as Partial<ChatData>).scope === 'nearby',
     ),
   );
   assert.equal(
@@ -271,7 +292,7 @@ try {
   });
   await until(() => !!inferenceSignal);
   const beforeCancel = ai.events.filter(
-    (e) => (e.data as any).scope === 'nearby',
+    (e) => (e.data as Partial<ChatData>).scope === 'nearby',
   ).length;
   await a.request('spatial.state', { sending: false, listening: false });
   assert(inferenceSignal!.aborted);
@@ -279,7 +300,8 @@ try {
   assert.equal((await inFlight).status, 400);
   await delay(60);
   assert.equal(
-    ai.events.filter((e) => (e.data as any).scope === 'nearby').length,
+    ai.events.filter((e) => (e.data as Partial<ChatData>).scope === 'nearby')
+      .length,
     beforeCancel,
   );
   const token = a.chatToken;

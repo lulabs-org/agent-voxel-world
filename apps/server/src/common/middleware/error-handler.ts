@@ -30,7 +30,7 @@ function logServerError(error: unknown, status: number) {
 
 /** Domain formatters preserve existing HTTP contracts; streaming failures delegate after headers. */
 export function errorHandler(
-  format: (error: any) => ErrorResponse = (error) => ({
+  format: (error: unknown) => ErrorResponse = (error) => ({
     status: error instanceof AppError ? error.status : 500,
     body: {
       error:

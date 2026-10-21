@@ -78,6 +78,8 @@ export async function checkStartupDatabase(databaseUrl = env.databaseUrl()) {
     // Read-only check before Colyseus creates a room and logs initialization errors.
     await db.world.findFirst({ select: { id: true } });
   } catch (error) {
+    // Raw database errors can contain credentials; expose only the sanitized message.
+    // eslint-disable-next-line preserve-caught-error
     throw new Error(databaseStartupMessage(error, databaseUrl));
   } finally {
     await db?.$disconnect().catch(() => {});
