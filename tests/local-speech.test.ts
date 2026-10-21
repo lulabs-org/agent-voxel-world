@@ -2,10 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, writeFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import {
-  LocalSpeech,
-  validatePcmWav,
-} from '../apps/server/src/modules/audio/asr/local-speech';
+import { LocalSpeech } from '../apps/server/src/modules/audio/asr/local-speech';
+import { validatePcmWav } from '../apps/server/src/modules/audio/processing/pcm-wav';
 function wav(seconds = 1, amplitude = 1000) {
   const data = Buffer.alloc(44 + Math.round(seconds * 32000));
   data.write('RIFF');

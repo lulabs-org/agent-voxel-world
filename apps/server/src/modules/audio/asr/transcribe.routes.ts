@@ -4,7 +4,8 @@ import { createOriginGuard } from '../../../common/middleware/origin-guard';
 import { errorHandler } from '../../../common/middleware/error-handler';
 import { AsrSettingsStore } from './asr-settings';
 import express, { type Express } from 'express';
-import { LocalSpeech, MAX_AUDIO_BYTES } from './local-speech';
+import { LocalSpeech } from './local-speech';
+import { MAX_AUDIO_BYTES } from '../processing/normalize';
 import { AppError } from '../../../common/errors';
 import { scheduleSpeech } from './speech-scheduler';
 export function installTranscribeRoutes(

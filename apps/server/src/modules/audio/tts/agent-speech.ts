@@ -6,7 +6,7 @@ import {
   type ChatData,
   type Player,
 } from '@voxel/shared';
-import { ChatError } from '../../chat/errors';
+import { AppError } from '../../../common/errors';
 import type { SpeechSynthesizer } from './speech-synthesizer';
 import { PiperTts } from './piper-tts';
 
@@ -168,7 +168,7 @@ export class AgentSpeech {
       !clip.recipients.includes(viewer) ||
       !this.canHear(viewer, clip.event.actor)
     )
-      throw new ChatError('语音已过期或不可访问。', 404);
+      throw new AppError('语音已过期或不可访问。', 404);
     return clip.bytes;
   }
   cancel(actor: string) {

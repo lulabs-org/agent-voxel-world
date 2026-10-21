@@ -2,11 +2,11 @@ import { expect, it } from 'vitest';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { migrateArchive } from '../apps/server/src/persistence/migrate-archive';
 import {
-  migrateArchive,
-  readAICharacterArchive,
-  writeAICharacterArchive,
-} from '../apps/server/src/modules/ai-characters';
+  readManagementArchive,
+  writeManagementArchive,
+} from '../apps/server/src/persistence/archive-file';
 import { newPlan, newRun } from '../apps/server/src/modules/tasks';
 import { DEFAULT_TASK_LIMITS } from '@voxel/shared';
 
@@ -82,12 +82,12 @@ it('backs up the old archive once and atomically writes the independent envelope
   try {
     const old = JSON.stringify([{ id: 'a', name: 'A' }]);
     await writeFile(path, old);
-    const archive = await readAICharacterArchive(path);
+    const archive = await readManagementArchive(path);
     expect(
       await readFile(path + '.before-task-plan-module-v1.bak', 'utf8'),
     ).toBe(old);
-    await writeAICharacterArchive(path, archive!);
-    expect(await readAICharacterArchive(path)).toEqual(archive);
+    await writeManagementArchive(path, archive!);
+    expect(await readManagementArchive(path)).toEqual(archive);
     expect(
       await readFile(path + '.before-task-plan-module-v1.bak', 'utf8'),
     ).toBe(old);
@@ -159,7 +159,7 @@ it('migrates v1 ownership without losing execution checkpoints, history or reque
   const path = join(dir, 'providers.json.agents.json');
   try {
     await writeFile(path, original);
-    const migrated = (await readAICharacterArchive(path))!;
+    const migrated = (await readManagementArchive(path))!;
     expect(migrated.version).toBe(3);
     expect(migrated).not.toHaveProperty('agents');
     expect(migrated.characters[0]).toMatchObject({
@@ -196,8 +196,8 @@ it('migrates v1 ownership without losing execution checkpoints, history or reque
     expect(
       await readFile(path + '.before-character-events-v3.bak', 'utf8'),
     ).toBe(original);
-    await writeAICharacterArchive(path, migrated);
-    expect(await readAICharacterArchive(path)).toEqual(migrated);
+    await writeManagementArchive(path, migrated);
+    expect(await readManagementArchive(path)).toEqual(migrated);
     expect(migrateArchive(migrated)).toEqual(migrated);
     expect(
       await readFile(path + '.before-character-events-v3.bak', 'utf8'),

@@ -19,11 +19,6 @@ import {
   convertToPcmWav,
 } from '../processing/normalize';
 
-// Preserve existing imports while shared audio consumers use processing directly.
-export { executable, type CommandRunner } from '../processing/command';
-export { validatePcmWav } from '../processing/pcm-wav';
-export { MAX_AUDIO_BYTES } from '../processing/normalize';
-
 function whisperPrompt(language: string, settings?: WhisperAsrSettings) {
   return (
     settings?.prompt.trim() ||

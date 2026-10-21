@@ -4,7 +4,7 @@ import { validatePlan } from './validation';
 import { newPlan, nextOccurrence, duePlans, runView, endedRun } from './model';
 import { TaskService, recordEvent, type TaskLease } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
-import { CommandRouter } from '../management/command-router';
+import { CommandQueue } from '../../common/command-queue';
 import { isRepeating } from '@voxel/shared';
 import { hasPlanTokenLimit } from './limits';
 import type { PlanQueryFilter } from '@voxel/shared/management';
@@ -28,7 +28,12 @@ export class TaskCoordinator {
   readonly committedPlans = new PlanService();
   readonly planScheduler: TaskScheduler;
   private changingPlans = new Set<string>();
-  private readonly messageCommands = new CommandRouter();
+  private readonly messageCommands = new CommandQueue({
+    // Internal commands return the original promise; no public receipt error DTO is needed.
+    publicError: () => undefined,
+    conflict: () =>
+      new AppError('同一命令标识不能用于不同操作。', 409, 'CONFLICT'),
+  });
 
   constructor(private readonly host: TaskHostPort) {
     this.planScheduler = new TaskScheduler(() => this.dispatchDue());

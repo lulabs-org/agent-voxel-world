@@ -2,21 +2,16 @@ import { ManagementCommands } from '../management/commands';
 import type { Express, Request, Response } from 'express';
 import { asyncRoute as route } from '../../common/middleware/async-route';
 import type { PlanQueryFilter } from '@voxel/shared/management';
-import { TasksService, type TaskPort } from './port';
+import type { TaskPort } from './port';
 
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
  */
 export function installTaskRoutes(
   app: Express,
-  tasksOrService: TaskPort | TasksService,
+  tasks: TaskPort,
   commands: ManagementCommands,
 ) {
-  const service =
-    tasksOrService instanceof TasksService
-      ? tasksOrService
-      : new TasksService(tasksOrService);
-
   // ---------------------------------------------------------------------------
   // 任务计划与执行运行的 HTTP 适配
   // ---------------------------------------------------------------------------
@@ -25,13 +20,13 @@ export function installTaskRoutes(
     req.body?.characterId ? String(req.body.characterId) : undefined;
 
   const handleGetPlan = (req: Request, res: Response) => {
-    res.json(service.getPlan(String(req.params.planId)));
+    res.json(tasks.publicPlan(String(req.params.planId)));
   };
 
   const handleCreatePlan = async (req: Request, res: Response) => {
     const characterId = resolveCharacterId(req) ?? '';
     const result = await commands.execute(req, 'plans', (commandId) =>
-      service.createPlan(characterId, {
+      tasks.createTaskPlan(characterId, {
         ...req.body,
         requestId: req.body?.requestId ?? commandId,
       }),
@@ -41,7 +36,7 @@ export function installTaskRoutes(
 
   const handleUpdatePlan = async (req: Request, res: Response) => {
     const result = await commands.execute(req, 'plans', () =>
-      service.updatePlan(
+      tasks.updateTaskPlan(
         resolveCharacterId(req),
         String(req.params.planId),
         req.body ?? {},
@@ -53,14 +48,19 @@ export function installTaskRoutes(
 
   const handleDeletePlan = async (req: Request, res: Response) => {
     await commands.execute(req, 'plans', () =>
-      service.deletePlan(resolveCharacterId(req), String(req.params.planId)),
+      tasks.controlTaskPlan(
+        resolveCharacterId(req),
+        String(req.params.planId),
+        'delete',
+        {},
+      ),
     );
     res.sendStatus(204);
   };
 
   const handleControlPlan = async (req: Request, res: Response) => {
     const result = await commands.execute(req, 'plans', (commandId) =>
-      service.controlPlan(
+      tasks.controlTaskPlan(
         resolveCharacterId(req),
         String(req.params.planId),
         String(req.params.operation),
@@ -74,7 +74,7 @@ export function installTaskRoutes(
   const handleControlRun = async (req: Request, res: Response) => {
     const characterId = resolveCharacterId(req);
     const result = await commands.execute(req, 'plans', () =>
-      service.controlRun(
+      tasks.controlTaskRun(
         characterId,
         String(req.params.runId),
         String(req.params.operation),
@@ -147,7 +147,7 @@ export function installTaskRoutes(
   app.get(
     '/tasks',
     route((req, res) => {
-      const page = service.listGlobalPlans({
+      const page = tasks.planPage({
         timing: req.query.timing
           ? (String(req.query.timing) as PlanQueryFilter['timing'])
           : undefined,
@@ -384,7 +384,7 @@ export function installTaskRoutes(
     '/tasks/:planId/reassign',
     route(async (req, res) => {
       const result = await commands.execute(req, 'plans', () =>
-        service.reassignPlan(
+        tasks.reassignPlan(
           String(req.params.planId),
           String(req.body?.targetCharacterId ?? ''),
           req.body ?? {},
@@ -443,7 +443,7 @@ export function installTaskRoutes(
   app.get(
     '/tasks/:planId/runs',
     route((req, res) => {
-      const result = service.listRuns(
+      const result = tasks.publicRuns(
         req.query.characterId ? String(req.query.characterId) : undefined,
         String(req.params.planId),
         Number(req.query.offset ?? 0),

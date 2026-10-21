@@ -1,10 +1,6 @@
 import type { AICharacterView } from '@voxel/shared';
 import { AppError } from '../common/errors';
-import type {
-  ArchivePort,
-  CharacterRecord,
-  ManagementArchive,
-} from './archive';
+import type { ArchivePort, ManagementArchive } from './archive';
 import type { ManagementEvents } from '../modules/management/events';
 import type { AICharacterRegistry } from '../modules/ai-characters/types';
 import type { AICharacterWakeScheduler } from '../modules/ai-characters/wake-scheduler';
@@ -28,9 +24,6 @@ export class ManagementPersistence {
   get planStorageFailed() {
     return this.tasks.storageFailed;
   }
-  set planStorageFailed(value: boolean) {
-    this.tasks.storageFailed = value;
-  }
 
   assertWritable(closing: boolean, jobStorageFailed?: boolean) {
     if (closing) throw new AppError('世界服务正在关闭。', 503);
@@ -49,12 +42,6 @@ export class ManagementPersistence {
   }
   committedCharacterName(id: string) {
     return this.characters.committedCharacterName(id);
-  }
-  getCommittedRecord(id: string) {
-    return this.characters.getCommittedRecord(id);
-  }
-  initCommitted(records: CharacterRecord[], views: AICharacterView[]) {
-    this.characters.commit(records, views);
   }
 
   async flush(since = this.storageRevision): Promise<void> {

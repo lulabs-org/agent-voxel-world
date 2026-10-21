@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { swaggerSpec } from '../apps/server/src/common/swagger';
+import { swaggerSpec } from '../apps/server/src/openapi/swagger';
 
 const spec = swaggerSpec as any;
 const operations = Object.entries(spec.paths).flatMap(

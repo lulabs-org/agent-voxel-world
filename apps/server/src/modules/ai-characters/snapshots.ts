@@ -19,10 +19,6 @@ export class CharacterSnapshots {
     return this.committed.get(id)?.name;
   }
 
-  getCommittedRecord(id: string): CharacterRecord | undefined {
-    return this.committed.get(id);
-  }
-
   commit(records: CharacterRecord[], views: AICharacterView[]) {
     this.committed = new Map(records.map((record) => [record.id, record]));
     this.committedViews = views;

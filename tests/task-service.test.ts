@@ -10,7 +10,7 @@ import {
 } from '@voxel/agent-runtime';
 import { testAgentConfig } from './support/agent-config';
 import { RequestBudget } from '../packages/agent-runtime/src/task/budget';
-import { readAICharacterArchive } from '../apps/server/src/modules/ai-characters';
+import { readManagementArchive } from '../apps/server/src/persistence/archive-file';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 const config = testAgentConfig();
 const operator = { kind: 'operator' as const };
@@ -142,7 +142,7 @@ it('backs up and migrates current and historical runtimes while preserving uncer
     const path = join(dir, 'archive.json');
     const original = JSON.stringify([record]);
     await writeFile(path, original);
-    const saved = await readAICharacterArchive(path);
+    const saved = await readManagementArchive(path);
     expect(
       await readFile(`${path}.before-conversation-tasks-v2.bak`, 'utf8'),
     ).toBe(original);

@@ -1,5 +1,5 @@
 // 1. 契约与业务服务
-export { TasksService, type TaskPort, type TasksManagerPort } from './port';
+export type { TaskPort } from './port';
 
 // 2. HTTP 路由
 export { installTaskRoutes } from './routes';

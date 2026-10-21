@@ -156,6 +156,31 @@ it('rejects stale task leases before interrupting a runner or recording a chat r
   expect(tasks.plans.runs).toHaveLength(0);
 });
 
+it('retains the original failed world command without repeating its transition or save', async () => {
+  const { tasks, save, stopped, lease, message } = fixture();
+  const failure = new Error('fixture storage failure');
+  save.mockRejectedValueOnce(failure);
+  const first = tasks.controlMessage(
+    'actor',
+    'pause',
+    lease,
+    'failed-write',
+    message,
+  );
+  await expect(first).rejects.toBe(failure);
+  const retry = tasks.controlMessage(
+    'actor',
+    'pause',
+    lease,
+    'failed-write',
+    message,
+  );
+  expect(retry).toBe(first);
+  await expect(retry).rejects.toBe(failure);
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(stopped).toHaveBeenCalledTimes(1);
+});
+
 it.each([
   { actor: 'bob' },
   {

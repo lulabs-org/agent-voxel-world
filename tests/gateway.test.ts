@@ -11,7 +11,7 @@ import {
   type SocketLike,
 } from '@voxel/shared/management-client';
 import { gatewaySocket } from '../apps/server/src/modules/gateway/socket';
-import { AICharacterEvents } from '../apps/server/src/modules/ai-characters/events';
+import { ManagementEvents as ServerManagementEvents } from '../apps/server/src/modules/management/events';
 import { EventEmitter } from 'node:events';
 import { GatewayAuth } from '../apps/server/src/modules/gateway/auth';
 import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
@@ -178,7 +178,7 @@ it('rejects missing handshake, unsupported version, Origin, malformed/oversize f
 });
 
 it('sends refresh then ordered changes, rejects commands and cleans up subscriptions', () => {
-  const events = new AICharacterEvents();
+  const events = new ServerManagementEvents();
   const socket = serverSocket(events);
   socket.frame(hello);
   events.publish('characters', ['a']);

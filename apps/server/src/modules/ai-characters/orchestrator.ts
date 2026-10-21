@@ -6,7 +6,9 @@ import {
   type AICharacterSettings,
 } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
-import type { VoiceServicePort, ProviderPort, ArchivePort } from './ports';
+import type { VoiceServicePort } from './ports';
+import type { ProviderPort } from '../providers/provider-port';
+import type { ArchivePort } from '../../persistence/archive';
 import { AICharacterRegistry } from './types';
 import { ManagementEvents } from '../management/events';
 import {
@@ -35,8 +37,6 @@ import { restoreAICharacterJob } from './restore';
 import { AICharacterHost, type ExecutionContext } from './host';
 import { ManagementPersistence } from '../../persistence/management-persistence';
 import { TaskCoordinator } from '../tasks/coordinator';
-
-export * from './validation';
 
 export class AICharacterOrchestrator {
   readonly jobs = new AICharacterRegistry();
@@ -277,10 +277,6 @@ export class AICharacterOrchestrator {
     job.view.status = 'running';
     job.abort = new AbortController();
     job.done = this.execute(job, this.providers.get(job.view.providerId));
-  }
-
-  async models(id: string) {
-    return this.modelCatalog.models(id);
   }
 
   create(value: unknown) {

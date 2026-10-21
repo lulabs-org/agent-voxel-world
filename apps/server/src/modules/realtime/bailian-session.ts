@@ -4,7 +4,6 @@ import type { RealtimeEvent } from '@voxel/shared/realtime';
 import { REALTIME_LIMITS } from './limits';
 import type { Edit } from '@voxel/shared';
 import { SceneTools, type SceneAccess } from './scene-tools';
-export type { SceneAccess } from './scene-tools';
 
 export interface RealtimeSocket {
   bufferedAmount: number;

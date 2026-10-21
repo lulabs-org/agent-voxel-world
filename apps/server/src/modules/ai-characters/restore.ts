@@ -4,13 +4,14 @@ import type { PlanService } from '../tasks/service';
 import { restoreAICharacterLogs } from './logs';
 import { validateAICharacter } from './validation';
 import { AppError } from '../../common/errors';
-import type { ProviderPort, RestoredAICharacterRecord } from './ports';
+import type { ProviderPort } from '../providers/provider-port';
+import type { CharacterRecord } from './record';
 import type { Job } from './types';
 import { restoreTaskExecution, restoreTaskMemory } from '../tasks/restore';
 import { executionState } from './execution-adapter';
 
 export function restoreAICharacterJob(
-  view: RestoredAICharacterRecord,
+  view: CharacterRecord,
   providers: ProviderPort,
   checkVoice: (settings: AICharacterSettings) => void,
   ledger: PlanService,

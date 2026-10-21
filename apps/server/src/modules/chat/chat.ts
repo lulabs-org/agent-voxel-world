@@ -1,4 +1,4 @@
-import { ChatError } from './errors';
+import { AppError } from '../../common/errors';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   parseChatRoute,
@@ -43,28 +43,28 @@ export class WorldChat {
   authenticate(token: string) {
     const id = this.tokens.get(token);
     if (!id || ![...this.players()].some((p) => p.id === id && p.connected))
-      throw new ChatError('游戏连接已失效，请重新进入。', 401);
+      throw new AppError('游戏连接已失效，请重新进入。', 401);
     return id;
   }
   route(actor: string, value: unknown) {
     const route = parseChatRoute(value),
       players = [...this.players()];
     if (!players.some((p) => p.id === actor && p.connected))
-      throw new ChatError('你尚未连接世界。', 401);
+      throw new AppError('你尚未连接世界。', 401);
     if (
       route.recipients.some(
         (id) =>
           id === actor || !players.some((p) => p.id === id && p.connected),
       )
     )
-      throw new ChatError('接收对象已离线或无效，请重新选择。');
+      throw new AppError('接收对象已离线或无效，请重新选择。');
     return route;
   }
   send(actor: string, value: unknown) {
     const route = this.route(actor, value),
       text = (value as { text?: unknown }).text;
     if (typeof text !== 'string' || !text.trim() || text.length > 240)
-      throw new ChatError('消息需为 1–240 字。');
+      throw new AppError('消息需为 1–240 字。');
     // Resolve typed public mentions too. Duplicate nicknames require the picker.
     if (route.scope === 'public') {
       const players = [...this.players()].filter(
@@ -84,10 +84,10 @@ export class WorldChat {
           route.recipients.push(player.id);
       }
       if (route.recipients.length > 8)
-        throw new ChatError('接收对象最多选择 8 位。');
+        throw new AppError('接收对象最多选择 8 位。');
     }
     if (Date.now() - (this.sent.get(actor) ?? 0) < 300)
-      throw new ChatError('发送过快，请稍候。', 429);
+      throw new AppError('发送过快，请稍候。', 429);
     this.sent.set(actor, Date.now());
     this.emit(actor, {
       ...route,
@@ -99,7 +99,7 @@ export class WorldChat {
   beginUpload(actor: string, value: unknown) {
     this.route(actor, value);
     if (this.uploads.has(actor))
-      throw new ChatError('上一段语音仍在处理中。', 429);
+      throw new AppError('上一段语音仍在处理中。', 429);
     this.uploads.add(actor);
   }
   endUpload(actor: string) {
@@ -145,7 +145,7 @@ export class WorldChat {
       (p) =>
         p.id === actor && p.connected && p.kind === 'human' && p.voiceSending,
     );
-    if (!p) throw new ChatError('附近麦克风已关闭，转写已停止。', 409);
+    if (!p) throw new AppError('附近麦克风已关闭，转写已停止。', 409);
     return p;
   }
   private hearing(actor: string) {
@@ -167,7 +167,7 @@ export class WorldChat {
       [...this.speechTickets.values()].filter((t) => t.actor === actor)
         .length >= 4
     )
-      throw new ChatError('转写队列已满，请稍候。', 429);
+      throw new AppError('转写队列已满，请稍候。', 429);
     const id = randomUUID();
     this.speechTickets.set(id, {
       actor,
@@ -189,7 +189,7 @@ export class WorldChat {
     this.speaker(actor);
     const ticket = this.speechTickets.get(id);
     if (!ticket || ticket.actor !== actor || ticket.claimed)
-      throw new ChatError('该语音片段已过期或处理过。', 409);
+      throw new AppError('该语音片段已过期或处理过。', 409);
     return ticket.controller.signal;
   }
   publishSpatial(actor: string, id: string, text: string) {
@@ -201,11 +201,11 @@ export class WorldChat {
       !ticket.claimed ||
       ticket.controller.signal.aborted
     )
-      throw new ChatError('语音片段已取消。', 409);
+      throw new AppError('语音片段已取消。', 409);
     const current = new Set(this.hearing(actor));
     const recipients = ticket.recipients.filter((id) => current.has(id));
     if (!text.trim() || text.length > 240)
-      throw new ChatError('识别结果为空或过长。');
+      throw new AppError('识别结果为空或过长。');
     const data: ChatData = {
       scope: 'nearby',
       recipients,
@@ -243,7 +243,7 @@ export class WorldChat {
         viewer,
       )
     )
-      throw new ChatError('语音已过期或不可访问。', 404);
+      throw new AppError('语音已过期或不可访问。', 404);
     return clip.bytes;
   }
   private prune() {

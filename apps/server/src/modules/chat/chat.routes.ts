@@ -4,7 +4,7 @@ import { createOriginGuard } from '../../common/middleware/origin-guard';
 import { errorHandler } from '../../common/middleware/error-handler';
 import express, { type Express } from 'express';
 import { type WorldChat } from './chat';
-import { ChatError } from './errors';
+
 import { LocalSpeech } from '../audio/asr/local-speech';
 import { AppError } from '../../common/errors';
 import type { AgentSpeech } from '../audio/tts/agent-speech';
@@ -35,7 +35,7 @@ export function installChatRoutes(
     (req, res, next) => {
       try {
         const chat = getChat();
-        if (!chat) throw new ChatError('世界服务尚未就绪。', 503);
+        if (!chat) throw new AppError('世界服务尚未就绪。', 503);
         res.locals.chat = chat;
         res.locals.actor = chat.authenticate(
           (req.headers.authorization ?? '').replace(/^Bearer /, ''),
@@ -321,7 +321,7 @@ export function installChatRoutes(
   app.get('/chat/agent-speech/:id', (req, res, next) => {
     try {
       const service = getAgentSpeech();
-      if (!service) throw new ChatError('Agent 语音服务未就绪。', 503);
+      if (!service) throw new AppError('Agent 语音服务未就绪。', 503);
       res
         .type('audio/wav')
         .send(service.audio(String(req.params.id), res.locals.actor));

@@ -27,7 +27,9 @@ flowchart TD
 - `apps/server/src/modules/gateway`：管理员令牌与通知 socket。没有另一套业务命令分发器。
 - `apps/server/src/modules/management`：管理 HTTP 请求策略、错误映射、命令回执路由和资源变化通知。写命令使用同一份有界回执；`common/command-queue.ts` 只负责通用去重和串行执行，任务前置条件的回执策略由 `tasks/command-policy.ts` 提供。
 - `apps/server/src/modules/ai-characters`、`tasks`、`providers`：各自的 HTTP 路由和业务规则。任务修订检查归属 Tasks。
+- Tasks 路由直接使用 `TaskPort`，不再经过转发服务；世界聊天中的任务控制复用通用命令队列，HTTP 回执策略仍归 management。
 - `apps/server/src/persistence`：联合存档格式、文件原子替换、迁移编排和一次提交后的可见性。角色快照与失败停止归属 `ai-characters/snapshots.ts`；任务快照、失败标记和历史任务迁移归属 `tasks/snapshots.ts`、`tasks/archive-migration.ts`。角色与任务仍共用一个存档和保存队列。
+- `apps/server/src/openapi`：API 文档聚合与 schema；`/api-docs` 和 `/api-docs.json` 路径保持不变。角色模块不再转导出管理事件和联合存档，调用方直接使用其所属模块。
 - `scripts/agent`：独立 AI 玩家、脚本机器人与管理 CLI。根目录 `pnpm agent`、`agent:ai`、`agent:mock`、`agent:ctl` 命令保留。
 - `scripts/agent/config.ts`：独立 AI 玩家的环境变量解析。普通测试使用 `tests/support/agent-config.ts` 的独立配置，运行时只接收 `AgentConfig`。
 - `apps/server/test/integration/world-client.ts`：原 CLI 集成检查，在随机端口和临时存档中运行。

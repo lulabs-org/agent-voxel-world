@@ -213,6 +213,11 @@ try {
   assert.equal(duplicatePlanCreate.id, plan.id);
   const history = await c.request<any>('runs.list', { planId: plan.id });
   assert.equal(history.total, 1, 'immediate creation starts exactly one run');
+  assert.equal(typeof history.resourceVersion, 'number');
+  for (const run of [...history.items, ...history.active]) {
+    assert.equal(run.resourceVersion, history.resourceVersion);
+    assert.ok(Object.hasOwn(run, 'taskIdentity'));
+  }
   const runId = history.items[0].id;
   await server.characters.settled(first.id);
   const beforeUpdate = await c.request<any>('characters.get', {

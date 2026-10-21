@@ -30,19 +30,25 @@ const graph = new Map(
       .filter((file) => file.startsWith(root) && file.endsWith('.ts')),
   ]),
 );
+const isRoute = (name: string) =>
+  /(^|\/)routes\//.test(name) || /(^|\/)(?:[^/]+\.)?routes\.ts$/.test(name);
+
 it('keeps infrastructure independent of business modules and modules independent of composition/transport', () => {
   for (const [file, deps] of graph) {
     const name = relative(root, file);
     for (const dep of deps) {
       const target = relative(root, dep);
       if (name.startsWith('common/') || name.startsWith('config/'))
-        expect(target.startsWith('modules/'), `${name} -> ${target}`).toBe(
-          false,
-        );
+        expect(
+          target.startsWith('common/') || target.startsWith('config/'),
+          `${name} -> ${target}`,
+        ).toBe(true);
       if (name.startsWith('modules/'))
         expect(
           ['app.ts', 'server.ts', 'index.ts'].includes(target) ||
-            target.startsWith('transport/'),
+            target.startsWith('transport/') ||
+            target.startsWith('routes/') ||
+            target.startsWith('openapi/'),
           `${name} -> ${target}`,
         ).toBe(false);
       if (
@@ -54,14 +60,79 @@ it('keeps infrastructure independent of business modules and modules independent
           target.startsWith('modules/ai-characters/'),
           `${name} -> ${target}`,
         ).toBe(false);
+      if (name.startsWith('modules/audio/'))
+        expect(target.startsWith('modules/chat/'), `${name} -> ${target}`).toBe(
+          false,
+        );
       if (
-        name.startsWith('modules/ai-characters/') &&
-        !name.includes('/routes/')
+        name.startsWith('modules/tasks/') &&
+        !isRoute(name) &&
+        !name.endsWith('/index.ts')
       )
-        expect(target.includes('/routes/'), `${name} -> ${target}`).toBe(false);
+        expect(
+          target.startsWith('modules/management/'),
+          `${name} -> ${target}`,
+        ).toBe(false);
+      if (
+        name.startsWith('modules/management/') &&
+        target.startsWith('persistence/')
+      )
+        // Event snapshot comparison is the remaining joint-commit dependency, handled separately.
+        expect(`${name} -> ${target}`).toBe(
+          'modules/management/events.ts -> persistence/archive.ts',
+        );
     }
     if (!name.startsWith('config/'))
       expect(readFileSync(file, 'utf8'), name).not.toMatch(/process\.env/);
+  }
+});
+it('keeps domain implementations independent of HTTP routes, including through barrels', () => {
+  for (const file of graph.keys()) {
+    const name = relative(root, file);
+    if (
+      !name.startsWith('modules/') ||
+      isRoute(name) ||
+      name.endsWith('/index.ts')
+    )
+      continue;
+    const visited = new Set<string>();
+    function visit(current: string, chain: string[]) {
+      if (visited.has(current)) return;
+      visited.add(current);
+      for (const dep of graph.get(current) ?? []) {
+        const path = [...chain, relative(root, dep)];
+        expect(isRoute(relative(root, dep)), path.join(' -> ')).toBe(false);
+        visit(dep, path);
+      }
+    }
+    visit(file, [name]);
+  }
+});
+it('exports server module contracts from their owning module rather than compatibility facades', () => {
+  for (const file of graph.keys()) {
+    const name = relative(root, file);
+    if (!name.startsWith('modules/')) continue;
+    const module = name.split('/')[1];
+    const source = ts.createSourceFile(
+      file,
+      readFileSync(file, 'utf8'),
+      ts.ScriptTarget.Latest,
+    );
+    for (const statement of source.statements) {
+      if (
+        !ts.isExportDeclaration(statement) ||
+        !statement.moduleSpecifier ||
+        !ts.isStringLiteral(statement.moduleSpecifier)
+      )
+        continue;
+      const spec = statement.moduleSpecifier.text;
+      if (!spec.startsWith('.')) continue;
+      const target = relative(root, resolve(dirname(file), spec));
+      expect(
+        target.startsWith(`modules/${module}/`),
+        `${name} re-exports ${target}`,
+      ).toBe(true);
+    }
   }
 });
 it('has no server module cycles, including type imports and re-exports', () => {
