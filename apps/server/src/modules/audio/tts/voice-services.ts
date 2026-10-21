@@ -168,10 +168,7 @@ export class VoiceServiceStore {
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-        throw new AppError(
-          '无法读取语音服务配置，请检查本地配置文件。',
-          500,
-        );
+        throw new AppError('无法读取语音服务配置，请检查本地配置文件。', 500);
       this.values = [
         {
           ...validateVoiceService({

@@ -24,9 +24,7 @@ export class SpeechScheduler {
       const combined = AbortSignal.any([signal, timeout.signal]);
       const timer = setTimeout(
         () =>
-          timeout.abort(
-            new AppError('识别超时，请缩短句子或稍后重试。', 504),
-          ),
+          timeout.abort(new AppError('识别超时，请缩短句子或稍后重试。', 504)),
         partial ? 8000 : 90000,
       );
       const cleanup = () => {

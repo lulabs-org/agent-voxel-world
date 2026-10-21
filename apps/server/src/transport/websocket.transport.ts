@@ -1,8 +1,6 @@
-import type WebSocket from 'ws';
-import type { IncomingMessage, Server } from 'node:http';
+import type { Server } from 'node:http';
 import { WebSocketTransport } from '@colyseus/ws-transport';
-
-export type SocketHandler = (socket: WebSocket, req: IncomingMessage) => void;
+import type { SocketHandler } from '../common/socket-routes';
 
 /** Shares Colyseus' socket server and heartbeat with explicitly registered routes. */
 export class RoutedWebSocketTransport extends WebSocketTransport {

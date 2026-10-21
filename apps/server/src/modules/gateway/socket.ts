@@ -10,6 +10,7 @@ import {
 import { parseEventConnect } from './validation';
 import { publicError } from '../management/errors';
 import type { GatewayAuth } from './auth';
+import type { SocketRoutes } from '../../common/socket-routes';
 
 /** The socket owns only notifications. Snapshots and all commands use authenticated HTTP. */
 export function gatewaySocket(
@@ -79,4 +80,14 @@ export function gatewaySocket(
       );
     }
   });
+}
+
+/** Registers the gateway socket on the shared Colyseus socket server. */
+export function installGatewaySocket(
+  routes: SocketRoutes,
+  deps: { events: ManagementEvents; auth: GatewayAuth },
+) {
+  routes.set('/ai-characters/gateway', (socket, req) =>
+    gatewaySocket(deps.events, deps.auth, socket, req),
+  );
 }

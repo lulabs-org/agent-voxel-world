@@ -5,6 +5,7 @@ import { originAllowed } from '../../../common/origin-policy';
 import { AppError } from '../../../common/errors';
 import type { AsrSettingsStore } from './asr-settings';
 import { bridgeBailianAsr } from './bailian-asr';
+import type { SocketRoutes } from '../../../common/socket-routes';
 
 export type AsrBridge = Parameters<typeof createAsrSocket>[1];
 
@@ -50,4 +51,19 @@ export function createAsrSocket(
       );
     }
   };
+}
+
+/** Registers the realtime ASR socket on the shared Colyseus socket server. */
+export function installAsrSocket(
+  routes: SocketRoutes,
+  deps: {
+    settings: AsrSettingsStore;
+    bridge?: AsrBridge;
+    origin?: string;
+  },
+) {
+  routes.set(
+    '/voice/asr/realtime',
+    createAsrSocket(deps.settings, deps.bridge, deps.origin),
+  );
 }

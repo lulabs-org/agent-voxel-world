@@ -2,6 +2,7 @@ const text = { type: 'string' };
 const integer = { type: 'integer' };
 const object = { type: 'object' };
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+
 const planProperties = {
   name: { ...text, maxLength: 80 },
   goal: { ...text, maxLength: 2000 },
@@ -109,6 +110,7 @@ const agentProfileProperties = {
   tokenBudget: { ...integer, minimum: 1000, maximum: 1000000 },
   taskTimeoutMs: { ...integer, minimum: 1000, maximum: 7200000 },
 };
+
 const profileTaskExclusion = {
   anyOf: [
     { required: ['startTask'] },

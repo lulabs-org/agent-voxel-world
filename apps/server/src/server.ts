@@ -1,5 +1,5 @@
 import { GatewayAuth } from './modules/gateway/auth';
-import { gatewaySocket } from './modules/gateway/socket';
+import { installGatewaySocket } from './modules/gateway/socket';
 import { once } from 'node:events';
 import { createServer as createHttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -18,8 +18,9 @@ import { createVoiceProvider } from './modules/audio/session';
 import { WorldRoom } from './modules/world/room';
 import { WorldStore } from './modules/world/store';
 import { RoutedWebSocketTransport } from './transport/websocket.transport';
+import type { SocketRoutes } from './common/socket-routes';
 import {
-  createAsrSocket,
+  installAsrSocket,
   type AsrBridge,
 } from './modules/audio/asr/asr.socket';
 import { checkStartupDatabase } from './startup';
@@ -41,20 +42,36 @@ const wsHost = (host: string) => {
   return h.includes(':') ? `[${h}]` : h;
 };
 
-/** Owns one world's resources. Both production and tests use this lifecycle. */
-export async function createServer(options: ServerOptions = {}) {
-  const config = options.config ?? env.readServer();
-  await (options.databaseCheck ?? checkStartupDatabase)(config.databaseUrl);
+type CoreStores = {
+  gatewayAuth: GatewayAuth;
+  providers: ProviderStore;
+  voiceServices: VoiceServiceStore;
+  asrSettings: AsrSettingsStore;
+};
+
+/** Each store reads its own file, so loads are independent and parallel-safe. */
+async function loadStores(
+  config: ServerConfig,
+  options: ServerOptions,
+): Promise<CoreStores> {
   const providers = options.providers ?? new ProviderStore();
   const voiceServices = options.voiceServices ?? new VoiceServiceStore();
   const asrSettings = options.asrSettings ?? new AsrSettingsStore();
-  // Each store reads its own file, so loads are independent and parallel-safe.
   const [gatewayAuth] = await Promise.all([
     GatewayAuth.load(config.gateway),
     providers.load(),
     voiceServices.load(),
     asrSettings.load(),
   ]);
+  return { gatewayAuth, providers, voiceServices, asrSettings };
+}
+
+/** Owns one world's resources. Both production and tests use this lifecycle. */
+export async function createServer(options: ServerOptions = {}) {
+  const config = options.config ?? env.readServer();
+  await (options.databaseCheck ?? checkStartupDatabase)(config.databaseUrl);
+  const { gatewayAuth, providers, voiceServices, asrSettings } =
+    await loadStores(config, options);
   // Validate fallible provider construction before allocating network resources.
   const voiceProvider = createVoiceProvider(
     config.voice.provider,
@@ -73,27 +90,24 @@ export async function createServer(options: ServerOptions = {}) {
     config,
     gatewayAuth,
     characters,
-    modelCatalog: characters.modelCatalog,
     voiceServices,
     asrSettings,
     speech: options.speech ?? new LocalSpeech(),
     world: () => world,
   });
   const http = createHttpServer(app);
-  const transport = new RoutedWebSocketTransport(
-    http,
-    new Map([
-      [
-        '/ai-characters/gateway',
-        (socket, req) =>
-          gatewaySocket(characters.events, gatewayAuth, socket, req),
-      ],
-      [
-        '/voice/asr/realtime',
-        createAsrSocket(asrSettings, options.asrBridge, config.webOrigin),
-      ],
-    ]),
-  );
+  // Sockets register module-by-module like HTTP routes; other upgrades reach Colyseus.
+  const sockets: SocketRoutes = new Map();
+  installGatewaySocket(sockets, {
+    events: characters.events,
+    auth: gatewayAuth,
+  });
+  installAsrSocket(sockets, {
+    settings: asrSettings,
+    bridge: options.asrBridge,
+    origin: config.webOrigin,
+  });
+  const transport = new RoutedWebSocketTransport(http, sockets);
   const server = new Server({
     transport,
     greet: false,
