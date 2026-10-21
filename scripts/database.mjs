@@ -19,7 +19,7 @@ if (existsSync(pg) && !existsSync(marker))
   throw Error('Refusing to use unmarked database directory');
 mkdirSync(data, { recursive: true });
 if (!existsSync(pg)) {
-  writeFileSync(marker, 'agent-voxel-world local database\n');
+  writeFileSync(marker, 'embocraft local database\n');
   writeFileSync(resolve(data, 'password'), 'voxel', { mode: 0o600 });
   run('initdb', [
     '-D',

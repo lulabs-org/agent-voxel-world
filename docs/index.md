@@ -2,8 +2,8 @@
 layout: home
 
 hero:
-  name: 'Agent Voxel World'
-  text: '本地多人 3D 体素原型'
+  name: 'EmboCraft'
+  text: '本地多人 3D 体素与具身智能体沙盒'
   tagline: TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma
   actions:
     - theme: brand

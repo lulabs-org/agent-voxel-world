@@ -1,5 +1,5 @@
 <svg 
-    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Agent Voxel World">
+    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="EmboCraft">
     <g stroke="#173d12" stroke-opacity=".28" stroke-width="1.25" stroke-linejoin="round">
         <path fill="#8ed34f" d="M32 6 58 20 32 34 6 20Z" />
         <path fill="#4f9a3c" d="M6 20 32 34v26L6 46Z" />

@@ -1,6 +1,6 @@
 # 项目架构与代码组织
 
-本文档详细说明 Agent Voxel World 的整体软件架构、分层模型、Monorepo 目录组织以及服务端与前端的代码工程实践。
+本文档详细说明 EmboCraft 的整体软件架构、分层模型、Monorepo 目录组织以及服务端与前端的代码工程实践。
 
 ::: tip 架构定位与系统边界
 
@@ -17,7 +17,7 @@
 项目基于 `pnpm workspace` 组织为多包协作架构，核心目录分布如下：
 
 ```
-agent-voxel-world/
+embocraft/
 ├── apps/
 │   ├── web/               # 前端：React 19 + Three.js 体素渲染 + WebRTC/Web Audio
 │   └── server/            # 服务端：Colyseus 0.16 权威世界 + Express + Prisma ORM

@@ -5,15 +5,15 @@ export default withMermaid(
   defineConfig({
     base:
       process.env.BASE_PATH ||
-      (process.env.GITHUB_ACTIONS ? '/agent-voxel-world/' : '/'),
+      (process.env.GITHUB_ACTIONS ? '/embocraft/' : '/'),
     lang: 'zh-CN',
-    title: 'Agent Voxel World',
-    description: '独立的本地多人 3D 体素原型文档',
+    title: 'EmboCraft',
+    description: '独立的本地多人 3D 体素与具身智能体沙盒文档',
     ignoreDeadLinks: true,
 
     themeConfig: {
       logo: '/logo.svg',
-      siteTitle: 'Agent Voxel World',
+      siteTitle: 'EmboCraft',
 
       nav: [
         { text: '首页', link: '/' },

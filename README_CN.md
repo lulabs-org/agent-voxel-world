@@ -1,8 +1,8 @@
-# Agent Voxel World
+# EmboCraft
 
 [English](README.md) | 简体中文
 
-独立的本地多人 3D 体素游戏原型：TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma。
+独立的本地多人 3D 体素与具身 AI 智能体运行沙盒：TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma。
 
 > [!TIP]
 > 本项目配套了完整的在线开发与设计文档。更多深入架构、通信协议及 AI Agent 接入细节请参阅 [📚 文档中心](docs/index.md)（支持 `pnpm --filter docs dev` 本地预览）。
@@ -84,7 +84,7 @@ pnpm docker:down
 项目采用 pnpm workspace 单体多包架构：
 
 ```text
-agent-voxel-world/
+embocraft/
 ├── apps/
 │   ├── server/            # Colyseus 权威世界、HTTP 管理 API 与持久化存储
 │   └── web/               # React 18 + Three.js 客户端、大厅与控制台 UI

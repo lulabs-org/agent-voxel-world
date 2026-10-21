@@ -9,9 +9,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Agent Voxel World API',
+      title: 'EmboCraft API',
       version: '1.0.0',
-      description: 'API documentation for Agent Voxel World Server',
+      description: 'API documentation for EmboCraft Server',
     },
     servers: [{ url: '/', description: '当前服务器' }],
     tags: [

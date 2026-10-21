@@ -21,7 +21,9 @@
   gap: 10px;
   background: var(--agents-paper);
   cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
   user-select: none;
   min-height: 80px;
   box-sizing: border-box;
@@ -691,7 +693,9 @@
   border-radius: 9999px !important;
   background-color: #dce3d8 !important;
   cursor: pointer !important;
-  transition: background-color 150ms ease, border-color 150ms ease !important;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease !important;
 }
 .agent-dialog button.agents-switch-root[data-state='checked'],
 .agents-switch-root[data-state='checked'] {
@@ -906,8 +910,12 @@
   animation: agents-spin 1s linear infinite;
 }
 @keyframes agents-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Join on create option */
