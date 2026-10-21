@@ -1,5 +1,3 @@
-import { SpeechCaption } from './SpeechCaption';
-import type { SpeechAnchor } from '../../graphics/speech-anchor';
 import { useEffect, useRef, useState } from 'react';
 import {
   SpatialTranscriber,
@@ -7,7 +5,11 @@ import {
   type SpatialStatus,
   type TranscriptionState,
 } from '../../audio';
+import type { SpeechAnchor } from '../../graphics/speech-anchor';
+import { useI18n } from '../../i18n';
 import type { Connection } from '../../network/connection';
+import { SpeechCaption } from './SpeechCaption';
+
 export function SpatialVoicePanel({
   connection,
   speechAnchor,
@@ -21,6 +23,7 @@ export function SpatialVoicePanel({
   onExpandedChange: (expanded: boolean) => void;
   expandDisabled: boolean;
 }) {
+  const { t } = useI18n();
   const [state, setState] = useState<SpatialStatus>({
     sending: false,
     listening: false,
@@ -29,7 +32,7 @@ export function SpatialVoicePanel({
     error: '',
   });
   const [transcript, setTranscript] = useState<TranscriptionState>({
-    status: '麦克风开启时自动转写',
+    status: t('voice.autoTranscribe'),
     text: '',
     partial: '',
     error: '',
@@ -77,10 +80,10 @@ export function SpatialVoicePanel({
     <button
       aria-label={
         state.pending
-          ? '取消开启麦克风'
+          ? t('voice.micCancelPending')
           : state.sending
-            ? '关闭麦克风'
-            : '开启麦克风'
+            ? t('voice.micTurnOff')
+            : t('voice.micTurnOn')
       }
       aria-pressed={state.sending}
       className={state.sending ? 'mic-live' : ''}
@@ -92,20 +95,20 @@ export function SpatialVoicePanel({
       }
     >
       {state.pending
-        ? '授权中 · 取消'
+        ? t('voice.micPending')
         : state.sending
-          ? '● 麦克风开'
-          : '麦克风关'}
+          ? t('voice.micOn')
+          : t('voice.micOff')}
     </button>
   );
   const listenButton = (
     <button
-      aria-label={state.listening ? '关闭收听' : '开启收听'}
+      aria-label={state.listening ? t('voice.listenOff') : t('voice.listenOn')}
       aria-pressed={state.listening}
       disabled={connection.status !== 'connected'}
       onClick={() => void engine.current?.setListening(!state.listening)}
     >
-      {state.listening ? '收听开' : '收听关'}
+      {state.listening ? t('voice.listenActive') : t('voice.listenInactive')}
     </button>
   );
   return (
@@ -113,7 +116,7 @@ export function SpatialVoicePanel({
       <SpeechCaption speech={state.agentSpeaking} anchor={speechAnchor} />
       <section
         className={`spatial-voice${expanded ? ' is-expanded' : ''}`}
-        aria-label="附近空间语音"
+        aria-label={t('voice.spatialAria')}
         data-hud
       >
         <div
@@ -128,16 +131,16 @@ export function SpatialVoicePanel({
           }}
         >
           <div className="chat-title">
-            <strong>附近语音</strong>
+            <strong>{t('voice.title')}</strong>
             <button
-              aria-label="收起附近语音"
+              aria-label={t('voice.collapseDetails')}
               onClick={() => onExpandedChange(false)}
             >
               ×
             </button>
           </div>
-          <small>18 格内随距离、朝向变化 · {state.connected} 个语音连接</small>
-          <small>整句确认后附近 Agent 才会收到；私聊语音仅接收者可听。</small>
+          <small>{t('voice.spatialDesc', { count: state.connected })}</small>
+          <small>{t('voice.whisperHint')}</small>
           <small role="status">{transcript.status}</small>
           {transcript.text && (
             <p className="spatial-caption">{transcript.text}</p>
@@ -150,17 +153,21 @@ export function SpatialVoicePanel({
         </div>
         {transcript.partial && (
           <div className="spatial-live-caption" role="status">
-            {transcript.partial && <span>临时字幕 · {transcript.partial}</span>}
+            {transcript.partial && (
+              <span>
+                {t('voice.interimCaption', { text: transcript.partial })}
+              </span>
+            )}
           </div>
         )}
         {!expanded && (state.error || transcript.error) && (
           <button
             className="spatial-error-summary"
-            aria-label="语音异常 · 查看详情"
+            aria-label={t('voice.voiceIssueSummary')}
             disabled={expandDisabled}
             onClick={() => onExpandedChange(true)}
           >
-            <span role="status">语音异常 · 查看详情</span>
+            <span role="status">{t('voice.voiceIssueSummary')}</span>
           </button>
         )}
         <div className="spatial-toolbar">
@@ -168,7 +175,9 @@ export function SpatialVoicePanel({
           {listenButton}
           <button
             ref={toggle}
-            aria-label={expanded ? '收起附近语音' : '展开附近语音'}
+            aria-label={
+              expanded ? t('voice.collapseDetails') : t('voice.expandToggle')
+            }
             aria-expanded={expanded}
             disabled={!expanded && expandDisabled}
             onClick={() => onExpandedChange(!expanded)}
@@ -180,3 +189,4 @@ export function SpatialVoicePanel({
     </>
   );
 }
+

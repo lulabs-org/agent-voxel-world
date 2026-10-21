@@ -1,3 +1,5 @@
+import { useI18n } from '../../i18n';
+
 interface LobbyCardProps {
   name: string;
   error?: string;
@@ -13,18 +15,20 @@ export function LobbyCard({
   onJoin,
   onCreateAgent,
 }: LobbyCardProps) {
+  const { t } = useI18n();
+
   return (
     <div className="join">
-      <div className="eyebrow">THE MEADOW / WORLD 01</div>
+      <div className="eyebrow">{t('lobby.eyebrow')}</div>
       <h2>
-        把想法，
+        {t('lobby.titleLine1')}
         <br />
-        建成一个世界。
+        {t('lobby.titleLine2')}
       </h2>
       <p className="lobby-description">
-        和朋友一起探索、搭建，或邀请 AI 伙伴加入。
+        {t('lobby.descriptionLine1')}
         <br />
-        从这里开始，让这个世界多一点可能。
+        {t('lobby.descriptionLine2')}
       </p>
       <form
         onSubmit={(e) => {
@@ -32,7 +36,7 @@ export function LobbyCard({
           onJoin();
         }}
       >
-        <label htmlFor="name">玩家昵称</label>
+        <label htmlFor="name">{t('lobby.playerName')}</label>
         <input
           id="name"
           value={name}
@@ -47,12 +51,13 @@ export function LobbyCard({
             {error}
           </p>
         )}
-        <button>进入世界 ↗</button>
+        <button>{t('lobby.enterWorld')}</button>
       </form>
       <button className="join-agents" onClick={onCreateAgent}>
-        创建 Agent 玩家
+        {t('lobby.createAgent')}
       </button>
-      <small>同一个共享世界 · 真人与 AI 一起创造</small>
+      <small>{t('lobby.footer')}</small>
     </div>
   );
 }
+

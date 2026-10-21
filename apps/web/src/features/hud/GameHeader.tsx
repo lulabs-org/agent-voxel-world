@@ -1,3 +1,6 @@
+import { LanguageSwitcher } from '../../components/ui/LanguageSwitcher';
+import { useI18n } from '../../i18n';
+
 interface GameHeaderProps {
   connectionStatus: string;
   joined: boolean;
@@ -19,36 +22,37 @@ export function GameHeader({
   isMenuOpen,
   onToggleMenu,
 }: GameHeaderProps) {
+  const { t } = useI18n();
   const isConnected = connectionStatus === 'connected';
 
   if (joined) {
     const status = isConnected
-      ? '已连接'
+      ? t('header.connectedStatus')
       : connectionStatus === 'connecting'
-        ? '正在连接…'
-        : '连接中断，正在恢复';
+        ? t('header.connectingStatus')
+        : t('header.reconnectingStatus');
     return (
       <header className="game-header" data-hud>
         <div
           className="world-identity"
           tabIndex={0}
           title={status}
-          aria-label={`WORLD 01 · ${status}`}
+          aria-label={`${t('header.worldTitle')} · ${status}`}
         >
           <i
             className={isConnected ? 'online' : 'offline'}
             aria-hidden="true"
           />
-          <strong>WORLD 01</strong>
+          <strong>{t('header.worldTitle')}</strong>
           {!isConnected && <span role="status">{status}</span>}
         </div>
-        <nav className="hud-navigation" aria-label="游戏功能">
+        <nav className="hud-navigation" aria-label={t('header.gameFeatures')}>
           <button
             aria-expanded={isPlayersOpen}
             aria-controls="world-panel"
             onClick={onTogglePlayers}
           >
-            玩家
+            {t('header.players')}
           </button>
           <button
             aria-haspopup="dialog"
@@ -56,15 +60,16 @@ export function GameHeader({
             aria-controls="control-console"
             onClick={onOpenConsole}
           >
-            控制台
+            {t('header.console')}
           </button>
           <button
             aria-expanded={isMenuOpen}
             aria-controls="game-menu"
             onClick={onToggleMenu}
           >
-            菜单
+            {t('header.menu')}
           </button>
+          <LanguageSwitcher variant="hud" />
         </nav>
       </header>
     );
@@ -75,12 +80,15 @@ export function GameHeader({
         <span className="brand-icon">◈</span>
         <div>
           <strong>EMBOCRAFT</strong>
-          <small>A shared world for people & embodied agents</small>
+          <small>{t('header.brandSubtitle')}</small>
+
         </div>
       </div>
+
       <div className="status">
         <i className={isConnected ? 'online' : ''} />
-        {joined ? connectionStatus : '游戏大厅'} <span>WORLD 01</span>
+        {joined ? connectionStatus : t('header.lobby')}{' '}
+        <span>{t('header.worldTitle')}</span>
         <button
           className="exit-game"
           aria-haspopup="dialog"
@@ -88,16 +96,17 @@ export function GameHeader({
           aria-controls="control-console"
           onClick={onOpenConsole}
         >
-          控制台
+          {t('header.console')}
         </button>
+        <LanguageSwitcher variant="header" />
         {joined && (
-          <nav className="game-panels" aria-label="游戏面板">
+          <nav className="game-panels" aria-label={t('header.gamePanels')}>
             <button
               aria-expanded={isPlayersOpen}
               aria-controls="world-panel"
               onClick={onTogglePlayers}
             >
-              玩家
+              {t('header.players')}
             </button>
           </nav>
         )}
@@ -105,3 +114,4 @@ export function GameHeader({
     </header>
   );
 }
+

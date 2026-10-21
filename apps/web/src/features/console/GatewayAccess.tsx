@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Lock, X, AlertCircle } from 'lucide-react';
+import { AlertCircle, Lock, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
+import { useI18n } from '../../i18n';
 import { clearGatewayToken, saveGatewayToken } from '../../network/gateway';
 import { TokenHelpPopover } from './TokenHelpPopover';
 
@@ -18,6 +19,7 @@ export function GatewayAccess({
   error: string;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [token, setToken] = useState('');
   const connecting = !!savedToken && status !== 'unauthorized';
 
@@ -40,12 +42,12 @@ export function GatewayAccess({
       <div className="console-locked-header">
         <h2 id="console-auth-title" className="console-locked-title">
           <Lock size={12} strokeWidth={2.4} />
-          WORLD CONSOLE
+          {t('console.eyebrow')}
         </h2>
         <button
           type="button"
           className="console-locked-close"
-          aria-label="关闭"
+          aria-label={t('common.close')}
           onClick={onClose}
         >
           <X size={14} strokeWidth={2} />
@@ -55,8 +57,10 @@ export function GatewayAccess({
       <div className="console-access">
         {connecting ? (
           <div className="console-access-pending">
-            <p role="status">正在连接控制台…</p>
-            <Button onClick={clearGatewayToken}>更换令牌</Button>
+            <p role="status">{t('console.gateway.connecting')}</p>
+            <Button onClick={clearGatewayToken}>
+              {t('console.gateway.changeToken')}
+            </Button>
           </div>
         ) : (
           <form className="console-access-form" onSubmit={handleSubmit}>
@@ -67,10 +71,10 @@ export function GatewayAccess({
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 autoComplete="off"
-                placeholder="输入管理员令牌…"
+                placeholder={t('console.gateway.adminTokenPlaceholder')}
                 autoFocus
                 required
-                aria-label="管理员令牌"
+                aria-label={t('console.gateway.adminTokenAria')}
                 aria-invalid={!!error}
               />
               <Button
@@ -78,7 +82,7 @@ export function GatewayAccess({
                 className="primary"
                 disabled={!token.trim()}
               >
-                解锁
+                {t('console.gateway.unlock')}
               </Button>
             </div>
 
@@ -90,7 +94,9 @@ export function GatewayAccess({
             )}
 
             <div className="console-access-meta">
-              <span className="console-access-hint">仅当前标签页有效</span>
+              <span className="console-access-hint">
+                {t('console.gateway.tabOnlyHint')}
+              </span>
               <TokenHelpPopover />
             </div>
           </form>
@@ -99,3 +105,4 @@ export function GatewayAccess({
     </Dialog>
   );
 }
+
