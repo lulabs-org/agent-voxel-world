@@ -1,7 +1,8 @@
 import { GatewayAuth } from './modules/gateway/auth';
 import { gatewaySocket } from './modules/gateway/socket';
+import { once } from 'node:events';
 import { createServer as createHttpServer } from 'node:http';
-import type { AddressInfo, Socket } from 'node:net';
+import type { AddressInfo } from 'node:net';
 import { Server, matchMaker } from '@colyseus/core';
 import { createApp } from './app';
 import { env, type ServerConfig } from './config';
@@ -65,11 +66,6 @@ export async function createServer(options: ServerOptions = {}) {
     world: () => world,
   });
   const http = createHttpServer(app);
-  const sockets = new Set<Socket>();
-  http.on('connection', (socket) => {
-    sockets.add(socket);
-    socket.once('close', () => sockets.delete(socket));
-  });
   const transport = new RoutedWebSocketTransport(
     http,
     new Map([
@@ -100,17 +96,16 @@ export async function createServer(options: ServerOptions = {}) {
   let listening = false;
   const close = () =>
     (closing ??= (async () => {
-      const httpClosed = http.listening
-        ? new Promise<void>((resolve) => http.once('close', () => resolve()))
-        : Promise.resolve();
       try {
         await server.gracefullyShutdown(false);
       } finally {
         // Colyseus closes its players; explicitly close ASR upgrades and HTTP/SSE too.
         transport.closeConnections();
-        for (const socket of sockets) socket.destroy();
-        if (http.listening) http.close();
-        await httpClosed;
+        if (http.listening) {
+          http.close();
+          http.closeAllConnections();
+          await once(http, 'close');
+        }
         if (!world) await store.close();
         world = undefined;
       }
