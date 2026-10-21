@@ -1,80 +1,290 @@
 # 协议与扩展边界
 
-Agent 管理协议独立于世界协议，读写统一使用需要 Bearer 令牌的 HTTP 接口，`/ai-characters/gateway` WebSocket 仅发送状态通知。详见 [Agent Gateway](../agent/gateway)。
+本文档系统梳理 Agent Voxel World 的网络通信协议、权威物理与动作规范、空间感知边界、状态持久化机制以及语音/聊天扩展流。
 
-客户端先 GET `/world` 获取唯一 `roomId`，再用 Colyseus JS 0.16 `joinById(roomId, {name, kind})` 入房。`kind: scripted-agent` 和 `kind: ai-agent` 分别显示脚本代理和 AI 代理身份，不授予额外权限。其他值按 human 处理。这个原型不提供身份认证；只监听本机。
+::: tip 协议架构原则
 
-## 大厅实时玩家
+- **世界权威协议**：通过 Colyseus WebSocket 维护房间状态与 20Hz 权威物理模拟。
+- **Agent 管理协议**：独立于世界协议，统一采用携带 Bearer 令牌的 REST/WebSocket 网关（详见 [Agent Gateway](/agent/gateway.md)）。
+- **空间语音流**：P2P 实时空间音频走 WebRTC 数据通道，信令与离线片段识别经由权威服务校验。
+  :::
 
-GET `/world/presence` 是独立的只读 SSE 订阅，连接后立即发送完整状态，之后每秒推送一次。查看大厅不创建 Avatar、不占用房间名额，退出游戏后订阅继续保留。
+---
 
-每条 `data` 包含 `worldId`、`roomId`、`revision`、`capacity`、`persistence`、`updatedAt` 和 `players`。玩家字段包括 id、昵称、角色、位置、朝向和 connected；不包含重连令牌。在线人数只统计 connected=true，真人和脚本代理分别计数；重连保留期的玩家仍列出并标为“重连中”，不计入在线人数。
+## 房间入房与大厅感知
 
-跨域访问仅允许配置的 `WEB_ORIGIN`。世界尚未就绪返回 503。客户端断线或 5 秒没有心跳时标记旧数据，2 秒后重新订阅；没有成功获取数据时显示未知，而非 0。组件卸载关闭订阅和定时器。
+客户端进入世界的标准流程如下：
 
-## 白名单动作
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as 客户端 / Agent
+    participant Web as HTTP Server
+    participant Room as Colyseus Room
+    Client->>Web: GET /world
+    Web-->>Client: { roomId, worldId, capacity }
+    Client->>Room: joinById(roomId, { name, kind })
+    Room-->>Client: 连接成功 / 获得会话与 chat.auth 凭证
+```
 
-发送房间消息 `action`：`{id: string, type: string, payload: object}`。id 最多 80 字符。未知动作返回 `result` 的 `unknown-action`，无效输入返回具体错误。每会话每秒最多 45 条普通动作/同步请求；空间语音信令另有每秒 120 条限额，WebSocket 单消息上限 16KB。
+1. **获取房间 ID**：客户端发起 `GET /world`，获取当前唯一可用世界的 `roomId`。
+2. **Colyseus 入房**：使用 Colyseus JS 0.16 发起 `joinById(roomId, { name, kind })`。
+   - `kind: "scripted-agent"`：脚本驱动代理身份（在界面标注，无特权）。
+   - `kind: "ai-agent"`：托管 AI 智能体身份（在界面标注，无特权）。
+   - 其他或缺省值：一律按真人玩家（`human`）处理。
 
-| type            | payload                                                           | 结果                                                                  |
-| --------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
-| move            | `{x,z,jump,yaw}`，方向分量 -1..1                                  | 20Hz 权威模拟；没有每帧确认，读取 state；250ms 无输入自动停下         |
-| edit            | `{x,y,z,material,revision}`                                       | material 为 grass/dirt/stone/wood 或 null；result 与 edit 广播        |
-| chat            | `{text,scope?,recipients?}`，1..240 字符；scope 为 public/private | result 和按接收范围过滤的 event                                       |
-| observe         | `{}`                                                              | observation，含 self、附近玩家/方块、revision、events、allowedActions |
-| voice.start     | `{text,provider?}`，1..240 字符                                   | result 与仅本会话 voice 事件；可选 mock / browser / ollama            |
-| voice.interrupt | `{}`                                                              | result 与 interrupted 事件                                            |
+::: info 安全与部署边界
+当前原型阶段不提供第三方全局身份鉴权，默认仅监听本机或受信任内网。生产环境部署请务必在前置网关配置访问控制。
+:::
 
-`sync` 请求完整 `snapshot`（blocks、revision、persistence）。`edit` 广播携带新版本；客户端发现版本跳跃时重新同步。全局版本用作乐观并发锁：同时提交相同版本仅一条成功，另一条收到 conflict 和最新快照。客户端不会自动重放破坏性编辑，用户基于新状态重试。
+### 大厅实时 Presence（SSE 订阅）
 
-## 导航观察
+客户端无需加入房间即可感知世界大厅活跃状态。
 
-`observation` 额外携带 `motion: {grounded,vy}` 与 `navigation: {complete:true,revision,min,max,blocks}`。`min/max` 是包含端点的整数方块中心边界：以角色四舍五入位置为中心，每轴向外 8 格，并裁剪到世界边界。此区域内所有实体方块完整返回，不应用 500 条截断；缺席的单元才可解释为空气。区域之外保持未知。`revision` 与同次观察一致。
+- **接口端点**：`GET /world/presence`
+- **通信模式**：Server-Sent Events (SSE) 单向流。
+- **生命周期**：连接建立后立即推送一次全量状态，随后每秒推送一次心跳增量。退出游戏后订阅仍可独立保留。
 
-原有球形半径 8、最多 500 个方块的 `blocks` 保持为模型摘要。`navigation` 和运动细节不进入模型提示词。`goto/follow` 是共享 Agent runtime 的宏动作，不是新的服务端写入协议；实际位移仍通过 `move` 接受权威碰撞模拟。
+#### 数据包结构与字段规范
 
-## 存储和恢复
+| 字段名               | 类型                    | 说明                                                                 |
+| :------------------- | :---------------------- | :------------------------------------------------------------------- |
+| `worldId` / `roomId` | `string`                | 世界唯一标识与 Colyseus 房间标识                                     |
+| `revision`           | `number`                | 当前世界全局方块修改版本号                                           |
+| `capacity`           | `number`                | 房间最大容纳人数                                                     |
+| `persistence`        | `string`                | 数据持久化状态摘要                                                   |
+| `updatedAt`          | `number`                | 服务端生成快照的时间戳                                               |
+| `players`            | `Array<PresencePlayer>` | 活跃玩家数组（`id`、`name`、`kind`、`position`、`yaw`、`connected`） |
 
-程序生成基础地形。数据库 World 保存版本，BlockEdit 保存每个被修改单元的最终覆盖值（null 表示删除基础地形）。单次 Prisma 事务先对预期版本执行 CAS，再 upsert 覆盖值；提交成功后才修改运行内存和广播。失败返回 storage-unavailable，不改变世界。
+::: warning 状态与跨域约定
 
-刷新和异常断线通过标签页 sessionStorage 的 reconnectionToken 恢复；窗口关闭后 20 秒清理。服务器重启后令牌失效，客户端重新加入唯一世界并获取数据库还原的全量状态。
+- **在线人数统计**：仅计算 `connected === true` 的玩家，真人与代理分别计数；断线重连宽限期内的玩家标为“重连中”，不计入活跃人数。
+- **跨域限制**：接口严格限制仅配置的 `WEB_ORIGIN` 允许访问。世界未就绪时返回 `503 Service Unavailable`。
+- **心跳容错**：客户端断线或 5 秒未收到心跳将数据标记为陈旧，2 秒后自动重试；无有效数据时界面应展示“未知”，禁止降级显示为 0。
+  :::
 
-## 语音适配
+---
 
-`VoiceProvider.create(emit)` 返回 `VoiceSession.push(input) / interrupt() / close()`。输入保留类型化 text 或 PCM16/16kHz 边界，当前所有 provider 都拒绝原始 audio。网页默认经本机 HTTP `/voice/transcribe` 接口上传录音并识别，也可选择浏览器在线识别；WebSocket 仍只发送识别后的文字。`VoiceEvent` 包含 provider、state、turn、subtitle、error，以及供客户端朗读的可选 speakText；房间事件附加 requestId（action id）。每个连接独立会话，每次 start 关闭旧会话并创建新会话，因此 turn 只在单次会话内有效，跨请求使用 requestId 区分。打断取消定时器或模型请求，断线关闭会话；迟到结果不再播放。
+## 权威白名单动作
 
-`voice.start.payload.provider` 可选 mock、browser、ollama，省略时取服务端 VOICE_PROVIDER，默认 mock。browser 返回带有非 AI 标签的回声；ollama 通过服务端调用本机模型生成文字，客户端再朗读。服务端 idle 仅代表生成完成，网页 speaking/idle 由实际朗读回调控制。配置、浏览器兼容性、网络和隐私边界见 [语音接入说明](../voice/setup)。
+所有客户端向世界发出的主动交互均封装为房间消息 `action`：
+
+```typescript
+interface ActionMessage {
+  id: string; // 动作唯一 ID，最大 80 字符，用于结果溯源与关联
+  type: string; // 动作类型（白名单校验）
+  payload: object; // 动作载荷
+}
+```
+
+### 频率限制与安全配额
+
+- **普通动作与同步**：每个连接每秒最多 **45 次** 请求（超过将丢弃或返回限流）。
+- **空间语音信令**：每个连接每秒最多 **120 次** 信令交互。
+- **单包体积上限**：WebSocket 单个数据包最大 **16 KB**。
+
+### 动作指令全集
+
+| 动作类型 (`type`)     | 载荷参数 (`payload`)                                                                  | 执行机制与服务端返回                                                                              |
+| :-------------------- | :------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------ |
+| **`move`**            | `{ x, z, jump, yaw }`<br>方向分量取值范围 `[-1, 1]`                                   | 20Hz 服务端权威物理与碰撞模拟。不发送单帧 ACK，客户端直接消费房间状态同步；250ms 无输入自动制动。 |
+| **`edit`**            | `{ x, y, z, material, revision }`<br>`material`: `grass`/`dirt`/`stone`/`wood`/`null` | 乐观并发修改方块（`null` 表示摧毁）。成功后广播 `edit` 事件并推进全局 `revision`。                |
+| **`chat`**            | `{ text, scope?, recipients? }`<br>字符长度限制 `1..240`                              | 支持 `public`（公开）与 `private`（私聊）。私聊仅投递给指定会话，广播带过滤机制。                 |
+| **`observe`**         | `{}`                                                                                  | 返回结构化感知快照 `observation`（包含角色自身、周围实体、附近方块、全局版本与可用动作）。        |
+| **`voice.start`**     | `{ text, provider? }`<br>字符长度限制 `1..240`                                        | 触发语音朗读/合成。事件仅向当前会话投递，支持 `mock`、`browser`、`ollama` 等提供者。              |
+| **`voice.interrupt`** | `{}`                                                                                  | 即刻打断当前正在进行的语音播放与模型生成，广播 `interrupted` 事件。                               |
+
+### 版本控制与乐观并发冲突（CAS）
+
+1. **版本推进**：每次成功的 `edit` 都会递增世界全局 `revision`，广播携带新版本号。
+2. **并发冲突**：多个客户端同时基于同一版本提交编辑时，仅首个写入成功，其余客户端将收到 `conflict` 错误响应并附带最新 `snapshot`。
+3. **版本跳跃检测**：客户端若收到非连续的 `revision`，会自动请求 `sync` 重新拉取完整世界快照，避免出现渲染空洞或幽灵方块。客户端不会自动盲目重放破坏性编辑。
+
+---
+
+## 空间导航与观察边界
+
+为了兼顾大语言模型（LLM）的上下文窗口开销与本地精确寻路的需求，系统设计了**分层感知模型**：
+
+```mermaid
+graph TD
+    Obs[observe 观察响应] --> ModelView[模型提示词视图 Blocks]
+    Obs --> NavView[导航拓扑视图 Navigation]
+
+    ModelView -->|球面半球截断| MVDesc[半径 8 格 / 最多 500 个方块 / 格式化为模型文本摘要]
+    NavView -->|轴对齐包围盒| NVDesc[以角色为中心每轴 8 格 / 稠密立方体体素 / 无截断 / 仅保留实体]
+```
+
+### 感知维度对比
+
+| 特性维度       | 模型认知视图 (`blocks`)           | 导航寻路拓扑 (`navigation`)                                    |
+| :------------- | :-------------------------------- | :------------------------------------------------------------- |
+| **感知范围**   | 球形半球，半径 8 格               | 闭区间整数立方体包围盒（以坐标取整为中心，各轴向外延展 8 格）  |
+| **截断规则**   | 最多截取 **500 个方块**           | **完整返回** 包围盒内所有实体方块，严格不发生截断              |
+| **空气解释**   | 隐式忽略                          | 包围盒内缺席的坐标单元明确代表空气（可通行体素）               |
+| **模型可见性** | 格式化拼装进 System / User Prompt | **不进入模型上下文**，仅供客户端及 Agent Runtime 本地 A\* 寻路 |
+| **运动反馈**   | 不携带底层物理参数                | 携带瞬时物理状态 `motion: { grounded: boolean, vy: number }`   |
+
+::: info 宏动作执行约定
+Agent 的 `goto` 与 `follow` 属于 Agent Runtime 的客户端复合宏动作，而非服务端底层协议原生写入操作。最终底层依然分解为高频的 `move` 动作指令，接受服务端的碰撞与重力约束。
+:::
+
+---
+
+## 状态持久化与断线恢复
+
+### 数据库 CAS 架构
+
+服务端使用 PostgreSQL + Prisma 进行多粒度状态持久化：
+
+```
++-------------------------------------------------------+
+|  World 表: [ worldId, revision, updatedAt ]            |
+|    |                                                  |
+|    +-- BlockEdit 表: [ worldId, x, y, z, material ]    |
+|        (仅记录对程序化基础地形的增量覆盖修改)             |
++-------------------------------------------------------+
+```
+
+- **增量存储**：仅将玩家手动放置或破坏的体素存入 `BlockEdit`（`material === null` 表示挖掘清除原有地形）。
+- **原子事务**：每次编辑都在单次 Prisma 事务内执行：
+  1. 对 `World.revision` 执行条件匹配检查（CAS）；
+  2. 原子写入/更新 `BlockEdit` 记录；
+  3. 递增版本号；
+  4. 提交成功后才更新服务内存并向房间广播。若事务失败返回 `storage-unavailable`，内存世界保持不变。
+
+### 客户端会话重连机制
+
+- **令牌保管**：客户端入房成功后将 `reconnectionToken` 缓存在当前标签页的 `sessionStorage`。
+- **宽限期**：页面刷新或瞬间弱网断线时，客户端凭借该令牌可免握手快速恢复会话。
+- **超时回收**：窗口关闭或断线持续达 **20 秒** 后，服务端判定会话终结并清理 Avatar。
+- **服务重启**：若服务端进程重启，旧重连令牌自动失效，客户端自动重新加入世界并拉取数据库全量还原的基准快照。
+
+---
+
+## 语音交互适配层
+
+`VoiceProvider` 为多平台语音合成与识别提供统一抽象层：
+
+```typescript
+interface VoiceProvider {
+  create(emit: (event: VoiceEvent) => void): VoiceSession;
+}
+
+interface VoiceSession {
+  push(input: VoiceInput): Promise<void>;
+  interrupt(): void;
+  close(): void;
+}
+```
+
+### 会话生命周期与隔离
+
+- **连接独立**：每个连接维护专属的 `VoiceSession` 实例。发起新 `voice.start` 会主动打断并终结上一个会话。
+- **RequestId 溯源**：跨请求通过动作 `requestId` 追踪关联，避免会话切换导致的乱序响应。
+- **打断响应**：触发 `voice.interrupt` 即刻切断模型推理与底层定时器，晚于打断到达的下行音频一律作废丢弃。
+- **状态流转**：服务端 `idle` 仅代表文字或音频数据生成完毕，实际界面动画状态由浏览器本地朗读播放结束回调最终接管。
+
+---
 
 ## 聊天音频与空间语音协议
 
-`chat` 默认 public；private 必须提供 1–8 个唯一、在线、非发送者的会话 ID。服务端填入发送者身份，事件 data 带 scope、recipients、name、text、kind；audio 消息另带 audioId、durationMs、transcriptAvailable。私聊不广播，observe 同样先过滤再截取历史。私聊的群发对象列表仅发送者和接收者可见。
+### 消息范围与权限模型
 
-入房和重连后仅当前连接收到 `chat.auth: {token}`。HTTP `/chat/*` 限制 WEB_ORIGIN 并要求 `Authorization: Bearer <token>`；令牌在退出和重连时失效。POST `/chat/audio?scope=private&to=id1,id2&language=zh` 接收原始音频（1 MiB 上限），验证长度和格式后发布音频事件。GET `/chat/audio/:id` 按消息范围校验，未授权或过期返回 404，无效会话凭证返回 401。不要将令牌放 URL。
+聊天支持两种基础范围与一种空间衍生范围：
 
-真人动作 `spatial.state: {sending:boolean,listening:boolean}` 更新 Avatar 的 voiceSending/voiceListening。`spatial.signal: {to,description?:{type,sdp},candidate?:RTCIceCandidateInit}` 只转发给已选择参与的真人目标，收到的消息为 `spatial.signal: {from,description?,candidate?}`。服务器填入 from，限制 SDP / ICE 大小；不存储、转播或交付 Agent。二进制音频走 WebRTC，不经过游戏 WebSocket。客户端按 20Hz 同步的角色位置和 yaw 混音，静止时保留最后朝向。详见 [聊天与附近语音](chat)。
+1. **公开聊天 (`public`)**：全服广播，无特殊限制。
+2. **私信聊聊 (`private`)**：必须提供 `1..8` 个互不重复、当前在线且非发送者自身的玩家会话 ID。私聊数据仅发向目标玩家，房间其他玩家及未授权 Agent 的 `observe` 无法获取该记录。
+3. **附近空间转写 (`nearby`)**：系统通过空间声学模型判定的局域广播，用于附近语音字幕。
 
-### 附近语音自动转写
+### 凭证安全验证（`chat.auth`）
 
-麦克风开启后，客户端 POST `/chat/spatial/start` 获得片段 id；服务器要求真人、在线、voiceSending=true，并固定当时可听者的会话集合。随后 POST `/chat/spatial/:id` 上传完整、可独立解码的音频段（最大 1 MiB），本机 Whisper 转写后，按开始和完成时可听者交集发布 `chat` 事件，data.scope=`nearby`、kind=`text`、transcriptAvailable=true。发送者也收到字幕。此范围由服务器生成，普通 chat 动作不允许声明 nearby。
+客户端入房或重连成功时，服务端下发一次性临时凭证：
 
-可听阈值为共享 spatialMix 的 gain >= 0.03，真人需要 voiceListening，Agent 自动接收。nearby 与 private 一样过滤 WebSocket 事件和 observe，不属于全世界广播；Agent 执行器将 nearby 回复限制为发给说话者的私聊，公共推理轮次不携带附近谈话上下文。
+```json
+{
+  "type": "chat.auth",
+  "payload": {
+    "token": "eyJhbGciOi..."
+  }
+}
+```
 
-片段 id 绑定发送者，单次使用，45 秒过期，每人最多 4 个捕获/处理中的片段。DELETE `/chat/spatial/:id` 撤销片段；关闭麦克风或会话撤销时同时取消该玩家全部片段及正在执行的识别。所有接口沿用 chat 的 Origin 和会话凭证校验，识别结果发布前再次校验会话与片段有效性。
+- **HTTP 音频调用**：所有 `/chat/*` 路由均强制要求配置的 `WEB_ORIGIN` 与请求头 `Authorization: Bearer <token>`。
+- **令牌实效性**：玩家退出房间或会话重置后令牌立即作废。严禁将该 Token 放入 URL 查询参数。
 
-## Agent 空间语音回复
+### WebRTC 点对点空间对讲
 
-Agent 专用动作 `agent.voice: {enabled:boolean}` 设置 Avatar 的 `voiceReplies`；真人调用拒绝。托管控制台 POST `/ai-characters/:id/voice` 可即时更新并保存开关，创建/编辑配置也支持 `voiceReplies`。已有配置默认为 false，独立 DeepSeek 进程通过 `AGENT_VOICE_REPLIES=true` 开启。
+真人之间的近距离实时语音通过 WebRTC 进行 P2P 直连传输：
 
-Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照常即时投递。合成后仅授权听者收到 `agent.speech: {id,actor,text,scope,durationMs,expiresAt}`，使用当前会话凭证 GET `/chat/agent-speech/:id` 获取 WAV。听者必须在发言和合成完成时都开启收听、在线且 spatialMix.gain >= 0.03；private 还必须在原接收者列表。下载时再次核验身份、双方状态和可听范围；失效/越权返回 404。音频不放入观察历史，防止 Agent 互相重复消费自己的朗读。
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Alice as 真人 A
+    participant Server as Colyseus 信令代理
+    actor Bob as 真人 B
+    Alice->>Server: spatial.state { sending: true, listening: true }
+    Alice->>Server: spatial.signal { to: Bob, description: SDP }
+    Note over Server: 验证目标为在线真人<br>封装发送者 ID，拦截超限 SDP
+    Server->>Bob: spatial.signal { from: Alice, description: SDP }
+    Bob->>Alice: WebRTC P2P 建立连接，直通音频流
+```
 
-关闭 Agent 语音、离开或断线撤销其排队合成与缓存；合成失败仅向该 Agent 发 `agent.speech.error: {message}`，不会撤销文字。音频缓存最长 120 秒、24 段 / 32 MiB，合成串行，等待队列最多 8 段且每角色最多 2 段，排队超过 30 秒跳过。`GET /voice/capabilities` 中 `agentSpeech: {available,reason}` 表示本机合成可用性。
+- **信令安全**：游戏服务端仅充当信令穿透代理，严格校验并封装 `from` 身份，限制 SDP/Candidate 体积，不中转、不录制该 P2P 音频流。
+- **三维空间混音**：客户端依据 20Hz 权威同步的世界坐标 `(x, y, z)` 与朝向 `yaw`，通过 Web Audio API 进行距离增益衰减与立体声声相计算。
 
-## 托管 Agent 任务调度
+---
 
-同一角色只有一个模型槽和一个冲突动作，长动作期间可回答消息；单次事件可包含多轮工具调用。聊天、计划触发和动作结果统一经过 CharacterRunner。计划忙时生成 queued 执行，实际开始时保存额度快照；聊天执行不创建任务计划。详细管理协议见 [Agent Gateway](../agent/gateway)。
+## 空间语音自动转写与 Agent 回复
 
-`AICharacterView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 characterId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
+### 附近语音段（Nearby ASR）转写流程
 
-HTTP 任务入口统一为 `/tasks` 与 `/task-runs`，管理 HTTP 与状态通知共用管理员令牌和 Origin 校验。`/ai-characters/:id/task`、`pause`、`resume`、`cancel` 及 RPC `tasks.assign/pause/resume/cancel` 已移除。即时任务通过 `/tasks` 创建即执行；计划的 pause/resume 管理调度，执行的 pause/resume/cancel 必须使用 runId。恢复执行前须先通过 join 上线，join 本身不恢复任务。Agent 创建默认上线待命，joinWorld=false 仅保存离线角色，不生成计划或执行。创建/更新中的 startTask、taskTimeZone 或非空 goal 返回 400；空 goal 兼容接受但不修改已有任务。任务统一通过 Tasks 创建与控制，已有历史和进度保留。
+当真人开启麦克风录音时，系统支持将短语音转写并呈现在世界字幕中：
 
-模型使用独立对话/任务工具集，不再返回 intent/update_task 协议。任务身份、权限、取消、预算及检查点由程序控制。私聊保留原接收会话，公开问题不获得私聊执行上下文；重启后失效私聊需重新通过聊天发起。
+1. **申请捕获片段**：`POST /chat/spatial/start` 获取片段 ID（限绑定发送者自身，45 秒过期，每人最多并发 4 个片段）。
+2. **提交音频切片**：`POST /chat/spatial/:id` 上传完整音频（不超过 1 MiB）。
+3. **Whisper 本地识别**：服务端通过本地 Whisper 模型转写文本。
+4. **声学交集广播**：在录音开始与转写完成时，两次计算收听者交集（要求空间增益 `gain >= 0.03`）。符合条件的玩家与 Agent 将收到 `scope: "nearby"` 的字幕事件。
+
+### Agent 空间语音回复合成
+
+托管在世界的 AI Agent 可启用自然语音发声能力：
+
+- **开关指令**：Agent 发送 `agent.voice: { enabled: boolean }` 或在控制台动态配置。
+- **合成与推流**：Agent 输出文本后，服务端在后台唤起本地 TTS 模型异步生成音频。
+- **定向声学下发**：音频生成后，系统计算空间收听者集合，向范围内的玩家下发 `agent.speech` 事件通知。
+- **音频拉取**：玩家凭 `chat.auth` 凭证发起 `GET /chat/agent-speech/:id` 获取 WAV 格式音频流。下载时会二次核验双方的实时距离与可听状态。
+
+::: tip 资源保护与熔断规则
+
+- **缓存配额**：音频文件最多保留 120 秒，全局上限 24 段或 32 MiB。
+- **排队保护**：合成排队上限 8 段，单个 Agent 最多积压 2 段；排队耗时超过 30 秒的任务将被自动丢弃。
+- **感知防环**：Agent 自身的朗读音频与字幕不会进入其自身的 `observe` 上下文，彻底杜绝自激死循环。
+  :::
+
+---
+
+## 托管 Agent 任务控制协议
+
+Agent 运行时的任务调度模型严格划分为**计划调度层（Plan）**与**执行生命周期层（Run）**：
+
+```mermaid
+graph LR
+    Plan["/tasks 任务计划<br>(目标、预算、触发条件)"] -->|调度分发| Run["/task-runs 执行实例<br>(单次运行、步骤回溯、检查点)"]
+    Run -->|驱动| Runner[CharacterRunner 核心引擎]
+    Runner -->|执行| ToolCall[对话响应 / 世界动作工具集]
+```
+
+### 任务控制端点全集
+
+| 端点路径                 | 请求方法        | 权限层级      | 业务功能说明                                            |
+| :----------------------- | :-------------- | :------------ | :------------------------------------------------------ |
+| `/tasks`                 | `GET`           | 管理员 Bearer | 分页检索全局任务计划，支持按角色与状态筛选              |
+| `/tasks`                 | `POST`          | 管理员 Bearer | 创建并立即排队一项新的 Agent 任务计划                   |
+| `/tasks/:id`             | `GET` / `PATCH` | 管理员 Bearer | 查询或更新任务计划的配置、预算与优先级                  |
+| `/task-runs`             | `GET`           | 管理员 Bearer | 检索特定任务计划的历史运行实例列表                      |
+| `/task-runs/:id/control` | `POST`          | 管理员 Bearer | 对执行中的实例下发 `pause`、`resume`、`cancel` 控制指令 |
+
+::: warning 协议废弃提醒
+旧版本中的 `/ai-characters/:id/task`、`/ai-characters/:id/pause`、`/ai-characters/:id/resume` 等旧接口已彻底移除。所有任务编排必须通过全局统一的 `/tasks` 与 `/task-runs` 端点管理。
+:::
