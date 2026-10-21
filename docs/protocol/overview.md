@@ -1,6 +1,6 @@
 # 协议与扩展边界
 
-Agent 管理协议独立于世界协议，读写统一使用需要 Bearer 令牌的 HTTP 接口，`/ai-characters/gateway` WebSocket 仅发送状态通知。详见 [Agent Gateway](AGENT_GATEWAY.md)。
+Agent 管理协议独立于世界协议，读写统一使用需要 Bearer 令牌的 HTTP 接口，`/ai-characters/gateway` WebSocket 仅发送状态通知。详见 [Agent Gateway](../agent/gateway)。
 
 客户端先 GET `/world` 获取唯一 `roomId`，再用 Colyseus JS 0.16 `joinById(roomId, {name, kind})` 入房。`kind: scripted-agent` 和 `kind: ai-agent` 分别显示脚本代理和 AI 代理身份，不授予额外权限。其他值按 human 处理。这个原型不提供身份认证；只监听本机。
 
@@ -43,7 +43,7 @@ GET `/world/presence` 是独立的只读 SSE 订阅，连接后立即发送完�
 
 `VoiceProvider.create(emit)` 返回 `VoiceSession.push(input) / interrupt() / close()`。输入保留类型化 text 或 PCM16/16kHz 边界，当前所有 provider 都拒绝原始 audio。网页默认经本机 HTTP `/voice/transcribe` 接口上传录音并识别，也可选择浏览器在线识别；WebSocket 仍只发送识别后的文字。`VoiceEvent` 包含 provider、state、turn、subtitle、error，以及供客户端朗读的可选 speakText；房间事件附加 requestId（action id）。每个连接独立会话，每次 start 关闭旧会话并创建新会话，因此 turn 只在单次会话内有效，跨请求使用 requestId 区分。打断取消定时器或模型请求，断线关闭会话；迟到结果不再播放。
 
-`voice.start.payload.provider` 可选 mock、browser、ollama，省略时取服务端 VOICE_PROVIDER，默认 mock。browser 返回带有非 AI 标签的回声；ollama 通过服务端调用本机模型生成文字，客户端再朗读。服务端 idle 仅代表生成完成，网页 speaking/idle 由实际朗读回调控制。配置、浏览器兼容性、网络和隐私边界见 [语音接入说明](VOICE.md)。
+`voice.start.payload.provider` 可选 mock、browser、ollama，省略时取服务端 VOICE_PROVIDER，默认 mock。browser 返回带有非 AI 标签的回声；ollama 通过服务端调用本机模型生成文字，客户端再朗读。服务端 idle 仅代表生成完成，网页 speaking/idle 由实际朗读回调控制。配置、浏览器兼容性、网络和隐私边界见 [语音接入说明](../voice/setup)。
 
 ## 聊天音频与空间语音协议
 
@@ -51,7 +51,7 @@ GET `/world/presence` 是独立的只读 SSE 订阅，连接后立即发送完�
 
 入房和重连后仅当前连接收到 `chat.auth: {token}`。HTTP `/chat/*` 限制 WEB_ORIGIN 并要求 `Authorization: Bearer <token>`；令牌在退出和重连时失效。POST `/chat/audio?scope=private&to=id1,id2&language=zh` 接收原始音频（1 MiB 上限），验证长度和格式后发布音频事件。GET `/chat/audio/:id` 按消息范围校验，未授权或过期返回 404，无效会话凭证返回 401。不要将令牌放 URL。
 
-真人动作 `spatial.state: {sending:boolean,listening:boolean}` 更新 Avatar 的 voiceSending/voiceListening。`spatial.signal: {to,description?:{type,sdp},candidate?:RTCIceCandidateInit}` 只转发给已选择参与的真人目标，收到的消息为 `spatial.signal: {from,description?,candidate?}`。服务器填入 from，限制 SDP / ICE 大小；不存储、转播或交付 Agent。二进制音频走 WebRTC，不经过游戏 WebSocket。客户端按 20Hz 同步的角色位置和 yaw 混音，静止时保留最后朝向。详见 [聊天与附近语音](CHAT.md)。
+真人动作 `spatial.state: {sending:boolean,listening:boolean}` 更新 Avatar 的 voiceSending/voiceListening。`spatial.signal: {to,description?:{type,sdp},candidate?:RTCIceCandidateInit}` 只转发给已选择参与的真人目标，收到的消息为 `spatial.signal: {from,description?,candidate?}`。服务器填入 from，限制 SDP / ICE 大小；不存储、转播或交付 Agent。二进制音频走 WebRTC，不经过游戏 WebSocket。客户端按 20Hz 同步的角色位置和 yaw 混音，静止时保留最后朝向。详见 [聊天与附近语音](chat)。
 
 ### 附近语音自动转写
 
@@ -71,7 +71,7 @@ Agent 的 public/private 文字聊天触发服务端本机 TTS；文字事件照
 
 ## 托管 Agent 任务调度
 
-同一角色只有一个模型槽和一个冲突动作，长动作期间可回答消息；单次事件可包含多轮工具调用。聊天、计划触发和动作结果统一经过 CharacterRunner。计划忙时生成 queued 执行，实际开始时保存额度快照；聊天执行不创建任务计划。详细管理协议见 [Agent Gateway](AGENT_GATEWAY.md)。
+同一角色只有一个模型槽和一个冲突动作，长动作期间可回答消息；单次事件可包含多轮工具调用。聊天、计划触发和动作结果统一经过 CharacterRunner。计划忙时生成 queued 执行，实际开始时保存额度快照；聊天执行不创建任务计划。详细管理协议见 [Agent Gateway](../agent/gateway)。
 
 `AICharacterView.task` 返回当前内部执行摘要，`usage` 是角色累计用量。计划与执行独立定位：`plans.list` 全局分页及筛选，`plans.get` 查询详情，`plans.create` 显式指定 characterId；编辑、控制、改派使用 planId 和 expectedPlanRevision。`runs.list` 使用 planId，`runs.control` 使用 runId 及实际执行角色的 expectedTask。计划和任务修订分别校验，原始模型上下文不对外公开。
 

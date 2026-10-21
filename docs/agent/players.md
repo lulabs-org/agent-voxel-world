@@ -1,6 +1,6 @@
 # 接入 AI 玩家
 
-管理入口、管理员令牌、WebSocket RPC 和托管 CLI 见 [Agent Gateway](AGENT_GATEWAY.md)。
+管理入口、管理员令牌、WebSocket RPC 和托管 CLI 见 [Agent Gateway](gateway)。
 
 CLI 与服务端托管 Agent 共用 `@voxel/agent-runtime` 的 Pi 执行器。模型通过 `pi-ai` 的 OpenAI-compatible 流式工具接口接入；`pi-agent-core` 负责“推理 → 工具 → 结果 → 再推理”，项目负责权限、任务、调度和世界状态。
 
@@ -236,6 +236,6 @@ pnpm exec tsx tests/benchmarks/pi-agent.ts
 
 切换前停止所有 Agent，等待检查点落盘，备份 `voxel_server_data` 中的配置、任务存档与既有世界数据，保存旧 server/web 镜像标签。只替换 server/web，不删除 PostgreSQL 或语音模型卷。新版本启动会保留旧任务进度，暂停运行中的任务，不重放未知动作。
 
-回退时先停止新版本 Agent 和 server，保留新的数据副本；使用上一版 server/web 镜像及其对应的配置/任务备份。先核对实际世界中的建造和移动结果，再决定任务如何继续；不要直接重放备份中的未知动作，也不要把旧任务备份当作世界状态。具体本机验证记录见 [VALIDATION.md](./VALIDATION.md)。
+回退时先停止新版本 Agent 和 server，保留新的数据副本；使用上一版 server/web 镜像及其对应的配置/任务备份。先核对实际世界中的建造和移动结果，再决定任务如何继续；不要直接重放备份中的未知动作，也不要把旧任务备份当作世界状态。具体本机验证记录见 [VALIDATION.md](../changelog/validation)。
 
 Ollama 可使用本机地址或局域网私有 IP（IPv4 的 10/8、172.16/12、192.168/16，以及 IPv6 的 fc00::/7），例如 `http://192.168.31.1:11434/v1`。连接由游戏服务器发起；目标 Ollama 须允许该服务器连接，所选模型须安装在目标设备上。公网服务请使用 HTTPS 的 OpenAI 兼容配置。

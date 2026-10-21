@@ -34,7 +34,7 @@
 
 最终 Pi 为 30/30，基线为 28/30；每类成功数均不低于旧版，token 和延迟中位数均未增加超过 20%。初次测试中途修改成本超标，已通过合并任务控制与首个动作、返回新观察的编辑确认、避免多余观察请求优化，再全量复测。小样本结果不是对所有任务的成功率保证。
 
-复测脚本：`tests/benchmarks/pi-agent.ts`。原始本机结果位于忽略目录 `artifacts/pi-migration/legacy-benchmark.json` 和 `pi-benchmark.json`；运行方法见 [AGENT_PLAYERS.md](./AGENT_PLAYERS.md#pi-迁移验收与回退)。Ollama 本机 11434 未提供服务，兼容接口未配置独立真实模型：这两类仅通过协议适配测试，真实模型效果未验证。
+复测脚本：`tests/benchmarks/pi-agent.ts`。原始本机结果位于忽略目录 `artifacts/pi-migration/legacy-benchmark.json` 和 `pi-benchmark.json`；运行方法见 [players.md](../agent/players#pi-迁移验收与回退)。Ollama 本机 11434 未提供服务，兼容接口未配置独立真实模型：这两类仅通过协议适配测试，真实模型效果未验证。
 
 ## Docker、浏览器与恢复
 

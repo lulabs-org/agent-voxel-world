@@ -68,4 +68,4 @@ VITE_SERVER_URL=ws://127.0.0.1:2589 pnpm --filter @voxel/web exec vite --host 12
 NAVIGATION_PROVIDERS=/absolute/path/to/providers.json pnpm test:navigation:live
 ```
 
-测试断言私聊“到我这里来”创建任务、进入 running、执行 goto、移动到发送者并持久化完成记录，覆盖平地、绕墙和台阶。生产构建还需在浏览器核对 Worklet 加载。当前执行记录见 [验证记录](../../docs/VALIDATION.md)。
+测试断言私聊“到我这里来”创建任务、进入 running、执行 goto、移动到发送者并持久化完成记录，覆盖平地、绕墙和台阶。生产构建还需在浏览器核对 Worklet 加载。当前执行记录见 [验证记录](../../docs/changelog/validation.md)。
