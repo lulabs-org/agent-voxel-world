@@ -74,8 +74,8 @@ export function GameHeader({
       <div className="brand">
         <span className="brand-icon">◈</span>
         <div>
-          <strong>VOXEL / FIELD</strong>
-          <small>A shared world for people & agents</small>
+          <strong>EMBOCRAFT</strong>
+          <small>A shared world for people & embodied agents</small>
         </div>
       </div>
       <div className="status">

@@ -1,8 +1,8 @@
-# Agent Voxel World
+# EmboCraft
 
 English | [简体中文](README_CN.md)
 
-A standalone, local multiplayer 3D voxel game prototype: TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma.
+A standalone, local multiplayer 3D voxel and embodied AI sandbox: TypeScript · pnpm workspace · React/Vite · Three.js · Node/Colyseus · PostgreSQL/Prisma.
 
 > [!TIP]
 > This project comes with complete online development and design documentation. For in-depth architecture, communication protocols, and AI Agent integration details, please refer to the [📚 Documentation Center](docs/index.md) (preview locally with `pnpm --filter docs dev`).
@@ -84,7 +84,7 @@ After launch:
 The project is structured as a pnpm workspace monorepo:
 
 ```text
-agent-voxel-world/
+embocraft/
 ├── apps/
 │   ├── server/            # Colyseus authoritative world, HTTP admin APIs & persistent storage
 │   └── web/               # React 18 + Three.js client, lobby & console UI
