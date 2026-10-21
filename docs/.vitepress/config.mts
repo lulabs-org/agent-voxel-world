@@ -19,28 +19,7 @@ export default withMermaid(
         { text: '首页', link: '/' },
         { text: '快速开始', link: '/guide/getting-started' },
         { text: '项目架构', link: '/guide/architecture' },
-        {
-          text: '协议',
-          items: [
-            { text: '协议与扩展边界', link: '/protocol/overview' },
-            { text: '聊天与附近语音', link: '/protocol/chat' },
-          ],
-        },
-        {
-          text: 'Agent',
-          items: [
-            { text: '接入 AI 玩家', link: '/agent/players' },
-            { text: '管理接口', link: '/agent/gateway' },
-            { text: '统一事件运行时', link: '/agent/runtime' },
-          ],
-        },
-        {
-          text: '语音',
-          items: [
-            { text: '语音服务管理', link: '/voice/setup' },
-            { text: '百炼实时语音', link: '/voice/aliyun-realtime' },
-          ],
-        },
+        { text: 'AI Agent', link: '/agent/players' },
       ],
 
       sidebar: [
