@@ -1,10 +1,14 @@
-import { AppError } from '../../common/errors';
-import { object, text, integer, boolean } from '../../common/validation';
 import {
   AI_CHARACTER_ROLE_DESCRIPTION_LIMIT,
-  validateCapabilities,
   type AICharacterSettings,
+  AI_CHARACTER_PERMISSIONS,
+  AI_CHARACTER_SKILLS,
+  resolvePermissions,
+  type AICharacterPermissions,
+  type AICharacterSkillId,
 } from '@voxel/shared';
+import { AppError } from '../../common/errors';
+import { object, text, integer, boolean } from '../../common/validation';
 import {
   validateInference,
   type SavedProvider,
@@ -112,4 +116,45 @@ export function aiCharacterProfileInput(value: unknown) {
       'Agent 配置不接受任务参数，请通过 Tasks 创建或修改任务。',
     );
   return input;
+}
+
+export function validateCapabilities(input: {
+  permissions?: unknown;
+  skills?: unknown;
+  allowEdits?: unknown;
+}): { permissions: AICharacterPermissions; skills: AICharacterSkillId[] } {
+  let permissions: AICharacterPermissions;
+  if (input.permissions === undefined) {
+    if (input.allowEdits !== undefined && typeof input.allowEdits !== 'boolean')
+      throw Error('建造权限格式无效。');
+    permissions = resolvePermissions(input.allowEdits === true);
+  } else {
+    const value = input.permissions;
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      Object.keys(value).some(
+        (key) => !AI_CHARACTER_PERMISSIONS.some((p) => p.id === key),
+      ) ||
+      AI_CHARACTER_PERMISSIONS.some(
+        ({ id }) => typeof (value as Record<string, unknown>)[id] !== 'boolean',
+      )
+    ) {
+      throw Error('动作权限格式无效，请完整配置四项权限。');
+    }
+    permissions = resolvePermissions(value as AICharacterPermissions);
+  }
+  const skills = input.skills === undefined ? [] : input.skills;
+  if (
+    !Array.isArray(skills) ||
+    skills.some((id) => !AI_CHARACTER_SKILLS.some((skill) => skill.id === id))
+  )
+    throw Error('角色技能无效。');
+  return {
+    permissions,
+    skills: AI_CHARACTER_SKILLS.filter(({ id }) => skills.includes(id)).map(
+      ({ id }) => id,
+    ),
+  };
 }

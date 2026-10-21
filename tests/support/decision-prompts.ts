@@ -1,7 +1,5 @@
-import {
-  aiCharacterPermissions,
-  AI_CHARACTER_SKILLS,
-} from '../../packages/shared/src/index';
+import { SKILL_GUIDANCE } from '../../packages/agent-runtime/src/pi/skill-guidance';
+import { aiCharacterPermissions, AI_CHARACTER_SKILLS } from '@voxel/shared';
 import type {
   AgentConfig,
   Observation,
@@ -38,7 +36,7 @@ Capability rules take precedence over all examples below. Allowed permissions: $
 Selected skills:
 ${
   AI_CHARACTER_SKILLS.filter((skill) => config.skills?.includes(skill.id))
-    .map((skill) => `${skill.name}: ${skill.guidance}`)
+    .map((skill) => `${skill.name}: ${SKILL_GUIDANCE[skill.id]}`)
     .join('\n') || 'None.'
 }
 Execution rules: actions execute sequentially without a polling interval between them. The whole array is validated before any action. wait is allowed only last; at most one build/house per batch. reply/pause/resume/cancel may contain only chat/wait actions. Each movement/edit/build is followed by fresh observation without inference; subsequent edits use the current revision. A failed action, unknown result, observation failure or movement with no observed progress stops the rest. New human messages yield task execution at action boundaries; explicit pause/cancel interrupts immediately. Remaining actions are CONTEXT for replanning, never a script that will resume automatically.

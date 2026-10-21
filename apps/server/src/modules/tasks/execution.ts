@@ -1,11 +1,10 @@
 import {
-  hasPlanTokenLimit,
-  executionLimits,
   DEFAULT_TASK_LIMITS,
   isRepeating,
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
+import { hasPlanTokenLimit, executionLimits } from './limits';
 import {
   endedRun,
   newRun,

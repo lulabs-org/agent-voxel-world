@@ -14,7 +14,7 @@ import {
   type Observation,
 } from '@voxel/agent-runtime';
 
-import type { WorldEvent } from '../packages/shared/src/index';
+import type { WorldEvent } from '@voxel/shared';
 let dir: string, store: ProviderStore, manager: AICharacterManager | undefined;
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'agent-life-'));

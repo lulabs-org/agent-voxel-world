@@ -14,26 +14,24 @@ import { WorldStore } from './store';
 import { Room, Client, ServerError } from '@colyseus/core';
 import { Avatar, WorldState } from './schema';
 import {
-  terrain,
   LIMIT,
   MAX_Y,
-  normalizePlayerName,
-  playerNameKey,
   PLAYER_NAME_TAKEN,
   PLAYER_NAME_TAKEN_MESSAGE,
   key,
   simulate,
-  validateEdit,
-  parseInput,
   distance,
   WORLD_ID,
-  visibleEvent,
   type ChatData,
   type WorldPresence,
   type Input,
   type Edit,
   type WorldEvent,
 } from '@voxel/shared';
+import { terrain } from './terrain';
+import { normalizePlayerName, playerNameKey } from './player-name';
+import { validateEdit, parseInput } from './validation';
+import { visibleEvent } from '../chat/visibility';
 const zero: Input = { x: 0, z: 0, jump: false, yaw: 0 };
 let activeRoom = false;
 export class WorldRoom extends Room<WorldState> {

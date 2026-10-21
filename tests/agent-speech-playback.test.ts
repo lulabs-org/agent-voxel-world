@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { AgentSpeechPlayback } from '../apps/web/src/audio/spatial/agent-speech-playback';
-import type { AgentSpeechEvent } from '../packages/shared/src';
+import type { AgentSpeechEvent } from '@voxel/shared';
 const event = (id = 'clip'): AgentSpeechEvent => ({
   id,
   actor: 'ai',

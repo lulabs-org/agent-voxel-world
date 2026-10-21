@@ -34,31 +34,24 @@ export const AI_CHARACTER_SKILLS: ReadonlyArray<{
   name: string;
   description: string;
   requires: readonly (keyof AICharacterPermissions)[];
-  guidance: string;
 }> = [
   {
     id: 'building',
     name: '建筑规划',
     description: '选址、确认尺寸与风格，分步施工并验收。',
     requires: ['move', 'chat', 'place'],
-    guidance:
-      'For assigned building work, inspect the site, clarify dimensions and style, plan manageable construction stages, and verify the finished structure. Do not clear terrain without remove permission.',
   },
   {
     id: 'exploration',
     name: '探索勘察',
     description: '观察可见区域，移动检查并汇报发现。',
     requires: ['move', 'chat'],
-    guidance:
-      'For assigned exploration, inspect visible surroundings, move in short verified steps, and report observed discoveries. Use goto for locally planned navigation; you have no complete world map. Distinguish unseen areas from confirmed observations.',
   },
   {
     id: 'guide',
     name: '导览讲解',
     description: '根据可见环境讲解，按任务带领玩家移动。',
     requires: ['move', 'chat'],
-    guidance:
-      'For assigned guiding, explain observed surroundings clearly and move in short stages with the player. Do not invent landmarks or facts about unseen areas.',
   },
 ];
 
@@ -83,45 +76,4 @@ export function aiCharacterPermissions(settings: {
   return resolvePermissions(
     settings.permissions ?? settings.allowEdits === true,
   );
-}
-
-export function validateCapabilities(input: {
-  permissions?: unknown;
-  skills?: unknown;
-  allowEdits?: unknown;
-}): { permissions: AICharacterPermissions; skills: AICharacterSkillId[] } {
-  let permissions: AICharacterPermissions;
-  if (input.permissions === undefined) {
-    if (input.allowEdits !== undefined && typeof input.allowEdits !== 'boolean')
-      throw Error('建造权限格式无效。');
-    permissions = resolvePermissions(input.allowEdits === true);
-  } else {
-    const value = input.permissions;
-    if (
-      !value ||
-      typeof value !== 'object' ||
-      Array.isArray(value) ||
-      Object.keys(value).some(
-        (key) => !AI_CHARACTER_PERMISSIONS.some((p) => p.id === key),
-      ) ||
-      AI_CHARACTER_PERMISSIONS.some(
-        ({ id }) => typeof (value as Record<string, unknown>)[id] !== 'boolean',
-      )
-    ) {
-      throw Error('动作权限格式无效，请完整配置四项权限。');
-    }
-    permissions = resolvePermissions(value as AICharacterPermissions);
-  }
-  const skills = input.skills === undefined ? [] : input.skills;
-  if (
-    !Array.isArray(skills) ||
-    skills.some((id) => !AI_CHARACTER_SKILLS.some((skill) => skill.id === id))
-  )
-    throw Error('角色技能无效。');
-  return {
-    permissions,
-    skills: AI_CHARACTER_SKILLS.filter(({ id }) => skills.includes(id)).map(
-      ({ id }) => id,
-    ),
-  };
 }

@@ -1,6 +1,6 @@
 import type { AgentDecision } from './decision-contracts';
 /** Legacy JSON response fixtures drive the current task policy without a real model/network. */
-import { aiCharacterPermissions } from '../../packages/shared/src/index';
+import { aiCharacterPermissions } from '@voxel/shared';
 import type {
   AgentConfig,
   ModelEndpoint,

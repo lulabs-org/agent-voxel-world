@@ -8,7 +8,7 @@ import {
   writeAICharacterArchive,
 } from '../apps/server/src/modules/ai-characters';
 import { newPlan, newRun } from '../apps/server/src/modules/tasks';
-import { DEFAULT_TASK_LIMITS } from '../packages/shared/src/index';
+import { DEFAULT_TASK_LIMITS } from '@voxel/shared';
 
 const draft = {
   name: '巡查',

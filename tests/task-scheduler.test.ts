@@ -7,10 +7,7 @@ import {
   duePlans,
   emptyTaskBook,
 } from '../apps/server/src/modules/tasks';
-import {
-  DEFAULT_TASK_LIMITS,
-  type TaskTiming,
-} from '../packages/shared/src/index';
+import { DEFAULT_TASK_LIMITS, type TaskTiming } from '@voxel/shared';
 const at = (s: string) => Date.parse(s);
 const draft = (timing: TaskTiming, timeZone = 'Asia/Shanghai') => ({
   name: '巡查',

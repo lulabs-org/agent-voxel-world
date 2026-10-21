@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./management": "./src/management.ts",
-    "./management-client": "./src/management-client.ts"
+    "./management-client": "./src/management-client.ts",
+    "./realtime": "./src/realtime.ts"
   },
   "scripts": {
     "build": "tsc --noEmit"

@@ -1,4 +1,4 @@
-import type { AICharacterPermissions } from '../../packages/shared/src/index';
+import type { AICharacterPermissions } from '@voxel/shared';
 import type { AgentDecision } from './decision-contracts';
 import { parseActions } from '../../packages/agent-runtime/src/actions/parse';
 import { parseTaskDirective } from './decision-directive';

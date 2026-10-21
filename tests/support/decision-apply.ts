@@ -1,6 +1,6 @@
 /** Test DSL adapter: exercise task policy and world execution without a provider. */
-import { aiCharacterPermissions } from '../../packages/shared/src/index';
-import type { AICharacterTask } from '../../packages/shared/src/index';
+import { aiCharacterPermissions } from '@voxel/shared';
+import type { AICharacterTask } from '@voxel/shared';
 import type {
   AgentSession,
   AgentConfig,

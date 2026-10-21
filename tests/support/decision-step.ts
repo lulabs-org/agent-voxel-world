@@ -1,10 +1,7 @@
 // Deterministic decision adapter for existing domain-policy fixtures. No production inference.
 import type { Planner } from './decision-fixture';
-import { aiCharacterPermissions } from '../../packages/shared/src/index';
-import type {
-  AICharacterTask,
-  ChatData,
-} from '../../packages/shared/src/index';
+import { aiCharacterPermissions } from '@voxel/shared';
+import type { AICharacterTask, ChatData } from '@voxel/shared';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   AgentSession,
@@ -24,7 +21,7 @@ import {
   houseBlocks,
   observedEmpty,
 } from '../../packages/agent-runtime/src/actions/building';
-import { key } from '../../packages/shared/src/index';
+import { key } from '@voxel/shared';
 import { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
 
 import {

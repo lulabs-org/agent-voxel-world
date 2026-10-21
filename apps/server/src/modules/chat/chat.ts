@@ -4,11 +4,11 @@ import {
   parseChatRoute,
   spatialMix,
   SPEECH_HEARING_THRESHOLD,
-  visibleEvent,
   type ChatData,
   type Player,
   type WorldEvent,
 } from '@voxel/shared';
+import { visibleEvent } from './visibility';
 
 type Clip = { bytes: Buffer; actor: string; data: ChatData; expires: number };
 type SpeechTicket = {

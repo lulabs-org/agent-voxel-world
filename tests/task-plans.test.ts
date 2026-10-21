@@ -12,7 +12,7 @@ import {
   type TaskPlanDraft,
   type TaskTiming,
   type WorldEvent,
-} from '../packages/shared/src/index';
+} from '@voxel/shared';
 import {
   type Session,
   type Observation,

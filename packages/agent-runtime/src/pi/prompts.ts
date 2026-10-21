@@ -1,3 +1,4 @@
+import { SKILL_GUIDANCE } from './skill-guidance';
 import { AI_CHARACTER_SKILLS, aiCharacterPermissions } from '@voxel/shared';
 import type { AgentConfig, Observation } from '../contracts';
 import type { AgentRunState } from '../task/state';
@@ -25,7 +26,7 @@ A failed tool skips the rest of that batch. New human messages yield at tool bou
 Every response MUST contain a native tool call, never ordinary assistant text. After a prior tool result verifies success, call complete_task with a summary; do not merely describe completion in text.
 Selected skills:\n${
     AI_CHARACTER_SKILLS.filter((s) => config.skills?.includes(s.id))
-      .map((s) => `${s.name}: ${s.guidance}`)
+      .map((s) => `${s.name}: ${SKILL_GUIDANCE[s.id]}`)
       .join('\n') || 'None.'
   }`;
 }

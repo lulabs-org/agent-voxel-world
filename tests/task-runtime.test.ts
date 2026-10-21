@@ -512,7 +512,9 @@ it('keeps counting unlimited execution beyond all saved caps without scheduling 
     await new Promise((resolve) => setTimeout(resolve, 10));
     return decision('continue', 'completed');
   });
-  const { executionLimits } = await import('../packages/shared/src/index');
+  const { executionLimits } = await import(
+    '../apps/server/src/modules/tasks/limits'
+  );
   await f.step({
     ...cfg(),
     ...executionLimits({

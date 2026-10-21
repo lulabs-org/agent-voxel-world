@@ -1,4 +1,8 @@
-import type { AICharacterTask, AICharacterTaskStatus } from './ai-characters';
+import type {
+  TaskLimits,
+  AICharacterTask,
+  AICharacterTaskStatus,
+} from './task-contracts';
 
 export type TaskTiming =
   | { kind: 'immediate' }
@@ -6,13 +10,6 @@ export type TaskTiming =
   | { kind: 'interval'; everyMs: number }
   | { kind: 'daily'; time: string }
   | { kind: 'weekly'; time: string; weekdays: number[] };
-export type TaskLimits = {
-  /** Missing on older saves means enabled. */
-  enabled?: boolean;
-  maxTurns: number;
-  tokenBudget: number;
-  taskTimeoutMs: number;
-};
 export type TaskPlanDraft = {
   name: string;
   goal: string;
@@ -79,18 +76,4 @@ export const DEFAULT_TASK_LIMITS: TaskLimits = {
 };
 export function isRepeating(timing: TaskTiming) {
   return ['interval', 'daily', 'weekly'].includes(timing.kind);
-}
-
-/** Runtime-only values: never persist Infinity in task snapshots. */
-export function executionLimits(limits: TaskLimits) {
-  return limits.enabled === false
-    ? { maxTurns: Infinity, tokenBudget: Infinity, taskTimeoutMs: Infinity }
-    : {
-        maxTurns: limits.maxTurns,
-        tokenBudget: limits.tokenBudget,
-        taskTimeoutMs: limits.taskTimeoutMs,
-      };
-}
-export function hasPlanTokenLimit(plan: TaskPlanDraft) {
-  return plan.limits.enabled !== false && isRepeating(plan.timing);
 }

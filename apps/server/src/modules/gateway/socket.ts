@@ -2,12 +2,12 @@ import type WebSocket from 'ws';
 import type { IncomingMessage } from 'node:http';
 import type { AICharacterEvents } from '../ai-characters/events';
 import {
-  parseEventConnect,
   ManagementError,
   MANAGEMENT_EVENTS_VERSION,
   MAX_EVENT_REQUEST_BYTES,
   type ManagementFrame,
 } from '@voxel/shared/management';
+import { parseEventConnect } from './validation';
 import { publicError } from '../../common/management-error';
 import type { GatewayAuth } from './auth';
 

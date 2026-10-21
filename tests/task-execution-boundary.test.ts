@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { newTask, TaskService } from '@voxel/agent-runtime';
-import type { WorldEvent } from '../packages/shared/src/index';
+import type { WorldEvent } from '@voxel/shared';
 import { TaskCoordinator } from '../apps/server/src/modules/tasks/coordinator';
 import { captureTask } from '../apps/server/src/modules/tasks/execution';
 import type {

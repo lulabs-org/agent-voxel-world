@@ -9,8 +9,8 @@ import {
 import { AgentSpeech } from '../apps/server/src/modules/audio/session/agent-speech';
 import { RemoteTts } from '../apps/server/src/modules/audio/tts/remote-tts';
 import { PiperTts } from '../apps/server/src/modules/audio/tts/piper-tts';
-import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '../packages/shared/src';
-import type { Player } from '../packages/shared/src';
+import { DEFAULT_PIPER_MODEL, PIPER_MODELS } from '@voxel/shared';
+import type { Player } from '@voxel/shared';
 
 let dir: string;
 beforeEach(async () => {

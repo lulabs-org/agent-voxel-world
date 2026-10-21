@@ -2,7 +2,7 @@ import type {
   AICharacterPermissions,
   AICharacterSkillId,
 } from './ai-character-capabilities';
-import type { TaskLimits } from './task-plans';
+import type { TaskLimits, AICharacterTask } from './task-contracts';
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
 export const AI_CHARACTER_ROLE_DESCRIPTION_LIMIT = 2000;
 export type ProviderInference = Pick<
@@ -49,29 +49,6 @@ export type AICharacterSettings = {
   voiceServiceId?: string;
   thinking: 'enabled' | 'disabled';
   reasoningEffort: 'none' | 'low' | 'high' | 'max';
-};
-export type AICharacterTaskStatus =
-  | 'running'
-  | 'waiting'
-  | 'needs_input'
-  | 'blocked'
-  | 'paused'
-  | 'completed'
-  | 'cancelled'
-  | 'budget';
-export type AICharacterTask = {
-  goal: string;
-  status: AICharacterTaskStatus;
-  summary: string;
-  reason: string;
-  owner?: string;
-  privateTo?: string;
-  calls: number;
-  tokens: number;
-  estimated: boolean;
-  startedAt: number;
-  elapsedMs: number;
-  waitFor?: 'world' | 'players';
 };
 export const AI_CHARACTER_LOG_LIMIT = 500;
 

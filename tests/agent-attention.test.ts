@@ -5,7 +5,7 @@ import {
   type Observation,
 } from '@voxel/agent-runtime';
 
-import type { WorldEvent } from '../packages/shared/src/index';
+import type { WorldEvent } from '@voxel/shared';
 const message = (
   seq: number,
   scope = 'public',

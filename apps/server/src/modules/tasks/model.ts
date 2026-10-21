@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import {
-  hasPlanTokenLimit,
   isRepeating,
-  nextOccurrence,
   type TaskPlanDraft,
   type TaskPlan,
   type TaskRun,
 } from '@voxel/shared';
+import { hasPlanTokenLimit } from './limits';
+import { nextOccurrence } from './timing';
 import type { StoredRun, TaskBook } from './types';
 
-export { nextOccurrence, wallClockInstant } from '@voxel/shared';
+export { wallClockInstant } from '@voxel/shared';
+export { nextOccurrence } from './timing';
 export { validatePlan } from './validation';
 export type { StoredRun, TaskBook } from './types';
 

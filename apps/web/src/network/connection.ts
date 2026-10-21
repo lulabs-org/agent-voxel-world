@@ -1,5 +1,5 @@
 import { serverHttpUrl, serverSocketUrl } from './endpoints';
-import type { RealtimeEvent } from '../../../../packages/shared/src/realtime';
+import type { RealtimeEvent } from '@voxel/shared/realtime';
 import { Client, type Room } from 'colyseus.js';
 import {
   key,

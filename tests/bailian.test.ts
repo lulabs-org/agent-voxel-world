@@ -5,7 +5,7 @@ import {
   decodePCM,
 } from '../apps/server/src/modules/realtime/bailian-session';
 import { DemoSocket } from '../apps/server/src/modules/realtime/demo-socket';
-import type { RealtimeEvent } from '../packages/shared/src/realtime';
+import type { RealtimeEvent } from '@voxel/shared/realtime';
 class Socket extends EventEmitter {
   bufferedAmount = 0;
   sent: any[] = [];

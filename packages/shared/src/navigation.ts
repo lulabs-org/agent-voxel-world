@@ -1,4 +1,4 @@
-import type { Block, Vec3 } from './index';
+import type { Block, Vec3 } from './world';
 
 /** Every voxel center inside these inclusive bounds is known, including air. */
 export type LocalCollisionMap = {

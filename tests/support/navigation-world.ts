@@ -4,7 +4,7 @@ import {
   type Block,
   type Input,
   type Vec3,
-} from '../../packages/shared/src/index';
+} from '@voxel/shared';
 import type { Observation } from '@voxel/agent-runtime';
 
 export function navigationWorld(start: Vec3 = { x: 0, y: 2.501, z: 0 }) {

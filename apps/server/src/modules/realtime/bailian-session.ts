@@ -1,9 +1,7 @@
 import WebSocket from 'ws';
 import { randomUUID } from 'node:crypto';
-import {
-  REALTIME_LIMITS,
-  type RealtimeEvent,
-} from '../../../../../packages/shared/src/realtime';
+import type { RealtimeEvent } from '@voxel/shared/realtime';
+import { REALTIME_LIMITS } from './limits';
 import { inBounds, type Edit } from '@voxel/shared';
 
 export interface RealtimeSocket {

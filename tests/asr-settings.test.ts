@@ -7,10 +7,7 @@ import {
   asrEndpoint,
   validateAsrSettings,
 } from '../apps/server/src/modules/audio/asr/asr-settings';
-import {
-  DEFAULT_BAILIAN_ASR,
-  DEFAULT_WHISPER_ASR,
-} from '../packages/shared/src';
+import { DEFAULT_BAILIAN_ASR, DEFAULT_WHISPER_ASR } from '@voxel/shared';
 const dirs: string[] = [];
 afterEach(async () => {
   await Promise.all(
