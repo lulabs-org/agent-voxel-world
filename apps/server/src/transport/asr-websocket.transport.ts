@@ -1,7 +1,7 @@
 import type WebSocket from 'ws';
 import type { IncomingMessage } from 'node:http';
 import { env } from '../config/env';
-import { originAllowed } from '../common/middleware/cors';
+import { originAllowed } from '../common/origin-policy';
 import type { Server } from 'node:http';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { AsrSettingsStore } from '../modules/audio/asr/asr-settings';

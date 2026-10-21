@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { createOriginGuard, originAllowed } from './cors';
+import { describe, expect, it } from 'vitest';
+import { originAllowed } from './origin-policy';
 
 describe('local page origins', () => {
   it.each([
@@ -27,31 +27,5 @@ describe('local page origins', () => {
     expect(
       originAllowed('http://localhost:5173', 'https://world.example'),
     ).toBe(false);
-  });
-
-  it('echoes the accepted alias in preflight headers', () => {
-    const header = vi.fn(),
-      sendStatus = vi.fn(),
-      next = vi.fn();
-    createOriginGuard({
-      origin: 'http://127.0.0.1:5173',
-      message: 'Forbidden',
-      vary: true,
-      methods: 'GET, OPTIONS',
-    })(
-      {
-        headers: { origin: 'http://localhost:5173' },
-        method: 'OPTIONS',
-      } as any,
-      { header, sendStatus } as any,
-      next,
-    );
-    expect(header).toHaveBeenCalledWith(
-      'Access-Control-Allow-Origin',
-      'http://localhost:5173',
-    );
-    expect(header).toHaveBeenCalledWith('Vary', 'Origin');
-    expect(sendStatus).toHaveBeenCalledWith(204);
-    expect(next).not.toHaveBeenCalled();
   });
 });

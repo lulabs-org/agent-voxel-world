@@ -1,5 +1,6 @@
+import cors from 'cors';
 import { env } from '../../../config/env';
-import { createOriginGuard } from '../../../common/middleware/cors';
+import { createOriginGuard } from '../../../common/middleware/origin-guard';
 import { asyncRoute } from '../../../common/middleware/async-route';
 import { assertJsonBody } from '../../../common/middleware/json-body';
 import { errorHandler } from '../../../common/middleware/error-handler';
@@ -13,19 +14,29 @@ export function installAsrRoutes(
   origin = env.webOrigin(),
   authenticatedManagement = false,
 ) {
-  const guard = createOriginGuard({
-    origin,
-    message: '仅允许配置的游戏页面管理语音识别。',
-    cacheControl: 'no-store',
-    methods: 'GET, POST, PUT, DELETE, OPTIONS',
-  });
+  const pageAccess = express.Router();
+  pageAccess.use(
+    createOriginGuard({
+      origin,
+      message: '仅允许配置的游戏页面管理语音识别。',
+    }),
+    (_req, res, next) => {
+      res.setHeader('Cache-Control', 'no-store');
+      next();
+    },
+    cors({
+      origin: true,
+      allowedHeaders: 'Content-Type',
+      methods: 'GET, POST, PUT, DELETE, OPTIONS',
+    }),
+  );
   app.use('/voice/asr', (req, res, next) => {
     if (
       authenticatedManagement &&
       (req.path === '/services' || req.path.startsWith('/services/'))
     )
       next();
-    else guard(req, res, next);
+    else pageAccess(req, res, next);
   });
   app.use('/voice/asr', express.json({ limit: '8kb' }));
   const route = (fn: (req: Request, res: Response) => unknown) =>

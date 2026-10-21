@@ -1,5 +1,6 @@
+import cors from 'cors';
 import { env } from '../../config/env';
-import { createOriginGuard } from '../../common/middleware/cors';
+import { createOriginGuard } from '../../common/middleware/origin-guard';
 import { AsrSettingsStore } from './asr/asr-settings';
 import { listWhisperModels } from './asr/whisper-settings';
 import type { Express } from 'express';
@@ -20,7 +21,14 @@ export function installCapabilitiesRoutes(
       required: false,
       crossSite: true,
       message: '不允许此页面访问服务器语音服务。',
-      cacheControl: 'no-store',
+    }),
+    (_req, res, next) => {
+      res.setHeader('Cache-Control', 'no-store');
+      next();
+    },
+    cors({
+      origin: true,
+      allowedHeaders: 'Content-Type',
       methods: 'GET, POST, OPTIONS',
     }),
   );

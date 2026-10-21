@@ -1,3 +1,4 @@
+import cors from 'cors';
 import { ManagementCommands } from './common/management-command';
 import { identifier } from '@voxel/shared/management';
 import type { GatewayAuth } from './modules/gateway/auth';
@@ -23,7 +24,7 @@ import {
 } from './modules/world/world.routes';
 import { installHealthRoutes } from './routes/health.routes';
 import { installDocsRoutes } from './routes/docs.routes';
-import { originAllowed } from './common/middleware/cors';
+import { originAllowed } from './common/origin-policy';
 import { errorHandler } from './common/middleware/error-handler';
 
 /** HTTP composition only: no sockets, dotenv, database connections or task timers. */
@@ -39,11 +40,17 @@ export function createApp(deps: {
   const app = express();
   const commands = new ManagementCommands();
   const origin = deps.config.webOrigin;
-  // Preserve permissive public route CORS; protected routes enforce their own policy.
+  const publicCors = cors({
+    origin: (requestOrigin, callback) =>
+      callback(
+        null,
+        !!requestOrigin && originAllowed(requestOrigin, origin, false),
+      ),
+  });
+  // Public responses get CORS headers; each route owns its preflight after origin checks.
   app.use((req, res, next) => {
-    if (req.headers.origin && originAllowed(req.headers.origin, origin, false))
-      res.header('Access-Control-Allow-Origin', req.headers.origin);
-    next();
+    if (req.method === 'OPTIONS') next();
+    else publicCors(req, res, next);
   });
   installDocsRoutes(app);
   installHealthRoutes(app, deps.config);

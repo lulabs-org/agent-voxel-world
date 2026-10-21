@@ -1,5 +1,6 @@
+import cors from 'cors';
 import { env } from '../../config/env';
-import { originAllowed } from '../../common/middleware/cors';
+import { createOriginGuard } from '../../common/middleware/origin-guard';
 import type { Express } from 'express';
 import type { WorldPresence } from '@voxel/shared';
 
@@ -53,36 +54,35 @@ export function installPresenceRoutes(
    *       503:
    *         description: 世界服务未就绪
    */
-  app.get('/world/presence', (req, res) => {
-    const origin = req.headers.origin;
-    if (!originAllowed(origin, allowed, false)) {
-      res.sendStatus(403);
-      return;
-    }
-    if (origin) res.header('Access-Control-Allow-Origin', origin);
-    if (!read()) {
-      res.sendStatus(503);
-      return;
-    }
-    res.status(200).set({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
-    res.flushHeaders();
-    const send = () => {
-      const state = read();
-      if (!state) {
-        res.end();
+  app.get(
+    '/world/presence',
+    createOriginGuard({ origin: allowed, required: false }),
+    cors({ origin: true }),
+    (_req, res) => {
+      if (!read()) {
+        res.sendStatus(503);
         return;
       }
-      // A heartbeat on every tick also detects loss of the world service.
-      if (!res.writableNeedDrain)
-        res.write(`data: ${JSON.stringify(state)}\n\n`);
-    };
-    const interval = setInterval(send, 1000);
-    res.on('close', () => clearInterval(interval));
-    send();
-  });
+      res.status(200).set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+      res.flushHeaders();
+      const send = () => {
+        const state = read();
+        if (!state) {
+          res.end();
+          return;
+        }
+        // A heartbeat on every tick also detects loss of the world service.
+        if (!res.writableNeedDrain)
+          res.write(`data: ${JSON.stringify(state)}\n\n`);
+      };
+      const interval = setInterval(send, 1000);
+      res.on('close', () => clearInterval(interval));
+      send();
+    },
+  );
 }

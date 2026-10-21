@@ -1,5 +1,6 @@
+import cors from 'cors';
 import { env } from '../../config/env';
-import { createOriginGuard } from '../../common/middleware/cors';
+import { createOriginGuard } from '../../common/middleware/origin-guard';
 import { errorHandler } from '../../common/middleware/error-handler';
 import express, { type Express } from 'express';
 import { type WorldChat } from './chat';
@@ -20,11 +21,16 @@ export function installChatRoutes(
     createOriginGuard({
       origin,
       message: '不允许此页面访问聊天音频。',
-      vary: true,
-      alwaysHeader: true,
-      cacheControl: 'no-store',
+    }),
+    (_req, res, next) => {
+      res.setHeader('Cache-Control', 'no-store');
+      next();
+    },
+    cors({
+      origin: (requestOrigin, callback) =>
+        callback(null, requestOrigin || origin),
       methods: 'GET, POST, DELETE, OPTIONS',
-      headers: 'Content-Type, Authorization',
+      allowedHeaders: 'Content-Type, Authorization',
     }),
     (req, res, next) => {
       try {
