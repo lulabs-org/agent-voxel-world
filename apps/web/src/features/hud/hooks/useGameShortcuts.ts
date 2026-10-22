@@ -11,9 +11,7 @@ export function useGameShortcuts(
   const {
     activePanel,
     setActivePanel,
-    voiceExpanded,
     chatExpanded,
-    changeVoice,
     changeChat,
   } = hud;
   useEffect(() => {
@@ -35,8 +33,7 @@ export function useGameShortcuts(
                 : '[aria-controls="game-menu"]',
             )
             ?.focus();
-        } else if (voiceExpanded) changeVoice(false);
-        else if (chatExpanded) changeChat(false);
+        } else if (chatExpanded) changeChat(false);
         return;
       }
       const shortcut = hudShortcut(

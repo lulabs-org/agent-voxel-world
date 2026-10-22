@@ -41,30 +41,18 @@
   outline: 2px solid var(--color-hud-ink);
   outline-offset: 2px;
 }
-.spatial-voice small {
-  display: block;
-  font-size: 9px;
-  color: #668076;
-  line-height: 1.7;
-}
-.spatial-actions,
 .chat-tools {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   margin: 10px 0 5px;
 }
-.spatial-actions button,
 .enhanced-chat button {
   font-size: 11px;
   padding: 6px 9px;
   border-radius: 4px;
   background: var(--surface-control);
   color: var(--color-hud-ink);
-}
-.spatial-actions button[aria-pressed='true'] {
-  background: var(--color-hud-ink);
-  color: #fff;
 }
 .enhanced-chat .messages {
   max-height: 150px;
@@ -280,16 +268,6 @@
   .enhanced-chat .messages {
     max-height: 100px;
   }
-}
-.spatial-caption {
-  font-size: 11px;
-  line-height: 1.6;
-  max-height: 72px;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-  margin: 8px 0 0;
-  padding-top: 8px;
-  border-top: 1px solid #d9e1d3;
 }
 /* The picker temporarily uses the history area, keeping the composer reachable. */
 .enhanced-chat.is-picking .messages,

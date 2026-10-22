@@ -338,22 +338,6 @@
   color: #fff;
   background: #944d36;
 }
-.spatial-details {
-  padding: 12px;
-  margin-bottom: 6px;
-  background: var(--hud-paper);
-  border: 1px solid #ffffff90;
-  border-radius: var(--radius-panel);
-  max-height: calc(var(--hud-height, 100dvh) - 180px);
-  overflow: auto;
-}
-.spatial-details small {
-  display: block;
-  margin-top: 8px;
-  color: #597466;
-  font-size: 11px;
-  line-height: 1.6;
-}
 .spatial-live-caption {
   margin-bottom: 6px;
   border-radius: var(--radius-control);
@@ -395,12 +379,6 @@
   .in-game .spatial-voice {
     width: 210px;
   }
-  .in-game .spatial-voice.is-expanded {
-    width: calc(100% - 32px);
-  }
-  .in-game .spatial-details {
-    max-height: calc(var(--hud-height, 100dvh) - 260px);
-  }
   .in-game .chat-peek {
     padding-bottom: 40px;
   }
@@ -412,12 +390,11 @@
   .in-game .has-expanded .enhanced-chat.is-collapsed .chat-peek-message {
     display: none;
   }
-  .in-game .has-expanded .enhanced-chat:not(.is-collapsed),
-  .in-game .has-expanded .spatial-voice.is-expanded {
+  .in-game .has-expanded .enhanced-chat:not(.is-collapsed) {
     z-index: var(--z-hud);
   }
-  .in-game .spatial-voice:not(.is-expanded) .spatial-live-caption,
-  .in-game .spatial-voice:not(.is-expanded) .spatial-error-summary {
+  .in-game .spatial-live-caption,
+  .in-game .spatial-error-summary {
     max-width: 210px;
   }
   .in-game .chat-expanded {
@@ -460,8 +437,7 @@
   .in-game .hud-navigation button {
     padding: 6px 8px;
   }
-  .in-game .enhanced-chat:not(.is-collapsed),
-  .in-game .spatial-voice.is-expanded {
+  .in-game .enhanced-chat:not(.is-collapsed) {
     width: calc(100% - 24px);
   }
   .in-game .chat-peek .chat-peek-message {
@@ -512,7 +488,6 @@
 .in-game .chat-expanded,
 .in-game .chat-peek > button,
 .in-game .spatial-toolbar,
-.in-game .spatial-details,
 .in-game .spatial-error-summary {
   pointer-events: auto;
 }

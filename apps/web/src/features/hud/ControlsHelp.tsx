@@ -56,8 +56,13 @@ export function ControlsHelp({ onClose }: ControlsHelpProps) {
           </dt>
           <dd>{t('hud.controls.openChat')}</dd>
         </div>
+        <div>
+          <dt>{t('voice.title')}</dt>
+          <dd>{t('voice.spatialHelp')}</dd>
+        </div>
       </dl>
       <p>{t('hud.controls.rangeHint')}</p>
+      <p>{t('voice.whisperHint')}</p>
     </section>
   );
 }

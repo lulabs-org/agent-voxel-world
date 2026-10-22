@@ -30,17 +30,14 @@ export function App({ connection }: { connection: Connection }) {
   } | null>(null);
 
   const { narrow, shortViewport, mainRef } = useViewportAdjust();
-  const hud = useHudController(narrow);
+  const hud = useHudController();
   const {
     activePanel,
     setActivePanel,
     showCoordinates,
     chatExpanded,
-    voiceExpanded,
-    chatBusy,
     setChatBusy,
     changeChat,
-    changeVoice,
     togglePanel,
   } = hud;
   const {
@@ -68,7 +65,6 @@ export function App({ connection }: { connection: Connection }) {
     session.leaveWorld();
     setActivePanel(null);
     hud.setChatExpanded(false);
-    hud.setVoiceExpanded(false);
   };
   return (
     <GameHUDLayout
@@ -138,14 +134,11 @@ export function App({ connection }: { connection: Connection }) {
 
       {joined && (
         <div
-          className={`game-communication${chatExpanded || voiceExpanded ? ' has-expanded' : ''}`}
+          className={`game-communication${chatExpanded ? ' has-expanded' : ''}`}
         >
           <SpatialVoicePanel
             speechAnchor={speechAnchor}
             connection={connection}
-            expanded={voiceExpanded}
-            onExpandedChange={changeVoice}
-            expandDisabled={narrow && chatBusy}
           />
           <ChatPanel
             connection={connection}
