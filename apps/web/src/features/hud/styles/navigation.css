@@ -41,12 +41,24 @@
   outline: 2px solid var(--color-action);
   outline-offset: 3px;
 }
-.language-switcher-hud .language-switcher-icon {
+.language-switcher-icon {
   flex-shrink: 0;
   display: block;
 }
 .language-switcher-menu {
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
+  text-align: left;
+}
+.language-switcher-menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.language-switcher-menu small {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.75;
 }
