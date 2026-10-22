@@ -31,12 +31,12 @@ export function GameMenu({
             {t('hud.controlsHelp')}
           </button>
           <label>
+            {t('hud.showCoordinates')}
             <input
               type="checkbox"
               checked={showCoordinates}
               onChange={(event) => setShowCoordinates(event.target.checked)}
             />
-            {t('hud.showCoordinates')}
           </label>
           <LanguageSwitcher variant="menu" />
           <button onClick={leaveWorld}>{t('hud.exitGame')}</button>
