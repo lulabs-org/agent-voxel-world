@@ -121,7 +121,7 @@
 .in-game .game-footer {
   position: absolute;
   z-index: 2;
-  top: calc(var(--hud-bottom) - 106px - env(safe-area-inset-bottom));
+  top: calc(var(--hud-bottom) - 84px - env(safe-area-inset-bottom));
   bottom: auto;
   left: 50%;
   right: auto;
