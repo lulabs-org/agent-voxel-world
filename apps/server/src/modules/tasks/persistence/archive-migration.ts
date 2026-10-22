@@ -4,9 +4,9 @@ import {
   type AICharacterView,
 } from '@voxel/shared';
 import type { AgentRunState } from '@voxel/agent-runtime';
-import { AppError } from '../../common/errors';
-import { newPlan, newRun } from './model';
-import type { TaskBook } from './types';
+import { AppError } from '../../../common/errors';
+import { newPlan, newRun } from '../domain/model';
+import type { TaskBook } from '../domain/types';
 import type { TaskSnapshot } from './snapshots';
 
 type LegacyTaskOwner = Pick<

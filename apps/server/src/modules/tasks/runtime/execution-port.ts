@@ -1,6 +1,6 @@
 import type { AgentRunState } from '@voxel/agent-runtime';
 import type { AICharacterSettings, AICharacterView } from '@voxel/shared';
-import type { PlanService } from './service';
+import type { PlanService } from '../persistence/service';
 
 /** Mutable task state only: no world Session, runner, abort controller or Agent registry. */
 export interface TaskExecutionState {

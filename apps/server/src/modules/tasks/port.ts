@@ -1,4 +1,4 @@
-import type { PlanQueryFilter } from './types';
+import type { PlanQueryFilter } from './domain/types';
 
 /**
  * Tasks / Plans 领域的管理接口契约（由 TaskCoordinator 实现）

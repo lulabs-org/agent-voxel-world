@@ -1,12 +1,12 @@
 import { isRepeating, type TaskPlan, type TaskRun } from '@voxel/shared';
-import { hasPlanTokenLimit, executionLimits } from './limits';
+import { hasPlanTokenLimit, executionLimits } from '../domain/limits';
 import {
   endedRun,
   newRun,
   runView,
   settleTaskUsage,
   syncPlanStateFromRun,
-} from './model';
+} from '../domain/model';
 import {
   newTask,
   recordEvent,
@@ -15,9 +15,9 @@ import {
   type AgentRunState,
   type AgentConfig,
 } from '@voxel/agent-runtime';
-import { object } from '../../common/validation';
-import { taskLimits } from './validation';
-import { AppError } from '../../common/errors';
+import { object } from '../../../common/validation';
+import { taskLimits } from '../domain/validation';
+import { AppError } from '../../../common/errors';
 import type { TaskExecutionState } from './execution-port';
 import type { AICharacterSettings } from '@voxel/shared';
 const active = (status: TaskExecutionState['view']['status']) =>

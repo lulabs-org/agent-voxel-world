@@ -7,7 +7,7 @@ import type {
 import {
   migrateBinding,
   migrateCharacterTasks,
-} from '../modules/tasks/archive-migration';
+} from '../modules/tasks/persistence/archive-migration';
 
 /** Pure, repeatable migration; disk backup and atomic replacement belong to the host. */
 export function migrateArchive(

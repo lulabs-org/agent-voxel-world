@@ -1,6 +1,6 @@
 import type { AICharacterSettings } from '@voxel/shared';
 import { AgentAttention } from '@voxel/agent-runtime';
-import type { PlanService } from '../../tasks/service';
+import type { PlanService } from '../../tasks/persistence/service';
 import {
   migrateLegacyLogs,
   restoreAICharacterLogs,
@@ -9,7 +9,10 @@ import { validateAICharacter } from '../domain/validation';
 import { AppError } from '../../../common/errors';
 import type { ProviderPort } from '../../providers/provider-port';
 import type { CharacterRecord, Job } from '../domain/types';
-import { restoreTaskExecution, restoreTaskMemory } from '../../tasks/restore';
+import {
+  restoreTaskExecution,
+  restoreTaskMemory,
+} from '../../tasks/persistence/restore';
 import { executionState } from '../domain/task-adapter';
 
 export function restoreAICharacterJob(

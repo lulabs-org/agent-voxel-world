@@ -1,4 +1,4 @@
-import { AppError } from '../../common/errors';
+import { AppError } from '../../../common/errors';
 import {
   DEFAULT_TASK_LIMITS,
   type TaskPlan,

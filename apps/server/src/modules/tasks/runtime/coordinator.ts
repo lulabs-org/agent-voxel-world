@@ -1,15 +1,21 @@
-import { PlanService } from './service';
+import { PlanService } from '../persistence/service';
 import { TaskScheduler } from './scheduler';
-import { validatePlan } from './validation';
-import { newPlan, nextOccurrence, duePlans, runView, endedRun } from './model';
+import { validatePlan } from '../domain/validation';
+import {
+  newPlan,
+  nextOccurrence,
+  duePlans,
+  runView,
+  endedRun,
+} from '../domain/model';
 import { TaskService, recordEvent, type TaskLease } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
-import { CommandQueue } from '../../common/command-queue';
+import { CommandQueue } from '../../../common/command-queue';
 import { isRepeating } from '@voxel/shared';
-import { hasPlanTokenLimit } from './limits';
+import { hasPlanTokenLimit } from '../domain/limits';
 import type { PlanQueryFilter } from '@voxel/shared/management';
-import { object } from '../../common/validation';
-import { AppError } from '../../common/errors';
+import { object } from '../../../common/validation';
+import { AppError } from '../../../common/errors';
 import type { TaskExecutionState, TaskHostPort } from './execution-port';
 import {
   commitExecution,

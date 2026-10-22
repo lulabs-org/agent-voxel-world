@@ -1,7 +1,4 @@
-import {
-  aiCharacterPermissions,
-  type AICharacterView,
-} from '@voxel/shared';
+import { aiCharacterPermissions, type AICharacterView } from '@voxel/shared';
 import {
   AgentAttention,
   AgentRuntimeError,
@@ -15,7 +12,7 @@ import {
   currentRun,
   executionConfigOverrides,
   beginChatExecution,
-} from '../../tasks/execution';
+} from '../../tasks/runtime/execution';
 import { executionState } from '../domain/task-adapter';
 import { handleWorldEvent } from './world-event-handler';
 import type { ExecutionContext } from './execution-context';
