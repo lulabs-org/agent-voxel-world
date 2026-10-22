@@ -81,7 +81,6 @@ export function GameHeader({
         <div>
           <strong>EMBOCRAFT</strong>
           <small>{t('header.brandSubtitle')}</small>
-
         </div>
       </div>
 
@@ -98,7 +97,7 @@ export function GameHeader({
         >
           {t('header.console')}
         </button>
-        <LanguageSwitcher variant="header" />
+        <LanguageSwitcher variant="hud" />
         {joined && (
           <nav className="game-panels" aria-label={t('header.gamePanels')}>
             <button
@@ -114,4 +113,3 @@ export function GameHeader({
     </header>
   );
 }
-

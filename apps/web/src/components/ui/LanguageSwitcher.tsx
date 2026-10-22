@@ -2,14 +2,14 @@ import { useI18n } from '../../i18n';
 
 interface LanguageSwitcherProps {
   className?: string;
-  variant?: 'header' | 'hud' | 'menu';
+  variant?: 'hud' | 'menu';
 }
 
 export function LanguageSwitcher({
   className = '',
-  variant = 'header',
+  variant = 'hud',
 }: LanguageSwitcherProps) {
-  const { language, toggleLanguage, setLanguage, t } = useI18n();
+  const { language, toggleLanguage, t } = useI18n();
 
   if (variant === 'menu') {
     return (
@@ -36,39 +36,22 @@ export function LanguageSwitcher({
         aria-label={t('header.switchLanguage')}
         title={`${t('header.switchLanguage')} (${language === 'zh' ? 'English' : '简体中文'})`}
       >
-        <span aria-hidden="true" style={{ marginRight: 3 }}>
-          🌐
-        </span>
+        <svg
+          className="language-switcher-icon"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18" />
+          <path d="M12 3a14.5 14.5 0 0 1 0 18a14.5 14.5 0 0 1 0-18" />
+        </svg>
         {language === 'zh' ? 'EN' : '中'}
       </button>
     );
   }
-
-  return (
-    <div
-      className={`language-switcher-pill ${className}`}
-      role="group"
-      aria-label={t('header.switchLanguage')}
-    >
-      <button
-        type="button"
-        className={language === 'zh' ? 'active' : ''}
-        onClick={() => setLanguage('zh')}
-        aria-pressed={language === 'zh'}
-      >
-        中
-      </button>
-      <span className="divider" aria-hidden="true">
-        /
-      </span>
-      <button
-        type="button"
-        className={language === 'en' ? 'active' : ''}
-        onClick={() => setLanguage('en')}
-        aria-pressed={language === 'en'}
-      >
-        EN
-      </button>
-    </div>
-  );
 }
