@@ -57,6 +57,8 @@ flowchart TD
 pnpm agent:ctl auth show
 ```
 
+开发模式（`NODE_ENV !== 'production'`）下运行 `pnpm dev` 时，服务端还会在启动终端直接打印管理员令牌，复制粘贴到网页「控制台」解锁框即可；生产环境不会打印令牌值。
+
 :::
 
 ### 2. 跨域安全策略 (CORS)

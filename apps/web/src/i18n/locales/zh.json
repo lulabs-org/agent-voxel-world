@@ -252,7 +252,8 @@
       "adminTokenPlaceholder": "输入管理员令牌…",
       "adminTokenAria": "管理员令牌",
       "unlock": "解锁",
-      "tabOnlyHint": "仅当前标签页有效"
+      "tabOnlyHint": "仅当前标签页有效",
+      "devTerminalHint": "运行 pnpm dev 的终端已直接打印管理员令牌，复制粘贴即可。"
     },
     "taskStatus": {
       "running": "执行任务",
@@ -315,6 +316,7 @@
       "tokenTitle": "获取管理员令牌",
       "tokenClose": "关闭提示",
       "tokenLocalEnv": "本机开发环境",
+      "tokenCmdLabel": "或执行命令查看：",
       "tokenCopied": "已复制",
       "tokenCopy": "复制",
       "tokenRemoteHint": "若非本机运行，请联系服务器管理员获取。"

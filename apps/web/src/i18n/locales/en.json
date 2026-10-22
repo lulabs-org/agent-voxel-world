@@ -252,7 +252,8 @@
       "adminTokenPlaceholder": "Enter admin token…",
       "adminTokenAria": "Admin token",
       "unlock": "Unlock",
-      "tabOnlyHint": "Valid for this tab only"
+      "tabOnlyHint": "Valid for this tab only",
+      "devTerminalHint": "The terminal running pnpm dev already prints the admin token — copy and paste it."
     },
     "taskStatus": {
       "running": "Executing task",
@@ -315,6 +316,7 @@
       "tokenTitle": "Get Admin Token",
       "tokenClose": "Close tip",
       "tokenLocalEnv": "Local Development Environment",
+      "tokenCmdLabel": "Or run this command:",
       "tokenCopied": "Copied",
       "tokenCopy": "Copy",
       "tokenRemoteHint": "If running on a remote server, please contact your administrator for the token."
