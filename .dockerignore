@@ -1,12 +1,14 @@
 node_modules
+**/node_modules
 .git
 .data
 .vscode
 .playwright-cli
 .pnpm-store
+**/dist
+dist
 output
 artifacts
-dist
 *.log
 .env
 .env.local
