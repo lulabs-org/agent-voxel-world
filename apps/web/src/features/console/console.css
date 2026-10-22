@@ -64,6 +64,36 @@
   height: 36px;
   padding: 0;
 }
+.agent-dialog .console-heading-actions > button:not(.console-help) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid #cdd9c6;
+  border-radius: 8px;
+  background: #f6f7ee;
+  color: #234d3c;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.agent-dialog
+  .console-heading-actions
+  > button.console-help-trigger:not(.console-help) {
+  display: grid;
+  padding: 0;
+}
+.console-help-trigger svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.agent-dialog .console-heading-actions > button:not(.console-help):hover {
+  background: #e9efe2;
+  border-color: #b7c8ae;
+  color: var(--color-action);
+}
 .console-help {
   box-sizing: border-box;
   width: min(480px, calc(100vw - 48px));
@@ -137,17 +167,6 @@
 }
 .console-status-pill.console-reconnecting::before {
   background: #b38740;
-}
-.agent-dialog .console-heading-actions .console-exit-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  background: transparent;
-  border: 1px solid #dce2d6;
-  color: #5c7062;
-}
-.agent-dialog .console-heading-actions .console-exit-btn:hover {
-  background: #edf2e8;
-  color: var(--color-action);
 }
 .agent-heading p {
   margin: 0 0 16px;

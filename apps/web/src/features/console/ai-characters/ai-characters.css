@@ -509,6 +509,61 @@
   gap: 10px;
   margin-left: auto;
 }
+.agent-dialog .console-panel .agents-form-footer button,
+.agents-form-footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-action);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.agent-dialog .console-panel .agents-form-footer button:hover:not(:disabled),
+.agents-form-footer button:hover:not(:disabled) {
+  background: #edf2e6;
+  color: var(--color-action);
+}
+.agent-dialog .console-panel .agents-form-footer button svg,
+.agents-form-footer button svg {
+  flex-shrink: 0;
+}
+.agent-dialog .console-panel .agents-form-footer button.agents-delete-button,
+.agents-form-footer button.agents-delete-button {
+  color: #943f36;
+  border-color: #d9b7b0;
+}
+.agent-dialog
+  .console-panel
+  .agents-form-footer
+  button.agents-delete-button:hover:not(:disabled),
+.agents-form-footer button.agents-delete-button:hover:not(:disabled) {
+  color: #802f27;
+  background: #fbf0ee;
+  border-color: #c98e83;
+}
+.agent-dialog .console-panel .agents-form-footer button.primary,
+.agents-form-footer button.primary {
+  background: var(--color-hud-ink);
+  border-color: var(--color-hud-ink);
+  color: #fff;
+}
+.agent-dialog
+  .console-panel
+  .agents-form-footer
+  button.primary:hover:not(:disabled),
+.agents-form-footer button.primary:hover:not(:disabled) {
+  background: var(--color-action);
+  border-color: var(--color-action);
+  color: #fff;
+}
 .agents-footer-saved-hint {
   display: inline-flex;
   align-items: center;
@@ -954,12 +1009,6 @@
   background-size: 10px 10px;
   background-position: center;
   background-repeat: no-repeat;
-}
-.agents-pricing-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin-top: 14px;
 }
 
 .agents-voice-settings .agents-voice-service {
@@ -1648,8 +1697,10 @@ button.agents-delete-button:disabled {
 .agents-delete-dialog {
   position: fixed;
   inset: 0;
+  z-index: 402;
   box-sizing: border-box;
   width: min(460px, calc(100vw - 32px));
+  height: fit-content;
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
   margin: auto;
@@ -1660,6 +1711,7 @@ button.agents-delete-button:disabled {
   color: var(--color-text);
   box-shadow: 0 20px 70px #16382f44;
 }
+/* Backdrop z-index for this nested dialog is set via Dialog's overlayStyle. */
 .agents-delete-dialog::backdrop {
   background: #173a3366;
 }
@@ -1674,4 +1726,36 @@ button.agents-delete-button:disabled {
 .agents-delete-dialog .agents-actions {
   justify-content: flex-end;
   margin-top: 24px;
+}
+.agents-delete-dialog .agents-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 8px 14px;
+  border: 1px solid #dce3d8;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-action);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.agents-delete-dialog .agents-actions button:hover:not(:disabled) {
+  background: #edf2e8;
+  border-color: #c3d1bd;
+}
+.agents-delete-dialog .agents-actions button.agents-delete-button {
+  color: #943f36;
+  border-color: #d9b7b0;
+}
+.agents-delete-dialog
+  .agents-actions
+  button.agents-delete-button:hover:not(:disabled) {
+  color: #802f27;
+  background: #fbf0ee;
+  border-color: #c98e83;
 }
