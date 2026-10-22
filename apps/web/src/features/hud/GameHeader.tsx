@@ -69,7 +69,6 @@ export function GameHeader({
           >
             {t('header.menu')}
           </button>
-          <LanguageSwitcher variant="hud" />
         </nav>
       </header>
     );
