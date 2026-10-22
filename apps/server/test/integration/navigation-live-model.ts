@@ -6,7 +6,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { AICharacterManager } from '../../src/modules/ai-characters';
-import { reserveRun } from '../../src/modules/tasks/execution';
+import { reserveRun } from '../../src/modules/tasks/runtime/execution';
 import { executionState } from '../../src/modules/ai-characters/domain/task-adapter';
 import { ProviderStore } from '../../src/modules/providers/provider-store';
 import {
