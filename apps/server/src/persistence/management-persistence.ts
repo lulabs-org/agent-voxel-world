@@ -21,10 +21,6 @@ export class ManagementPersistence {
     private readonly events: ManagementEvents,
   ) {}
 
-  get planStorageFailed() {
-    return this.tasks.storageFailed;
-  }
-
   assertWritable(closing: boolean, jobStorageFailed?: boolean) {
     if (closing) throw new AppError('世界服务正在关闭。', 503);
     if (jobStorageFailed)
@@ -32,19 +28,6 @@ export class ManagementPersistence {
         '存档失败，已停止此 Agent 的后续动作。请修复存储后重启服务。',
         503,
       );
-  }
-
-  publicList() {
-    return this.characters.publicList();
-  }
-  publicIdentity(id: string) {
-    return this.characters.publicIdentity(id);
-  }
-  publicLogEntries(id: string) {
-    return this.characters.publicLogEntries(id);
-  }
-  committedCharacterName(id: string) {
-    return this.characters.committedCharacterName(id);
   }
 
   async flush(since = this.storageRevision): Promise<void> {
