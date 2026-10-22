@@ -327,8 +327,17 @@
   gap: 5px;
 }
 .in-game .spatial-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
   background: var(--hud-paper);
-  white-space: nowrap;
+  color: var(--color-hud-ink);
+}
+.in-game .spatial-toolbar button:disabled {
+  opacity: 0.45;
 }
 .in-game .spatial-toolbar button[aria-pressed='true'] {
   color: white;
@@ -337,6 +346,14 @@
 .in-game .spatial-toolbar button.mic-live {
   color: #fff;
   background: #944d36;
+}
+.in-game .spatial-toolbar button.mic-pending {
+  animation: spatial-mic-pulse 1.1s ease-in-out infinite;
+}
+@keyframes spatial-mic-pulse {
+  50% {
+    opacity: 0.4;
+  }
 }
 .spatial-live-caption {
   margin-bottom: 6px;

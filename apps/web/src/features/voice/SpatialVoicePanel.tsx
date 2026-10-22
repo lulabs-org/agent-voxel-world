@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import {
   SpatialTranscriber,
   SpatialVoice,
@@ -61,6 +62,53 @@ export function SpatialVoicePanel({
   useEffect(() => {
     engine.current?.update();
   }, [connection.players, connection.status]);
+
+  const micDisabled =
+    connection.status !== 'connected' || connection.chatRecording;
+  const listenDisabled = connection.status !== 'connected';
+  const toggleMic = () => {
+    if (micDisabled) return;
+    if (state.sending || state.pending) engine.current?.stopMic();
+    else void engine.current?.startMic();
+  };
+  const toggleListen = () => {
+    if (listenDisabled) return;
+    void engine.current?.setListening(!state.listening);
+  };
+
+  // 快捷键：V = 麦克风，L = 收听；游戏中无需松开鼠标即可开关语音。
+  // 输入框聚焦/修饰键组合/按键重复时不触发，避免与聊天、WASD 冲突。
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.repeat || event.metaKey || event.ctrlKey || event.altKey)
+        return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      )
+        return;
+      if (event.code === 'KeyV') {
+        event.preventDefault();
+        toggleMic();
+      } else if (event.code === 'KeyL') {
+        event.preventDefault();
+        toggleListen();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+  const micLabel = state.pending
+    ? t('voice.micCancelPending')
+    : state.sending
+      ? t('voice.micTurnOff')
+      : t('voice.micTurnOn');
+  const listenLabel = state.listening
+    ? t('voice.listenOff')
+    : t('voice.listenOn');
   return (
     <>
       <SpeechCaption speech={state.agentSpeaking} anchor={speechAnchor} />
@@ -87,37 +135,33 @@ export function SpatialVoicePanel({
         )}
         <div className="spatial-toolbar">
           <button
-            aria-label={
-              state.pending
-                ? t('voice.micCancelPending')
-                : state.sending
-                  ? t('voice.micTurnOff')
-                  : t('voice.micTurnOn')
-            }
+            aria-label={micLabel}
+            title={micLabel + ' (V)'}
             aria-pressed={state.sending}
-            className={state.sending ? 'mic-live' : ''}
-            disabled={connection.status !== 'connected' || connection.chatRecording}
-            onClick={() =>
-              state.sending || state.pending
-                ? engine.current?.stopMic()
-                : void engine.current?.startMic()
+            className={
+              state.sending
+                ? 'mic-live'
+                : state.pending
+                  ? 'mic-pending'
+                  : ''
             }
+            disabled={micDisabled}
+            onClick={toggleMic}
           >
-            {state.pending
-              ? t('voice.micPending')
-              : state.sending
-                ? t('voice.micOn')
-                : t('voice.micOff')}
+            {state.sending ? <Mic size={16} /> : <MicOff size={16} />}
           </button>
           <button
-            aria-label={
-              state.listening ? t('voice.listenOff') : t('voice.listenOn')
-            }
+            aria-label={listenLabel}
+            title={listenLabel + ' (L)'}
             aria-pressed={state.listening}
-            disabled={connection.status !== 'connected'}
-            onClick={() => void engine.current?.setListening(!state.listening)}
+            disabled={listenDisabled}
+            onClick={toggleListen}
           >
-            {state.listening ? t('voice.listenActive') : t('voice.listenInactive')}
+            {state.listening ? (
+              <Volume2 size={16} />
+            ) : (
+              <VolumeX size={16} />
+            )}
           </button>
         </div>
       </section>
