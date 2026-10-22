@@ -43,6 +43,12 @@ async function cancellable<T>(
   }
 }
 
+/**
+ * Low-level Physical Batch Execution Engine:
+ * Sequences and dispatches atomic AgentAction commands against the world Session,
+ * handling physical step verification, movement stalling checks, and observation refreshing.
+ * Does not depend on high-level TaskService, lease validation, or AgentRunState.
+ */
 export async function executeBatch(
   session: AgentSession,
   actions: AgentAction[],

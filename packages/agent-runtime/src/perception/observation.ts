@@ -1,6 +1,6 @@
 import { key, type AICharacterTask, type ChatData } from '@voxel/shared';
 import type { AgentSession, BatchResult, Observation } from '../contracts';
-import type { AgentRunState } from './state';
+import type { AgentRunState } from '../task/state';
 import { arrived } from '../actions/navigation/controller';
 import { observedEmpty } from '../actions/building';
 

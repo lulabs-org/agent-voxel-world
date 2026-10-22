@@ -17,7 +17,8 @@ export type {
 
 export { AgentRuntimeError } from './errors';
 
-export { Session, delay, until } from './client/session';
+export { Session, delay, until } from './transport/session';
+export { cancellable } from './transport/cancellable';
 
 export { parseAction } from './actions/parse';
 
@@ -32,22 +33,22 @@ export {
 
 export { listModels } from './models/catalog';
 
-export { AgentAttention } from './runtime/attention';
+export { AgentAttention } from './perception/attention';
 
 export { newTask, restoreBatchHistory, type AgentRunState } from './task/state';
 
-export { worldSignature } from './task/observation';
+export { worldSignature } from './perception/observation';
 
-export { agentChatContext } from './runtime/chat-context';
+export { isolateChatScope } from './perception/chat-context';
 
 export { runAgent, nextIntervalMs } from './runtime/scheduled-loop';
 
-export { RequestBudget } from './task/budget';
+export { RequestBudget, checkBudgetCap } from './task/budget';
 
 export { AgentRunner, type RunOptions } from './runtime/agent-runner';
-export { restorePiCheckpoint } from './pi/checkpoint';
+export { restoreCheckpoint } from './cognition/checkpoint';
 
 export { TaskService, type TaskCommand, type TaskLease } from './task/service';
 
-export { recordEvent } from './runtime/event-inbox';
+export { recordEvent } from './task/inbox';
 export type { CharacterEvent } from './task/state';

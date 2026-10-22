@@ -3,7 +3,7 @@ import { parseChatRoute, spatialMix, type Player } from '@voxel/shared';
 import { visibleEvent } from '../apps/server/src/modules/chat/visibility';
 import { WorldChat } from '../apps/server/src/modules/chat/chat';
 import {
-  agentChatContext,
+  isolateChatScope,
   executeAction,
   type Observation,
 } from '@voxel/agent-runtime';
@@ -124,10 +124,10 @@ describe('private chat', () => {
       recipients: ['a'],
     });
     observation.events.push(event('b', 'public'));
-    expect(agentChatContext(observation).events).toHaveLength(1);
+    expect(isolateChatScope(observation).events).toHaveLength(1);
     observation.events.push(event('b', 'private', ['ai']));
     expect(
-      agentChatContext(observation).events.some((e) => e.actor === 'a'),
+      isolateChatScope(observation).events.some((e) => e.actor === 'a'),
     ).toBe(false);
   });
 });
@@ -261,6 +261,6 @@ describe('nearby speech delivery', () => {
       recipients: ['s'],
     });
     observation.events.push(event('b', 'public'));
-    expect(agentChatContext(observation).events).toHaveLength(1);
+    expect(isolateChatScope(observation).events).toHaveLength(1);
   });
 });

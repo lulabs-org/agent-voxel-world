@@ -19,7 +19,9 @@ export const defaultEndpoint: ModelEndpoint = {
   jsonMode: true,
   tokenField: 'max_tokens',
 };
-export function piModel(
+
+/** Create a Model definition for the unified agent runner from config and endpoint. */
+export function createModel(
   config: AgentConfig,
   endpoint: ModelEndpoint,
 ): Model<'openai-completions'> {
@@ -43,7 +45,7 @@ export function piModel(
 }
 
 /** No shared auth store, hidden retries, redirects, or raw provider errors in transcripts. */
-export function piStream(
+export function createModelStream(
   config: AgentConfig,
   endpoint: ModelEndpoint,
   budget: RequestAccounting,
@@ -67,7 +69,7 @@ export function piStream(
         () => timer.abort(),
         Math.max(1, Math.min(config.timeoutMs, budget.remainingMs)),
       );
-      const model = piModel(config, endpoint);
+      const model = createModel(config, endpoint);
       const estimate =
         Math.ceil(JSON.stringify(context).length / 2) + config.maxTokens;
       const empty = (): AssistantMessage => ({

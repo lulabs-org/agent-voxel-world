@@ -1,6 +1,6 @@
 import { setTimeout as pause } from 'node:timers/promises';
 import type { AgentConfig, AgentSession } from '../contracts';
-import type { AgentAttention } from './attention';
+import type { AgentAttention } from '../perception/attention';
 import { newTask, type AgentRunState } from '../task/state';
 import type { AgentRunner } from './agent-runner';
 

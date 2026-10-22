@@ -113,7 +113,8 @@ export class RequestBudget {
   }
 }
 
-export function cap(task: AICharacterTask, config: AgentConfig) {
+/** Checks if a task has reached its turn, token, or time cap. Returns failure reason if exceeded. */
+export function checkBudgetCap(task: AICharacterTask, config: AgentConfig) {
   if (task.calls >= config.maxTurns)
     return '已达到任务调用上限，请检查进展后手动继续。';
   if (task.tokens >= (config.tokenBudget ?? 50000))
@@ -122,3 +123,4 @@ export function cap(task: AICharacterTask, config: AgentConfig) {
     return '已达到任务执行时间上限，请检查进展后手动继续。';
   return '';
 }
+

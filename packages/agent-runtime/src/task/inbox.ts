@@ -1,5 +1,6 @@
-import type { AgentRunState, CharacterEvent } from '../task/state';
+import type { AgentRunState, CharacterEvent } from './state';
 
+/** Record an event into the agent's mailbox, deduplicating and pruning audit history. */
 export function recordEvent(memory: AgentRunState, event: CharacterEvent) {
   const inbox = (memory.inbox ??= { version: 1, events: [] });
   const old = inbox.events.find((e) => e.id === event.id);

@@ -1,7 +1,7 @@
 import {
   newTask,
   restoreBatchHistory,
-  restorePiCheckpoint,
+  restoreCheckpoint,
   type AgentRunState,
 } from '@voxel/agent-runtime';
 import { isRepeating, type AICharacterTask } from '@voxel/shared';
@@ -43,7 +43,7 @@ export function restoreTaskExecution(
     job.memory.exchanges = publicHistory ? { public: publicHistory } : {};
   }
   job.memory.previous = restoreBatchHistory(job.memory.previous);
-  restorePiCheckpoint(job.memory);
+  restoreCheckpoint(job.memory);
   if (
     job.memory.task &&
     ['running', 'waiting'].includes(job.memory.task.status)
@@ -82,7 +82,7 @@ export function restoreTaskExecution(
     (r) => r.characterId === job.view.id,
   )) {
     if (run.runtime) {
-      restorePiCheckpoint(run.runtime);
+      restoreCheckpoint(run.runtime);
       if (run.runtime.activeAction?.status === 'running')
         run.runtime.activeAction.status = 'unknown';
       for (const event of run.runtime.inbox?.events ?? [])

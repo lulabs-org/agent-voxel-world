@@ -9,7 +9,7 @@ export function checkpointMessages(memory: AgentRunState): Message[] {
 }
 
 /** Migrate both current and archived run states without replaying old tool calls. */
-export function restorePiCheckpoint(memory: AgentRunState) {
+export function restoreCheckpoint(memory: AgentRunState) {
   memory.previous = restoreBatchHistory(memory.previous);
   if (memory.pendingEffects)
     memory.pendingEffects = restoreBatchHistory(memory.pendingEffects);
@@ -50,7 +50,7 @@ export function restorePiCheckpoint(memory: AgentRunState) {
   memory.version = 2;
 }
 
-export function updatePiCheckpoint(
+export function updateCheckpoint(
   memory: AgentRunState,
   messages: Message[],
   apiKey?: string,
@@ -74,3 +74,4 @@ export function updatePiCheckpoint(
       JSON.stringify(memory.pi).split(apiKey).join('[已隐藏]'),
     );
 }
+

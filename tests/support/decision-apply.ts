@@ -8,16 +8,16 @@ import type {
 } from '../../packages/agent-runtime/src/contracts';
 import type { AgentRunState } from '../../packages/agent-runtime/src/task/state';
 import type { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
-import { cap } from '../../packages/agent-runtime/src/task/budget';
-import type { DecisionContext } from '../../packages/agent-runtime/src/task/observation';
-import { worldSignature } from '../../packages/agent-runtime/src/task/observation';
+import { checkBudgetCap } from '../../packages/agent-runtime/src/task/budget';
+import type { DecisionContext } from '../../packages/agent-runtime/src/perception/observation';
+import { worldSignature } from '../../packages/agent-runtime/src/perception/observation';
 import {
   TaskService,
   type TaskCommand,
 } from '../../packages/agent-runtime/src/task/service';
-import { executeTaskActions } from '../../packages/agent-runtime/src/runtime/action-executor';
+import { executeTaskActions } from '../../packages/agent-runtime/src/runtime/task-executor';
 import { executeBatch } from '../../packages/agent-runtime/src/actions/batch';
-import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/attention';
+import type { AgentAttention } from '../../packages/agent-runtime/src/perception/attention';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
 import { parseDecision } from './decision-decision';
 import type { AgentDecision } from './decision-contracts';
@@ -115,9 +115,9 @@ export async function applyTaskDecision(
         hooks?.beforeNewTask,
       );
     } catch (error) {
-      if (memory.task && cap(memory.task, config)) {
+      if (memory.task && checkBudgetCap(memory.task, config)) {
         memory.task.status = 'budget';
-        memory.task.reason = cap(memory.task, config)!;
+        memory.task.reason = checkBudgetCap(memory.task, config)!;
         await notify(memory.task.reason);
         return;
       }

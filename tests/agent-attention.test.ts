@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import {
   AgentAttention,
-  agentChatContext,
+  isolateChatScope,
   type Observation,
 } from '@voxel/agent-runtime';
 
@@ -47,8 +47,8 @@ it('bounds queued mentions and keeps private audiences separate when prioritizin
     self: { id: 'ai' },
     events: [secret, publicMessage],
   } as Observation;
-  expect(agentChatContext(raw).events).toEqual([publicMessage]);
+  expect(isolateChatScope(raw).events).toEqual([publicMessage]);
   const secondSecret = { ...message(3, 'private'), actor: 'other' };
   raw.events = [secret, secondSecret, publicMessage, secret];
-  expect(agentChatContext(raw).events).not.toContainEqual(secondSecret);
+  expect(isolateChatScope(raw).events).not.toContainEqual(secondSecret);
 });

@@ -4,7 +4,7 @@ import { AgentRuntimeError } from '../errors';
 import { houseBlocks, observedEmpty } from '../actions/building';
 import type { AgentRunState } from '../task/state';
 import { TaskService, type TaskLease } from '../task/service';
-import { worldSignature, type DecisionContext } from '../task/observation';
+import { worldSignature, type DecisionContext } from '../perception/observation';
 import type { ToolState } from './context';
 import { toolSchemas } from './tool-schemas';
 import { worldView } from './prompts';
@@ -159,23 +159,23 @@ export function createTaskTools(o: {
           edit.material === null
             ? !observedEmpty(observation, edit)
             : !observation.blocks.some(
-                (b) =>
-                  b.x === edit.x &&
-                  b.y === edit.y &&
-                  b.z === edit.z &&
-                  b.material === edit.material,
-              ),
+              (b) =>
+                b.x === edit.x &&
+                b.y === edit.y &&
+                b.z === edit.z &&
+                b.material === edit.material,
+            ),
         );
         return result({
           batch,
           ...(edits.length
             ? {
-                verification: {
-                  requested: edits.length,
-                  observedMatching: edits.length - unconfirmed.length,
-                  unconfirmed,
-                },
-              }
+              verification: {
+                requested: edits.length,
+                observedMatching: edits.length - unconfirmed.length,
+                unconfirmed,
+              },
+            }
             : {}),
           position: observation.self,
           revision: observation.revision,

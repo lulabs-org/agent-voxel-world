@@ -257,8 +257,8 @@ import {
 } from '@voxel/agent-runtime';
 import { testAgentConfig } from './support/agent-config';
 import { toolResponse } from './support/pi-response';
-import { toolSchemas } from '../packages/agent-runtime/src/pi/tool-schemas';
-import { worldView } from '../packages/agent-runtime/src/pi/prompts';
+import { toolSchemas } from '../packages/agent-runtime/src/cognition/tool-schemas';
+import { worldView } from '../packages/agent-runtime/src/cognition/prompts';
 import { parseAction } from '../packages/agent-runtime/src/actions/parse';
 
 it('exposes goto/follow without low-level move and keeps complete maps out of prompts', () => {

@@ -5,7 +5,7 @@ import {
   AgentRunner,
   AgentAttention,
   newTask,
-  restorePiCheckpoint,
+  restoreCheckpoint,
   type AgentRunState,
   type Observation,
 } from '@voxel/agent-runtime';
@@ -325,7 +325,7 @@ describe('Pi world tool runtime', () => {
       ],
       inFlight: { id: 'x', name: 'chat', state: 'executing' },
     };
-    restorePiCheckpoint(f.memory);
+    restoreCheckpoint(f.memory);
     expect(f.memory.unknownEffect?.state).toBe('unknown');
     expect(f.memory.pi).toBeUndefined();
     expect(f.memory.version).toBe(2);
@@ -561,7 +561,7 @@ describe('Pi provider and recovery boundaries', () => {
       ),
     ).toHaveLength(8);
     const restored = JSON.parse(JSON.stringify(f.memory));
-    restorePiCheckpoint(restored);
+    restoreCheckpoint(restored);
     expect(restored.pi).toEqual(f.memory.pi);
     expect(restored.task.startedAt).toBe(f.memory.task?.startedAt);
   });

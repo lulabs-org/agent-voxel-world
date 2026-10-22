@@ -5,7 +5,7 @@ import type {
   AgentConfig,
   AgentSession,
 } from '../../packages/agent-runtime/src/contracts';
-import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/attention';
+import type { AgentAttention } from '../../packages/agent-runtime/src/perception/attention';
 import {
   newTask,
   type AgentRunState,
