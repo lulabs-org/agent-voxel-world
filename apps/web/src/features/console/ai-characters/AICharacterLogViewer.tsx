@@ -13,23 +13,10 @@ export function AICharacterLogViewer({
 }) {
   const { t } = useI18n();
   return (
-    <section className="agents-activity" aria-label={t('console.characters.tabActivity')}>
-      <div className="agents-usage">
-        <div>
-          <span className="agents-section-label">{t('console.characters.totalModelCalls')}</span>
-          <strong>
-            {job.usage?.calls ?? 0}
-            <small>{t('console.characters.turnUnit')}</small>
-          </strong>
-        </div>
-        <div>
-          <span className="agents-section-label">{t('console.characters.totalTokens')}</span>
-          <strong>
-            {job.usage?.estimated ? t('console.characters.approxPrefix') : ''}
-            {(job.usage?.tokens ?? 0).toLocaleString()}
-          </strong>
-        </div>
-      </div>
+    <section
+      className="agents-activity"
+      aria-label={t('console.characters.tabActivity')}
+    >
       <CurrentTaskBudget
         key={job.taskExecution?.runId ?? 'none'}
         job={job}
@@ -37,7 +24,10 @@ export function AICharacterLogViewer({
         onUpdated={onUpdated}
       />
       {!!job.queuedTasks?.length && (
-        <section className="agents-progress" aria-label={t('console.characters.queuedTasksTitle')}>
+        <section
+          className="agents-progress"
+          aria-label={t('console.characters.queuedTasksTitle')}
+        >
           <h4>{t('console.characters.queuedTasksTitle')}</h4>
           <ol>
             {job.queuedTasks.map((run) => (
@@ -49,21 +39,23 @@ export function AICharacterLogViewer({
               </li>
             ))}
           </ol>
-          <p className="agent-hint">
-            {t('console.characters.queuedHint')}
-          </p>
+          <p className="agent-hint">{t('console.characters.queuedHint')}</p>
         </section>
       )}
       {job.lastResponse && (
         <div className="agents-progress">
-          <span className="agents-section-label">{t('console.characters.lastReplyTitle')}</span>
+          <span className="agents-section-label">
+            {t('console.characters.lastReplyTitle')}
+          </span>
           <p>{job.lastResponse}</p>
         </div>
       )}
       <div className="agents-task-heading">
         <h4>{t('console.characters.activityLogsHeading')}</h4>
         <span className="agent-hint">
-          {t('console.characters.activityLogsLimit', { limit: AI_CHARACTER_LOG_LIMIT })}
+          {t('console.characters.activityLogsLimit', {
+            limit: AI_CHARACTER_LOG_LIMIT,
+          })}
         </span>
       </div>
       {job.logs.length ? (
@@ -91,7 +83,9 @@ export function AICharacterLogViewer({
                     })}
                   </time>
                 ) : (
-                  <span className="agents-log-time">{t('console.characters.timeNotRecorded')}</span>
+                  <span className="agents-log-time">
+                    {t('console.characters.timeNotRecorded')}
+                  </span>
                 )}
                 <span>{message}</span>
               </li>

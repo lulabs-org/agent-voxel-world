@@ -4,6 +4,7 @@ import { useI18n } from '../../../i18n/context';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterForm } from './AICharacterForm';
 import { AICharacterLogViewer } from './AICharacterLogViewer';
+import { AICharacterUsagePanel } from './AICharacterUsagePanel';
 import { aiCharacterPresentation } from './presentation/agent-presentation';
 import { aiCharactersApi } from './api';
 
@@ -26,7 +27,9 @@ export function AICharacterDetail(
     setNotice,
     setError,
   } = props;
-  const [view, setView] = useState<'settings' | 'activity'>('settings');
+  const [view, setView] = useState<'settings' | 'activity' | 'usage'>(
+    'settings',
+  );
   const initializedAgent = useRef<string | undefined>(undefined);
   useEffect(() => {
     // Polling updates must not replace an in-progress editor draft.
@@ -38,7 +41,10 @@ export function AICharacterDetail(
   const state = aiCharacterPresentation(job);
   const editing = showAgentForm && editingAgent === job.id;
   return (
-    <article className="agents-detail" aria-label={t('console.characters.workspaceAria', { name: job.name })}>
+    <article
+      className="agents-detail"
+      aria-label={t('console.characters.workspaceAria', { name: job.name })}
+    >
       <div className="agents-detail-heading">
         <div className="agents-identity">
           <span className="agents-avatar" aria-hidden="true">
@@ -59,11 +65,16 @@ export function AICharacterDetail(
       {job.status === 'failed' && (
         <p role="alert" className="agent-error">
           {t('console.characters.lastRunFailed', {
-            reason: job.logs.at(-1) || t('console.characters.checkConnectionModelHint'),
+            reason:
+              job.logs.at(-1) ||
+              t('console.characters.checkConnectionModelHint'),
           })}
         </p>
       )}
-      <nav className="agents-detail-nav" aria-label={t('console.characters.navAria')}>
+      <nav
+        className="agents-detail-nav"
+        aria-label={t('console.characters.navAria')}
+      >
         <button
           aria-pressed={editing}
           disabled={disabled}
@@ -82,6 +93,17 @@ export function AICharacterDetail(
         >
           {t('console.characters.tabActivity')}
         </button>
+        <button
+          aria-pressed={!editing && view === 'usage'}
+          onClick={() => {
+            setShowAgentForm(false);
+            setView('usage');
+            setError('');
+            setNotice('');
+          }}
+        >
+          {t('console.characters.tabUsage')}
+        </button>
       </nav>
       {editing ? (
         <AICharacterForm
@@ -89,6 +111,8 @@ export function AICharacterDetail(
           disabled={disabled || !state.canEdit}
           leaveDisabled={disabled}
         />
+      ) : view === 'usage' ? (
+        <AICharacterUsagePanel job={job} />
       ) : (
         <AICharacterLogViewer
           job={job}

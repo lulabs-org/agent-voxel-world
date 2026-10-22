@@ -545,8 +545,8 @@
 }
 .agents-usage {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 14px 16px;
   margin-bottom: 20px;
 }
 .agents-usage > div {
@@ -563,6 +563,16 @@
 }
 .agents-usage strong small {
   font-size: 11px;
+  color: var(--agents-muted);
+}
+/* Usage stats tab (kept in sync with the .agents-usage cards above) */
+.agents-usage-panel {
+  min-height: 180px;
+}
+.agent-dialog .agents-usage-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--agents-muted);
 }
 .agents-activity h4 {
