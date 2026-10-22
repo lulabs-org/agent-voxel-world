@@ -1,8 +1,16 @@
 import { ManagementCommands } from '../management/commands';
-import type { Express, Request, Response } from 'express';
+import type { Express, Request } from 'express';
 import { asyncRoute as route } from '../../http/middleware/async-route';
 import type { PlanQueryFilter } from '@voxel/shared/management';
 import type { TaskPort } from './port';
+
+/** 命令重试沿用首次请求的 requestId，缺省时注入本次命令 ID */
+function withRequestId(
+  body: Record<string, unknown> | undefined,
+  commandId: string,
+) {
+  return { ...body, requestId: body?.requestId ?? commandId };
+}
 
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
@@ -18,72 +26,6 @@ export function installTaskRoutes(
 
   const resolveCharacterId = (req: Request): string | undefined =>
     req.body?.characterId ? String(req.body.characterId) : undefined;
-
-  const handleGetPlan = (req: Request, res: Response) => {
-    res.json(tasks.publicPlan(String(req.params.planId)));
-  };
-
-  const handleCreatePlan = async (req: Request, res: Response) => {
-    const characterId = resolveCharacterId(req) ?? '';
-    const result = await commands.execute(req, 'plans', (commandId) =>
-      tasks.createTaskPlan(characterId, {
-        ...req.body,
-        requestId: req.body?.requestId ?? commandId,
-      }),
-    );
-    res.status(201).json(result);
-  };
-
-  const handleUpdatePlan = async (req: Request, res: Response) => {
-    const result = await commands.execute(req, 'plans', () =>
-      tasks.updateTaskPlan(
-        resolveCharacterId(req),
-        String(req.params.planId),
-        req.body ?? {},
-      ),
-    );
-
-    res.json(result);
-  };
-
-  const handleDeletePlan = async (req: Request, res: Response) => {
-    await commands.execute(req, 'plans', () =>
-      tasks.controlTaskPlan(
-        resolveCharacterId(req),
-        String(req.params.planId),
-        'delete',
-        {},
-      ),
-    );
-    res.sendStatus(204);
-  };
-
-  const handleControlPlan = async (req: Request, res: Response) => {
-    const result = await commands.execute(req, 'plans', (commandId) =>
-      tasks.controlTaskPlan(
-        resolveCharacterId(req),
-        String(req.params.planId),
-        String(req.params.operation),
-        { ...req.body, requestId: req.body?.requestId ?? commandId },
-      ),
-    );
-
-    res.json(result);
-  };
-
-  const handleControlRun = async (req: Request, res: Response) => {
-    const characterId = resolveCharacterId(req);
-    const result = await commands.execute(req, 'plans', () =>
-      tasks.controlTaskRun(
-        characterId,
-        String(req.params.runId),
-        String(req.params.operation),
-        req.body ?? {},
-      ),
-    );
-
-    res.json(result);
-  };
 
   // ---------------------------------------------------------------------------
   // 1. 任务计划列表与详情
@@ -202,7 +144,12 @@ export function installTaskRoutes(
    *       '415':
    *         $ref: '#/components/responses/Management415'
    */
-  app.get('/tasks/:planId', route(handleGetPlan));
+  app.get(
+    '/tasks/:planId',
+    route((req, res) => {
+      res.json(tasks.publicPlan(String(req.params.planId)));
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // 2. 创建与更新任务计划
@@ -246,7 +193,18 @@ export function installTaskRoutes(
    *       '415':
    *         $ref: '#/components/responses/Management415'
    */
-  app.post('/tasks', route(handleCreatePlan));
+  app.post(
+    '/tasks',
+    route(async (req, res) => {
+      const result = await commands.execute(req, 'plans', (commandId) =>
+        tasks.createTaskPlan(
+          resolveCharacterId(req) ?? '',
+          withRequestId(req.body, commandId),
+        ),
+      );
+      res.status(201).json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -291,7 +249,19 @@ export function installTaskRoutes(
    *       '415':
    *         $ref: '#/components/responses/Management415'
    */
-  app.put('/tasks/:planId', route(handleUpdatePlan));
+  app.put(
+    '/tasks/:planId',
+    route(async (req, res) => {
+      const result = await commands.execute(req, 'plans', () =>
+        tasks.updateTaskPlan(
+          resolveCharacterId(req),
+          String(req.params.planId),
+          req.body ?? {},
+        ),
+      );
+      res.json(result);
+    }),
+  );
 
   // ---------------------------------------------------------------------------
   // 3. 删除与重新指派
@@ -330,7 +300,20 @@ export function installTaskRoutes(
    *       '415':
    *         $ref: '#/components/responses/Management415'
    */
-  app.delete('/tasks/:planId', route(handleDeletePlan));
+  app.delete(
+    '/tasks/:planId',
+    route(async (req, res) => {
+      await commands.execute(req, 'plans', () =>
+        tasks.controlTaskPlan(
+          resolveCharacterId(req),
+          String(req.params.planId),
+          'delete',
+          {},
+        ),
+      );
+      res.sendStatus(204);
+    }),
+  );
 
   /**
    * @openapi
@@ -514,7 +497,20 @@ export function installTaskRoutes(
    *       '415':
    *         $ref: '#/components/responses/Management415'
    */
-  app.post('/tasks/:planId/:operation', route(handleControlPlan));
+  app.post(
+    '/tasks/:planId/:operation',
+    route(async (req, res) => {
+      const result = await commands.execute(req, 'plans', (commandId) =>
+        tasks.controlTaskPlan(
+          resolveCharacterId(req),
+          String(req.params.planId),
+          String(req.params.operation),
+          withRequestId(req.body, commandId),
+        ),
+      );
+      res.json(result);
+    }),
+  );
 
   /**
    * @openapi
@@ -571,5 +567,18 @@ export function installTaskRoutes(
    *       '415':
    *         $ref: '#/components/responses/Management415'
    */
-  app.post('/task-runs/:runId/:operation', route(handleControlRun));
+  app.post(
+    '/task-runs/:runId/:operation',
+    route(async (req, res) => {
+      const result = await commands.execute(req, 'plans', () =>
+        tasks.controlTaskRun(
+          resolveCharacterId(req),
+          String(req.params.runId),
+          String(req.params.operation),
+          req.body ?? {},
+        ),
+      );
+      res.json(result);
+    }),
+  );
 }
