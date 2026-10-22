@@ -4,9 +4,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./management": "./src/management.ts",
-    "./management-client": "./src/management-client.ts",
-    "./realtime": "./src/realtime.ts"
+    "./world": "./src/world/index.ts",
+    "./agent": "./src/agent/index.ts",
+    "./task": "./src/task/index.ts",
+    "./audio": "./src/audio/index.ts",
+    "./communication": "./src/communication/index.ts",
+    "./management": "./src/management/index.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

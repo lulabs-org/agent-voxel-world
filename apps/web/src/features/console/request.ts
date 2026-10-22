@@ -3,7 +3,7 @@ import { getGatewayToken, reportUnknownOutcome } from '../../network/gateway';
 import {
   managementRequest,
   UnknownOutcome,
-} from '@voxel/shared/management-client';
+} from '@voxel/shared/management';
 
 export interface ConsoleFetchOptions {
   method?: string;

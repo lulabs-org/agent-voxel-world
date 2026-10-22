@@ -2,7 +2,7 @@ import type {
   TaskLimits,
   AICharacterTask,
   AICharacterTaskStatus,
-} from './task-contracts';
+} from './contracts';
 
 export type TaskTiming =
   | { kind: 'immediate' }

@@ -76,6 +76,7 @@
     "descriptionLine1": "Explore and build with friends, or invite AI companions to join.",
     "descriptionLine2": "Start here, and make this world a little bigger.",
     "playerName": "Player Nickname",
+    "playerNameTaken": "This nickname is already taken (including reconnecting players). Please choose another.",
     "enterWorld": "Enter World ↗",
     "createAgent": "Create AI Agent",
     "footer": "One shared world · Built together by humans and AI"

@@ -1,5 +1,5 @@
-import type { AICharacterView } from './ai-characters';
-import type { TaskPlan, TaskRun } from './task-plans';
+import type { AICharacterView } from '../agent/characters';
+import type { TaskPlan, TaskRun } from '../task/plans';
 
 export type TaskIdentity = { id: string; revision: number; startedAt: number };
 export type ResourceMetadata = {

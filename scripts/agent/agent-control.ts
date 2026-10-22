@@ -5,8 +5,8 @@ import {
   ManagementEvents,
   managementRequest,
   UnknownOutcome,
-} from '@voxel/shared/management-client';
-import type { PublicAICharacterView } from '@voxel/shared/management';
+  type PublicAICharacterView,
+} from '@voxel/shared/management';
 const args = process.argv.slice(2);
 function option(name: string) {
   const i = args.indexOf(name);

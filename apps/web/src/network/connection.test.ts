@@ -152,10 +152,11 @@ describe('explicit game exit', () => {
 });
 
 describe('nickname rejection', () => {
+  const ROOM_ERROR_NAME_TAKEN = 4409;
+
   it('returns to the lobby without retries and allows changing the name', async () => {
-    const { PLAYER_NAME_TAKEN } = await import('@voxel/shared');
     sdk.joinById.mockRejectedValue(
-      Object.assign(new Error('name taken'), { code: PLAYER_NAME_TAKEN }),
+      Object.assign(new Error('name taken'), { code: ROOM_ERROR_NAME_TAKEN }),
     );
     sessionStorage.setItem('voxel-name', 'Explorer');
     sessionStorage.setItem('voxel-reconnect', 'expired');
@@ -177,5 +178,21 @@ describe('nickname rejection', () => {
     expect(connection.status).toBe('connected');
     expect(connection.joinError).toBe('');
     connection.leave();
+  });
+
+  it('localizes nickname rejection message in English', async () => {
+    const { i18n } = await import('../i18n');
+    await i18n.changeLanguage('en');
+    try {
+      sdk.joinById.mockRejectedValue(
+        Object.assign(new Error('name taken'), { code: ROOM_ERROR_NAME_TAKEN }),
+      );
+      const connection = new Connection();
+      await connection.connect('Explorer');
+      expect(connection.status).toBe('lobby');
+      expect(connection.joinError).toContain('This nickname is already taken');
+    } finally {
+      await i18n.changeLanguage('zh');
+    }
   });
 });

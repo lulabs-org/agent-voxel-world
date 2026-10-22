@@ -14,8 +14,6 @@ import { Avatar, WorldState } from './schema';
 import {
   LIMIT,
   MAX_Y,
-  PLAYER_NAME_TAKEN,
-  PLAYER_NAME_TAKEN_MESSAGE,
   key,
   simulate,
   distance,
@@ -27,7 +25,11 @@ import {
   type WorldEvent,
 } from '@voxel/shared';
 import { terrain } from './terrain';
-import { normalizePlayerName, playerNameKey } from './player-name';
+import {
+  normalizePlayerName,
+  playerNameKey,
+  PLAYER_NAME_TAKEN,
+} from './player-name';
 import { validateEdit, parseInput } from './validation';
 import { visibleEvent } from '../chat/visibility';
 const zero: Input = { x: 0, z: 0, jump: false, yaw: 0 };
@@ -313,7 +315,7 @@ export class WorldRoom extends Room<WorldState> {
         (p) => playerNameKey(p.name) === playerNameKey(name),
       )
     ) {
-      throw new ServerError(PLAYER_NAME_TAKEN, PLAYER_NAME_TAKEN_MESSAGE);
+      throw new ServerError(PLAYER_NAME_TAKEN, 'Player name already taken');
     }
     const p = new Avatar();
     p.id = client.sessionId;

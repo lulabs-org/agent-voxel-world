@@ -6,3 +6,6 @@ export function normalizePlayerName(value: unknown): string {
 export function playerNameKey(value: unknown): string {
   return normalizePlayerName(value).toLowerCase();
 }
+
+export const PLAYER_NAME_TAKEN = 4409;
+

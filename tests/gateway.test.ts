@@ -3,13 +3,11 @@ import { CommandRouter } from '../apps/server/src/modules/management/command-rou
 import {
   ManagementError,
   MANAGEMENT_EVENTS_VERSION,
-} from '@voxel/shared/management';
-import {
   ManagementEvents,
   managementRequest,
   UnknownOutcome,
   type SocketLike,
-} from '@voxel/shared/management-client';
+} from '@voxel/shared/management';
 import { gatewaySocket } from '../apps/server/src/modules/gateway/socket';
 import { ManagementEvents as ServerManagementEvents } from '../apps/server/src/modules/management/events';
 import { EventEmitter } from 'node:events';
