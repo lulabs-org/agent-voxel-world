@@ -41,7 +41,6 @@ export function GameFooter({
           );
         })}
       </div>
-      <small className="build-hint">{t('hud.buildHint')}</small>
       <div className="build-actions">
         <button disabled={!isConnected} onClick={() => onEditBlock(false)}>
           {t('hud.breakBlock')}

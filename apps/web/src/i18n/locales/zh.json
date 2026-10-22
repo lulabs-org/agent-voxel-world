@@ -46,7 +46,6 @@
       "wood": "木材"
     },
     "blockMaterials": "方块材料",
-    "buildHint": "左键拆除 · 右键放置",
     "breakBlock": "拆除",
     "placeBlock": "放置",
     "menuTitle": "游戏菜单",
