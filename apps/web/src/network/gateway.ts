@@ -2,7 +2,7 @@ import {
   ManagementEvents,
   commandReceipt,
   type UnknownOutcome,
-} from '@voxel/shared/management-client';
+} from '@voxel/shared/management';
 import { serverSocketUrl, gatewaySocketUrl, serverHttpUrl } from './endpoints';
 let client: ManagementEvents | undefined;
 let state = 'closed';

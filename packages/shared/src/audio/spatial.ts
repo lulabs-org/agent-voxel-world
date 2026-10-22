@@ -1,4 +1,4 @@
-import type { Player } from './world';
+import type { Player } from '../world/core';
 export const SPATIAL_RANGE = 18;
 /** World forward is (-sin(yaw), 0, -cos(yaw)); front speech carries further. */
 export function spatialMix(

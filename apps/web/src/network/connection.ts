@@ -1,10 +1,8 @@
 import { serverHttpUrl, serverSocketUrl } from './endpoints';
-import type { RealtimeEvent } from '@voxel/shared/realtime';
+import type { RealtimeEvent } from '@voxel/shared/communication';
 import { Client, type Room } from 'colyseus.js';
 import {
   key,
-  PLAYER_NAME_TAKEN,
-  PLAYER_NAME_TAKEN_MESSAGE,
   type Block,
   type Player,
   type Snapshot,
@@ -14,6 +12,7 @@ import {
   type AgentSpeechEvent,
 } from '@voxel/shared';
 import { i18n } from '../i18n';
+const ROOM_ERROR_NAME_TAKEN = 4409;
 export class Connection {
   room?: Room;
   blocks = new Map<string, Block>();
@@ -231,10 +230,10 @@ export class Connection {
         error &&
         typeof error === 'object' &&
         'code' in error &&
-        error.code === PLAYER_NAME_TAKEN
+        error.code === ROOM_ERROR_NAME_TAKEN
       ) {
         this.status = 'lobby';
-        this.joinError = PLAYER_NAME_TAKEN_MESSAGE;
+        this.joinError = i18n.t('lobby.playerNameTaken');
         sessionStorage.removeItem('voxel-reconnect');
         sessionStorage.removeItem('voxel-name');
         this.onChange();

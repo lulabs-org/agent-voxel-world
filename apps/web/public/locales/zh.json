@@ -76,6 +76,7 @@
     "descriptionLine1": "和朋友一起探索、搭建，或邀请 AI 伙伴加入。",
     "descriptionLine2": "从这里开始，让这个世界多一点可能。",
     "playerName": "玩家昵称",
+    "playerNameTaken": "这个昵称已被使用（包括正在重连的玩家），请换一个昵称。",
     "enterWorld": "进入世界 ↗",
     "createAgent": "创建 Agent 玩家",
     "footer": "同一个共享世界 · 真人与 AI 一起创造"

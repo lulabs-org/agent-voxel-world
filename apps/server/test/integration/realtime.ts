@@ -1,7 +1,7 @@
 import { createTestServer } from '../helpers/test-server';
 import assert from 'node:assert/strict';
 import { Session, until, delay } from '@voxel/agent-runtime';
-import type { RealtimeEvent } from '@voxel/shared/realtime';
+import type { RealtimeEvent } from '@voxel/shared/communication';
 // Isolated ephemeral world. Does not load .env, credentials or production data.
 process.env.DATABASE_URL = '';
 process.env.VOICE_PROVIDER = 'mock';

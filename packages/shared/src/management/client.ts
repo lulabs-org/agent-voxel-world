@@ -4,7 +4,7 @@ import {
   type ManagementEvent,
   type ManagementFrame,
   type CommandReceipt,
-} from './management';
+} from './contracts';
 export type SocketLike = {
   send(data: string): void;
   close(): void;

@@ -1,4 +1,4 @@
-import { LIMIT, type Vec3, type Block, type Input } from './world';
+import { LIMIT, type Vec3, type Block, type Input } from './core';
 import { key } from './geometry';
 export function overlaps(player: Vec3, b: Vec3) {
   return (

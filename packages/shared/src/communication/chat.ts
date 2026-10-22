@@ -1,4 +1,4 @@
-import type { WorldEvent } from './world';
+import type { WorldEvent } from '../world/core';
 export type ChatRoute = { scope: 'public' | 'private'; recipients: string[] };
 export type ChatData = Omit<ChatRoute, 'scope'> & {
   scope: 'public' | 'private' | 'nearby';

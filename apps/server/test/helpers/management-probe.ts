@@ -1,7 +1,7 @@
 import {
   ManagementEvents,
   managementRequest,
-} from '@voxel/shared/management-client';
+} from '@voxel/shared/management';
 
 /** Test-only vocabulary adapter, preserving the end-to-end scenarios while exercising HTTP routes. */
 export class HttpManagementProbe {

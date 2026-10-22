@@ -2,7 +2,7 @@ import { env } from '../../config/env';
 import { BailianSession, type BailianConfig } from './bailian-session';
 import { DemoSocket } from './demo-socket';
 import type { SceneAccess } from './scene-tools';
-import type { RealtimeEvent } from '@voxel/shared/realtime';
+import type { RealtimeEvent } from '@voxel/shared/communication';
 export class RealtimeHub {
   private sessions = new Map<string, BailianSession>();
   private requests = new Map<string, string>();

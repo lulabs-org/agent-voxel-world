@@ -1,8 +1,8 @@
 import type {
   AICharacterPermissions,
   AICharacterSkillId,
-} from './ai-character-capabilities';
-import type { TaskLimits, AICharacterTask } from './task-contracts';
+} from './capabilities';
+import type { TaskLimits, AICharacterTask } from '../task/contracts';
 export type ProviderType = 'deepseek' | 'ollama' | 'compatible';
 export const AI_CHARACTER_ROLE_DESCRIPTION_LIMIT = 2000;
 export type ProviderInference = Pick<

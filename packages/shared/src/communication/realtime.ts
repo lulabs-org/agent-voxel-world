@@ -1,4 +1,4 @@
-import type { Edit } from './world';
+import type { Edit } from '../world/core';
 export type RealtimeEvent = {
   session: string;
   request?: string;

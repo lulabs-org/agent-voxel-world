@@ -1,4 +1,4 @@
-import { LIMIT, MAX_Y, type Vec3 } from './world';
+import { LIMIT, MAX_Y, type Vec3 } from './core';
 export const key = (p: Vec3) => `${p.x},${p.y},${p.z}`;
 export const distance = (a: Vec3, b: Vec3) =>
   Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);

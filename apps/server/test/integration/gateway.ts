@@ -1,16 +1,16 @@
-import type {
-  PublicAICharacterView,
-  PublicPlanView,
-  PublicRunView,
-  ManagementEvent,
-  CommandReceipt,
+import {
+  ManagementEvents,
+  type PublicAICharacterView,
+  type PublicPlanView,
+  type PublicRunView,
+  type ManagementEvent,
+  type CommandReceipt,
 } from '@voxel/shared/management';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { createTestServer } from '../helpers/test-server';
-import { ManagementEvents } from '@voxel/shared/management-client';
 import { HttpManagementProbe } from '../helpers/management-probe';
 import { Session, until } from '@voxel/agent-runtime';
 const token = 'fixture-gateway-token-for-tests',
