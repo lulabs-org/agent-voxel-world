@@ -12,7 +12,7 @@ try {
       : `Agent Gateway 令牌文件 ${config.gateway.tokenFile}`,
   );
   // 仅在本地开发模式打印令牌值，方便直接粘贴到网页控制台解锁；生产环境维持只打印来源。
-  if (process.env.NODE_ENV !== 'production') {
+  if (!config.isProduction) {
     try {
       const token =
         config.gateway.token?.trim() ||

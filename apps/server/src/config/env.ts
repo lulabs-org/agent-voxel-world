@@ -170,6 +170,7 @@ function readServerConfig(env: EnvLookup = process.env) {
     host,
     webOrigin: origin,
     databaseUrl: databaseUrl(env),
+    isProduction: (env.NODE_ENV ?? '').trim() === 'production',
     voice: {
       ...voice,
       provider: voice.provider as VoiceProvider,
