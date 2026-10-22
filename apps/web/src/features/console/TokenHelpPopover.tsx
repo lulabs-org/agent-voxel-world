@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { HelpCircle, X, Copy, Check } from 'lucide-react';
+import { HelpCircle, X, Copy, Check, Lightbulb } from 'lucide-react';
 import { useI18n } from '../../i18n';
 
 const LOCAL_AUTH_CMD = 'pnpm agent:ctl auth show';
@@ -55,6 +55,13 @@ export function TokenHelpPopover() {
 
           <div className="console-token-popover-section">
             <span className="console-token-popover-sub">{t('console.help.tokenLocalEnv')}</span>
+            <p className="console-token-popover-tip">
+              <Lightbulb size={13} strokeWidth={2} aria-hidden="true" />
+              <span>{t('console.gateway.devTerminalHint')}</span>
+            </p>
+            <span className="console-token-cmd-label">
+              {t('console.help.tokenCmdLabel')}
+            </span>
             <div className="console-token-cmd-box">
               <code>{LOCAL_AUTH_CMD}</code>
               <button
