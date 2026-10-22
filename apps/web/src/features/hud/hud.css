@@ -98,11 +98,27 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 12px;
   min-height: 32px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  background: var(--surface-control);
+  color: var(--hud-ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.game-menu input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--color-action);
+  cursor: pointer;
 }
 .game-menu button {
   text-align: left;
+}
+.game-menu button:hover,
+.game-menu label:hover {
+  background: #d7e0cf;
 }
 .in-game .world-panel h1 {
   font-size: 20px;
