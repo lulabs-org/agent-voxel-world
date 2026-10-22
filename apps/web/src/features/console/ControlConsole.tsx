@@ -103,10 +103,10 @@ export function ControlConsole({
             <p>{t('console.description')}</p>
           </div>
           <div className="console-heading-actions">
+            <ConsoleHelp />
             <Button className="console-exit-btn" onClick={clearGatewayToken}>
               {t('console.exitAdmin')}
             </Button>
-            <ConsoleHelp />
             <Button aria-label={t('console.closeAria')} onClick={onClose}>
               {t('console.close')}
             </Button>
@@ -223,7 +223,6 @@ export function ControlConsole({
               </button>
             </div>
           )}
-
         </div>
       )}
     </Dialog>

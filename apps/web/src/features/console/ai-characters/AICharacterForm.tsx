@@ -184,7 +184,9 @@ export function AICharacterForm(
                 </option>
                 {providers.map((provider) => (
                   <option key={provider.id} value={provider.id}>
-                    {provider.name} · {provider.defaultModel || t('console.characters.providerNoModel')}
+                    {provider.name} ·{' '}
+                    {provider.defaultModel ||
+                      t('console.characters.providerNoModel')}
                     {provider.type !== 'ollama' && !provider.hasApiKey
                       ? ` · ${t('console.characters.providerNoKey')}`
                       : ''}
@@ -229,9 +231,7 @@ export function AICharacterForm(
             />
           </label>
           <p className="agent-hint agents-role-meta" id="agent-role-hint">
-            <span>
-              {t('console.characters.roleDescriptionHint')}
-            </span>
+            <span>{t('console.characters.roleDescriptionHint')}</span>
             <span className="agents-role-count">
               {(agent.roleDescription ?? '').length} /{' '}
               {AI_CHARACTER_ROLE_DESCRIPTION_LIMIT}
@@ -422,14 +422,18 @@ export function AICharacterForm(
                     )}
                     {voiceServices.map((service) => (
                       <option key={service.id} value={service.id}>
-                        {service.name} · {service.voice || t('console.characters.voiceAutoLabel')}
+                        {service.name} ·{' '}
+                        {service.voice ||
+                          t('console.characters.voiceAutoLabel')}
                       </option>
                     ))}
                   </select>
                 </label>
               </div>
             ) : (
-              <p className="agents-voice-status">{t('console.characters.voiceReplyTextOnly')}</p>
+              <p className="agents-voice-status">
+                {t('console.characters.voiceReplyTextOnly')}
+              </p>
             )}
           </div>
 
@@ -440,9 +444,7 @@ export function AICharacterForm(
                   <Gauge size={15} />
                   {t('console.characters.budgetSectionTitle')}
                 </strong>
-                <small>
-                  {t('console.characters.budgetSectionDesc')}
-                </small>
+                <small>{t('console.characters.budgetSectionDesc')}</small>
               </div>
               <Switch.Root
                 id="task-limits-switch"
@@ -462,10 +464,6 @@ export function AICharacterForm(
 
             {agent.taskLimitsEnabled ? (
               <div className="agents-budget-content">
-                <p className="agent-hint">
-                  <Info size={12} className="agents-hint-icon" />
-                  {t('console.characters.budgetHint')}
-                </p>
                 <TaskBudgetFields
                   hideHeading
                   value={agent}
@@ -489,17 +487,6 @@ export function AICharacterForm(
               <span>{t('console.characters.joinOnCreateLabel')}</span>
             </label>
           )}
-
-          <p className="agent-hint agents-pricing-hint">
-            <Info size={12} className="agents-hint-icon" />
-            <span>
-              {t('console.characters.pricingHint', {
-                mode: editingAgent
-                  ? t('console.characters.pricingHintEdit')
-                  : t('console.characters.pricingHintCreate'),
-              })}
-            </span>
-          </p>
 
           <div className="agents-form-footer">
             <div className="agents-footer-left">

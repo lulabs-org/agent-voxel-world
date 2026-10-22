@@ -1,5 +1,5 @@
 import * as RadixDialog from '@radix-ui/react-dialog';
-import type { ComponentProps, RefObject } from 'react';
+import type { ComponentProps, CSSProperties, RefObject } from 'react';
 
 /** Standardized Dialog primitive backed by Radix UI with full a11y, focus trap, and portal isolation. */
 export function Dialog({
@@ -7,6 +7,7 @@ export function Dialog({
   children,
   className,
   id,
+  overlayStyle,
   initialFocus,
   onCancel,
   preventScroll: _preventScroll,
@@ -17,6 +18,8 @@ export function Dialog({
   onCancel?: (event: Pick<Event, 'preventDefault' | 'stopPropagation'>) => void;
   initialFocus?: RefObject<HTMLElement | null>;
   preventScroll?: boolean;
+  /** Extra styles for the overlay, e.g. a higher z-index for nested dialogs. */
+  overlayStyle?: CSSProperties;
 }) {
   return (
     <RadixDialog.Root
@@ -28,7 +31,10 @@ export function Dialog({
       }}
     >
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="agent-dialog-backdrop" />
+        <RadixDialog.Overlay
+          className="agent-dialog-backdrop"
+          style={overlayStyle}
+        />
         <RadixDialog.Content
           id={id}
           className={className}

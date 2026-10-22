@@ -29,6 +29,8 @@ export function DeleteAICharacterDialog({
       initialFocus={cancel}
       preventScroll
       className="agents-delete-dialog"
+      /* Nest above the console dialog (z 401): own backdrop 401, content 402. */
+      overlayStyle={{ zIndex: 401 }}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       aria-busy={busy}
@@ -69,4 +71,3 @@ export function DeleteAICharacterDialog({
     </Dialog>
   );
 }
-
