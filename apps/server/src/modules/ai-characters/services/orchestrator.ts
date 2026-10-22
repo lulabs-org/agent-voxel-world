@@ -100,9 +100,10 @@ export class AICharacterOrchestrator {
         this.checkVoice(settings);
         return settings;
       },
-      storageFailed: () => this.persistence.planStorageFailed,
-      committedName: (id) => this.persistence.committedCharacterName(id),
-      publicIdentity: (id) => this.persistence.publicIdentity(id),
+      storageFailed: () => this.persistence.tasks.storageFailed,
+      committedName: (id) =>
+        this.persistence.characters.committedCharacterName(id),
+      publicIdentity: (id) => this.persistence.characters.publicIdentity(id),
       resourceVersion: () => this.events.version,
       isClosing: () => this.closing,
       assertWritable: (id) => this.assertWritable(id),
@@ -135,15 +136,15 @@ export class AICharacterOrchestrator {
   }
 
   publicList() {
-    return this.persistence.publicList();
+    return this.persistence.characters.publicList();
   }
 
   publicIdentity(id: string) {
-    return this.persistence.publicIdentity(id);
+    return this.persistence.characters.publicIdentity(id);
   }
 
   publicLogEntries(id: string) {
-    return this.persistence.publicLogEntries(id);
+    return this.persistence.characters.publicLogEntries(id);
   }
 
   async settled(id: string) {

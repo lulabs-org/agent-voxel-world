@@ -85,7 +85,8 @@ it('serializes joint snapshots and exposes both domains before publishing commit
   f.events.on((change) =>
     seen.push({
       resource: change.resource,
-      name: f.persistence.publicList().find((c) => c.id === 'a')?.name,
+      name: f.persistence.characters.publicList().find((c) => c.id === 'a')
+        ?.name,
       goal: f.committed.plans[0]?.goal,
     }),
   );
@@ -99,7 +100,7 @@ it('serializes joint snapshots and exposes both domains before publishing commit
   const second = f.persist();
   await Promise.resolve();
   expect(pending).toHaveLength(1);
-  expect(f.persistence.publicList()).toEqual([]);
+  expect(f.persistence.characters.publicList()).toEqual([]);
   expect(f.committed.plans).toEqual([]);
   expect(seen).toEqual([]);
   expect(pending[0].snapshot.characters[0]).toMatchObject({
@@ -122,9 +123,9 @@ it('serializes joint snapshots and exposes both domains before publishing commit
   expect(pending[1].snapshot.plans[0].goal).toBe('new goal');
   pending[1].resolve();
   await second;
-  expect(f.persistence.publicList().find((c) => c.id === 'a')?.name).toBe(
-    'changed',
-  );
+  expect(
+    f.persistence.characters.publicList().find((c) => c.id === 'a')?.name,
+  ).toBe('changed');
   expect(f.committed.plans[0].goal).toBe('new goal');
 });
 
@@ -142,7 +143,7 @@ it('stops the affected character after a task-only failure and retains the last 
   await expect(f.persist()).rejects.toThrow('disk unavailable');
   expect(f.committed.plans).toEqual(before);
   expect(changed).not.toHaveBeenCalled();
-  expect(f.persistence.planStorageFailed).toBe(true);
+  expect(f.persistence.tasks.storageFailed).toBe(true);
   expect(f.jobs.get('a')!.abort.signal.aborted).toBe(true);
   expect(f.jobs.get('a')!.storageFailed).toBe(true);
   expect(f.jobs.get('b')!.abort.signal.aborted).toBe(false);
@@ -153,7 +154,7 @@ it('stops the affected character after a task-only failure and retains the last 
   // A subsequent save may drain the queue, but cannot hide the earlier failed operation.
   await f.persist();
   await expect(f.persistence.flush(revision)).rejects.toThrow('操作结果待确认');
-  expect(f.persistence.planStorageFailed).toBe(true);
+  expect(f.persistence.tasks.storageFailed).toBe(true);
 });
 
 it('limits character-only failures to changed jobs without marking the task ledger failed', async () => {
@@ -163,8 +164,10 @@ it('limits character-only failures to changed jobs without marking the task ledg
   f.jobs.get('b')!.view.name = 'unsaved';
   save.mockRejectedValueOnce(new Error('disk unavailable'));
   await expect(f.persist()).rejects.toThrow('disk unavailable');
-  expect(f.persistence.publicList().find((c) => c.id === 'b')?.name).toBe('b');
-  expect(f.persistence.planStorageFailed).toBe(false);
+  expect(
+    f.persistence.characters.publicList().find((c) => c.id === 'b')?.name,
+  ).toBe('b');
+  expect(f.persistence.tasks.storageFailed).toBe(false);
   expect(f.jobs.get('a')!.abort.signal.aborted).toBe(false);
   expect(f.jobs.get('b')!.abort.signal.aborted).toBe(true);
   expect(f.cancel).toHaveBeenCalledExactlyOnceWith('b');
