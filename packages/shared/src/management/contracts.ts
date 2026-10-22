@@ -1,4 +1,4 @@
-import type { AICharacterView } from '../agent/characters';
+import type { AICharacterSummary } from '../agent/characters';
 import type { TaskPlan, TaskRun } from '../task/plans';
 
 export type TaskIdentity = { id: string; revision: number; startedAt: number };
@@ -6,7 +6,7 @@ export type ResourceMetadata = {
   resourceVersion: number;
   taskIdentity: TaskIdentity | null;
 };
-export type PublicAICharacterView = AICharacterView & ResourceMetadata;
+export type PublicAICharacterView = AICharacterSummary & ResourceMetadata;
 export type PublicPlanView = TaskPlan & ResourceMetadata;
 export type PublicRunView = TaskRun & ResourceMetadata;
 export type PlanQueryFilter = {

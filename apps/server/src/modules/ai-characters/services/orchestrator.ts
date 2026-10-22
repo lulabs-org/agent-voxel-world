@@ -142,6 +142,10 @@ export class AICharacterOrchestrator {
     return this.persistence.publicIdentity(id);
   }
 
+  publicLogEntries(id: string) {
+    return this.persistence.publicLogEntries(id);
+  }
+
   async settled(id: string) {
     await this.jobs.get(id)?.done;
   }
@@ -266,7 +270,6 @@ export class AICharacterOrchestrator {
           usage: memory.usage,
           lastResponse: memory.lastResponse,
           taskRequiresReassignment: !!memory.audienceExpired,
-          logs: [...view.logs],
         });
       })
       .reverse();
@@ -310,7 +313,7 @@ export class AICharacterOrchestrator {
         providerName: provider.name,
         status: joinWorld ? 'joining' : 'stopped',
         createdAt: Date.now(),
-        logs: [],
+        logEntries: [],
       },
       abort: new AbortController(),
       memory: {},

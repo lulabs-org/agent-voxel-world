@@ -40,6 +40,9 @@ export class ManagementPersistence {
   publicIdentity(id: string) {
     return this.characters.publicIdentity(id);
   }
+  publicLogEntries(id: string) {
+    return this.characters.publicLogEntries(id);
+  }
   committedCharacterName(id: string) {
     return this.characters.committedCharacterName(id);
   }

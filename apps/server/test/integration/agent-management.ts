@@ -244,7 +244,7 @@ try {
       manager
         .list()
         .find((j) => j.id === job.id)
-        ?.logs.some((s) => s.includes('chat')),
+        ?.logEntries.some((entry) => entry.text.includes('chat')),
     );
     const callsWhenIdle: number = calls;
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -527,7 +527,7 @@ try {
     manager
       .list()
       .find((j) => j.id === capabilityJob.id)!
-      .logs.some((line) => line.includes('聊天权限')),
+      .logEntries.some((entry) => entry.text.includes('聊天权限')),
   );
   // Task schedules use the same permission-checked runtime and origin boundary.
   const capabilityRuns = await (

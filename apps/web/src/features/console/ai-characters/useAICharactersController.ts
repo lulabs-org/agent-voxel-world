@@ -1,9 +1,6 @@
 import { refreshOnGatewayChange } from '../../../network/gateway';
-import {
-  aiCharacterPermissions,
-  type AICharacterView,
-  type ProviderView,
-} from '@voxel/shared';
+import { aiCharacterPermissions, type ProviderView } from '@voxel/shared';
+import type { PublicAICharacterView } from '@voxel/shared/management';
 import { useEffect, useState } from 'react';
 import type { ConsoleFeedback } from '../useConsoleFeedback';
 import { aiCharactersApi } from './api';
@@ -16,7 +13,7 @@ export function useAICharactersController(
   feedback: ConsoleFeedback,
 ) {
   const { setError, setNotice, perform, mutation, jobsRevision } = feedback;
-  const [jobs, setJobs] = useState<AICharacterView[]>([]);
+  const [jobs, setJobs] = useState<PublicAICharacterView[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
   const [joinOnCreate, setJoinOnCreate] = useState(true);
@@ -60,7 +57,7 @@ export function useAICharactersController(
       stop();
     };
   }, [open, initialTab, jobsRevision, mutation]);
-  const openAgentEditor = (job?: AICharacterView) => {
+  const openAgentEditor = (job?: PublicAICharacterView) => {
     resetModels();
     setEditingAgent(job?.id);
     if (job) setSelectedAgentId(job.id);
@@ -171,18 +168,18 @@ export function useAICharactersController(
               : 'AI 角色正在加入世界待命。发送聊天已关闭，可在控制台安排任务和查看进展。',
       );
     });
-  const joinAgent = (job: AICharacterView) =>
+  const joinAgent = (job: PublicAICharacterView) =>
     perform(async () => {
       await aiCharactersApi.joinAgent(job.id);
       setJobs(await aiCharactersApi.listAgents());
       setNotice('AI 角色正在上线待命，原任务不会自动执行。');
     });
-  const stopAgent = (job: AICharacterView) =>
+  const stopAgent = (job: PublicAICharacterView) =>
     perform(async () => {
       await aiCharactersApi.stopAgent(job.id);
       setJobs(await aiCharactersApi.listAgents());
     });
-  const deleteAgent = (job: AICharacterView) =>
+  const deleteAgent = (job: PublicAICharacterView) =>
     perform(async () => {
       await aiCharactersApi.deleteAgent(job.id);
       setJobs((list) => list.filter((item) => item.id !== job.id));
@@ -191,7 +188,7 @@ export function useAICharactersController(
       setShowAgentForm(false);
       setNotice(`已删除 AI 角色“${job.name}”。`);
     });
-  const toggleVoiceReplies = (job: AICharacterView) =>
+  const toggleVoiceReplies = (job: PublicAICharacterView) =>
     perform(async () => {
       const saved = await aiCharactersApi.setVoiceReplies(
         job.id,

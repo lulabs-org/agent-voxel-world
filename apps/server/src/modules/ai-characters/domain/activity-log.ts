@@ -1,34 +1,31 @@
-import { AI_CHARACTER_LOG_LIMIT, type AICharacterView } from '@voxel/shared';
+import {
+  AI_CHARACTER_LOG_LIMIT,
+  type AICharacterLogEntry,
+  type AICharacterView,
+} from '@voxel/shared';
 
-type LogView = Pick<AICharacterView, 'logs' | 'logTimes'>;
+type LogView = Pick<AICharacterView, 'logEntries'>;
 
-/** 校验并清洗反序列化后的角色日志及时间戳，限制在最大条数范围内 */
-export function restoreAICharacterLogs(
-  logs: unknown,
-  times: unknown,
-): Required<LogView> {
-  const entries = (Array.isArray(logs) ? logs : [])
-    .flatMap((message, index) => {
-      if (typeof message !== 'string') return [];
-      const time = Array.isArray(times) ? times[index] : undefined;
-      return [
-        {
-          message,
-          time:
-            typeof time === 'number' &&
-            Number.isFinite(time) &&
-            time >= 0 &&
-            time <= 8.64e15
-              ? time
-              : null,
-        },
-      ];
+const MAX_TIME = 8.64e15;
+
+/** 校验并清洗反序列化后的角色日志条目，限制在最大条数范围内 */
+export function restoreAICharacterLogs(entries: unknown): Required<LogView> {
+  const logEntries = (Array.isArray(entries) ? entries : [])
+    .flatMap((entry) => {
+      if (!entry || typeof entry !== 'object') return [];
+      const { time, text } = entry as { time?: unknown; text?: unknown };
+      if (typeof text !== 'string' || !text) return [];
+      const normalized =
+        typeof time === 'number' &&
+        Number.isFinite(time) &&
+        time >= 0 &&
+        time <= MAX_TIME
+          ? time
+          : null;
+      return [{ time: normalized, text }];
     })
     .slice(-AI_CHARACTER_LOG_LIMIT);
-  return {
-    logs: entries.map((e) => e.message),
-    logTimes: entries.map((e) => e.time),
-  };
+  return { logEntries };
 }
 
 /** 向角色的内存日志数组追加一条记录并维持上限 */
@@ -37,7 +34,35 @@ export function appendAICharacterLog(
   message: string,
   now = Date.now(),
 ) {
-  const previous = restoreAICharacterLogs(view.logs, view.logTimes);
-  view.logs = [...previous.logs, message].slice(-AI_CHARACTER_LOG_LIMIT);
-  view.logTimes = [...previous.logTimes, now].slice(-AI_CHARACTER_LOG_LIMIT);
+  const previous = restoreAICharacterLogs(view.logEntries);
+  view.logEntries = [
+    ...previous.logEntries,
+    { time: now, text: message },
+  ].slice(-AI_CHARACTER_LOG_LIMIT);
+}
+
+/**
+ * Migrate the legacy parallel `logs`/`logTimes` arrays into the unified
+ * `logEntries` shape so archived characters keep their history.
+ */
+export function migrateLegacyLogs(
+  logs: unknown,
+  times: unknown,
+): AICharacterLogEntry[] {
+  if (!Array.isArray(logs)) return [];
+  return logs
+    .map((text, index): AICharacterLogEntry | null => {
+      if (typeof text !== 'string' || !text) return null;
+      const time = Array.isArray(times) ? times[index] : undefined;
+      const normalized =
+        typeof time === 'number' &&
+        Number.isFinite(time) &&
+        time >= 0 &&
+        time <= MAX_TIME
+          ? time
+          : null;
+      return { time: normalized, text };
+    })
+    .filter((entry): entry is AICharacterLogEntry => entry !== null)
+    .slice(-AI_CHARACTER_LOG_LIMIT);
 }

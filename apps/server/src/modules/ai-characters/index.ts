@@ -7,6 +7,7 @@ export { CharacterVoiceCoordinator } from './services/voice-coordinator';
 export { validateAICharacter } from './domain/validation';
 export {
   appendAICharacterLog,
+  migrateLegacyLogs,
   restoreAICharacterLogs,
 } from './domain/activity-log';
 export {
@@ -20,15 +21,9 @@ export {
   isJobBusy,
   canWakeJob,
 } from './domain/types';
-export {
-  taskExecutionState,
-  executionState,
-} from './domain/task-adapter';
+export { taskExecutionState, executionState } from './domain/task-adapter';
 export { AICharacterWakeScheduler } from './runtime/wake-scheduler';
 export { AICharacterHost } from './runtime/character-host';
 export type { ExecutionContext } from './runtime/execution-context';
 export { handleWorldEvent } from './runtime/world-event-handler';
-export {
-  installAICharacterRoutes,
-  type AICharacterRoutePort,
-} from './routes';
+export { installAICharacterRoutes, type AICharacterRoutePort } from './routes';

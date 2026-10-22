@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
-  AICharacterView,
+  AICharacterSummary,
   TaskPlan,
   TaskLimits,
   TaskRun,
@@ -39,7 +39,7 @@ export function TaskPlans({
   active,
   disabled,
 }: {
-  characters: AICharacterView[];
+  characters: AICharacterSummary[];
   active: boolean;
   disabled: boolean;
 }) {
@@ -93,7 +93,9 @@ export function TaskPlans({
         setLoading(false);
       } catch (e) {
         if (!abort.signal.aborted) {
-          setReadError(e instanceof Error ? e.message : t('console.plans.noMatchPlans'));
+          setReadError(
+            e instanceof Error ? e.message : t('console.plans.noMatchPlans'),
+          );
           setLoading(false);
         }
       }
@@ -114,7 +116,11 @@ export function TaskPlans({
       await action();
       setRevision((v) => v + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('console.characters.operationFailed'));
+      setError(
+        e instanceof Error
+          ? e.message
+          : t('console.characters.operationFailed'),
+      );
       throw e;
     } finally {
       mutation.current = false;
@@ -201,19 +207,23 @@ export function TaskPlans({
   }, [active, selected, page.items]);
 
   return (
-    <section aria-label={t('console.plans.managementAria')} className="plans-workspace">
+    <section
+      aria-label={t('console.plans.managementAria')}
+      className="plans-workspace"
+    >
       {(error || readError) && (
         <p className="agent-error" role="alert">
           {error || readError}
         </p>
       )}
       {!characters.length && (
-        <p className="agent-notice">
-          {t('console.plans.noCharactersWarning')}
-        </p>
+        <p className="agent-notice">{t('console.plans.noCharactersWarning')}</p>
       )}
       <div className="console-columns">
-        <aside className="console-sidebar" aria-label={t('console.plans.listAria')}>
+        <aside
+          className="console-sidebar"
+          aria-label={t('console.plans.listAria')}
+        >
           <div className="console-sidebar-heading">
             <h3>{t('console.plans.title')}</h3>
             <span>{t('console.plans.totalCount', { total: page.total })}</span>
@@ -282,7 +292,9 @@ export function TaskPlans({
             ))}
             {!page.items.length && (
               <p className="characters-list-empty">
-                {loading ? t('console.plans.loadingPlans') : t('console.plans.noMatchPlans')}
+                {loading
+                  ? t('console.plans.loadingPlans')
+                  : t('console.plans.noMatchPlans')}
               </p>
             )}
           </div>
@@ -314,9 +326,7 @@ export function TaskPlans({
               </button>
             </div>
           )}
-          <p className="console-sidebar-note">
-            {t('console.plans.cronNote')}
-          </p>
+          <p className="console-sidebar-note">{t('console.plans.cronNote')}</p>
         </aside>
         <div className="console-panel">
           {editor ? (
@@ -361,11 +371,15 @@ export function TaskPlans({
                     <div className="plans-identity-title-row">
                       <h3>{plan.name}</h3>
                       {plan.imported && (
-                        <span className="plans-tag">{t('console.plans.importedTag')}</span>
+                        <span className="plans-tag">
+                          {t('console.plans.importedTag')}
+                        </span>
                       )}
                     </div>
                     <p>
-                      {t('console.plans.boundCharacter', { name: bindingName(plan) })}
+                      {t('console.plans.boundCharacter', {
+                        name: bindingName(plan),
+                      })}
                       {timingLabel(plan)} · {plan.timeZone}
                     </p>
                   </div>
@@ -381,7 +395,9 @@ export function TaskPlans({
               <div className="plans-presence-bar">
                 <p>
                   {plan.nextRunAt
-                    ? t('console.plans.nextRunAt', { time: planTime(plan.nextRunAt, plan.timeZone) })
+                    ? t('console.plans.nextRunAt', {
+                        time: planTime(plan.nextRunAt, plan.timeZone),
+                      })
                     : plan.state === 'completed'
                       ? t('console.plans.stateCompletedDesc')
                       : plan.state === 'paused'
@@ -415,13 +431,17 @@ export function TaskPlans({
                 </p>
               )}
               <div className="plans-goal-card">
-                <span className="plans-card-label">{t('console.plans.targetAndCondition')}</span>
+                <span className="plans-card-label">
+                  {t('console.plans.targetAndCondition')}
+                </span>
                 <p className="plans-goal-text">{plan.goal}</p>
               </div>
               <div className="plans-usage-grid">
                 <div className="plans-usage-card">
                   <div className="plans-usage-card-top">
-                    <span className="plans-usage-label">{t('console.plans.totalTokensConsumed')}</span>
+                    <span className="plans-usage-label">
+                      {t('console.plans.totalTokensConsumed')}
+                    </span>
                     {plan.state !== 'archived' && (
                       <button
                         className="plans-usage-action"
@@ -438,8 +458,10 @@ export function TaskPlans({
                   </strong>
                   <span className="plans-usage-meta">
                     {plan.limits.enabled !== false &&
-                      plan.timing.kind !== 'immediate'
-                      ? t('console.plans.totalBudgetLabel', { tokens: plan.totalTokenBudget.toLocaleString() })
+                    plan.timing.kind !== 'immediate'
+                      ? t('console.plans.totalBudgetLabel', {
+                          tokens: plan.totalTokenBudget.toLocaleString(),
+                        })
                       : t('console.plans.noBudgetLimit')}
                   </span>
                   {plan.limits.enabled !== false &&
@@ -456,7 +478,7 @@ export function TaskPlans({
                               Math.round(
                                 (plan.spentTokens /
                                   Math.max(1, plan.totalTokenBudget)) *
-                                100,
+                                  100,
                               ),
                             )}%`,
                           }}
@@ -465,7 +487,9 @@ export function TaskPlans({
                     )}
                 </div>
                 <div className="plans-usage-card">
-                  <span className="plans-usage-label">{t('console.plans.recordsAndLimit')}</span>
+                  <span className="plans-usage-label">
+                    {t('console.plans.recordsAndLimit')}
+                  </span>
                   <strong>
                     {runs.length}
                     <small>{t('console.plans.recordCount')}</small>
@@ -475,9 +499,11 @@ export function TaskPlans({
                       ? t('console.plans.inheritsCharacterBudget')
                       : plan.limits.enabled !== false
                         ? t('console.plans.singleRunLimit', {
-                          turns: plan.limits.maxTurns,
-                          tokens: (plan.limits.tokenBudget ?? 50000).toLocaleString(),
-                        })
+                            turns: plan.limits.maxTurns,
+                            tokens: (
+                              plan.limits.tokenBudget ?? 50000
+                            ).toLocaleString(),
+                          })
                         : t('console.plans.singleRunNoLimit')}
                   </span>
                 </div>
@@ -588,7 +614,9 @@ export function TaskPlans({
                       value={target}
                       onChange={(e) => setTarget(e.target.value)}
                     >
-                      <option value="">{t('console.plans.selectCharacterPlaceholder')}</option>
+                      <option value="">
+                        {t('console.plans.selectCharacterPlaceholder')}
+                      </option>
                       {characters
                         .filter((a) => a.id !== plan.characterId)
                         .map((a) => (
@@ -614,7 +642,9 @@ export function TaskPlans({
               <div className="plans-section-heading">
                 <h4>{t('console.plans.activeRuns')}</h4>
                 <span className="plans-section-badge">
-                  {t('console.plans.activeItems', { count: runs.filter((r) => !runEnded(r)).length })}
+                  {t('console.plans.activeItems', {
+                    count: runs.filter((r) => !runEnded(r)).length,
+                  })}
                 </span>
               </div>
               {!runs.some((r) => !runEnded(r)) && (
@@ -637,7 +667,9 @@ export function TaskPlans({
               <div className="plans-section-heading">
                 <h4>{t('console.plans.historyHeading')}</h4>
                 <span className="plans-section-badge">
-                  {t('console.plans.historyCount', { count: runs.filter(runEnded).length })}
+                  {t('console.plans.historyCount', {
+                    count: runs.filter(runEnded).length,
+                  })}
                 </span>
               </div>
               {!runs.some(runEnded) && (
@@ -711,7 +743,11 @@ export function TaskPlans({
                   <path d="M12 7v5l3 2" />
                 </svg>
               </span>
-              <h4>{loading ? t('console.plans.welcomeSyncing') : t('console.plans.welcomeNextTask')}</h4>
+              <h4>
+                {loading
+                  ? t('console.plans.welcomeSyncing')
+                  : t('console.plans.welcomeNextTask')}
+              </h4>
               <p>
                 {t('console.plans.welcomeDescLine1')}
                 <br />

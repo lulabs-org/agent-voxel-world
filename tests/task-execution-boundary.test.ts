@@ -41,7 +41,7 @@ function fixture() {
       providerId: 'fixture',
       model: 'fixture',
       status: 'idle',
-      logs: [],
+      logEntries: [],
       continuous: false,
       maxTurns: 20,
       tokenBudget: 50000,

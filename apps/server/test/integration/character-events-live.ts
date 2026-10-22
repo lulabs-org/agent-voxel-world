@@ -183,7 +183,7 @@ try {
     roles: server.characters.list().map((c) => ({
       task: c.task,
       lastResponse: c.lastResponse,
-      logs: c.logs.slice(-8),
+      logEntries: c.logEntries.slice(-8),
       exchanges: server.characters.jobs.get(c.id)?.memory.exchanges,
     })),
   });

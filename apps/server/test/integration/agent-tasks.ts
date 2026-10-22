@@ -530,7 +530,9 @@ try {
     await until(
       () =>
         calls === beforePause + 1 &&
-        current().logs.some((l) => l.includes('第 1/2 个动作：move')),
+        current().logEntries.some((entry) =>
+          entry.text.includes('第 1/2 个动作：move'),
+        ),
     );
     await delay(100);
     await controlManagedRun(manager, job.id, 'pause');

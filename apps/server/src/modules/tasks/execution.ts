@@ -82,7 +82,7 @@ export function captureTask(job: TaskExecutionState) {
     delete run.planId;
     run.characterId = job.view.id;
     run.characterName = job.view.name;
-    run.logs = [...job.view.logs];
+    run.logs = job.view.logEntries.map((entry) => entry.text);
     job.ledger.runs.push(run);
     job.currentRunId = run.id;
   }
@@ -138,7 +138,7 @@ export function captureTask(job: TaskExecutionState) {
       : task.status;
   run.reason =
     run.status === 'failed'
-      ? job.view.logs.at(-1) || '执行中断，请检查后继续。'
+      ? job.view.logEntries.at(-1)?.text || '执行中断，请检查后继续。'
       : task.reason;
   if (endedRun(run)) run.finishedAt ??= Date.now();
   // Historical results still contribute usage, but cannot overwrite newer plan controls.

@@ -1,17 +1,18 @@
-import type { AICharacterView } from '@voxel/shared';
+import type { AICharacterSummary } from '@voxel/shared';
 import { useI18n } from '../../../i18n/context';
 
-export function AICharacterUsagePanel({ job }: { job: AICharacterView }) {
+export function AICharacterUsagePanel({ job }: { job: AICharacterSummary }) {
   const { t } = useI18n();
   const calls = job.usage?.calls ?? 0;
   const tokens = job.usage?.tokens ?? 0;
   const approx = job.usage?.estimated
     ? t('console.characters.approxPrefix')
     : '';
-  // logTimes aligns with logs; the newest entry with a usable timestamp wins.
-  const lastLogTime = (job.logTimes ?? [])
-    .filter((ts): ts is number => typeof ts === 'number' && Number.isFinite(ts))
-    .pop();
+  // lastLogAt is the newest activity-log timestamp exposed on the summary.
+  const lastLogTime =
+    typeof job.lastLogAt === 'number' && Number.isFinite(job.lastLogAt)
+      ? job.lastLogAt
+      : undefined;
   const relative = (ts?: number | null) => {
     if (typeof ts !== 'number' || !Number.isFinite(ts) || ts <= 0) return '—';
     const minutes = Math.floor((Date.now() - ts) / 60000);

@@ -1,38 +1,60 @@
 import { expect, it } from 'vitest';
 import {
   appendAICharacterLog,
+  migrateLegacyLogs,
   restoreAICharacterLogs,
 } from '../apps/server/src/modules/ai-characters';
 
-it('retains the newest 500 messages with their original timestamps', () => {
-  const view = restoreAICharacterLogs([], []);
+it('retains the newest 500 entries with their original timestamps', () => {
+  const view = restoreAICharacterLogs([]);
   for (let i = 0; i < 520; i++)
     appendAICharacterLog(view, `entry-${i}`, 1000 + i);
-  expect(view.logs).toHaveLength(500);
-  expect(view.logs[0]).toBe('entry-20');
-  expect(view.logTimes[0]).toBe(1020);
-  expect(view.logs.at(-1)).toBe('entry-519');
-  expect(view.logTimes.at(-1)).toBe(1519);
+  expect(view.logEntries).toHaveLength(500);
+  expect(view.logEntries[0]).toEqual({ time: 1020, text: 'entry-20' });
+  expect(view.logEntries.at(-1)).toEqual({ time: 1519, text: 'entry-519' });
   const archived = JSON.parse(JSON.stringify(view));
-  expect(restoreAICharacterLogs(archived.logs, archived.logTimes)).toEqual(
-    view,
-  );
+  expect(restoreAICharacterLogs(archived.logEntries)).toEqual(view);
 });
 
-it('keeps legacy logs without inventing times, and timestamps only new entries', () => {
-  const view = restoreAICharacterLogs(['old-1', 'old-2'], undefined);
+it('keeps legacy entries without inventing times, and timestamps only new entries', () => {
+  const view = {
+    logEntries: migrateLegacyLogs(['old-1', 'old-2'], undefined),
+  };
   appendAICharacterLog(view, 'new', 1234);
-  expect(view).toEqual({
-    logs: ['old-1', 'old-2', 'new'],
-    logTimes: [null, null, 1234],
+  expect(view.logEntries).toEqual([
+    { time: null, text: 'old-1' },
+    { time: null, text: 'old-2' },
+    { time: 1234, text: 'new' },
+  ]);
+});
+
+it('discards invalid entries while preserving time and text', () => {
+  expect(
+    restoreAICharacterLogs([
+      { time: 100, text: 'a' },
+      { time: 200, text: 42 },
+      { text: 'b' },
+      { time: NaN, text: 'c' },
+      { time: -1, text: 'd' },
+      { time: 8.64e15, text: 'e' },
+      null,
+      { time: 500, text: '' },
+    ]),
+  ).toEqual({
+    logEntries: [
+      { time: 100, text: 'a' },
+      { time: null, text: 'b' },
+      { time: null, text: 'c' },
+      { time: null, text: 'd' },
+      { time: 8.64e15, text: 'e' },
+    ],
   });
 });
 
-it('preserves alignment while discarding invalid messages and timestamps', () => {
-  expect(
-    restoreAICharacterLogs(['a', 42, 'b', 'c', 'd'], [100, 200, NaN, -1, 9e15]),
-  ).toEqual({
-    logs: ['a', 'b', 'c', 'd'],
-    logTimes: [100, null, null, null],
-  });
+it('migrates the legacy parallel logs/logTimes arrays into logEntries', () => {
+  expect(migrateLegacyLogs(['a', 'b', 'c'], [100, undefined, 9e15])).toEqual([
+    { time: 100, text: 'a' },
+    { time: null, text: 'b' },
+    { time: null, text: 'c' },
+  ]);
 });

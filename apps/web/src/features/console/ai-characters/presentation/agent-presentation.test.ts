@@ -1,15 +1,14 @@
-import type { AICharacterView } from '@voxel/shared';
+import type { AICharacterSummary } from '@voxel/shared';
 import { expect, it } from 'vitest';
 import { initialAICharacter } from '../model';
 import { aiCharacterPresentation } from './agent-presentation';
-const job = (extra: Partial<AICharacterView> = {}): AICharacterView => ({
+const job = (extra: Partial<AICharacterSummary> = {}): AICharacterSummary => ({
   ...initialAICharacter,
   id: 'agent',
   name: 'Test',
   providerName: 'Local',
   status: 'idle',
   createdAt: 0,
-  logs: [],
   task: {
     goal: 'Explore',
     status: 'running',

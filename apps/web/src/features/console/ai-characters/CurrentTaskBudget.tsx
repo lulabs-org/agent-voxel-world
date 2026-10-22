@@ -1,4 +1,4 @@
-import type { AICharacterView, TaskLimits } from '@voxel/shared';
+import type { AICharacterSummary, TaskLimits } from '@voxel/shared';
 import { useState } from 'react';
 import { useI18n } from '../../../i18n/context';
 import { displayedTaskIdentity, controlTaskRun } from '../execution/api';
@@ -9,7 +9,7 @@ export function CurrentTaskBudget({
   disabled,
   onUpdated,
 }: {
-  job: AICharacterView;
+  job: AICharacterSummary;
   disabled: boolean;
   onUpdated: () => Promise<void>;
 }) {
@@ -48,7 +48,11 @@ export function CurrentTaskBudget({
       setDraft(undefined);
       await onUpdated();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t('console.characters.operationFailed'));
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : t('console.characters.operationFailed'),
+      );
     } finally {
       setBusy(false);
     }
@@ -61,7 +65,10 @@ export function CurrentTaskBudget({
         : t('console.characters.taskSourceManual');
 
   return (
-    <section className="agents-progress" aria-label={t('console.characters.currentTaskAria')}>
+    <section
+      className="agents-progress"
+      aria-label={t('console.characters.currentTaskAria')}
+    >
       <h4>{t('console.characters.currentTaskGoal', { goal: task.goal })}</h4>
       <p className="agent-hint">
         {t('console.characters.taskSource', { source: sourceLabel })}
@@ -76,19 +83,25 @@ export function CurrentTaskBudget({
           <dd>
             {t('console.characters.turnsValue', {
               calls: task.calls,
-              limit: limited ? execution.limits.maxTurns : t('console.characters.unlimited'),
+              limit: limited
+                ? execution.limits.maxTurns
+                : t('console.characters.unlimited'),
             })}
           </dd>
         </div>
         <div>
           <dt>
             {t('console.characters.statTokens', {
-              estimated: task.estimated ? t('console.characters.statEstimatedTag') : '',
+              estimated: task.estimated
+                ? t('console.characters.statEstimatedTag')
+                : '',
             })}
           </dt>
           <dd>
             {task.tokens.toLocaleString()} /{' '}
-            {limited ? execution.limits.tokenBudget.toLocaleString() : t('console.characters.unlimited')}
+            {limited
+              ? execution.limits.tokenBudget.toLocaleString()
+              : t('console.characters.unlimited')}
           </dd>
         </div>
         <div>
@@ -97,15 +110,15 @@ export function CurrentTaskBudget({
             {t('console.characters.durationValue', {
               elapsed: Math.round(task.elapsedMs / 1000),
               limit: limited
-                ? t('console.characters.minutesUnit', { min: execution.limits.taskTimeoutMs / 60000 })
+                ? t('console.characters.minutesUnit', {
+                    min: execution.limits.taskTimeoutMs / 60000,
+                  })
                 : t('console.characters.unlimited'),
             })}
           </dd>
         </div>
       </dl>
-      <p className="agent-hint">
-        {t('console.characters.currentBudgetHint')}
-      </p>
+      <p className="agent-hint">{t('console.characters.currentBudgetHint')}</p>
       {!['completed', 'cancelled'].includes(task.status) && (
         <div className="agents-actions">
           {['running', 'waiting'].includes(task.status) && (
@@ -141,7 +154,9 @@ export function CurrentTaskBudget({
         </button>
       )}
       {resumable && offline && (
-        <p className="agent-hint">{t('console.characters.offlineResumeHint')}</p>
+        <p className="agent-hint">
+          {t('console.characters.offlineResumeHint')}
+        </p>
       )}
       {job.taskRequiresReassignment && (
         <p className="agent-error">
@@ -198,7 +213,9 @@ export function CurrentTaskBudget({
               />
             )}
             <div className="agents-actions">
-              <button className="primary">{t('console.characters.confirmAndResume')}</button>
+              <button className="primary">
+                {t('console.characters.confirmAndResume')}
+              </button>
               <button
                 type="button"
                 onClick={() => {

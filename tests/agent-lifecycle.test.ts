@@ -149,7 +149,7 @@ it('saves task heartbeat independently without resetting or resuming progress', 
   expect(saved).toMatchObject(schedule);
   expect(saved.task).toEqual(before.task);
   expect(saved.usage).toEqual(before.usage);
-  expect(saved.logs).toEqual(before.logs);
+  expect(saved.logEntries).toEqual(before.logEntries);
   await expect(m.update(created.id, { intervalMinMs: 10000 })).rejects.toThrow(
     '下限',
   );
@@ -207,7 +207,12 @@ it('restores a missing voice service as text-only without model calls', async ()
   await restored.load();
   expect(restored.list()[0].voiceReplies).toBe(false);
   expect(restored.list()[0].voiceServiceId).toBe('');
-  expect(restored.list()[0].logs.join('\n')).toContain('原语音服务不可用');
+  expect(
+    restored
+      .list()[0]
+      .logEntries.map((entry) => entry.text)
+      .join('\n'),
+  ).toContain('原语音服务不可用');
   expect(decide).not.toHaveBeenCalled();
 });
 it('toggles voice during inference without restarting the agent or making another model call', async () => {
@@ -1028,20 +1033,25 @@ it('uses newly saved provider inference settings on the next decision without re
   expect(configs[0]).toMatchObject(inference);
 });
 
-it('persists and reloads 500 timestamped activity records without truncating to the old limit', async () => {
+it('migrates a legacy archive and reloads 500 timestamped activity records without truncating to the old limit', async () => {
   const { readFile, writeFile } = await import('node:fs/promises');
   const m = setup(fakeSession());
   const created = m.create({ ...settings, goal: '' });
   await vi.waitFor(() => expect(m.list()[0].status).toBe('idle'));
   const logged = m.list()[0];
-  expect(logged.logs.length).toBeGreaterThan(0);
-  expect(logged.logTimes).toHaveLength(logged.logs.length);
-  expect(logged.logTimes?.every((time) => typeof time === 'number')).toBe(true);
+  expect(logged.logEntries.length).toBeGreaterThan(0);
+  expect(
+    logged.logEntries.every(
+      (entry) =>
+        typeof entry.text === 'string' && typeof entry.time === 'number',
+    ),
+  ).toBe(true);
   await m.stop(created.id);
   await m.close();
   const path = `${store.path}.agents.json`;
   const archive = JSON.parse(await readFile(path, 'utf8'));
   archive.characters[0].status = 'stopped';
+  // Simulate the pre-logEntries archive: two parallel legacy arrays.
   archive.characters[0].logs = Array.from(
     { length: 510 },
     (_, i) => `entry-${i}`,
@@ -1050,19 +1060,19 @@ it('persists and reloads 500 timestamped activity records without truncating to 
     { length: 510 },
     (_, i) => 1000 + i,
   );
+  delete archive.characters[0].logEntries;
   await writeFile(path, JSON.stringify(archive));
+  const expected = archive.characters[0].logs
+    .slice(-500)
+    .map((text: string, i: number) => ({
+      time: archive.characters[0].logTimes.slice(-500)[i],
+      text,
+    }));
   const restored = setup(fakeSession());
   await restored.load();
-  expect(restored.list()[0].logs).toEqual(
-    archive.characters[0].logs.slice(-500),
-  );
-  expect(restored.list()[0].logTimes).toEqual(
-    archive.characters[0].logTimes.slice(-500),
-  );
+  expect(restored.list()[0].logEntries).toEqual(expected);
   const persisted = JSON.parse(await readFile(path, 'utf8'));
-  expect(persisted.characters[0].logTimes).toEqual(
-    archive.characters[0].logTimes.slice(-500),
-  );
+  expect(persisted.characters[0].logEntries).toEqual(expected);
 });
 
 it('deletes a resident character and its tasks durably, preserving shared services', async () => {

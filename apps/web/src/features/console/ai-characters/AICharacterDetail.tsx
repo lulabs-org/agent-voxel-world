@@ -1,4 +1,4 @@
-import type { AICharacterView } from '@voxel/shared';
+import type { PublicAICharacterView } from '@voxel/shared/management';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../../i18n/context';
 import type { ConsoleController } from '../useConsoleController';
@@ -10,7 +10,7 @@ import { aiCharactersApi } from './api';
 
 export function AICharacterDetail(
   props: ConsoleController & {
-    job: AICharacterView;
+    job: PublicAICharacterView;
     active: boolean;
     disabled: boolean;
     capacityFull: boolean;
@@ -66,8 +66,7 @@ export function AICharacterDetail(
         <p role="alert" className="agent-error">
           {t('console.characters.lastRunFailed', {
             reason:
-              job.logs.at(-1) ||
-              t('console.characters.checkConnectionModelHint'),
+              job.lastLog || t('console.characters.checkConnectionModelHint'),
           })}
         </p>
       )}
