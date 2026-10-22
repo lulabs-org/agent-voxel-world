@@ -1,4 +1,4 @@
-import type { TaskExecutionState } from '../../tasks/execution-port';
+import type { TaskExecutionState } from '../../tasks/runtime/execution-port';
 import type { Job } from './types';
 
 const states = new WeakMap<Job, TaskExecutionState>();

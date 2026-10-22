@@ -8,8 +8,8 @@ import {
   type Job,
 } from '../apps/server/src/modules/ai-characters/domain/types';
 import { AICharacterWakeScheduler } from '../apps/server/src/modules/ai-characters/runtime/wake-scheduler';
-import { PlanService } from '../apps/server/src/modules/tasks/service';
-import { newPlan, newRun } from '../apps/server/src/modules/tasks/model';
+import { PlanService } from '../apps/server/src/modules/tasks/persistence/service';
+import { newPlan, newRun } from '../apps/server/src/modules/tasks/domain/model';
 
 function fixture(save: (snapshot: ManagementArchive) => Promise<void>) {
   const plans = new PlanService();

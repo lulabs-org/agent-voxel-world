@@ -1,12 +1,12 @@
 import { expect, it, vi } from 'vitest';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
-import { TaskCoordinator } from '../apps/server/src/modules/tasks/coordinator';
-import { captureTask } from '../apps/server/src/modules/tasks/execution';
+import { TaskCoordinator } from '../apps/server/src/modules/tasks/runtime/coordinator';
+import { captureTask } from '../apps/server/src/modules/tasks/runtime/execution';
 import type {
   TaskExecutionState,
   TaskHostPort,
-} from '../apps/server/src/modules/tasks/execution-port';
+} from '../apps/server/src/modules/tasks/runtime/execution-port';
 
 function fixture() {
   let afterInterrupt = async () => {};

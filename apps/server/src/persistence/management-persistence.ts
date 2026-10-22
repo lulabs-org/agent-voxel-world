@@ -6,8 +6,8 @@ import type { AICharacterRegistry } from '../modules/ai-characters/domain/types'
 import type { AICharacterWakeScheduler } from '../modules/ai-characters/runtime/wake-scheduler';
 import { executionState } from '../modules/ai-characters/domain/task-adapter';
 import { CharacterSnapshots } from '../modules/ai-characters/persistence/snapshots';
-import { TaskSnapshots } from '../modules/tasks/snapshots';
-import type { PlanService } from '../modules/tasks/service';
+import { TaskSnapshots } from '../modules/tasks/persistence/snapshots';
+import type { PlanService } from '../modules/tasks/persistence/service';
 
 /** One serialized commit owns the character/task envelope and its visibility boundary. */
 export class ManagementPersistence {

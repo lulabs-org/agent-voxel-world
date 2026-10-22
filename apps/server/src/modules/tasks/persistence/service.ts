@@ -1,10 +1,10 @@
 import { isRepeating, type TaskPlan } from '@voxel/shared';
-import { hasPlanTokenLimit } from './limits';
-import { nextOccurrence } from './timing';
-import type { StoredRun, TaskRunsPage } from './types';
-import { endedRun, runView } from './model';
-import { integer, object } from '../../common/validation';
-import { AppError } from '../../common/errors';
+import { hasPlanTokenLimit } from '../domain/limits';
+import { nextOccurrence } from '../domain/timing';
+import type { StoredRun, TaskRunsPage } from '../domain/types';
+import { endedRun, runView } from '../domain/model';
+import { integer, object } from '../../../common/validation';
+import { AppError } from '../../../common/errors';
 
 /** The single owner of plans and execution history, independent of Agent lifetime. */
 export class TaskPlanService {

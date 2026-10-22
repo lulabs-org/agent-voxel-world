@@ -532,7 +532,7 @@ it('keeps counting unlimited execution beyond all saved caps without scheduling 
     return decision('continue', 'completed');
   });
   const { executionLimits } = await import(
-    '../apps/server/src/modules/tasks/limits'
+    '../apps/server/src/modules/tasks/domain/limits'
   );
   await f.step({
     ...cfg(),

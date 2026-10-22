@@ -5,10 +5,10 @@ export type { TaskPort } from './port';
 export { installTaskRoutes } from './routes';
 
 // 3. 仓储与内存存储服务
-export { TaskPlanService, PlanService } from './service';
+export { TaskPlanService, PlanService } from './persistence/service';
 
 // 4. 定时调度器
-export { TaskScheduler } from './scheduler';
+export { TaskScheduler } from './runtime/scheduler';
 
 // 5. 模型工厂与领域状态计算
 export {
@@ -23,10 +23,10 @@ export {
   nextOccurrence,
   settleTaskUsage,
   syncPlanStateFromRun,
-} from './model';
+} from './domain/model';
 
 // 6. 输入校验
-export { validatePlan } from './validation';
+export { validatePlan } from './domain/validation';
 
 // 7. 领域与 DTO 类型
 export type {
@@ -36,7 +36,10 @@ export type {
   PlanControlOperation,
   RunControlOperation,
   TaskRunsPage,
-} from './types';
+} from './domain/types';
 
-export { TaskCoordinator } from './coordinator';
-export type { TaskExecutionState, TaskHostPort } from './execution-port';
+export { TaskCoordinator } from './runtime/coordinator';
+export type {
+  TaskExecutionState,
+  TaskHostPort,
+} from './runtime/execution-port';

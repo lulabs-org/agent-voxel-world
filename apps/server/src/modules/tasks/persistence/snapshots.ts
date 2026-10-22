@@ -1,8 +1,8 @@
 import type { TaskPlan } from '@voxel/shared';
-import type { StoredRun } from './types';
+import type { StoredRun } from '../domain/types';
 import type { PlanService } from './service';
-import type { TaskExecutionState } from './execution-port';
-import { captureTask } from './execution';
+import type { TaskExecutionState } from '../runtime/execution-port';
+import { captureTask } from '../runtime/execution';
 
 export type TaskSnapshot = {
   plans: TaskPlan[];

@@ -45,13 +45,13 @@ import {
   markJoined,
   markOffline,
   modelChanged,
-} from '../../tasks/execution';
+} from '../../tasks/runtime/execution';
 import { executionState } from '../domain/task-adapter';
 import { restoreAICharacterJob } from '../persistence/restore';
 import { AICharacterHost } from '../runtime/character-host';
 import type { ExecutionContext } from '../runtime/execution-context';
 import { ManagementPersistence } from '../../../persistence/management-persistence';
-import { TaskCoordinator } from '../../tasks/coordinator';
+import { TaskCoordinator } from '../../tasks/runtime/coordinator';
 import { CharacterVoiceCoordinator } from './voice-coordinator';
 
 export class AICharacterOrchestrator {

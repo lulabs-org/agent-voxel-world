@@ -1,5 +1,5 @@
 import type { TaskPlan } from '@voxel/shared';
-import type { StoredRun } from '../modules/tasks/types';
+import type { StoredRun } from '../modules/tasks/domain/types';
 import type { CharacterRecord } from '../modules/ai-characters/domain/types';
 export type { CharacterRecord } from '../modules/ai-characters/domain/types';
 
