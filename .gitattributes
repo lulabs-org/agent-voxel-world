@@ -1,0 +1,2 @@
+# Shell 脚本必须在任何平台保持 LF，否则容器内 shebang 会带 \r 导致 "no such file or directory"
+*.sh text eol=lf
