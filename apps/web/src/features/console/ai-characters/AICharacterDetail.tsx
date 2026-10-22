@@ -1,5 +1,4 @@
 import type { AICharacterView } from '@voxel/shared';
-import { aiCharacterPermissions } from '@voxel/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../../i18n/context';
 import type { ConsoleController } from '../useConsoleController';
@@ -20,9 +19,6 @@ export function AICharacterDetail(
   const {
     job,
     disabled,
-    capacityFull,
-    joinAgent,
-    stopAgent,
     openAgentEditor,
     showAgentForm,
     editingAgent,
@@ -39,7 +35,6 @@ export function AICharacterDetail(
     openAgentEditor(job);
     setView('settings');
   }, [job, openAgentEditor]);
-  const [confirmLeave, setConfirmLeave] = useState(false);
   const state = aiCharacterPresentation(job);
   const editing = showAgentForm && editingAgent === job.id;
   return (
@@ -61,58 +56,12 @@ export function AICharacterDetail(
           {state.presence}
         </span>
       </div>
-      <div className="agents-presence-bar">
-        <p>
-          {!aiCharacterPermissions(job).chat
-            ? t('console.characters.presenceBarChatOff')
-            : state.online
-              ? t('console.characters.presenceBarOnline')
-              : t('console.characters.presenceBarOffline')}
-        </p>
-        {state.occupiesSlot ? (
-          <button
-            className="agents-text-button"
-            disabled={disabled || job.status === 'stopping'}
-            onClick={() => setConfirmLeave(true)}
-          >
-            {t('console.characters.offlineButton')}
-          </button>
-        ) : (
-          <button
-            disabled={disabled || capacityFull}
-            onClick={() => void joinAgent(job)}
-          >
-            {t('console.characters.onlineButton')}
-          </button>
-        )}
-      </div>
       {job.status === 'failed' && (
         <p role="alert" className="agent-error">
           {t('console.characters.lastRunFailed', {
             reason: job.logs.at(-1) || t('console.characters.checkConnectionModelHint'),
           })}
         </p>
-      )}
-      {confirmLeave && (
-        <div
-          className="agents-confirm"
-          role="group"
-          aria-label={t('console.characters.confirmLeaveAria')}
-        >
-          <p>{t('console.characters.confirmLeaveDesc')}</p>
-          <div className="agents-actions">
-            <button
-              disabled={disabled}
-              onClick={() => {
-                setConfirmLeave(false);
-                void stopAgent(job);
-              }}
-            >
-              {t('console.characters.confirmLeaveButton')}
-            </button>
-            <button onClick={() => setConfirmLeave(false)}>{t('common.cancel')}</button>
-          </div>
-        </div>
       )}
       <nav className="agents-detail-nav" aria-label={t('console.characters.navAria')}>
         <button
@@ -135,7 +84,11 @@ export function AICharacterDetail(
         </button>
       </nav>
       {editing ? (
-        <AICharacterForm {...props} disabled={disabled || !state.canEdit} />
+        <AICharacterForm
+          {...props}
+          disabled={disabled || !state.canEdit}
+          leaveDisabled={disabled}
+        />
       ) : (
         <AICharacterLogViewer
           job={job}
