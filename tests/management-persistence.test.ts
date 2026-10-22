@@ -6,8 +6,8 @@ import { ManagementEvents } from '../apps/server/src/modules/management/events';
 import {
   AICharacterRegistry,
   type Job,
-} from '../apps/server/src/modules/ai-characters/types';
-import { AICharacterWakeScheduler } from '../apps/server/src/modules/ai-characters/wake-scheduler';
+} from '../apps/server/src/modules/ai-characters/domain/types';
+import { AICharacterWakeScheduler } from '../apps/server/src/modules/ai-characters/runtime/wake-scheduler';
 import { PlanService } from '../apps/server/src/modules/tasks/service';
 import { newPlan, newRun } from '../apps/server/src/modules/tasks/model';
 

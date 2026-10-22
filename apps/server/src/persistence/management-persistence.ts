@@ -2,10 +2,10 @@ import type { AICharacterView } from '@voxel/shared';
 import { AppError } from '../common/errors';
 import type { ArchivePort, ManagementArchive } from './archive';
 import type { ManagementEvents } from '../modules/management/events';
-import type { AICharacterRegistry } from '../modules/ai-characters/types';
-import type { AICharacterWakeScheduler } from '../modules/ai-characters/wake-scheduler';
-import { executionState } from '../modules/ai-characters/execution-adapter';
-import { CharacterSnapshots } from '../modules/ai-characters/snapshots';
+import type { AICharacterRegistry } from '../modules/ai-characters/domain/types';
+import type { AICharacterWakeScheduler } from '../modules/ai-characters/runtime/wake-scheduler';
+import { executionState } from '../modules/ai-characters/domain/task-adapter';
+import { CharacterSnapshots } from '../modules/ai-characters/persistence/snapshots';
 import { TaskSnapshots } from '../modules/tasks/snapshots';
 import type { PlanService } from '../modules/tasks/service';
 

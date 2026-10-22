@@ -2,6 +2,7 @@ import { AI_CHARACTER_LOG_LIMIT, type AICharacterView } from '@voxel/shared';
 
 type LogView = Pick<AICharacterView, 'logs' | 'logTimes'>;
 
+/** 校验并清洗反序列化后的角色日志及时间戳，限制在最大条数范围内 */
 export function restoreAICharacterLogs(
   logs: unknown,
   times: unknown,
@@ -30,6 +31,7 @@ export function restoreAICharacterLogs(
   };
 }
 
+/** 向角色的内存日志数组追加一条记录并维持上限 */
 export function appendAICharacterLog(
   view: LogView,
   message: string,

@@ -1,16 +1,20 @@
-import { migrateArchive } from '../../persistence/migrate-archive';
-import { AICharacterWakeScheduler } from './wake-scheduler';
-import { appendAICharacterLog } from './logs';
+import { migrateArchive } from '../../../persistence/migrate-archive';
+import { AICharacterWakeScheduler } from '../runtime/wake-scheduler';
+import { appendAICharacterLog } from '../domain/activity-log';
 import {
   aiCharacterPermissions,
   type AICharacterSettings,
 } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
-import type { VoiceServicePort } from './ports';
-import type { ProviderPort } from '../providers/provider-port';
-import type { ArchivePort } from '../../persistence/archive';
-import { AICharacterRegistry } from './types';
-import { ManagementEvents } from '../management/events';
+import type { ProviderPort } from '../../providers/provider-port';
+import type { ArchivePort } from '../../../persistence/archive';
+import { ManagementEvents } from '../../management/events';
+import { ProviderStore } from '../../providers/provider-store';
+import type { VoiceServiceStore } from '../../audio/tts/voice-services';
+import {
+  readManagementArchive,
+  writeManagementArchive,
+} from '../../../persistence/archive-file';
 import {
   Session,
   AgentAttention,
@@ -19,23 +23,36 @@ import {
   type AgentConfig,
 } from '@voxel/agent-runtime';
 
-import { object, text, boolean } from '../../common/validation';
-import { validateAICharacter, aiCharacterProfileInput } from './validation';
-import type { SavedProvider } from '../providers/provider-validation';
-import { AppError } from '../../common/errors';
+import { object, text, boolean } from '../../../common/validation';
+import {
+  validateAICharacter,
+  aiCharacterProfileInput,
+} from '../domain/validation';
+import type { SavedProvider } from '../../providers/provider-validation';
+import { AppError } from '../../../common/errors';
 
-import { active, resident, type Job } from './types';
+import {
+  active,
+  resident,
+  isJobBusy,
+  canWakeJob,
+  type Job,
+  type VoiceServicePort,
+  AICharacterRegistry,
+} from '../domain/types';
 import {
   pauseTaskForHost,
   markJoined,
   markOffline,
   modelChanged,
-} from '../tasks/execution';
-import { executionState } from './execution-adapter';
-import { restoreAICharacterJob } from './restore';
-import { AICharacterHost, type ExecutionContext } from './host';
-import { ManagementPersistence } from '../../persistence/management-persistence';
-import { TaskCoordinator } from '../tasks/coordinator';
+} from '../../tasks/execution';
+import { executionState } from '../domain/task-adapter';
+import { restoreAICharacterJob } from '../persistence/restore';
+import { AICharacterHost } from '../runtime/character-host';
+import type { ExecutionContext } from '../runtime/execution-context';
+import { ManagementPersistence } from '../../../persistence/management-persistence';
+import { TaskCoordinator } from '../../tasks/coordinator';
+import { CharacterVoiceCoordinator } from './voice-coordinator';
 
 export class AICharacterOrchestrator {
   readonly jobs = new AICharacterRegistry();
@@ -43,6 +60,7 @@ export class AICharacterOrchestrator {
   readonly taskScheduler = new AICharacterWakeScheduler();
   readonly persistence: ManagementPersistence;
   readonly tasks: TaskCoordinator;
+  readonly voiceCoordinator: CharacterVoiceCoordinator;
 
   private closing = false;
   private restoreFailed = false;
@@ -57,6 +75,7 @@ export class AICharacterOrchestrator {
     private archive: ArchivePort,
   ) {
     this.persistence = new ManagementPersistence(this.archive, this.events);
+    this.voiceCoordinator = new CharacterVoiceCoordinator(this.voiceServices);
     this.tasks = new TaskCoordinator({
       execution: (id) => executionState(this.taskJob(id)),
       findExecution: (id) => {
@@ -203,20 +222,11 @@ export class AICharacterOrchestrator {
   }
 
   private checkVoice(settings: AICharacterSettings) {
-    if (settings.voiceReplies && !settings.voiceServiceId)
-      throw new AppError('请先选择语音服务。');
-    if (settings.voiceServiceId)
-      this.voiceServices?.get(settings.voiceServiceId);
+    this.voiceCoordinator.checkVoice(settings);
   }
 
   private bindVoice(job: Job) {
-    if (job.view.sessionId)
-      this.voiceServices?.bind(
-        job.view.sessionId,
-        job.view.voiceReplies && aiCharacterPermissions(job.view).chat
-          ? job.view.voiceServiceId || 'local-default'
-          : '',
-      );
+    this.voiceCoordinator.bindVoice(job);
   }
 
   list() {
@@ -226,9 +236,9 @@ export class AICharacterOrchestrator {
         return structuredClone({
           ...view,
           goal: memory.task?.goal ?? view.goal,
-          voiceServiceName: this.voiceServices
-            ?.list()
-            .find((s) => s.id === view.voiceServiceId)?.name,
+          voiceServiceName: this.voiceCoordinator.getServiceName(
+            view.voiceServiceId,
+          ),
           task: memory.task,
           taskExecution: run
             ? {
@@ -317,7 +327,7 @@ export class AICharacterOrchestrator {
     if (this.closing) throw new AppError('世界服务正在关闭。', 503);
     const job = this.jobs.get(id);
     if (!job) throw new AppError('Agent 不存在。', 404);
-    if (resident(job) || job.updating || job.controlling || job.taskMutating)
+    if (resident(job) || isJobBusy(job))
       throw new AppError('角色已在线或正在更新，请稍候。', 409);
     if ([...this.jobs.values()].filter(resident).length >= 4)
       throw new AppError(
@@ -345,12 +355,7 @@ export class AICharacterOrchestrator {
     const job = this.jobs.get(id);
     if (!job) throw new AppError('Agent 不存在。', 404);
     const input = aiCharacterProfileInput(value);
-    if (
-      active(job.view.status) ||
-      job.updating ||
-      job.controlling ||
-      job.taskMutating
-    )
+    if (active(job.view.status) || isJobBusy(job))
       throw new AppError('请等待 Agent 待命，或关闭后再修改参数。', 409);
     const provider = this.providers.get(
       text(input.providerId, '模型服务', 80, job.view.providerId),
@@ -379,10 +384,10 @@ export class AICharacterOrchestrator {
         (!!settings.voiceReplies && aiCharacterPermissions(settings).chat) !==
           (!!job.view.voiceReplies && aiCharacterPermissions(job.view).chat)
       ) {
-        const result = await session.request('agent.voice', {
-          enabled:
-            !!settings.voiceReplies && aiCharacterPermissions(settings).chat,
-        });
+        const result = await this.voiceCoordinator.syncSessionVoice(
+          session,
+          !!settings.voiceReplies && aiCharacterPermissions(settings).chat,
+        );
         if (!result.ok || job.session !== session || active(job.view.status))
           throw new AppError('语音开关未保存，请刷新后重试。', 409);
       }
@@ -429,9 +434,7 @@ export class AICharacterOrchestrator {
     if (!job) throw new AppError('Agent 不存在。', 404);
     if (
       this.closing ||
-      job.updating ||
-      job.taskMutating ||
-      job.controlling ||
+      isJobBusy(job) ||
       ['joining', 'stopping'].includes(job.view.status)
     )
       throw new AppError('Agent 状态正在更新，请稍候。', 409);
@@ -442,7 +445,10 @@ export class AICharacterOrchestrator {
     job.updating = true;
     try {
       if (job.session?.room) {
-        const result = await job.session.request('agent.voice', { enabled });
+        const result = await this.voiceCoordinator.syncSessionVoice(
+          job.session,
+          enabled,
+        );
         if (!result.ok) throw new AppError('语音开关未生效，请重试。', 409);
       }
       job.view.voiceReplies = enabled;
@@ -456,17 +462,7 @@ export class AICharacterOrchestrator {
   }
 
   private wake(job: Job) {
-    if (
-      this.closing ||
-      job.storageFailed ||
-      job.controlling ||
-      job.updating ||
-      job.taskMutating ||
-      (job.view.status !== 'idle' &&
-        !(job.view.status === 'failed' && job.attention.pending)) ||
-      !job.session
-    )
-      return;
+    if (!canWakeJob(job, this.closing)) return;
     this.taskScheduler.cancel(job.view.id);
     job.view.status = 'running';
     job.abort = new AbortController();
@@ -475,17 +471,7 @@ export class AICharacterOrchestrator {
 
   private schedule(job: Job) {
     this.taskScheduler.cancel(job.view.id);
-    if (
-      this.closing ||
-      job.storageFailed ||
-      job.controlling ||
-      job.updating ||
-      job.taskMutating ||
-      (job.view.status !== 'idle' &&
-        !(job.view.status === 'failed' && job.attention.pending)) ||
-      !job.session
-    )
-      return;
+    if (!canWakeJob(job, this.closing)) return;
     if (job.attention.pending) {
       this.taskScheduler.wake(job.view.id, 0, () => this.wake(job));
     } else if (['running', 'waiting'].includes(job.memory.task?.status ?? '')) {
@@ -503,12 +489,7 @@ export class AICharacterOrchestrator {
     change: () => Promise<T>,
   ): Promise<T> {
     const job = this.taskJob(id);
-    if (
-      job.updating ||
-      job.taskMutating ||
-      job.controlling ||
-      ['joining', 'stopping'].includes(job.view.status)
-    )
+    if (isJobBusy(job) || ['joining', 'stopping'].includes(job.view.status))
       throw new AppError('Agent 状态正在更新，请稍候。', 409);
     job.controlling = true;
     this.taskScheduler.cancel(id);
@@ -582,7 +563,7 @@ export class AICharacterOrchestrator {
   async remove(id: string) {
     const job = this.jobs.get(id);
     if (!job) throw new AppError('Agent 不存在。', 404);
-    if (this.closing || job.updating || job.taskMutating || job.controlling)
+    if (this.closing || isJobBusy(job))
       throw new AppError('Agent 状态正在更新，请稍候。', 409);
     job.controlling = true;
     try {
@@ -615,8 +596,7 @@ export class AICharacterOrchestrator {
   }
 
   async removeVoiceService(id: string) {
-    if (!this.voiceServices) throw new AppError('语音服务未就绪。', 503);
-    await this.voiceServices.remove(id, () =>
+    await this.voiceCoordinator.removeVoiceService(id, () =>
       [...this.jobs.values()].some(
         (j) => j.updating || j.view.voiceServiceId === id,
       ),
@@ -649,3 +629,24 @@ export type AICharacterDependencies = {
     provider: SavedProvider,
   ) => Pick<AgentRunner, 'run'>;
 };
+
+/** AICharacterManager is the concrete orchestrator in the server with file-based persistence defaults. */
+export class AICharacterManager extends AICharacterOrchestrator {
+  declare readonly voiceServices: VoiceServiceStore | undefined;
+
+  constructor(
+    providers: ProviderStore,
+    serverUrl: string | (() => string),
+    dependencies: AICharacterDependencies = {
+      session: (url) => new Session(url),
+      runner: (_config, provider) => new AgentRunner(provider),
+    },
+    voiceServices?: VoiceServiceStore,
+  ) {
+    const path = `${providers.path}.agents.json`;
+    super(providers, serverUrl, dependencies, voiceServices, {
+      load: () => readManagementArchive(path),
+      save: (records) => writeManagementArchive(path, records),
+    });
+  }
+}

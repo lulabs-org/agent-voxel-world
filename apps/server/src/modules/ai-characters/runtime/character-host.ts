@@ -1,63 +1,37 @@
 import {
   aiCharacterPermissions,
   type AICharacterView,
-  type ChatData,
-  type WorldEvent,
 } from '@voxel/shared';
 import {
   AgentAttention,
-  recordEvent,
   AgentRuntimeError,
-  TaskService,
   type AgentConfig,
-  type AgentRunner,
-  type Session,
 } from '@voxel/agent-runtime';
-import type { TaskLease } from '@voxel/agent-runtime';
-import { appendAICharacterLog } from './logs';
-
-import type { VoiceServicePort as VoiceServiceStore } from './ports';
-import type { SavedProvider } from '../providers/provider-validation';
-import type { Job } from './types';
+import { appendAICharacterLog } from '../domain/activity-log';
+import type { Job } from '../domain/types';
+import type { SavedProvider } from '../../providers/provider-validation';
 import {
   captureTask,
   currentRun,
   executionConfigOverrides,
   beginChatExecution,
-} from '../tasks/execution';
-import { executionState } from './execution-adapter';
+} from '../../tasks/execution';
+import { executionState } from '../domain/task-adapter';
+import { handleWorldEvent } from './world-event-handler';
+import type { ExecutionContext } from './execution-context';
 
-export type ExecutionContext = {
-  serverUrl: string;
-  dependencies: {
-    session: (url: string) => Session;
-    runner: (
-      config: AgentConfig,
-      provider: SavedProvider,
-    ) => Pick<AgentRunner, 'run'>;
-  };
-  voiceServices?: VoiceServiceStore;
-  closing: () => boolean;
-  bindVoice: (job: Job) => void;
-  controlMessage: (
-    id: string,
-    op: 'pause' | 'cancel',
-    identity: TaskLease,
-    commandId: string,
-    message: WorldEvent,
-  ) => Promise<unknown>;
-  wake: (job: Job) => void;
-  schedule: (job: Job) => void;
-  save: () => Promise<void>;
-  persist: () => void;
-};
+export type { ExecutionContext };
 
-/** One host owns the world connection and one runtime execution slot for its Agent. */
+/**
+ * AICharacterHost 代表单个 AI 角色在游戏世界中的会话运行宿主，
+ * 负责维护 Colyseus 房间长连接与驱动 AgentRunner 执行管道。
+ */
 export class AICharacterHost {
   constructor(
     private job: Job,
     private ctx: ExecutionContext,
   ) {}
+
   async run(provider: SavedProvider, run = true): Promise<void> {
     const { job, ctx } = this;
     const log = (message: string) => {
@@ -101,91 +75,7 @@ export class AICharacterHost {
             return;
           if (!job.attention.accept(event, session.room.sessionId)) return;
 
-          const enqueueMessage = () => {
-            const envelope = recordEvent(job.memory, {
-              id: `chat:${job.attention.generation}:${event.actor}:${event.seq}`,
-              kind: 'chat',
-              state: 'pending',
-              at: event.at,
-              audience:
-                (event.data as ChatData).scope === 'public'
-                  ? 'public'
-                  : event.actor,
-              actor: event.actor,
-              message: event,
-            });
-            void ctx
-              .save()
-              .then(() => {
-                if (job.session !== session || ctx.closing()) return;
-                if (!job.attention.enqueue(event)) {
-                  envelope.state = 'unknown';
-                  log('消息队列已满，当前消息未接收。');
-                  ctx.persist();
-                  return;
-                }
-                if (['idle', 'failed'].includes(job.view.status)) {
-                  log('收到玩家消息，处理一次唤醒。');
-                  ctx.wake(job);
-                }
-              })
-              .catch(() => log('消息保存失败，未启动执行。'));
-          };
-          const command = (event.data as ChatData).text
-            .trim()
-            .replace(/^@[^\n]+?\s+(?=(?:暂停|停止|取消|别建))/u, '')
-            .replace(/[！!。.?？\s]+$/u, '');
-          const task = job.memory.task;
-
-          if (
-            task &&
-            /^(暂停|暂停任务|停止|停止任务|别建了|取消|取消任务)$/u.test(
-              command,
-            )
-          ) {
-            try {
-              new TaskService(job.memory).authorize({
-                kind: 'player',
-                message: event,
-              });
-            } catch {
-              enqueueMessage();
-              return;
-            }
-            void ctx
-              .controlMessage(
-                job.view.id,
-                command.startsWith('取消') ? 'cancel' : 'pause',
-                new TaskService(job.memory).lease(),
-                `world-${job.attention.generation}-${event.seq}`,
-                event,
-              )
-              .then(() => {
-                recordEvent(job.memory, {
-                  id: `control:${job.attention.generation}:${event.seq}`,
-                  kind: 'control',
-                  state: 'done',
-                  at: event.at,
-                  audience: event.actor,
-                  actor: event.actor,
-                  detail: command,
-                });
-                ctx.persist();
-                return aiCharacterPermissions(job.view).chat
-                  ? session.request('chat', {
-                      text: command.startsWith('取消')
-                        ? '任务已取消，我会留在这里待命。'
-                        : '任务已暂停，进度已保留。',
-                      scope: 'private',
-                      recipients: [event.actor],
-                    })
-                  : undefined;
-              })
-              .catch(() => {});
-            return;
-          }
-
-          enqueueMessage();
+          handleWorldEvent(event, job, session, ctx, log);
         };
 
         session.room.onMessage(
