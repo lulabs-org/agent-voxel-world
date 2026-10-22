@@ -46,7 +46,6 @@
       "wood": "Wood"
     },
     "blockMaterials": "Block Materials",
-    "buildHint": "Left click to break · Right click to place",
     "breakBlock": "Break",
     "placeBlock": "Place",
     "menuTitle": "Game Menu",

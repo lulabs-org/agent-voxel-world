@@ -134,8 +134,7 @@
   gap: 5px;
   background: none;
 }
-.material-name,
-.build-hint {
+.material-name {
   color: #fff;
   text-shadow: 0 1px 3px #163025;
   background: #233d318c;
@@ -470,9 +469,6 @@
   .in-game [data-hud] button {
     min-height: 44px;
     min-width: 44px;
-  }
-  .in-game .build-hint {
-    display: none;
   }
   .in-game .build-actions {
     display: flex;
