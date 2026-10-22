@@ -28,7 +28,8 @@ COPY packages/shared ./packages/shared
 COPY packages/agent-runtime ./packages/agent-runtime
 COPY apps/server ./apps/server
 COPY docker/server-entrypoint.sh ./docker/server-entrypoint.sh
-RUN chmod +x ./docker/server-entrypoint.sh
+# 兜底：去除 Windows checkout 可能引入的 CRLF，并保证可执行权限
+RUN sed -i 's/\r$//' ./docker/server-entrypoint.sh && chmod +x ./docker/server-entrypoint.sh
 
 # 生成 Prisma 客户端
 RUN pnpm db:generate
