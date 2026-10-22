@@ -28,10 +28,15 @@ import { useI18n } from '../../../i18n/context';
 import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 import type { ConsoleController } from '../useConsoleController';
 import { DeleteAICharacterDialog } from './DeleteAICharacterDialog';
+import { LeaveAICharacterDialog } from './LeaveAICharacterDialog';
 import { aiCharacterPresentation } from './presentation/agent-presentation';
 
 export function AICharacterForm(
-  props: ConsoleController & { disabled: boolean },
+  props: ConsoleController & {
+    disabled: boolean;
+    capacityFull?: boolean;
+    leaveDisabled?: boolean;
+  },
 ) {
   const { t } = useI18n();
   const {
@@ -42,7 +47,6 @@ export function AICharacterForm(
     editingAgent,
     setShowAgentForm,
     busy,
-    notice,
     setNotice,
     setError,
     selected,
@@ -55,12 +59,18 @@ export function AICharacterForm(
     toggleVoiceReplies,
     deleteAgent,
     error,
+    joinAgent,
+    stopAgent,
+    capacityFull,
+    leaveDisabled,
   } = props;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const permissions = aiCharacterPermissions(agent);
   const current = jobs.find((job) => job.id === editingAgent);
   const running = current && !aiCharacterPresentation(current).canEdit;
+  const currentOnline = !!current && aiCharacterPresentation(current).occupiesSlot;
 
   const cancel = () => {
     setShowAgentForm(false);
@@ -265,8 +275,8 @@ export function AICharacterForm(
                           skills: event.target.checked
                             ? [...(agent.skills ?? []), skill.id]
                             : (agent.skills ?? []).filter(
-                                (id) => id !== skill.id,
-                              ),
+                              (id) => id !== skill.id,
+                            ),
                         })
                       }
                     />
@@ -379,10 +389,10 @@ export function AICharacterForm(
                     voiceReplies: checked,
                     voiceServiceId: checked
                       ? voiceServices.find(
-                          (service) => service.id === agent.voiceServiceId,
-                        )?.id ||
-                        voiceServices[0]?.id ||
-                        ''
+                        (service) => service.id === agent.voiceServiceId,
+                      )?.id ||
+                      voiceServices[0]?.id ||
+                      ''
                       : agent.voiceServiceId,
                   })
                 }
@@ -416,10 +426,10 @@ export function AICharacterForm(
                     {!voiceServices.some(
                       (service) => service.id === agent.voiceServiceId,
                     ) && (
-                      <option value={agent.voiceServiceId || ''} disabled>
-                        {t('console.characters.voiceSelectPlaceholder')}
-                      </option>
-                    )}
+                        <option value={agent.voiceServiceId || ''} disabled>
+                          {t('console.characters.voiceSelectPlaceholder')}
+                        </option>
+                      )}
                     {voiceServices.map((service) => (
                       <option key={service.id} value={service.id}>
                         {service.name} ·{' '}
@@ -491,35 +501,53 @@ export function AICharacterForm(
           <div className="agents-form-footer">
             <div className="agents-footer-left">
               {editingAgent && current && (
-                <button
-                  type="button"
-                  className="agents-delete-button agents-btn-icon"
-                  disabled={disabled || current.status === 'stopping'}
-                  onClick={() => {
-                    setError('');
-                    setConfirmDelete(true);
-                  }}
-                >
-                  <Trash2 size={14} />
-                  {t('console.characters.deleteButton')}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="agents-delete-button agents-btn-icon"
+                    disabled={disabled || current.status === 'stopping'}
+                    onClick={() => {
+                      setError('');
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    {t('console.characters.deleteButton')}
+                  </button>
+                  {currentOnline ? (
+                    <button
+                      type="button"
+                      disabled={leaveDisabled || current.status === 'stopping'}
+                      onClick={() => {
+                        setError('');
+                        setConfirmLeave(true);
+                      }}
+                    >
+                      {t('console.characters.offlineButton')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={leaveDisabled || capacityFull}
+                      onClick={() => void joinAgent(current)}
+                    >
+                      {t('console.characters.onlineButton')}
+                    </button>
+                  )}
+                </>
               )}
             </div>
             <div className="agents-footer-right">
-              {notice && (
-                <span className="agents-footer-saved-hint" role="status">
-                  <Check size={14} />
-                  {t('common.saved')}
-                </span>
+              {!editingAgent && (
+                <button
+                  type="button"
+                  onClick={cancel}
+                  className="agents-btn-icon"
+                >
+                  <ArrowLeft size={14} />
+                  {t('common.cancel')}
+                </button>
               )}
-              <button
-                type="button"
-                onClick={cancel}
-                className="agents-btn-icon"
-              >
-                <ArrowLeft size={14} />
-                {t('common.cancel')}
-              </button>
               <button
                 type="submit"
                 className="primary agents-btn-icon"
@@ -563,6 +591,18 @@ export function AICharacterForm(
           error={error}
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => void deleteAgent(current)}
+        />
+      )}
+      {confirmLeave && current && (
+        <LeaveAICharacterDialog
+          name={current.name}
+          busy={busy}
+          disabled={leaveDisabled || current.status === 'stopping'}
+          onCancel={() => setConfirmLeave(false)}
+          onConfirm={() => {
+            setConfirmLeave(false);
+            void stopAgent(current);
+          }}
         />
       )}
     </section>

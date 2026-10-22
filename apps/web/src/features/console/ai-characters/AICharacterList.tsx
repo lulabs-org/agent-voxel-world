@@ -17,7 +17,6 @@ export function AICharacterList(
     pollError,
     loadingJobs,
     selectedAgentId,
-    selectAgent,
     showAgentForm,
     editingAgent,
     openAgentEditor,
@@ -104,7 +103,12 @@ export function AICharacterList(
                   key={job.id}
                   aria-pressed={!creating && current?.id === job.id}
                   disabled={busy}
-                  onClick={() => selectAgent(job.id)}
+                  onClick={() => {
+                    // 侧栏点击应打开该角色的「设置」；若已在编辑它则保持不动
+                    // （避免丢弃未保存的修改），绝不回退到「运行记录」视图。
+                    if (showAgentForm && editingAgent === job.id) return;
+                    openAgentEditor(job);
+                  }}
                 >
                   <span className="agents-mini-avatar" aria-hidden="true">
                     {Array.from(job.name)[0]}

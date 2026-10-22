@@ -701,6 +701,50 @@
   margin: 6px 0 12px;
 }
 
+/* --------------------------------------------------------------------------
+   Plans Welcome / Empty State
+   -------------------------------------------------------------------------- */
+
+.agent-dialog .characters-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 340px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.agent-dialog .characters-welcome-symbol {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 12px;
+  border: 1px solid #d7e2ce;
+  border-radius: 50%;
+  background: #eef4ea;
+  color: #385945;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.agent-dialog .characters-welcome h4 {
+  margin: 0;
+  color: #234d3c;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.agent-dialog .characters-welcome p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--agents-muted, #66796e);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 /* Responsive Rules */
 @media (max-width: 700px) {
   .plans-usage-grid {

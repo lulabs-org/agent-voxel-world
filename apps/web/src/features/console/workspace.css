@@ -42,6 +42,23 @@
   overflow-y: auto;
   padding: 1px;
 }
+/* Shared sidebar empty / loading placeholder */
+.agent-dialog .characters-list-empty,
+.agent-dialog .agents-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 2px 0;
+  padding: 24px 14px;
+  border: 1px dashed #d3ddca;
+  border-radius: 10px;
+  background: #f4f7f0;
+  color: var(--agents-muted, #66796e);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
 .agent-dialog .console-sidebar-item {
   display: flex;
   min-width: 0;
