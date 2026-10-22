@@ -1,7 +1,7 @@
 import type { TaskPlan } from '@voxel/shared';
 import type { StoredRun } from '../modules/tasks/types';
-import type { CharacterRecord } from '../modules/ai-characters/record';
-export type { CharacterRecord } from '../modules/ai-characters/record';
+import type { CharacterRecord } from '../modules/ai-characters/domain/types';
+export type { CharacterRecord } from '../modules/ai-characters/domain/types';
 
 export type ManagementArchive = {
   version: 2 | 3;

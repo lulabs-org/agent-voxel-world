@@ -7,12 +7,12 @@ import {
   type AICharacterPermissions,
   type AICharacterSkillId,
 } from '@voxel/shared';
-import { AppError } from '../../common/errors';
-import { object, text, integer, boolean } from '../../common/validation';
+import { AppError } from '../../../common/errors';
+import { object, text, integer, boolean } from '../../../common/validation';
 import {
   validateInference,
   type SavedProvider,
-} from '../providers/provider-validation';
+} from '../../providers/provider-validation';
 
 export function validateAICharacter(
   value: unknown,

@@ -1,10 +1,13 @@
-import type { TaskExecutionState } from '../tasks/execution-port';
+import type { TaskExecutionState } from '../../tasks/execution-port';
 import type { Job } from './types';
 
 const states = new WeakMap<Job, TaskExecutionState>();
 
-/** Hide transport and runner ownership while keeping task state live across checkpoint restores. */
-export function executionState(job: Job): TaskExecutionState {
+/**
+ * 将角色的内部 Job 状态适配为 Tasks 模块所需的 TaskExecutionState，
+ * 隐藏底层的网络会话与 Runner，仅暴露任务状态及必要的变更守卫。
+ */
+export function taskExecutionState(job: Job): TaskExecutionState {
   const previous = states.get(job);
   if (previous) return previous;
   const state: TaskExecutionState = {
@@ -55,3 +58,5 @@ export function executionState(job: Job): TaskExecutionState {
   states.set(job, state);
   return state;
 }
+
+export { taskExecutionState as executionState };

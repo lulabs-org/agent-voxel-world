@@ -1,14 +1,13 @@
 import type { AICharacterSettings } from '@voxel/shared';
 import { AgentAttention } from '@voxel/agent-runtime';
-import type { PlanService } from '../tasks/service';
-import { restoreAICharacterLogs } from './logs';
-import { validateAICharacter } from './validation';
-import { AppError } from '../../common/errors';
-import type { ProviderPort } from '../providers/provider-port';
-import type { CharacterRecord } from './record';
-import type { Job } from './types';
-import { restoreTaskExecution, restoreTaskMemory } from '../tasks/restore';
-import { executionState } from './execution-adapter';
+import type { PlanService } from '../../tasks/service';
+import { restoreAICharacterLogs } from '../domain/activity-log';
+import { validateAICharacter } from '../domain/validation';
+import { AppError } from '../../../common/errors';
+import type { ProviderPort } from '../../providers/provider-port';
+import type { CharacterRecord, Job } from '../domain/types';
+import { restoreTaskExecution, restoreTaskMemory } from '../../tasks/restore';
+import { executionState } from '../domain/task-adapter';
 
 export function restoreAICharacterJob(
   view: CharacterRecord,

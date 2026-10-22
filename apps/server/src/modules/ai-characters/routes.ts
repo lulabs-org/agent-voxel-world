@@ -1,7 +1,7 @@
 import { ManagementCommands } from '../management/commands';
 import { AppError } from '../../common/errors';
 import type { Express, Request } from 'express';
-import type { AICharacterManager } from './manager';
+import type { AICharacterManager } from './services/orchestrator';
 import { asyncRoute as route } from '../../http/middleware/async-route';
 
 export type AICharacterRoutePort = Pick<

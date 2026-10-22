@@ -1,6 +1,5 @@
 import type { AICharacterView } from '@voxel/shared';
-import type { CharacterRecord } from './record';
-import type { AICharacterRegistry } from './types';
+import type { CharacterRecord, AICharacterRegistry } from '../domain/types';
 
 /** Character snapshots and failure handling; no file writes or task-ledger ownership. */
 export class CharacterSnapshots {
