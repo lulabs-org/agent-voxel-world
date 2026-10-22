@@ -195,6 +195,11 @@ export function TaskPlans({
     setExtend(false);
   };
 
+  // 进入「任务计划」页签后默认选中列表第一个任务，避免右侧详情空白。
+  useEffect(() => {
+    if (active && !selected && page.items.length) openPlan(page.items[0].id);
+  }, [active, selected, page.items]);
+
   return (
     <section aria-label={t('console.plans.managementAria')} className="plans-workspace">
       {(error || readError) && (
