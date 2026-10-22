@@ -14,6 +14,10 @@ export class CharacterSnapshots {
     return structuredClone(this.committed.get(id)?.runtime?.identity);
   }
 
+  publicLogEntries(id: string) {
+    return structuredClone(this.committed.get(id)?.logEntries ?? []);
+  }
+
   committedCharacterName(id: string): string | undefined {
     return this.committed.get(id)?.name;
   }

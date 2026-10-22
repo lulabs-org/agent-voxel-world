@@ -55,6 +55,17 @@ export type AICharacterSettings = {
   reasoningEffort: 'none' | 'low' | 'high' | 'max';
 };
 export const AI_CHARACTER_LOG_LIMIT = 500;
+/** Default page size for the paginated activity-log endpoint. */
+export const AI_CHARACTER_LOG_PAGE_SIZE = 50;
+/** Upper bound accepted for a single activity-log page request. */
+export const AI_CHARACTER_LOG_MAX_PAGE_SIZE = 200;
+
+/** One activity-log entry; `time` is UTC epoch milliseconds, null when the legacy record has no recorded time. */
+export type AICharacterLogEntry = {
+  /** UTC epoch milliseconds; null means the legacy timestamp is unknown. */
+  time: number | null;
+  text: string;
+};
 
 export type AICharacterUsage = {
   calls: number;
@@ -75,9 +86,12 @@ export type AICharacterView = AICharacterSettings & {
     | 'failed';
   createdAt: number;
   sessionId?: string;
-  logs: string[];
-  /** UTC epoch milliseconds aligned with logs; null means legacy time is unknown. */
-  logTimes?: (number | null)[];
+  /**
+   * Full activity log, oldest-first. Internal/persisted shape only: the
+   * `/ai-characters` list and detail responses omit this and expose `lastLog`;
+   * the complete history is served by `GET /ai-characters/{id}/logs`.
+   */
+  logEntries: AICharacterLogEntry[];
   task?: AICharacterTask;
   /** Limits of the current execution, which may differ from role defaults. */
   taskExecution?: {
@@ -96,4 +110,25 @@ export type AICharacterView = AICharacterSettings & {
   lastResponse?: string;
   /** The original private recipient no longer exists; the task must be reassigned. */
   taskRequiresReassignment?: boolean;
+};
+
+/**
+ * Public HTTP shape for `GET /ai-characters` and `GET /ai-characters/{id}`.
+ * Omits the heavy `logEntries` array and carries only the newest log line so
+ * summary cards stay small; the full history lives behind `GET /ai-characters/{id}/logs`.
+ */
+export type AICharacterSummary = Omit<AICharacterView, 'logEntries'> & {
+  /** Newest activity-log text, if any. */
+  lastLog?: string;
+  /** UTC epoch milliseconds of the newest activity-log entry; null when unrecorded. */
+  lastLogAt?: number | null;
+};
+
+/** A page of activity-log entries, newest-first, for `GET /ai-characters/{id}/logs`. */
+export type AICharacterLogPage = {
+  entries: AICharacterLogEntry[];
+  /** Opaque cursor to request the next (older) page; absent when exhausted. */
+  nextCursor?: string;
+  /** Total entries retained for the character, for display only. */
+  total: number;
 };

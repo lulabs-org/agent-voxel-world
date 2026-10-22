@@ -1,11 +1,11 @@
-import type { AICharacterView } from '@voxel/shared';
+import type { AICharacterSummary } from '@voxel/shared';
 import type {
   PublicAICharacterView,
   TaskIdentity,
 } from '@voxel/shared/management';
 import { consoleFetch } from '../request';
 export const displayedTaskIdentity = (
-  view?: AICharacterView,
+  view?: AICharacterSummary,
 ): TaskIdentity | null =>
   (view as PublicAICharacterView | undefined)?.taskIdentity ?? null;
 

@@ -521,7 +521,9 @@ it('records chat execution without creating plans and rejects replacement of act
   expect(manager.plans.runs).toHaveLength(1);
   expect(manager.plans.runs[0].task?.goal).toBe('聊天安排');
   expect(
-    manager.list()[0].logs.some((log) => log.includes('已有正在执行')),
+    manager
+      .list()[0]
+      .logEntries.some((entry) => entry.text.includes('已有正在执行')),
   ).toBe(true);
 });
 

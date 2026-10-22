@@ -4,7 +4,7 @@ import {
   wallClockInstant,
   type TaskPlan,
   type TaskPlanDraft,
-  type AICharacterView,
+  type AICharacterSummary,
 } from '@voxel/shared';
 import { useState } from 'react';
 import { useI18n } from '../../../i18n/context';
@@ -35,7 +35,7 @@ export function TaskPlanEditor({
   plan?: TaskPlan;
   busy: boolean;
   blocked: string;
-  characters: AICharacterView[];
+  characters: AICharacterSummary[];
   onSave: (
     draft: TaskPlanDraft,
     requestId: string,
@@ -125,7 +125,11 @@ export function TaskPlanEditor({
       <div className="console-panel-heading plans-editor-heading">
         <div className="plans-editor-heading-row">
           <div>
-            <h3>{plan ? t('console.plans.editorTitleEdit') : t('console.plans.editorTitleNew')}</h3>
+            <h3>
+              {plan
+                ? t('console.plans.editorTitleEdit')
+                : t('console.plans.editorTitleNew')}
+            </h3>
             <p>{t('console.plans.editorSubtitle')}</p>
           </div>
           <button type="button" onClick={onCancel} disabled={busy}>
@@ -148,7 +152,11 @@ export function TaskPlanEditor({
                 value={characterId}
                 onChange={(e) => setCharacterId(e.target.value)}
               >
-                <option value="">{plan ? t('console.plans.boundCharacter') : t('console.plans.selectCharacterPlaceholder')}</option>
+                <option value="">
+                  {plan
+                    ? t('console.plans.boundCharacter')
+                    : t('console.plans.selectCharacterPlaceholder')}
+                </option>
                 {characters.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -168,9 +176,7 @@ export function TaskPlanEditor({
               />
             </label>
           </div>
-          <p className="agent-hint">
-            {t('console.plans.offlineAllowedNote')}
-          </p>
+          <p className="agent-hint">{t('console.plans.offlineAllowedNote')}</p>
           <label>
             {t('console.plans.fieldGoal')}
             <textarea
@@ -207,9 +213,13 @@ export function TaskPlanEditor({
                 if (kind === 'interval') setIntervalUnit(3600000);
               }}
             >
-              <option value="immediate">{t('console.plans.timingImmediate')}</option>
+              <option value="immediate">
+                {t('console.plans.timingImmediate')}
+              </option>
               <option value="once">{t('console.plans.timingOnce')}</option>
-              <option value="interval">{t('console.plans.timingInterval')}</option>
+              <option value="interval">
+                {t('console.plans.timingInterval')}
+              </option>
               <option value="daily">{t('console.plans.timingDaily')}</option>
               <option value="weekly">{t('console.plans.timingWeekly')}</option>
             </select>
@@ -266,8 +276,12 @@ export function TaskPlanEditor({
                     });
                   }}
                 >
-                  <option value={60000}>{t('console.plans.unitMinutes')}</option>
-                  <option value={3600000}>{t('console.plans.unitHours')}</option>
+                  <option value={60000}>
+                    {t('console.plans.unitMinutes')}
+                  </option>
+                  <option value={3600000}>
+                    {t('console.plans.unitHours')}
+                  </option>
                 </select>
               </label>
             </div>
@@ -330,9 +344,7 @@ export function TaskPlanEditor({
             {draft.timing.kind === 'interval'
               ? t('console.plans.intervalStartHint')
               : ''}
-            {repeating
-              ? t('console.plans.queuePolicyHint')
-              : ''}
+            {repeating ? t('console.plans.queuePolicyHint') : ''}
           </p>
         </div>
         <div className="characters-form-section">
@@ -351,7 +363,9 @@ export function TaskPlanEditor({
             {t('console.plans.inheritDefaultLimits')}
           </label>
           {draft.limitsMode === 'inherit' && (
-            <p className="agent-hint">{t('console.plans.inheritSnapshotHint')}</p>
+            <p className="agent-hint">
+              {t('console.plans.inheritSnapshotHint')}
+            </p>
           )}
           {draft.limitsMode !== 'inherit' && (
             <>
@@ -382,9 +396,7 @@ export function TaskPlanEditor({
           )}
 
           {plan && (
-            <p className="agent-hint">
-              {t('console.plans.limitsFutureOnly')}
-            </p>
+            <p className="agent-hint">{t('console.plans.limitsFutureOnly')}</p>
           )}
           {!plan && draft.timing.kind === 'immediate' && blocked && (
             <p role="status" className="agent-hint">

@@ -4,7 +4,8 @@ import type { PlanService } from './service';
 
 /** Mutable task state only: no world Session, runner, abort controller or Agent registry. */
 export interface TaskExecutionState {
-  view: AICharacterSettings & Pick<AICharacterView, 'id' | 'status' | 'logs'>;
+  view: AICharacterSettings &
+    Pick<AICharacterView, 'id' | 'status' | 'logEntries'>;
   memory: AgentRunState;
   readonly ledger: PlanService;
   currentRunId: string | undefined;

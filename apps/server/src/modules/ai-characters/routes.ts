@@ -1,8 +1,31 @@
 import { ManagementCommands } from '../management/commands';
 import { AppError } from '../../common/errors';
 import type { Express, Request } from 'express';
+import {
+  AI_CHARACTER_LOG_MAX_PAGE_SIZE,
+  AI_CHARACTER_LOG_PAGE_SIZE,
+  type AICharacterLogPage,
+} from '@voxel/shared';
+import type { PublicAICharacterView } from '@voxel/shared/management';
 import type { AICharacterManager } from './services/orchestrator';
 import { asyncRoute as route } from '../../http/middleware/async-route';
+
+/** Opaque, versioned cursor wrapping a newest-first page offset. */
+const encodeLogCursor = (offset: number) =>
+  Buffer.from(`v1:${offset}`, 'utf8').toString('base64url');
+
+const decodeLogCursor = (cursor: unknown): number => {
+  if (typeof cursor !== 'string' || !cursor) return 0;
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const [version, value] = decoded.split(':');
+    if (version !== 'v1') return 0;
+    const offset = Number(value);
+    return Number.isFinite(offset) && offset > 0 ? Math.trunc(offset) : 0;
+  } catch {
+    return 0;
+  }
+};
 
 export type AICharacterRoutePort = Pick<
   AICharacterManager,
@@ -12,6 +35,7 @@ export type AICharacterRoutePort = Pick<
   | 'join'
   | 'publicIdentity'
   | 'publicList'
+  | 'publicLogEntries'
   | 'remove'
   | 'setVoice'
   | 'settled'
@@ -28,15 +52,20 @@ export function installAICharacterRoutes(
   manager: AICharacterRoutePort,
   commands: ManagementCommands,
 ) {
-  const view = (id: string) => {
+  const view = (id: string): PublicAICharacterView => {
     const value = manager.publicList().find((a) => a.id === id);
     if (!value) throw new AppError('AI 角色 不存在。', 404);
+    const { logEntries, ...rest } = value;
+    const newest = logEntries.at(-1);
     return {
-      ...value,
+      ...rest,
       resourceVersion: manager.events.version,
       taskIdentity: manager.publicIdentity(id) ?? null,
+      lastLog: newest?.text,
+      lastLogAt: newest ? newest.time : undefined,
     };
   };
+
   const write = (req: Request, action: () => unknown | Promise<unknown>) =>
     commands.execute(
       req,
@@ -56,10 +85,7 @@ export function installAICharacterRoutes(
           : result;
       },
     );
-  app.get(
-    '/ai-characters/:id',
-    route((req, res) => res.json(view(String(req.params.id)))),
-  );
+
   // ---------------------------------------------------------------------------
   // AI 角色基础与生命周期
   // ---------------------------------------------------------------------------
@@ -81,6 +107,95 @@ export function installAICharacterRoutes(
     '/ai-characters',
     route((_req, res) => {
       res.json(manager.publicList().map((a) => view(a.id)));
+    }),
+  );
+
+  /**
+   * @openapi
+   * /ai-characters/{id}:
+   *   get:
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 获取指定 AI 角色详情
+   *     tags:
+   *       - AI Characters
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: AI 角色详情
+   *       404:
+   *         description: AI 角色不存在
+   */
+  app.get(
+    '/ai-characters/:id',
+    route((req, res) => res.json(view(String(req.params.id)))),
+  );
+
+  /**
+   * @openapi
+   * /ai-characters/{id}/logs:
+   *   get:
+   *     security:
+   *       - ManagementBearer: []
+   *     summary: 分页获取指定 AI 角色的运行日志（最新在前）
+   *     tags:
+   *       - AI Characters
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: limit
+   *         required: false
+   *         schema:
+   *           type: integer
+   *           minimum: 1
+   *           maximum: 200
+   *           default: 50
+   *       - in: query
+   *         name: cursor
+   *         required: false
+   *         description: 上一页返回的 nextCursor；省略时从最新日志开始
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: 日志分页
+   *       404:
+   *         description: AI 角色不存在
+   */
+  app.get(
+    '/ai-characters/:id/logs',
+    route((req, res) => {
+      const id = String(req.params.id);
+      if (!manager.publicList().some((a) => a.id === id))
+        throw new AppError('AI 角色 不存在。', 404);
+      const rawLimit = Number(req.query.limit ?? AI_CHARACTER_LOG_PAGE_SIZE);
+      const limit = Number.isFinite(rawLimit)
+        ? Math.min(
+            Math.max(Math.trunc(rawLimit), 1),
+            AI_CHARACTER_LOG_MAX_PAGE_SIZE,
+          )
+        : AI_CHARACTER_LOG_PAGE_SIZE;
+      // Entries are stored oldest-first; serve newest-first.
+      const entries = [...manager.publicLogEntries(id)].reverse();
+      const offset = decodeLogCursor(req.query.cursor);
+      const page = entries.slice(offset, offset + limit);
+      const nextOffset = offset + page.length;
+      const body: AICharacterLogPage = {
+        entries: page,
+        total: entries.length,
+        nextCursor:
+          nextOffset < entries.length ? encodeLogCursor(nextOffset) : undefined,
+      };
+      res.json(body);
     }),
   );
 

@@ -2,7 +2,8 @@
 import { act, StrictMode, type ComponentProps, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { AICharacterView, ChatEntry } from '@voxel/shared';
+import type { ChatEntry } from '@voxel/shared';
+import type { PublicAICharacterView } from '@voxel/shared/management';
 import { Connection } from './network/connection';
 import {
   useChatController,
@@ -93,14 +94,15 @@ it('keeps chat recording alive across rerenders and cancels on disconnect and un
 });
 
 it('does not reinitialize the role editor when polling updates the same role', async () => {
-  const job: AICharacterView = {
+  const job: PublicAICharacterView = {
     ...initialAICharacter,
     id: 'a',
     name: 'A',
     providerName: 'fixture',
     status: 'idle',
     createdAt: 0,
-    logs: [],
+    resourceVersion: 0,
+    taskIdentity: null,
   };
   const open = vi.fn();
   const props = {
@@ -125,7 +127,7 @@ it('does not reinitialize the role editor when polling updates the same role', a
     <StrictMode>
       <AICharacterDetail
         {...props}
-        job={{ ...job, logs: ['polled'] }}
+        job={{ ...job, lastLog: 'polled' }}
         openAgentEditor={newerOpen}
       />
     </StrictMode>,

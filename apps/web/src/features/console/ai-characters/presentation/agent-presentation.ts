@@ -1,9 +1,9 @@
-import type { AICharacterView } from '@voxel/shared';
+import type { AICharacterSummary } from '@voxel/shared';
 import i18n from '../../../../i18n/config';
 import { taskStatusNames } from '../../execution-status';
 
 /** Presence and task execution are separate: an idle process can have a running task. */
-export function aiCharacterPresentation(job: AICharacterView) {
+export function aiCharacterPresentation(job: AICharacterSummary) {
   const transitioning = ['joining', 'stopping'].includes(job.status);
   const online = !!job.sessionId;
   const occupiesSlot = online || transitioning || job.status === 'running';
@@ -32,7 +32,9 @@ export function aiCharacterPresentation(job: AICharacterView) {
           : online
             ? i18n.t('console.characters.presenceInWorld')
             : i18n.t('console.characters.presenceNotInWorld'),
-    taskLabel: job.task ? taskStatusNames[job.task.status] : i18n.t('console.characters.waitingTask'),
+    taskLabel: job.task
+      ? taskStatusNames[job.task.status]
+      : i18n.t('console.characters.waitingTask'),
     canEdit: !transitioning && !executing && job.status !== 'running',
   };
 }

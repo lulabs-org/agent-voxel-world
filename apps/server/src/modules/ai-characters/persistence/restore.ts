@@ -1,7 +1,10 @@
 import type { AICharacterSettings } from '@voxel/shared';
 import { AgentAttention } from '@voxel/agent-runtime';
 import type { PlanService } from '../../tasks/service';
-import { restoreAICharacterLogs } from '../domain/activity-log';
+import {
+  migrateLegacyLogs,
+  restoreAICharacterLogs,
+} from '../domain/activity-log';
 import { validateAICharacter } from '../domain/validation';
 import { AppError } from '../../../common/errors';
 import type { ProviderPort } from '../../providers/provider-port';
@@ -35,7 +38,15 @@ export function restoreAICharacterJob(
       createdAt: view.createdAt,
       providerName: provider.name,
       status: 'stopped',
-      ...restoreAICharacterLogs(view.logs, view.logTimes),
+      ...restoreAICharacterLogs(
+        Array.isArray(view.logEntries)
+          ? view.logEntries
+          : migrateLegacyLogs(
+              // Legacy archives persisted two parallel arrays before `logEntries`.
+              (view as { logs?: unknown }).logs,
+              (view as { logTimes?: unknown }).logTimes,
+            ),
+      ),
     },
     abort: new AbortController(),
     memory: restoreTaskMemory(view.runtime, view.task, settings.goal),

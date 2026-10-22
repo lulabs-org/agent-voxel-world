@@ -219,7 +219,28 @@ export const apiSchemas = {
     type: 'object',
     required: ['id', 'name', 'status'],
     properties: { id: text, name: text, status: text, task: object },
-    description: '控制当前执行时返回的 Agent 公开状态，包含当前任务及用量。',
+    description:
+      '控制当前执行时返回的 Agent 公开状态，包含当前任务及用量；不含完整日志数组（仅保留 lastLog/lastLogAt），完整历史请调用 GET /ai-characters/{id}/logs。',
+  },
+  AICharacterLogPage: {
+    type: 'object',
+    required: ['entries', 'total'],
+    properties: {
+      entries: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['text'],
+          properties: {
+            time: integer,
+            text,
+          },
+        },
+      },
+      nextCursor: text,
+      total: integer,
+    },
+    description: '运行日志分页，最新在前；nextCursor 省略表示已到最后一页。',
   },
   TaskControl: {
     type: 'object',
