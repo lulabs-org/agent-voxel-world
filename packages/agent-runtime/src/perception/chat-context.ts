@@ -1,8 +1,8 @@
 import type { ChatData } from '@voxel/shared';
 import type { Observation } from '../contracts';
 
-/** Do not carry a private conversation into a public/different recipient turn. */
-export function agentChatContext(observation: Observation) {
+/** Isolates private/nearby chat events so turns do not leak private recipient messages. */
+export function isolateChatScope(observation: Observation) {
   const latest = observation.events
     .filter((e) => e.type === 'chat' && e.actor !== observation.self.id)
     .at(-1);
@@ -24,3 +24,4 @@ export function agentChatContext(observation: Observation) {
     ),
   };
 }
+

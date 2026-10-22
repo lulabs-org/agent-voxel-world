@@ -4,7 +4,7 @@ import {
   type AgentRunState,
   type BatchResult,
 } from '@voxel/agent-runtime';
-import { prepareDecision } from '../packages/agent-runtime/src/task/observation';
+import { prepareDecision } from '../packages/agent-runtime/src/perception/observation';
 import { navigationWorld } from './support/navigation-world';
 
 function fixture() {

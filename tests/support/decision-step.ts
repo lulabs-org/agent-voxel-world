@@ -7,15 +7,15 @@ import type {
   AgentSession,
   AgentConfig,
 } from '../../packages/agent-runtime/src/contracts';
-import type { AgentAttention } from '../../packages/agent-runtime/src/runtime/attention';
+import type { AgentAttention } from '../../packages/agent-runtime/src/perception/attention';
 import type { AgentRunState } from '../../packages/agent-runtime/src/task/state';
 import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
 import { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
 
-import { prepareDecision } from '../../packages/agent-runtime/src/task/observation';
-import { cap } from '../../packages/agent-runtime/src/task/budget';
+import { prepareDecision } from '../../packages/agent-runtime/src/perception/observation';
+import { checkBudgetCap } from '../../packages/agent-runtime/src/task/budget';
 import { applyTaskDecision } from './decision-apply';
-export { worldSignature } from '../../packages/agent-runtime/src/task/observation';
+export { worldSignature } from '../../packages/agent-runtime/src/perception/observation';
 /** Empty polls and unchanged waits cost no tokens; planners count actual requests. */
 export async function runTaskStep(
   session: Pick<AgentSession, 'observe' | 'move' | 'request'>,
@@ -38,7 +38,7 @@ export async function runTaskStep(
   if (!addressed && !['running', 'waiting'].includes(task?.status ?? ''))
     return;
   if (!addressed && task) {
-    const reason = cap(task, config);
+    const reason = checkBudgetCap(task, config);
     if (reason) {
       task.status = 'budget';
       task.reason = reason;
@@ -135,7 +135,7 @@ export async function runTaskStep(
       );
     budget.flushTime();
     if (chargedTask) {
-      const reason = cap(chargedTask, config);
+      const reason = checkBudgetCap(chargedTask, config);
       if (reason && ['running', 'waiting'].includes(chargedTask.status)) {
         chargedTask.status = 'budget';
         chargedTask.reason = reason;

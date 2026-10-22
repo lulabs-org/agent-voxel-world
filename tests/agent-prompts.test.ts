@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Observation } from '@voxel/agent-runtime';
-import { piPrompt, piInput } from '../packages/agent-runtime/src/pi/prompts';
+import {
+  characterPrompt,
+  formatTurnInput,
+} from '../packages/agent-runtime/src/cognition/prompts';
 import { testAgentConfig } from './support/agent-config';
 import type { AgentConfig } from '@voxel/agent-runtime';
 function buildMessages(
@@ -13,8 +16,8 @@ function buildMessages(
     ...options,
   };
   return [
-    { role: 'system', content: piPrompt(config) },
-    { role: 'user', content: piInput(config, o, previous) },
+    { role: 'system', content: characterPrompt(config) },
+    { role: 'user', content: formatTurnInput(config, o, previous) },
   ];
 }
 
@@ -106,7 +109,7 @@ describe('agent prompt boundary', () => {
     input.self.name = maliciousText;
     input.attention = { ...input.events[19], data: { text: maliciousText } };
     const messages = buildMessages(input, null, { allowEdits: true });
-    expect(piPrompt(testAgentConfig())).toContain('UNIFIED CHARACTER');
+    expect(characterPrompt(testAgentConfig())).toContain('UNIFIED CHARACTER');
     expect(messages[0].content).toContain('Use build');
     expect(messages[0].content).toContain('never edit bedrock');
     expect(messages[0].content).toContain(

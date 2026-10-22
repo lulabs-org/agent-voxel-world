@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { AICharacterTask, WorldEvent, ChatData } from '@voxel/shared';
 import type { AgentConfig } from '../contracts';
 import { AgentRuntimeError } from '../errors';
-import { cap, type RequestBudget } from './budget';
+import { checkBudgetCap, type RequestBudget } from './budget';
 import { newTask, type AgentRunState } from './state';
 
 export type TaskCommand =
@@ -118,7 +118,7 @@ export class TaskService {
     if (command.type === 'resume' || command.type === 'revise') {
       if (memory.audienceExpired)
         throw new AgentRuntimeError('原私聊会话已失效，请重新通过聊天发起。');
-      const reason = cap(task, config);
+      const reason = checkBudgetCap(task, config);
       if (reason) throw new AgentRuntimeError(reason);
     }
     this.lease();

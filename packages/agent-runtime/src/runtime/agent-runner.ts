@@ -1,5 +1,5 @@
 import type { ModelEndpoint } from '../contracts';
-import { defaultEndpoint } from '../models/pi-provider';
+import { defaultEndpoint } from '../models/provider-adapter';
 import { AgentCoordinator } from './agent-coordinator';
 import type { RunOptions } from './options';
 export type { RunOptions } from './options';

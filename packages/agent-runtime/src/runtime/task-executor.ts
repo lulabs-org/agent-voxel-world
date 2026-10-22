@@ -8,12 +8,22 @@ import type {
 } from '../contracts';
 import type { AgentRunState } from '../task/state';
 import { TaskService, type TaskLease } from '../task/service';
-import type { AgentAttention } from './attention';
+import type { AgentAttention } from '../perception/attention';
 import { executeBatch } from '../actions/batch';
 import { houseBlocks } from '../actions/building';
 import type { RequestBudget } from '../task/budget';
 
-/** Executes world effects only. Task commands and conversation never enter this boundary. */
+/**
+ * Task-bound Action Execution Adapter:
+ * Bridges runtime-level TaskService invariants, memory persistence, and budget limits
+ * with the underlying physical batch executor (`executeBatch` in `actions/batch.ts`).
+ *
+ * Responsibilities:
+ * - Guarantees session calls conform to the active `TaskLease`
+ * - Merges and tracks unfinished blueprint builds across model turns
+ * - Manages continuous follow pursuit state checkpoints
+ * - Enforces task private routing for chat actions
+ */
 export async function executeTaskActions(
   session: AgentSession,
   actions: AgentAction[],

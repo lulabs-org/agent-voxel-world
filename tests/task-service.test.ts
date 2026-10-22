@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import {
   newTask,
   TaskService,
-  restorePiCheckpoint,
+  restoreCheckpoint,
   type AgentRunState,
 } from '@voxel/agent-runtime';
 import { testAgentConfig } from './support/agent-config';
@@ -148,8 +148,8 @@ it('backs up and migrates current and historical runtimes while preserving uncer
     ).toBe(original);
     // The archive reader is deliberately lossless; migration belongs to restoration.
     const migrated = saved!.characters[0];
-    restorePiCheckpoint(migrated.runtime!);
-    for (const run of saved!.runs) restorePiCheckpoint(run.runtime!);
+    restoreCheckpoint(migrated.runtime!);
+    for (const run of saved!.runs) restoreCheckpoint(run.runtime!);
     expect(migrated.runtime).toMatchObject({
       version: 2,
       task: { calls: 3, tokens: 600 },
@@ -161,7 +161,7 @@ it('backs up and migrates current and historical runtimes while preserving uncer
       unknownEffect: { name: 'chat' },
     });
     const again = structuredClone(migrated.runtime);
-    restorePiCheckpoint(again!);
+    restoreCheckpoint(again!);
     expect(again).toEqual(migrated.runtime);
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -1,11 +1,11 @@
-import { recordEvent } from './event-inbox';
+import { recordEvent } from '../task/inbox';
 import { TaskService } from '../task/service';
 import { aiCharacterPermissions } from '@voxel/shared';
 import { navigate, observeNavigation } from '../actions/navigation/controller';
 import { parseAction } from '../actions/parse';
 import type { AgentConfig, AgentSession } from '../contracts';
 import type { AgentRunState } from '../task/state';
-import type { AgentAttention } from './attention';
+import type { AgentAttention } from '../perception/attention';
 type FollowOptions = {
   memory: AgentRunState;
   session: AgentSession;

@@ -5,11 +5,13 @@ import {
 } from '@earendil-works/pi-ai';
 import type { AgentConfig, ModelEndpoint } from '../contracts';
 import { AgentRuntimeError } from '../errors';
-import { piModel, piStream } from '../models/pi-provider';
+import { createModel, createModelStream } from '../models/provider-adapter';
 import type { RequestBudget } from '../task/budget';
-import { recentTurns, recentInteractions } from '../pi/context';
+import { recentTurns, recentInteractions } from '../cognition/context';
 
-import type { ToolState as LoopState } from '../pi/context';
+export type { ToolState as LoopState } from '../cognition/context';
+import type { ToolState as LoopState } from '../cognition/context';
+
 export const loopState = (): LoopState => ({
   terminal: false,
   skipBatch: false,
@@ -18,8 +20,8 @@ export const loopState = (): LoopState => ({
   turnMutated: false,
 });
 
-/** Pi session mechanics for the unified character event flow. */
-type PiLoopOptions = {
+/** Multi-step cognitive decision loop options for unified character event handling. */
+export type DecisionLoopOptions = {
   config: AgentConfig;
   endpoint: ModelEndpoint;
   request: typeof fetch;
@@ -38,11 +40,14 @@ type PiLoopOptions = {
   interactionHistory?: boolean;
   contextEpoch?: () => string;
 };
+
 const sessions = new WeakMap<
   object,
-  { agent: Agent; options: PiLoopOptions; reset: () => void }
+  { agent: Agent; options: DecisionLoopOptions; reset: () => void }
 >();
-export async function runPiLoop(options: PiLoopOptions) {
+
+/** Runs the cognitive decision loop for the current character turn. */
+export async function runDecisionLoop(options: DecisionLoopOptions) {
   const cached = options.sessionKey
     ? sessions.get(options.sessionKey)
     : undefined;
@@ -60,12 +65,12 @@ export async function runPiLoop(options: PiLoopOptions) {
     cached?.agent ??
     new Agent({
       initialState: {
-        model: piModel(o.config, o.endpoint),
+        model: createModel(o.config, o.endpoint),
         systemPrompt: o.prompt,
         tools: o.tools,
       },
       streamFn: (model, context, streamOptions) =>
-        piStream(
+        createModelStream(
           o.config,
           o.endpoint,
           o.budget,
@@ -197,7 +202,7 @@ export async function runPiLoop(options: PiLoopOptions) {
       },
     });
   agent.reset();
-  agent.state.model = piModel(o.config, o.endpoint);
+  agent.state.model = createModel(o.config, o.endpoint);
   agent.state.tools = o.tools;
   agent.state.messages = [
     createInitialSystemMessage(o.prompt, o.tools)!,

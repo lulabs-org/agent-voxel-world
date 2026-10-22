@@ -45,7 +45,10 @@ describe('agent runtime dependency boundaries', () => {
         /(?:conversation-runner|task-runner|conversation-tools)\.ts$/,
       );
     }
-    const taskTools = readFileSync(resolve(runtime, 'pi/tools.ts'), 'utf8');
+    const taskTools = readFileSync(
+      resolve(runtime, 'cognition/tools.ts'),
+      'utf8',
+    );
     expect(taskTools).not.toContain('.command(');
     expect(taskTools).not.toContain('.commit(');
     for (const path of graph.keys())
@@ -73,20 +76,29 @@ describe('agent runtime dependency boundaries', () => {
     const allowed: Record<string, string[]> = {
       'contracts.ts': [],
       'errors.ts': [],
-      client: ['contracts.ts'],
+      transport: ['contracts.ts'],
       actions: ['actions', 'contracts.ts'],
-      task: ['task', 'actions', 'contracts.ts', 'errors.ts'],
+      perception: ['perception', 'task', 'actions', 'contracts.ts'],
+      task: ['task', 'actions', 'contracts.ts', 'errors.ts', 'perception'],
       models: ['models', 'contracts.ts', 'errors.ts'],
-      pi: ['pi', 'task', 'actions', 'contracts.ts', 'errors.ts'],
+      cognition: [
+        'cognition',
+        'task',
+        'actions',
+        'contracts.ts',
+        'errors.ts',
+        'perception',
+      ],
       runtime: [
         'runtime',
-        'pi',
+        'cognition',
         'models',
         'task',
         'actions',
         'contracts.ts',
         'errors.ts',
-        'client',
+        'transport',
+        'perception',
       ],
     };
     for (const [path, dependencies] of graph) {
@@ -103,7 +115,11 @@ describe('agent runtime dependency boundaries', () => {
     const executors = new Set(['actions/execute.ts', 'actions/batch.ts']);
     for (const [path, dependencies] of graph) {
       const module = relative(runtime, path);
-      if (!module.startsWith('task/') && !module.startsWith('pi/')) continue;
+      if (
+        !module.startsWith('task/') &&
+        !module.startsWith('cognition/')
+      )
+        continue;
       for (const dependency of dependencies)
         expect(executors.has(relative(runtime, dependency)), module).toBe(
           false,
