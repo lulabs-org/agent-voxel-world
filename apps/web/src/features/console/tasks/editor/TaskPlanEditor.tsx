@@ -1,32 +1,19 @@
+import { dateInput } from './zoned-time';
+import { TimingFields } from './TimingFields';
 import {
   ConsoleFeedbackContext,
   ConsoleFeedbackRelay,
-} from '../../../components/ui/ConsoleFeedbackRelay';
+} from '../../../../components/ui/ConsoleFeedbackRelay';
 import {
   DEFAULT_TASK_LIMITS,
-  isRepeating,
   wallClockInstant,
   type TaskPlan,
   type TaskPlanDraft,
   type AICharacterSummary,
 } from '@voxel/shared';
 import { useContext, useState, type ReactNode } from 'react';
-import { useI18n } from '../../../i18n/context';
+import { useI18n } from '../../../../i18n/context';
 import { TaskLimitSettings } from './TaskLimitSettings';
-
-const dateInput = (at: number, zone: string) => {
-  const parts = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: zone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(at);
-  const p = (type: string) => parts.find((p) => p.type === type)?.value;
-  return `${p('year')}-${p('month')}-${p('day')}T${p('hour')}:${p('minute')}`;
-};
 
 export function TaskPlanEditor({
   plan,
@@ -83,7 +70,6 @@ export function TaskPlanEditor({
       : 60000,
   );
   const [error, setError] = useState('');
-  const repeating = isRepeating(draft.timing);
   const target = characters.find((a) => a.id === characterId);
   const blocked = !target
     ? t('console.plans.reassignTitle')
@@ -92,16 +78,6 @@ export function TaskPlanEditor({
       : ['joining', 'stopping'].includes(target.status)
         ? t('console.characters.bannerTransitioning')
         : '';
-
-  const weekdayNames = [
-    t('console.plans.weekdaySun'),
-    t('console.plans.weekdayMon'),
-    t('console.plans.weekdayTue'),
-    t('console.plans.weekdayWed'),
-    t('console.plans.weekdayThu'),
-    t('console.plans.weekdayFri'),
-    t('console.plans.weekdaySat'),
-  ];
 
   return (
     <form
@@ -218,164 +194,14 @@ export function TaskPlanEditor({
             />
           </label>
         </div>
-        <div className="agents-form-section">
-          <h4>{t('console.plans.sectionSchedule')}</h4>
-          <label>
-            {t('console.plans.fieldScheduleKind')}
-            <select
-              value={draft.timing.kind}
-              onChange={(e) => {
-                const kind = e.target.value as TaskPlanDraft['timing']['kind'];
-                setDraft({
-                  ...draft,
-                  timing:
-                    kind === 'once'
-                      ? { kind, at: Date.now() + 3600000 }
-                      : kind === 'interval'
-                        ? { kind, everyMs: 3600000 }
-                        : kind === 'daily'
-                          ? { kind, time: '09:00' }
-                          : kind === 'weekly'
-                            ? { kind, time: '09:00', weekdays: [1] }
-                            : { kind: 'immediate' },
-                });
-                if (kind === 'interval') setIntervalUnit(3600000);
-              }}
-            >
-              <option value="immediate">
-                {t('console.plans.timingImmediate')}
-              </option>
-              <option value="once">{t('console.plans.timingOnce')}</option>
-              <option value="interval">
-                {t('console.plans.timingInterval')}
-              </option>
-              <option value="daily">{t('console.plans.timingDaily')}</option>
-              <option value="weekly">{t('console.plans.timingWeekly')}</option>
-            </select>
-          </label>
-          {draft.timing.kind === 'once' && (
-            <label>
-              {t('console.plans.fieldDateTime')}
-              <input
-                type="datetime-local"
-                name="executeAt"
-                required
-                defaultValue={at}
-                onChange={(e) => setAt(e.target.value)}
-              />
-            </label>
-          )}
-          {draft.timing.kind === 'interval' && (
-            <div className="agent-grid">
-              <label>
-                {t('console.plans.fieldEvery')}
-                <input
-                  type="number"
-                  min={1}
-                  max={(31 * 86400000) / intervalUnit}
-                  required
-                  value={draft.timing.everyMs / intervalUnit}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      timing: {
-                        kind: 'interval',
-                        everyMs: e.target.valueAsNumber * intervalUnit,
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                {t('console.plans.fieldUnit')}
-                <select
-                  value={intervalUnit}
-                  onChange={(e) => {
-                    const unit = Number(e.target.value);
-                    setIntervalUnit(unit);
-                    setDraft({
-                      ...draft,
-                      timing: {
-                        kind: 'interval',
-                        everyMs:
-                          (draft.timing.kind === 'interval'
-                            ? draft.timing.everyMs / intervalUnit
-                            : 1) * unit,
-                      },
-                    });
-                  }}
-                >
-                  <option value={60000}>
-                    {t('console.plans.unitMinutes')}
-                  </option>
-                  <option value={3600000}>
-                    {t('console.plans.unitHours')}
-                  </option>
-                </select>
-              </label>
-            </div>
-          )}
-          {(draft.timing.kind === 'daily' ||
-            draft.timing.kind === 'weekly') && (
-            <label>
-              {t('console.plans.fieldTime')}
-              <input
-                type="time"
-                name="calendarTime"
-                required
-                defaultValue={draft.timing.time}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    timing: {
-                      ...draft.timing,
-                      ...{ time: e.target.value },
-                    } as TaskPlanDraft['timing'],
-                  })
-                }
-              />
-            </label>
-          )}
-          {draft.timing.kind === 'weekly' && (
-            <div
-              className="plans-weekday-chips task-weekdays"
-              role="group"
-              aria-label={t('console.plans.fieldWeekdaysAria')}
-            >
-              {[1, 2, 3, 4, 5, 6, 0].map((day) => (
-                <label key={day}>
-                  <input
-                    type="checkbox"
-                    checked={
-                      draft.timing.kind === 'weekly' &&
-                      draft.timing.weekdays.includes(day)
-                    }
-                    onChange={(e) => {
-                      if (draft.timing.kind === 'weekly')
-                        setDraft({
-                          ...draft,
-                          timing: {
-                            ...draft.timing,
-                            weekdays: e.target.checked
-                              ? [...draft.timing.weekdays, day]
-                              : draft.timing.weekdays.filter((d) => d !== day),
-                          },
-                        });
-                    }}
-                  />
-                  {weekdayNames[day]}
-                </label>
-              ))}
-            </div>
-          )}
-          <p className="agent-hint">
-            {t('console.plans.timeZoneLabel', { tz: draft.timeZone })}
-            {draft.timing.kind === 'interval'
-              ? t('console.plans.intervalStartHint')
-              : ''}
-            {repeating ? t('console.plans.queuePolicyHint') : ''}
-          </p>
-        </div>
+        <TimingFields
+          draft={draft}
+          setDraft={setDraft}
+          at={at}
+          setAt={setAt}
+          intervalUnit={intervalUnit}
+          setIntervalUnit={setIntervalUnit}
+        />
         <div className="agents-form-section">
           <h4>{t('console.plans.sectionLimits')}</h4>
           <label className="plans-budget-inherit">

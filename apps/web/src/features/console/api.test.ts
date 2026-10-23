@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { aiCharactersApi } from './ai-characters/api';
 import { providersApi } from './providers/api';
-import { tasksApi } from './tasks/api';
+import { tasksApi } from './tasks';
 import { voiceApi } from './voice/api';
 import { initialAICharacter } from './ai-characters/model';
 import { freshProvider } from './providers/model';

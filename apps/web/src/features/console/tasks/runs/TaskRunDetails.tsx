@@ -1,14 +1,14 @@
 import type { TaskLimits, TaskRun } from '@voxel/shared';
 import { useId, useRef, useState } from 'react';
-import { Dialog } from '../../../components/ui/Dialog';
-import { Button } from '../../../components/ui/Button';
-import { useI18n } from '../../../i18n/context';
+import { Dialog } from '../../../../components/ui/Dialog';
+import { Button } from '../../../../components/ui/Button';
+import { useI18n } from '../../../../i18n/context';
 import { TaskActionList } from './TaskActionList';
 import {
   planTime,
   runEnded,
   runStatus,
-} from './presentation/task-plan-presentation';
+} from '../presentation/plan-presentation';
 
 export function TaskRunDetails({
   run,

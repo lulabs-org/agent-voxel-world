@@ -19,7 +19,7 @@ import { AICharacterList } from './ai-characters/AICharacterList';
 import { ConsoleHelp } from './ConsoleHelp';
 import { GatewayAccess } from './GatewayAccess';
 import { ProviderEditor } from './providers/ProviderEditor';
-import { TaskPlans } from './tasks/TaskPlans';
+import { TaskPlans } from './tasks';
 import { useConsoleController } from './useConsoleController';
 import { VoiceServices } from './voice/VoiceServices';
 

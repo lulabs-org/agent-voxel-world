@@ -69,7 +69,7 @@ it.each(['immediate', 'once', 'interval', 'daily', 'weekly'])(
 it('explains a locked character only when clicked, including repeated clicks', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   const { ConsoleFeedbackContext } = await import(
-    '../../../components/ui/ConsoleFeedbackRelay'
+    '../../../../components/ui/ConsoleFeedbackRelay'
   );
   const host = document.createElement('div');
   const root = createRoot(host);

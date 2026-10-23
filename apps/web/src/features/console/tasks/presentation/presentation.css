@@ -1,0 +1,28 @@
+.plans-presence-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a2aca1;
+  flex-shrink: 0;
+}
+
+.plans-presence-dot[data-state='enabled'] {
+  background: #568065;
+}
+
+.plans-presence-dot[data-state='paused'] {
+  background: #b38740;
+}
+
+.plans-presence-dot[data-state='unassigned'] {
+  background: #c07a38;
+}
+
+.plans-presence-dot[data-state='completed'] {
+  background: #627767;
+}
+
+.plans-presence-dot[data-state='archived'] {
+  background: #b1b9af;
+}
