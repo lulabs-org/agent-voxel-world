@@ -3,15 +3,16 @@ import {
   createInitialSystemMessage,
   type Message,
 } from '@earendil-works/pi-ai';
+import {
+  recentInteractions,
+  recentTurns,
+  type ToolState,
+} from '../cognition/context';
+import { TOOL_PROTOCOL_CORRECTION } from '../cognition/prompts';
 import type { AgentConfig, ModelEndpoint } from '../contracts';
 import { AgentRuntimeError } from '../errors';
 import { createModel, createModelStream } from '../models/provider-adapter';
 import type { RequestBudget } from '../task/budget';
-import {
-  recentTurns,
-  recentInteractions,
-  type ToolState,
-} from '../cognition/context';
 
 export const loopState = (): ToolState => ({
   terminal: false,
@@ -106,7 +107,7 @@ export async function runDecisionLoop(options: DecisionLoopOptions) {
             content: [
               {
                 type: 'text',
-                text: 'Protocol correction: your last answer was plain text and was NOT delivered or executed. Use the provided native function tools, never a bare JSON object or a .function prefix. This model requires the exact tool envelope: <tool_call>{"name":"FUNCTION_NAME","arguments":{}}</tool_call>. Replace FUNCTION_NAME and arguments with an available tool and valid values. Do not repeat successful world actions. If results verify the entire task, call complete_task. For a conversation response, call chat with your actual reply in the text argument.',
+                text: TOOL_PROTOCOL_CORRECTION,
               },
             ],
             timestamp: Date.now(),

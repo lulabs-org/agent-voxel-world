@@ -4,30 +4,30 @@ import {
   type ChatData,
   type WorldEvent,
 } from '@voxel/shared';
-import type { ModelEndpoint } from '../contracts';
+import { loopState, runDecisionLoop } from './decision-loop';
+import { buildDecisionPayload } from './decision-payload';
+import { paceChat } from './chat-pacing';
+import { runFollowStep } from './follow-step';
+import type { RunOptions } from './options';
+import { createTaskControlTools } from './task-control-tools';
+import type { TurnContext } from './turn-context';
+import { TurnHealthMonitor } from './turn-health';
+import { createRuntimeWorldTools } from './world-tools';
+import { BackgroundActionTracker } from './background-action';
 import { AgentRuntimeError } from '../errors';
-import { RequestBudget, checkBudgetCap } from '../task/budget';
-import { TaskService } from '../task/service';
 import { prepareDecision, worldSignature } from '../perception/observation';
+import { cancellable } from '../transport/cancellable';
+import { RequestBudget, checkBudgetCap } from '../task/budget';
+import { recordEvent } from '../task/inbox';
+import { TaskService } from '../task/service';
+import type { ModelEndpoint } from '../contracts';
 import {
   checkpointMessages,
   restoreCheckpoint,
   updateCheckpoint,
 } from '../cognition/checkpoint';
-import { recentTurns, recentInteractions } from '../cognition/context';
+import { recentInteractions, recentTurns } from '../cognition/context';
 import { characterPrompt } from '../cognition/prompts';
-import { loopState, runDecisionLoop } from './decision-loop';
-import { runFollowStep } from './follow-step';
-import { paceChat } from './chat-pacing';
-import { cancellable } from '../transport/cancellable';
-import { recordEvent } from '../task/inbox';
-import type { RunOptions } from './options';
-import type { TurnContext } from './turn-context';
-import { BackgroundActionTracker } from './background-action';
-import { createTaskControlTools } from './task-control-tools';
-import { createRuntimeWorldTools } from './world-tools';
-import { TurnHealthMonitor } from './turn-health';
-import { buildDecisionPayload } from './decision-payload';
 
 /** One decision flow for addressed messages, plan instructions and action results. */
 export class CharacterRunner {
@@ -357,7 +357,9 @@ export class CharacterRunner {
           !['completed', 'cancelled'].includes(memory.task.status)
         ) {
           memory.task.status =
-            checkBudgetCap(memory.task, config) || active.aborted ? 'budget' : 'blocked';
+            checkBudgetCap(memory.task, config) || active.aborted
+              ? 'budget'
+              : 'blocked';
           memory.task.reason = reason;
         }
       }
