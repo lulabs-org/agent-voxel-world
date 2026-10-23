@@ -7,12 +7,13 @@ import type { AgentConfig, ModelEndpoint } from '../contracts';
 import { AgentRuntimeError } from '../errors';
 import { createModel, createModelStream } from '../models/provider-adapter';
 import type { RequestBudget } from '../task/budget';
-import { recentTurns, recentInteractions } from '../cognition/context';
+import {
+  recentTurns,
+  recentInteractions,
+  type ToolState,
+} from '../cognition/context';
 
-export type { ToolState as LoopState } from '../cognition/context';
-import type { ToolState as LoopState } from '../cognition/context';
-
-export const loopState = (): LoopState => ({
+export const loopState = (): ToolState => ({
   terminal: false,
   skipBatch: false,
   hadError: false,
@@ -27,7 +28,7 @@ export type DecisionLoopOptions = {
   request: typeof fetch;
   budget: RequestBudget;
   signal: AbortSignal;
-  state: LoopState;
+  state: ToolState;
   prompt: string;
   input: string;
   tools: AgentTool[];

@@ -1,11 +1,11 @@
 import type { AICharacterTask, WorldEvent } from '@voxel/shared';
+import type { ToolState } from '../cognition/context';
 import type { AgentConfig, AgentSession } from '../contracts';
 import type { AgentAttention } from '../perception/attention';
 import type { DecisionContext } from '../perception/observation';
 import type { RequestBudget } from '../task/budget';
 import type { TaskService, TaskLease } from '../task/service';
 import type { AgentRunState } from '../task/state';
-import type { LoopState } from './decision-loop';
 
 /**
  * Execution context for a single character event/turn.
@@ -17,7 +17,7 @@ export interface TurnContext {
   session: AgentSession;
   service: TaskService;
   budget: RequestBudget;
-  state: LoopState;
+  state: ToolState;
   activeSignal: AbortSignal;
   memory: AgentRunState;
 
