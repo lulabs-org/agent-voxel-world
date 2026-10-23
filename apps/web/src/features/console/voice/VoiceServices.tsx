@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import type {
   VoiceServiceDraft,
   VoiceServiceType,
@@ -125,14 +126,19 @@ export function VoiceServices({
       choose(next[0]);
       setNotice(t('console.voice.deleteSuccessNotice'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('console.voice.deleteFailed'));
+      setError(
+        e instanceof Error ? e.message : t('console.voice.deleteFailed'),
+      );
     } finally {
       setBusy(false);
     }
   };
   return (
     <div className="voice-services-layout console-columns">
-      <aside className="console-sidebar" aria-label={t('console.voice.listAria')}>
+      <aside
+        className="console-sidebar"
+        aria-label={t('console.voice.listAria')}
+      >
         <div className="console-sidebar-heading">
           <h3>{t('console.tabs.voice')}</h3>
         </div>
@@ -165,9 +171,7 @@ export function VoiceServices({
             </button>
           ))}
         </div>
-        <p className="console-sidebar-note">
-          {t('console.voice.reuseNote')}
-        </p>
+        <p className="console-sidebar-note">{t('console.voice.reuseNote')}</p>
       </aside>
       <div className="agent-form console-panel">
         <form
@@ -177,21 +181,14 @@ export function VoiceServices({
           }}
         >
           <div className="console-panel-heading">
-            <h3>{selected ? t('console.voice.headingEdit') : t('console.voice.headingAdd')}</h3>
-            <p>
-              {t('console.voice.headingDesc')}
-            </p>
+            <h3>
+              {selected
+                ? t('console.voice.headingEdit')
+                : t('console.voice.headingAdd')}
+            </h3>
+            <p>{t('console.voice.headingDesc')}</p>
           </div>
-          {error && (
-            <p className="agent-error" role="alert">
-              {error}
-            </p>
-          )}
-          {notice && (
-            <p className="agent-notice" role="status">
-              {notice}
-            </p>
-          )}
+          <ConsoleFeedbackRelay error={error} notice={notice} active={active} />
           <fieldset disabled={busy}>
             <label>
               {t('console.voice.nameLabel')}
@@ -251,7 +248,9 @@ export function VoiceServices({
                   <span className="voice-key-label">API Key</span>
                   {canKeepKey && !editingKey ? (
                     <div className="voice-key-saved">
-                      <span role="status">{t('console.voice.keyConfiguredStatus')}</span>
+                      <span role="status">
+                        {t('console.voice.keyConfiguredStatus')}
+                      </span>
                       <button type="button" onClick={() => setEditingKey(true)}>
                         {t('console.voice.changeKey')}
                       </button>
@@ -264,7 +263,9 @@ export function VoiceServices({
                         autoComplete="new-password"
                         value={draft.apiKey}
                         placeholder={
-                          canKeepKey ? t('console.voice.keyPlaceholderNew') : t('console.voice.keyPlaceholderEmpty')
+                          canKeepKey
+                            ? t('console.voice.keyPlaceholderNew')
+                            : t('console.voice.keyPlaceholderEmpty')
                         }
                         onChange={(e) => change({ apiKey: e.target.value })}
                       />
@@ -344,23 +345,19 @@ export function VoiceServices({
               </label>
             )}
             {draft.type === 'browser' && (
-              <p className="agent-hint">
-                {t('console.voice.hintBrowser')}
-              </p>
+              <p className="agent-hint">{t('console.voice.hintBrowser')}</p>
             )}
             {draft.type === 'piper' && (
-              <p className="agent-hint">
-                {t('console.voice.hintPiper')}
-              </p>
+              <p className="agent-hint">{t('console.voice.hintPiper')}</p>
             )}
             {draft.type === 'bailian' && (
-              <p className="agent-hint">
-                {t('console.voice.hintBailian')}
-              </p>
+              <p className="agent-hint">{t('console.voice.hintBailian')}</p>
             )}
             <div className="voice-service-actions console-form-actions">
               <button className="primary" disabled={!dirty}>
-                {busy ? t('console.voice.saving') : t('console.voice.saveService')}
+                {busy
+                  ? t('console.voice.saving')
+                  : t('console.voice.saveService')}
               </button>
               {selected && (
                 <button type="button" onClick={() => void remove()}>
@@ -370,7 +367,9 @@ export function VoiceServices({
             </div>
           </fieldset>
         </form>
-        {dirty && <p className="agent-hint">{t('console.voice.previewDirtyHint')}</p>}
+        {dirty && (
+          <p className="agent-hint">{t('console.voice.previewDirtyHint')}</p>
+        )}
         <VoicePreview
           serviceId={selected ?? undefined}
           service={saved}

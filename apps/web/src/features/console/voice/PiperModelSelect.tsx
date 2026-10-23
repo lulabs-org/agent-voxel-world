@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import { PIPER_MODELS, type PiperModelView } from '@voxel/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../../i18n/context';
@@ -31,7 +32,11 @@ export function PiperModelSelect({
         }
       } catch (e) {
         if (!controller.signal.aborted)
-          setError(e instanceof Error ? e.message : t('console.characters.operationFailed'));
+          setError(
+            e instanceof Error
+              ? e.message
+              : t('console.characters.operationFailed'),
+          );
       } finally {
         if (!controller.signal.aborted)
           timer = setTimeout(() => void poll(), 3000);
@@ -64,7 +69,11 @@ export function PiperModelSelect({
       if (!controller.signal.aborted) setRefresh((n) => n + 1);
     } catch (e) {
       if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : t('console.characters.operationFailed'));
+        setError(
+          e instanceof Error
+            ? e.message
+            : t('console.characters.operationFailed'),
+        );
     } finally {
       if (!controller.signal.aborted) setInstalling(false);
     }
@@ -87,13 +96,10 @@ export function PiperModelSelect({
           ))}
         </select>
       </label>
-      <p role="status">{selected ? states[selected.state] : t('console.voice.piperChecking')}</p>
-      {error && (
-        <p className="agent-error" role="alert">
-          {error}
-        </p>
-      )}
-      {selected?.error && <p className="agent-error">{selected.error}</p>}
+      <p role="status">
+        {selected ? states[selected.state] : t('console.voice.piperChecking')}
+      </p>
+      <ConsoleFeedbackRelay error={error || selected?.error} active={active} />
       <div className="voice-service-actions">
         <button
           type="button"
@@ -106,7 +112,9 @@ export function PiperModelSelect({
           }
           onClick={() => void install()}
         >
-          {selected?.state === 'failed' ? t('console.voice.piperRetryInstall') : t('console.voice.piperInstall')}
+          {selected?.state === 'failed'
+            ? t('console.voice.piperRetryInstall')
+            : t('console.voice.piperInstall')}
         </button>
         <button
           type="button"
@@ -116,9 +124,7 @@ export function PiperModelSelect({
           {t('console.voice.piperRefresh')}
         </button>
       </div>
-      <small>
-        {t('console.voice.piperNotice')}
-      </small>
+      <small>{t('console.voice.piperNotice')}</small>
     </div>
   );
 }

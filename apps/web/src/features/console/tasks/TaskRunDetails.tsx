@@ -1,8 +1,9 @@
 import type { TaskLimits, TaskRun } from '@voxel/shared';
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { Dialog } from '../../../components/ui/Dialog';
+import { Button } from '../../../components/ui/Button';
 import { useI18n } from '../../../i18n/context';
 import { TaskActionList } from './TaskActionList';
-import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 import {
   planTime,
   runEnded,
@@ -12,6 +13,7 @@ import {
 export function TaskRunDetails({
   run,
   planGoal,
+  planStatusText,
   hideHeading = false,
   busy,
   blocked,
@@ -19,6 +21,7 @@ export function TaskRunDetails({
 }: {
   run: TaskRun;
   planGoal: string;
+  planStatusText?: string;
   hideHeading?: boolean;
   busy: boolean;
   blocked: string;
@@ -29,9 +32,11 @@ export function TaskRunDetails({
   ) => Promise<void>;
 }) {
   const { t } = useI18n();
-  const [resume, setResume] = useState(false),
-    [cancel, setCancel] = useState(false);
-  const [limits, setLimits] = useState(run.snapshot.limits);
+  const [cancel, setCancel] = useState(false);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const endButton = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
   const limited = run.snapshot.limits.enabled !== false;
   const queued = run.status === 'queued';
   const inheritedPending =
@@ -77,29 +82,34 @@ export function TaskRunDetails({
           </span>
         </div>
       )}
-      <p className="plans-run-meta-line">
-        {hideHeading
-          ? t('console.plans.runHistoryInfo', {
-              rev: run.planRevision ?? 1,
-              source: sourceLabel,
-            })
-          : t('console.plans.runCharacterInfo', {
-              character:
-                run.characterName ?? t('console.characters.deletedTag'),
-              rev: run.planRevision ?? 1,
-              source: sourceLabel,
-            })}
-      </p>
+      <div className="plans-run-context">
+        {planStatusText && (
+          <p className="plans-run-meta-line">{planStatusText}</p>
+        )}
+        <p className="plans-run-meta-line">
+          {hideHeading
+            ? t('console.plans.runHistoryInfo', {
+                rev: run.planRevision ?? 1,
+                source: sourceLabel,
+              })
+            : t('console.plans.runCharacterInfo', {
+                character:
+                  run.characterName ?? t('console.characters.deletedTag'),
+                rev: run.planRevision ?? 1,
+                source: sourceLabel,
+              })}
+        </p>
+        {run.reason && run.reason !== run.task?.summary && (
+          <p className="plans-run-reason" role="status">
+            {run.reason}
+          </p>
+        )}
+      </div>
       {run.snapshot.goal.trim() !== planGoal.trim() && (
         <div className="plans-run-goal-box">
           <strong>{t('console.plans.runCurrentGoal')}</strong>
           {run.snapshot.goal}
         </div>
-      )}
-      {run.reason && run.reason !== run.task?.summary && (
-        <p className="plans-run-reason" role="status">
-          {run.reason}
-        </p>
       )}
       {run.requiresReassignment && (
         <p className="agent-error" role="alert">
@@ -179,19 +189,18 @@ export function TaskRunDetails({
               className="primary"
               disabled={busy || !!blocked || run.requiresReassignment}
               onClick={() => {
-                setResume(true);
                 setCancel(false);
-                setLimits(run.snapshot.limits);
+                void onAction(run, 'resume');
               }}
             >
               {t('console.plans.resumeThisRun')}
             </button>
           ) : null}
           <button
+            ref={endButton}
             disabled={busy}
             onClick={() => {
               setCancel(true);
-              setResume(false);
             }}
           >
             {queued
@@ -205,41 +214,44 @@ export function TaskRunDetails({
           {t('console.plans.blockedCannotRun', { reason: blocked })}
         </p>
       )}
-      {resume && (
-        <form
-          className="agent-form agents-confirm"
-          onSubmit={(e) => {
-            void (async () => {
-              e.preventDefault();
-              await onAction(run, 'resume', limits);
-              setResume(false);
-            })();
+      {cancel && (
+        <Dialog
+          open
+          initialFocus={cancelButton}
+          className="agents-delete-dialog"
+          overlayStyle={{ zIndex: 401 }}
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
+          aria-busy={busy}
+          onCancel={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!busy) setCancel(false);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            endButton.current?.focus();
           }}
         >
-          <p>{t('console.plans.resumeRunPrompt')}</p>
-          {limited ? (
-            <TaskBudgetFields
-              value={limits}
-              onChange={(v) => setLimits({ ...limits, ...v })}
-            />
-          ) : (
-            <p className="agent-hint">{t('console.plans.resumeNoLimitNote')}</p>
-          )}
-          <div className="agents-actions task-detail-actions">
-            <button className="primary" disabled={busy || !!blocked}>
-              {t('console.characters.confirmAndResume')}
-            </button>
-            <button type="button" onClick={() => setResume(false)}>
+          <h3 id={titleId}>
+            {t(
+              queued
+                ? 'console.plans.cancelQueuedRun'
+                : 'console.plans.endThisRun',
+            )}
+          </h3>
+          <p id={descriptionId}>{t('console.plans.endRunWarning')}</p>
+          <div className="agents-actions">
+            <Button
+              ref={cancelButton}
+              disabled={busy}
+              onClick={() => setCancel(false)}
+            >
               {t('common.cancel')}
-            </button>
-          </div>
-        </form>
-      )}
-      {cancel && (
-        <div className="agents-confirm">
-          <p>{t('console.plans.endRunWarning')}</p>
-          <div className="agents-actions task-detail-actions">
-            <button
+            </Button>
+            <Button
+              className="agents-delete-button"
               disabled={busy}
               onClick={() => {
                 void (async () => {
@@ -249,10 +261,9 @@ export function TaskRunDetails({
               }}
             >
               {t('console.plans.confirmEnd')}
-            </button>
-            <button onClick={() => setCancel(false)}>{t('common.back')}</button>
+            </Button>
           </div>
-        </div>
+        </Dialog>
       )}
     </section>
   );

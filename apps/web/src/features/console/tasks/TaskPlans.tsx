@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import { useEffect, useRef, useState } from 'react';
 import { hasPlanTokenLimit } from '@voxel/shared';
 import type {
@@ -57,11 +58,24 @@ export function TaskPlans({
     [error, setError] = useState(''),
     [readError, setReadError] = useState(''),
     [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0),
-    [target, setTarget] = useState('');
-  const [extra, setExtra] = useState(500000),
-    [extend, setExtend] = useState(false);
-  const [reassign, setReassign] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const planStatusText = !plan
+    ? undefined
+    : plan.nextRunAt
+      ? t('console.plans.nextRunAt', {
+          time: planTime(plan.nextRunAt, plan.timeZone),
+        })
+      : plan.state === 'completed'
+        ? t('console.plans.stateCompletedDesc')
+        : plan.state === 'paused'
+          ? t('console.plans.statePausedDesc')
+          : plan.state === 'archived'
+            ? t('console.plans.stateArchivedDesc')
+            : t('console.plans.stateReadyDesc');
+  const budgetExhausted =
+    !!plan &&
+    hasPlanTokenLimit(plan) &&
+    plan.spentTokens >= plan.totalTokenBudget;
   const [detailTab, setDetailTab] = useState<'details' | 'active' | 'history'>(
     'details',
   );
@@ -203,8 +217,6 @@ export function TaskPlans({
     setRuns([]);
     historyDepth.current = 20;
     setError('');
-    setReassign(false);
-    setExtend(false);
   };
 
   // 进入「任务计划」页签后默认选中列表第一个任务，避免右侧详情空白。
@@ -217,11 +229,7 @@ export function TaskPlans({
       aria-label={t('console.plans.managementAria')}
       className="plans-workspace"
     >
-      {(error || readError) && (
-        <p className="agent-error" role="alert">
-          {error || readError}
-        </p>
-      )}
+      <ConsoleFeedbackRelay error={error || readError} active={active} />
       <div className="console-columns">
         <aside
           className="console-sidebar"
@@ -421,20 +429,21 @@ export function TaskPlans({
                 <TaskPlanEditor
                   key={`${plan.id}:${plan.characterId ?? ''}`}
                   plan={plan}
+                  characterLocked={runs.some(
+                    (r) => r.status !== 'queued' && !runEnded(r),
+                  )}
                   characters={characters}
                   busy={locked}
                   onSave={async (draft, requestId, characterId) => {
                     try {
-                      let saved: TaskPlan | undefined;
                       await mutate(async () => {
-                        saved = await tasksApi.save(
+                        await tasksApi.save(
                           characterId,
                           draft,
                           plan,
                           requestId,
                         );
                       });
-                      if (saved) openPlan(saved.id);
                     } catch {
                       /* retain draft */
                     }
@@ -483,21 +492,6 @@ export function TaskPlans({
                               (r) => r.status !== 'queued' && !runEnded(r),
                             )
                           }
-                          onClick={() => {
-                            setReassign(!reassign);
-                            setTarget('');
-                          }}
-                        >
-                          {t('console.plans.reassignCharacter')}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={
-                            locked ||
-                            runs.some(
-                              (r) => r.status !== 'queued' && !runEnded(r),
-                            )
-                          }
                           onClick={() => void control('archive')}
                         >
                           {t('console.plans.archivePlan')}
@@ -511,82 +505,13 @@ export function TaskPlans({
                     {t('console.plans.blockedCannotRun', { reason: blocked })}
                   </p>
                 )}
-                {reassign && plan.state !== 'archived' && (
-                  <form
-                    className="agent-form plans-drawer-card"
-                    onSubmit={(e) => {
-                      void (async () => {
-                        e.preventDefault();
-                        try {
-                          await mutate(() => tasksApi.reassign(plan, target));
-                          setReassign(false);
-                        } catch {
-                          // mutate has already displayed the failure; keep the editor open.
-                        }
-                      })();
-                    }}
-                  >
-                    <h4>{t('console.plans.reassignTitle')}</h4>
-                    <label>
-                      {t('console.plans.selectNewCharacter')}
-                      <select
-                        required
-                        value={target}
-                        onChange={(e) => setTarget(e.target.value)}
-                      >
-                        <option value="">
-                          {t('console.plans.selectCharacterPlaceholder')}
-                        </option>
-                        {characters
-                          .filter((a) => a.id !== plan.characterId)
-                          .map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.name}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <p className="agent-hint">
-                      {t('console.plans.reassignHint')}
-                    </p>
-                    <div className="plans-drawer-actions">
-                      <button className="primary" disabled={locked || !target}>
-                        {t('console.plans.confirmReassign')}
-                      </button>
-                      <button type="button" onClick={() => setReassign(false)}>
-                        {t('common.cancel')}
-                      </button>
-                    </div>
-                  </form>
-                )}
               </div>
               {detailTab === 'active' && (
                 <section aria-label={t('console.plans.activeRuns')}>
-                  <div className="plans-section-heading">
-                    <h4>{t('console.plans.activeRuns')}</h4>
-                    <span className="plans-section-badge">
-                      {t('console.plans.activeItems', {
-                        count: runs.filter((r) => !runEnded(r)).length,
-                      })}
-                    </span>
-                  </div>
-                  <div className="plans-presence-bar">
-                    <p>
-                      {plan.nextRunAt
-                        ? t('console.plans.nextRunAt', {
-                            time: planTime(plan.nextRunAt, plan.timeZone),
-                          })
-                        : plan.state === 'completed'
-                          ? t('console.plans.stateCompletedDesc')
-                          : plan.state === 'paused'
-                            ? t('console.plans.statePausedDesc')
-                            : plan.state === 'archived'
-                              ? t('console.plans.stateArchivedDesc')
-                              : t('console.plans.stateReadyDesc')}
-                    </p>
-                  </div>
                   {!runs.some((r) => !runEnded(r)) && (
                     <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
+                      {planStatusText}
+                      <br />
                       {t('console.plans.noActiveRuns')}
                     </p>
                   )}
@@ -597,6 +522,7 @@ export function TaskPlans({
                         key={r.id}
                         run={r}
                         planGoal={plan.goal}
+                        planStatusText={planStatusText}
                         busy={locked}
                         blocked={blocked}
                         onAction={runControl}
@@ -606,30 +532,26 @@ export function TaskPlans({
               )}
               {detailTab === 'history' && (
                 <section aria-label={t('console.plans.historyHeading')}>
-                  <div className="plans-section-heading">
-                    <h4>{t('console.plans.historyHeading')}</h4>
-                    <span className="plans-section-badge">
-                      {t('console.plans.historyCount', {
-                        count: runs.filter(runEnded).length,
-                      })}
-                    </span>
-                  </div>
                   <div className="plans-usage-grid">
-                    <div className="plans-usage-card">
+                    <div
+                      className="plans-usage-card"
+                      data-exhausted={budgetExhausted}
+                    >
                       <div className="plans-usage-card-top">
                         <span className="plans-usage-label">
                           {t('console.plans.totalTokensConsumed')}
                         </span>
-                        {plan.state !== 'archived' &&
-                          hasPlanTokenLimit(plan) && (
-                            <button
-                              className="plans-usage-action"
-                              disabled={locked}
-                              onClick={() => setExtend(!extend)}
-                            >
-                              {t('console.plans.addBudget')}
-                            </button>
-                          )}
+                        {hasPlanTokenLimit(plan) && (
+                          <span className="plans-usage-label">
+                            {t('console.plans.consumedPercent', {
+                              percent: (
+                                (plan.spentTokens /
+                                  Math.max(1, plan.totalTokenBudget)) *
+                                100
+                              ).toFixed(1),
+                            })}
+                          </span>
+                        )}
                       </div>
                       <strong>
                         {plan.spentTokens.toLocaleString()}
@@ -642,6 +564,11 @@ export function TaskPlans({
                             })
                           : t('console.plans.noBudgetLimit')}
                       </span>
+                      {budgetExhausted && (
+                        <span className="plans-usage-warning" role="status">
+                          {t('console.plans.budgetExhausted')}
+                        </span>
+                      )}
                       {hasPlanTokenLimit(plan) && (
                         <div className="plans-progress-bar">
                           <div
@@ -663,61 +590,7 @@ export function TaskPlans({
                         </div>
                       )}
                     </div>
-                    <div className="plans-usage-card">
-                      <span className="plans-usage-label">
-                        {t('console.plans.recordsAndLimit')}
-                      </span>
-                      <strong>
-                        {runs.length}
-                        <small>{t('console.plans.recordCount')}</small>
-                      </strong>
-                      <span className="plans-usage-meta">
-                        {plan.limitsMode === 'inherit'
-                          ? t('console.plans.inheritsCharacterBudget')
-                          : plan.limits.enabled !== false
-                            ? t('console.plans.singleRunLimit', {
-                                turns: plan.limits.maxTurns,
-                                tokens: (
-                                  plan.limits.tokenBudget ?? 50000
-                                ).toLocaleString(),
-                              })
-                            : t('console.plans.singleRunNoLimit')}
-                      </span>
-                    </div>
                   </div>
-                  {extend && hasPlanTokenLimit(plan) && (
-                    <form
-                      className="agent-form plans-drawer-card"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void control('extend', { tokens: extra });
-                      }}
-                    >
-                      <h4>{t('console.plans.addTokensTitle')}</h4>
-                      <label>
-                        {t('console.plans.addTokensLabel')}
-                        <input
-                          type="number"
-                          min="1000"
-                          max="1000000000"
-                          required
-                          value={extra}
-                          onChange={(e) => setExtra(e.target.valueAsNumber)}
-                        />
-                      </label>
-                      <p className="agent-hint">
-                        {t('console.plans.addTokensHint')}
-                      </p>
-                      <div className="plans-drawer-actions">
-                        <button className="primary" disabled={locked}>
-                          {t('console.plans.confirmAdd')}
-                        </button>
-                        <button type="button" onClick={() => setExtend(false)}>
-                          {t('common.cancel')}
-                        </button>
-                      </div>
-                    </form>
-                  )}
                   {!runs.some(runEnded) && (
                     <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
                       {t('console.plans.noHistoryRuns')}
@@ -803,7 +676,9 @@ export function TaskPlans({
                 {t('console.plans.welcomeDescLine2')}
               </p>
               {!characters.length && (
-                <p className="agent-notice">{t('console.plans.noCharactersWarning')}</p>
+                <p className="agent-notice">
+                  {t('console.plans.noCharactersWarning')}
+                </p>
               )}
             </div>
           )}

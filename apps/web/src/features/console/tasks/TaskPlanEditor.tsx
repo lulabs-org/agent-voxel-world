@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import {
   DEFAULT_TASK_LIMITS,
   isRepeating,
@@ -30,6 +31,7 @@ export function TaskPlanEditor({
   onSave,
   onCancel,
   footerActions,
+  characterLocked = false,
   characters,
 }: {
   plan?: TaskPlan;
@@ -42,6 +44,7 @@ export function TaskPlanEditor({
   ) => Promise<void>;
   onCancel?: () => void;
   footerActions?: ReactNode;
+  characterLocked?: boolean;
 }) {
   const { t } = useI18n();
   const [characterId, setCharacterId] = useState(plan?.characterId ?? '');
@@ -146,13 +149,12 @@ export function TaskPlanEditor({
           className="agents-form-section"
           style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}
         >
-          <h4>{t('console.plans.sectionBasic')}</h4>
           <div className="agent-grid">
             <label>
               {t('console.plans.fieldCharacter')}
               <select
                 required={!plan}
-                disabled={!!plan}
+                disabled={characterLocked}
                 value={characterId}
                 onChange={(e) => setCharacterId(e.target.value)}
               >
@@ -432,11 +434,7 @@ export function TaskPlanEditor({
               {t('console.plans.blockedCannotRun', { reason: blocked })}
             </p>
           )}
-          {error && (
-            <p role="alert" className="agent-error">
-              {error}
-            </p>
-          )}
+          <ConsoleFeedbackRelay error={error} />
         </div>
         {plan?.state !== 'archived' && (
           <div className="agents-form-footer plans-editor-footer">

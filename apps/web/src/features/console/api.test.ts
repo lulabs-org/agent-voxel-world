@@ -295,3 +295,23 @@ it('uses the TTS domain for service CRUD, model installation and binary preview'
     }),
   );
 });
+
+it('saves a selected replacement role with the existing binding in one request', async () => {
+  const previous = { id: 'p', characterId: 'agent-1' } as Parameters<
+    typeof tasksApi.save
+  >[2];
+  const draft = { name: 'Updated plan' } as Parameters<typeof tasksApi.save>[1];
+  await tasksApi.save('agent-2', draft, previous, 'save-1');
+  expect(http).toHaveBeenLastCalledWith(
+    'https://world.example/tasks/p',
+    expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({
+        name: 'Updated plan',
+        requestId: 'save-1',
+        characterId: 'agent-1',
+        targetCharacterId: 'agent-2',
+      }),
+    }),
+  );
+});

@@ -270,7 +270,7 @@
 /* Usage Metrics Card matching .agents-usage */
 .plans-usage-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -295,14 +295,6 @@
 .plans-usage-label {
   font-size: 11px;
   color: var(--agents-muted);
-}
-
-.agent-dialog .plans-usage-action {
-  padding: 3px 8px;
-  font-size: 11px;
-  background: #fff;
-  border: 1px solid var(--agents-border);
-  border-radius: var(--radius-control);
 }
 
 .plans-usage-card strong {
@@ -510,6 +502,11 @@
   color: var(--agents-muted);
 }
 
+.plans-run-context {
+  display: grid;
+  gap: 14px;
+}
+
 .plans-run-goal-box {
   display: grid;
   gap: 4px;
@@ -601,6 +598,7 @@
 }
 
 .agent-dialog .plans-run-card .task-action-records > summary {
+  margin: 0;
   padding: 2px 0;
   color: var(--plans-accent);
   cursor: pointer;
@@ -725,8 +723,8 @@
 }
 
 /* History items use a single card surface around expanded details. */
-.plans-history-card {
-  margin-bottom: 8px;
+.agent-dialog .plans-history-card {
+  margin: 8px 0;
   overflow: hidden;
   border: 1px solid var(--agents-border);
   border-radius: 8px;
@@ -737,11 +735,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  margin: 0;
+  padding: 8px 14px;
   color: var(--color-text);
   background: #fff;
   cursor: pointer;
   font-size: 12px;
+  line-height: 20px;
   list-style: none;
   user-select: none;
 }
@@ -769,7 +769,7 @@
 .plans-history-summary-main {
   display: flex;
   flex: 1;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 4px 10px;
   min-width: 0;
@@ -791,6 +791,7 @@
   background: #edf2e8;
   color: #385b46;
   font-size: 11px;
+  line-height: 16px;
 }
 
 .plans-history-status[data-status='cancelled'],
@@ -805,16 +806,57 @@
 }
 
 .plans-history-body {
-  padding: 16px 18px;
+  padding: 12px 14px;
   border-top: 1px solid var(--agents-border);
 }
 
 .plans-history-body .plans-run-card {
+  gap: 8px;
   padding: 0;
   margin: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.plans-history-body .plans-run-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.plans-history-body .plans-run-reason {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.plans-history-body .plans-run-report-box {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+}
+
+.plans-history-body .plans-run-stats {
+  padding: 8px 0;
+}
+
+.plans-history-body .plans-run-stat {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  padding-right: 8px;
+  padding-left: 8px;
+}
+
+.plans-history-body .plans-run-stat:first-child {
+  padding-left: 0;
+}
+
+.plans-history-body .plans-run-stat dd {
+  margin: 0;
+  font-size: 12px;
 }
 
 /* --------------------------------------------------------------------------
@@ -1026,9 +1068,32 @@
     text-align: right;
   }
   .plans-history-body {
-    padding: 14px;
+    padding: 10px 12px;
+  }
+  .plans-history-body .plans-run-stat {
+    padding: 4px 0;
   }
   .plans-detail-heading {
     flex-wrap: wrap;
   }
+}
+
+.plans-usage-card[data-exhausted='true'] {
+  background: #fcf1de;
+  border-color: #dfc28f;
+}
+
+.plans-usage-card[data-exhausted='true'] strong,
+.plans-usage-warning {
+  color: #805c2a;
+}
+
+.plans-usage-warning {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.plans-usage-card[data-exhausted='true'] .plans-progress-fill {
+  background: #b58032;
 }

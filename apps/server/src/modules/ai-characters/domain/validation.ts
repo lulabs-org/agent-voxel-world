@@ -78,6 +78,13 @@ export function validateAICharacter(
     ...inference,
     taskLimitsEnabled: boolean(input.taskLimitsEnabled, true),
     maxTurns: integer(input.maxTurns, '任务调用上限', 100, 1, 1000),
+    maxStalledTurns: integer(
+      input.maxStalledTurns,
+      '连续无进展上限',
+      3,
+      1,
+      1000,
+    ),
     tokenBudget: integer(
       input.tokenBudget,
       '任务 token 预算',

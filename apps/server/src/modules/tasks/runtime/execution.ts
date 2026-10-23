@@ -61,6 +61,7 @@ export function captureTask(job: TaskExecutionState) {
       limits: {
         enabled: job.view.taskLimitsEnabled !== false,
         maxTurns: job.view.maxTurns,
+        maxStalledTurns: job.view.maxStalledTurns ?? 3,
         tokenBudget: job.view.tokenBudget ?? 50000,
         taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
       },
@@ -306,6 +307,7 @@ export function startQueuedRun(job: TaskExecutionState, id: string) {
     run.snapshot.limits = {
       enabled: job.view.taskLimitsEnabled !== false,
       maxTurns: job.view.maxTurns,
+      maxStalledTurns: job.view.maxStalledTurns ?? 3,
       tokenBudget: job.view.tokenBudget ?? 50000,
       taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
     };
@@ -503,6 +505,7 @@ export async function executeTaskRunControl(
       run.snapshot.limits = {
         enabled,
         maxTurns: settings.maxTurns,
+        maxStalledTurns: settings.maxStalledTurns ?? 3,
         tokenBudget: settings.tokenBudget!,
         taskTimeoutMs: settings.taskTimeoutMs!,
       };
@@ -518,6 +521,7 @@ export async function executeTaskRunControl(
           ...(!enabled
             ? {
                 maxTurns: Infinity,
+                maxStalledTurns: Infinity,
                 tokenBudget: Infinity,
                 taskTimeoutMs: Infinity,
               }
@@ -609,6 +613,9 @@ export async function beginChatExecution(
     const limitsEnabled = state.view.taskLimitsEnabled !== false;
     Object.assign(config, {
       maxTurns: limitsEnabled ? state.view.maxTurns : Infinity,
+      maxStalledTurns: limitsEnabled
+        ? (state.view.maxStalledTurns ?? 3)
+        : Infinity,
       tokenBudget: limitsEnabled ? (state.view.tokenBudget ?? 50000) : Infinity,
       taskTimeoutMs: limitsEnabled
         ? (state.view.taskTimeoutMs ?? 900000)
