@@ -591,6 +591,7 @@
       "editorTitleNew": "新建任务计划",
       "editorSubtitle": "配置任务目标、执行角色、触发方式与资源限制。",
       "sectionBasic": "基本目标",
+      "characterLockedHint": "该计划仍有未结束的执行。请先到“当前执行”结束本次执行，再切换角色并保存安排；暂停计划不会结束本次执行。",
       "fieldCharacter": "执行角色",
       "charOffline": " · 离线",
       "fieldName": "计划名称",

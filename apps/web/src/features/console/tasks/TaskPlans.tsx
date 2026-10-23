@@ -257,7 +257,6 @@ export function TaskPlans({
                   ['', t('console.plans.filterAll')],
                   ['enabled', t('console.plans.statusEnabled')],
                   ['paused', t('console.plans.statusPaused')],
-                  ['completed', t('console.plans.statusCompleted')],
                   ['archived', t('console.plans.statusArchived')],
                 ] as const
               ).map(([value, label]) => (

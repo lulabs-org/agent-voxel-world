@@ -1,4 +1,7 @@
-import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
+import {
+  ConsoleFeedbackContext,
+  ConsoleFeedbackRelay,
+} from '../../../components/ui/ConsoleFeedbackRelay';
 import {
   DEFAULT_TASK_LIMITS,
   isRepeating,
@@ -7,7 +10,7 @@ import {
   type TaskPlanDraft,
   type AICharacterSummary,
 } from '@voxel/shared';
-import { useState, type ReactNode } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { useI18n } from '../../../i18n/context';
 import { TaskLimitSettings } from './TaskLimitSettings';
 
@@ -47,6 +50,7 @@ export function TaskPlanEditor({
   characterLocked?: boolean;
 }) {
   const { t } = useI18n();
+  const feedback = useContext(ConsoleFeedbackContext);
   const [characterId, setCharacterId] = useState(plan?.characterId ?? '');
   const [requestId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<TaskPlanDraft>(() =>
@@ -152,22 +156,39 @@ export function TaskPlanEditor({
           <div className="agent-grid">
             <label>
               {t('console.plans.fieldCharacter')}
-              <select
-                required={!plan}
-                disabled={characterLocked}
-                value={characterId}
-                onChange={(e) => setCharacterId(e.target.value)}
-              >
-                <option value="">
-                  {t('console.plans.selectCharacterPlaceholder')}
-                </option>
-                {characters.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                    {!a.sessionId ? t('console.plans.charOffline') : ''}
+              {characterLocked ? (
+                <button
+                  type="button"
+                  className="plans-character-locked"
+                  onClick={() => {
+                    feedback?.setNotice('');
+                    feedback?.setError(t('console.plans.characterLockedHint'));
+                  }}
+                >
+                  <span>
+                    {target?.name ??
+                      plan?.characterName ??
+                      t('console.plans.selectCharacterPlaceholder')}
+                  </span>
+                  <span aria-hidden="true">⌄</span>
+                </button>
+              ) : (
+                <select
+                  required={!plan}
+                  value={characterId}
+                  onChange={(e) => setCharacterId(e.target.value)}
+                >
+                  <option value="">
+                    {t('console.plans.selectCharacterPlaceholder')}
                   </option>
-                ))}
-              </select>
+                  {characters.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                      {!a.sessionId ? t('console.plans.charOffline') : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
             <label>
               {t('console.plans.fieldName')}
@@ -381,51 +402,49 @@ export function TaskPlanEditor({
               onChange={(limits) => setDraft({ ...draft, limits })}
             />
           )}
-          {repeating && (
-            <div className="plans-total-budget">
-              <label className="plans-total-budget-toggle">
+          <div className="plans-total-budget">
+            <label className="plans-total-budget-toggle">
+              <input
+                type="checkbox"
+                checked={
+                  draft.totalTokenBudgetEnabled ??
+                  draft.limits.enabled !== false
+                }
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    totalTokenBudgetEnabled: e.target.checked,
+                  })
+                }
+              />
+              <span>{t('console.plans.enableTotalBudget')}</span>
+            </label>
+            {(draft.totalTokenBudgetEnabled ??
+              draft.limits.enabled !== false) && (
+              <label className="plans-total-budget-field">
+                {t('console.plans.totalBudgetField')}
                 <input
-                  type="checkbox"
-                  checked={
-                    draft.totalTokenBudgetEnabled ??
-                    draft.limits.enabled !== false
-                  }
+                  type="number"
+                  required
+                  min={Math.max(
+                    1000,
+                    plan
+                      ? Math.min(plan.spentTokens, plan.totalTokenBudget)
+                      : 0,
+                  )}
+                  max={1000000000}
+                  value={draft.totalTokenBudget}
                   onChange={(e) =>
                     setDraft({
                       ...draft,
-                      totalTokenBudgetEnabled: e.target.checked,
+                      totalTokenBudget: e.target.valueAsNumber,
                     })
                   }
                 />
-                <span>{t('console.plans.enableTotalBudget')}</span>
+                <small>{t('console.plans.totalBudgetHint')}</small>
               </label>
-              {(draft.totalTokenBudgetEnabled ??
-                draft.limits.enabled !== false) && (
-                <label className="plans-total-budget-field">
-                  {t('console.plans.totalBudgetField')}
-                  <input
-                    type="number"
-                    required
-                    min={Math.max(
-                      1000,
-                      plan
-                        ? Math.min(plan.spentTokens, plan.totalTokenBudget)
-                        : 0,
-                    )}
-                    max={1000000000}
-                    value={draft.totalTokenBudget}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        totalTokenBudget: e.target.valueAsNumber,
-                      })
-                    }
-                  />
-                  <small>{t('console.plans.totalBudgetHint')}</small>
-                </label>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           {plan && (
             <p className="agent-hint">{t('console.plans.limitsFutureOnly')}</p>
           )}
