@@ -843,11 +843,9 @@
       "browserNotSupportedError": "Browser does not support SpeechRecognition or is not in a secure context. Use a supported browser over HTTPS or localhost.",
       "browserCannotRecordError": "Browser cannot record audio. Use an AudioWorklet supported browser under HTTPS/localhost; Whisper supports audio file upload.",
       "fileInputLabel": "Select Audio File (Max 20s / 5 MiB)",
-      "interimTitle": "Interim Caption · Unconfirmed",
       "listeningInterim": "Listening to speech…",
-      "speakingInterimPlaceholder": "Text appears here while speaking and confirms on pauses",
-      "confirmedTextLabel": "Confirmed Text",
-      "confirmedTextPlaceholder": "Each confirmed sentence will append here",
+      "confirmedTextLabel": "Transcript",
+      "confirmedTextPlaceholder": "Shows live while speaking and appends each confirmed sentence",
       "langChinese": "Chinese",
       "langEnglish": "English"
     },

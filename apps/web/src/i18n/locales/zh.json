@@ -840,11 +840,9 @@
       "browserNotSupportedError": "当前浏览器不支持语音识别，或页面不是安全上下文。请使用支持 SpeechRecognition 的浏览器，并通过 HTTPS 或 localhost 打开。",
       "browserCannotRecordError": "当前浏览器无法录音。请使用支持 AudioWorklet 的浏览器并在 HTTPS 或 localhost 下打开；Whisper 支持音频文件识别。",
       "fileInputLabel": "选择音频文件（最长 20 秒 / 5 MiB）",
-      "interimTitle": "临时字幕 · 未确认",
       "listeningInterim": "正在听取讲话…",
-      "speakingInterimPlaceholder": "说话时在这里显示，停顿后确认",
-      "confirmedTextLabel": "已确认文字",
-      "confirmedTextPlaceholder": "每句确认后，文字会追加到这里",
+      "confirmedTextLabel": "识别文字",
+      "confirmedTextPlaceholder": "说话时实时显示，停顿确认后追加到这里",
       "langChinese": "中文",
       "langEnglish": "英语"
     },
