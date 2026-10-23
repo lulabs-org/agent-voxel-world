@@ -832,7 +832,7 @@
       "toggleFileTestShow": "用音频文件测试",
       "toggleFileTestHide": "收起文件测试",
       "finishRecording": "结束录音",
-      "cancelRecognition": "取消识别",
+      "recording": "识别中…",
       "browserNotSupportedError": "当前浏览器不支持语音识别，或页面不是安全上下文。请使用支持 SpeechRecognition 的浏览器，并通过 HTTPS 或 localhost 打开。",
       "browserCannotRecordError": "当前浏览器无法录音。请使用支持 AudioWorklet 的浏览器并在 HTTPS 或 localhost 下打开；Whisper 支持音频文件识别。",
       "fileInputLabel": "选择音频文件（最长 20 秒 / 5 MiB）",
