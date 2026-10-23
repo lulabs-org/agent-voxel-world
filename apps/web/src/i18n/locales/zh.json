@@ -821,7 +821,6 @@
       "dirtyRecordHint": "请先保存修改，再开始录音。",
       "browserHint": "浏览器直接进行麦克风识别，可能使用在线识别服务。保存后可在下方试用；聊天和附近语音继续使用 Whisper。",
       "whisperHint": "录音与文件使用当前 Whisper 配置在项目服务器识别。聊天和附近语音继续使用服务器默认配置。",
-      "bailianHint": "录音经项目服务器发送给阿里云，按服务商规则计费。此处选择用于 ASR 试用；聊天和附近语音继续使用 Whisper。",
       "aliyunDocs": "阿里云接入文档 ↗",
       "whisperStatusHeading": "Whisper 服务状态",
       "checkingService": "正在检查服务…",

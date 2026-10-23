@@ -106,6 +106,7 @@ graph TD
 - **模型选项**：`fun-asr-realtime`（默认推荐）与 `paraformer-realtime-v2`。
 - **通信协议**：通过项目服务端 WebSocket 代理流式连接阿里云 DashScope，规避前端直接暴露 API Key。
 - **断句与确认**：流式推送实时 `partial` 临时字幕（带智能文本纠错），收到服务端 `sentence_end` 事件时正式提交整句结果。
+- **计费与适用范围**：录音经项目服务器发送给阿里云，按服务商规则计费。控制台此处所选配置仅用于 ASR 试听调试；世界聊天与附近语音仍继续使用服务器 Whisper 配置。
 
 ### 2. 自托管 Whisper 引擎
 
