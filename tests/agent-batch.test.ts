@@ -518,7 +518,14 @@ describe('batch task lifecycle', () => {
       actions: [{ ...move, durationMs: 1000 } as AgentAction, edit()],
       task,
     });
-    await f.step({ ...config(), taskTimeoutMs: 30 });
+    vi.useFakeTimers();
+    try {
+      const step = f.step({ ...config(), taskTimeoutMs: 30 });
+      await vi.advanceTimersByTimeAsync(30);
+      await step;
+    } finally {
+      vi.useRealTimers();
+    }
     expect(f.request).not.toHaveBeenCalled();
     expect(f.memory.task?.status).toBe('budget');
     expect(f.memory.previous).toMatchObject({ stopReason: 'timeout' });
