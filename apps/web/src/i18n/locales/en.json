@@ -824,7 +824,6 @@
       "dirtyRecordHint": "Please save changes before starting recording.",
       "browserHint": "Browser recognizes microphone input directly, possibly via an online engine. Test below after saving; world chat and proximity voice continue using Whisper.",
       "whisperHint": "Recordings and files are recognized on the server using current Whisper settings. World chat and proximity voice continue using server defaults.",
-      "bailianHint": "Recordings are routed via the project server to Alibaba Cloud and billed per provider rates. Used for ASR testing; world chat and proximity voice continue using Whisper.",
       "aliyunDocs": "Alibaba Cloud Integration Docs ↗",
       "whisperStatusHeading": "Whisper Service Status",
       "checkingService": "Checking service…",

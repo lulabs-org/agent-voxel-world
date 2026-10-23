@@ -276,17 +276,14 @@ export function BailianAsrConfig({
       ) : draft.provider === 'whisper' ? (
         <p className="agent-hint">{t('console.asr.whisperHint')}</p>
       ) : (
-        <>
-          <p className="agent-hint">{t('console.asr.bailianHint')}</p>
-          <a
-            className="console-help-link"
-            href="https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t('console.asr.aliyunDocs')}
-          </a>
-        </>
+        <a
+          className="console-help-link"
+          href="https://help.aliyun.com/zh/model-studio/real-time-speech-recognition-user-guide"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {t('console.asr.aliyunDocs')}
+        </a>
       )}
     </form>
   );
