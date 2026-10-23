@@ -409,7 +409,7 @@ export function TaskPlanEditor({
             </p>
           )}
         </div>
-        <div className="characters-form-footer">
+        <div className="agents-form-footer">
           <button
             className="primary"
             disabled={!plan && draft.timing.kind === 'immediate' && !!blocked}
