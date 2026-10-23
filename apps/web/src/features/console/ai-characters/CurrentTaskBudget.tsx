@@ -2,6 +2,7 @@ import type { AICharacterSummary, TaskLimits } from '@voxel/shared';
 import { useState } from 'react';
 import { useI18n } from '../../../i18n/context';
 import { displayedTaskIdentity, controlTaskRun } from '../execution/api';
+import { taskStatusNames } from '../execution-status';
 import { TaskBudgetFields } from '../execution/TaskBudgetFields';
 
 export function CurrentTaskBudget({
@@ -31,6 +32,7 @@ export function CurrentTaskBudget({
     'blocked',
     'failed',
   ].includes(task.status);
+  const canControl = !['completed', 'cancelled'].includes(task.status);
   const offline =
     !job.sessionId ||
     ['stopped', 'stopping', 'joining', 'failed'].includes(job.status);
@@ -63,64 +65,128 @@ export function CurrentTaskBudget({
       : execution.source === 'scheduled'
         ? t('console.characters.taskSourceScheduled')
         : t('console.characters.taskSourceManual');
+  const metrics = [
+    {
+      key: 'calls',
+      label: t('console.characters.statTurns'),
+      value: t('console.characters.turnsValue', {
+        calls: task.calls,
+        limit: limited
+          ? execution.limits.maxTurns
+          : t('console.characters.unlimited'),
+      }),
+      used: task.calls,
+      limit: execution.limits.maxTurns,
+    },
+    {
+      key: 'tokens',
+      label: t('console.characters.statTokens', {
+        estimated: task.estimated
+          ? t('console.characters.statEstimatedTag')
+          : '',
+      }),
+      value: `${task.tokens.toLocaleString()} / ${limited ? execution.limits.tokenBudget.toLocaleString() : t('console.characters.unlimited')}`,
+      used: task.tokens,
+      limit: execution.limits.tokenBudget,
+    },
+    {
+      key: 'duration',
+      label: t('console.characters.statDuration'),
+      value: t('console.characters.durationValue', {
+        elapsed: Math.round(task.elapsedMs / 1000),
+        limit: limited
+          ? t('console.characters.minutesUnit', {
+              min: execution.limits.taskTimeoutMs / 60000,
+            })
+          : t('console.characters.unlimited'),
+      }),
+      used: task.elapsedMs,
+      limit: execution.limits.taskTimeoutMs,
+    },
+  ];
 
   return (
     <section
-      className="agents-progress"
+      className="agents-current-task"
       aria-label={t('console.characters.currentTaskAria')}
     >
-      <h4>{t('console.characters.currentTaskGoal', { goal: task.goal })}</h4>
-      <p className="agent-hint">
-        {t('console.characters.taskSource', { source: sourceLabel })}
-        {execution.action
-          ? ` · ${execution.action.name} (${execution.action.status})`
-          : ''}
-      </p>
-      {task.reason && <p role="status">{task.reason}</p>}
-      <dl className="plans-run-stats task-run-usage">
-        <div>
-          <dt>{t('console.characters.statTurns')}</dt>
-          <dd>
-            {t('console.characters.turnsValue', {
-              calls: task.calls,
-              limit: limited
-                ? execution.limits.maxTurns
-                : t('console.characters.unlimited'),
-            })}
-          </dd>
+      <div className="agents-current-task-header">
+        <div className="agents-current-task-heading">
+          <h4>
+            {t('console.characters.currentTaskGoal', { goal: task.goal })}
+          </h4>
+          <p className="agent-hint">
+            {t('console.characters.taskSource', { source: sourceLabel })}
+            {execution.action
+              ? ` · ${execution.action.name} (${execution.action.status})`
+              : ''}
+          </p>
         </div>
-        <div>
-          <dt>
-            {t('console.characters.statTokens', {
-              estimated: task.estimated
-                ? t('console.characters.statEstimatedTag')
-                : '',
-            })}
-          </dt>
-          <dd>
-            {task.tokens.toLocaleString()} /{' '}
-            {limited
-              ? execution.limits.tokenBudget.toLocaleString()
-              : t('console.characters.unlimited')}
-          </dd>
-        </div>
-        <div>
-          <dt>{t('console.characters.statDuration')}</dt>
-          <dd>
-            {t('console.characters.durationValue', {
-              elapsed: Math.round(task.elapsedMs / 1000),
-              limit: limited
-                ? t('console.characters.minutesUnit', {
-                    min: execution.limits.taskTimeoutMs / 60000,
-                  })
-                : t('console.characters.unlimited'),
-            })}
-          </dd>
-        </div>
+        <span className="agents-task-status" data-status={task.status}>
+          {taskStatusNames[task.status]}
+        </span>
+      </div>
+      {job.taskRequiresReassignment ? (
+        <p className="agent-error agents-task-alert" role="alert">
+          {t('console.characters.staleChatSessionError')}
+        </p>
+      ) : (
+        task.reason && (
+          <p
+            className="agents-task-reason"
+            data-warning={['budget', 'blocked', 'needs_input'].includes(
+              task.status,
+            )}
+            role="status"
+          >
+            {task.reason}
+          </p>
+        )
+      )}
+      <h5 className="agents-task-usage-heading">
+        {t('console.characters.currentTaskUsageTitle')}
+      </h5>
+      <dl className="agents-task-metrics">
+        {metrics.map((metric) => (
+          <div
+            key={metric.key}
+            className="agents-task-metric"
+            data-exhausted={limited && metric.used >= metric.limit}
+          >
+            <dt>{metric.label}</dt>
+            <dd>{metric.value}</dd>
+            {limited && (
+              <progress
+                max={Math.max(metric.limit, 1)}
+                value={Math.min(metric.used, Math.max(metric.limit, 1))}
+                aria-label={metric.label}
+              />
+            )}
+          </div>
+        ))}
       </dl>
-      <p className="agent-hint">{t('console.characters.currentBudgetHint')}</p>
-      {!['completed', 'cancelled'].includes(task.status) && (
-        <div className="agents-actions">
+      <p className="agent-hint agents-task-budget-hint">
+        {t('console.characters.currentBudgetHint')}
+      </p>
+      {canControl && (
+        <div className="agents-actions agents-task-actions">
+          {resumable && !draft && !job.taskRequiresReassignment && (
+            <button
+              className="primary"
+              disabled={blocked}
+              onClick={() => {
+                setError('');
+                setDraft({
+                  limits: { ...execution.limits },
+                  expectedTask: displayedTaskIdentity(job),
+                });
+              }}
+            >
+              {limited
+                ? t('console.characters.adjustBudgetAndResume')
+                : t('console.characters.resumeCurrentTask')}
+            </button>
+          )}
           {['running', 'waiting'].includes(task.status) && (
             <button
               disabled={disabled || busy || offline}
@@ -130,6 +196,7 @@ export function CurrentTaskBudget({
             </button>
           )}
           <button
+            className="agents-task-cancel"
             disabled={disabled || busy || offline}
             onClick={() => void control('cancel')}
           >
@@ -137,30 +204,9 @@ export function CurrentTaskBudget({
           </button>
         </div>
       )}
-      {resumable && !draft && (
-        <button
-          disabled={blocked}
-          onClick={() => {
-            setError('');
-            setDraft({
-              limits: { ...execution.limits },
-              expectedTask: displayedTaskIdentity(job),
-            });
-          }}
-        >
-          {limited
-            ? t('console.characters.adjustBudgetAndResume')
-            : t('console.characters.resumeCurrentTask')}
-        </button>
-      )}
       {resumable && offline && (
         <p className="agent-hint">
           {t('console.characters.offlineResumeHint')}
-        </p>
-      )}
-      {job.taskRequiresReassignment && (
-        <p className="agent-error">
-          {t('console.characters.staleChatSessionError')}
         </p>
       )}
       {draft && resumable && (
