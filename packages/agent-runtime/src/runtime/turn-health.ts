@@ -1,8 +1,8 @@
+import type { ToolState } from '../cognition/context';
 import type { Observation } from '../contracts';
 import { worldSignature } from '../perception/observation';
 import type { TaskService } from '../task/service';
 import type { AgentRunState } from '../task/state';
-import type { LoopState } from './decision-loop';
 
 /**
  * Monitors execution health during decision turns:
@@ -14,7 +14,7 @@ export class TurnHealthMonitor {
   private eventFailures = 0;
 
   recordTurn(o: {
-    state: LoopState;
+    state: ToolState;
     attached: boolean;
     current: () => boolean;
     memory: AgentRunState;
