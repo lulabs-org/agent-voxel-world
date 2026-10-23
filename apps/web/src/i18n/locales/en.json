@@ -818,7 +818,6 @@
       "workspaceIdLabel": "Workspace ID (Optional)",
       "workspaceIdPlaceholder": "Leave empty to use public endpoint",
       "saveServiceButton": "Save ASR Service",
-      "saveAndAddAnother": "Save & Add Another",
       "deleteServiceButton": "Delete Service",
       "reloadButton": "Reload",
       "dirtyRecordHint": "Please save changes before starting recording.",

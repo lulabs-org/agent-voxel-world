@@ -134,7 +134,7 @@ export function useAsrServices(active: boolean) {
     setError('');
     setNotice('');
   };
-  const mutate = async (remove: boolean, addAnother = false) => {
+  const mutate = async (remove: boolean) => {
     if (
       !active ||
       (!browserMode && loading) ||
@@ -159,11 +159,7 @@ export function useAsrServices(active: boolean) {
             form.id === 'new' ? undefined : form.id,
           );
           setBrowserServices(values);
-          setForm(
-            addAnother && form.id === 'new' && values.length < 20
-              ? { id: 'new', draft: fresh('browser'), dirty: true }
-              : formFor(saved.id, saved),
-          );
+          setForm(formFor(saved.id, saved));
           setNotice('已保存到当前浏览器。可继续添加其他语言配置，或录音试用。');
         }
         setLocalError('');
@@ -197,18 +193,8 @@ export function useAsrServices(active: boolean) {
             ? values.map((v) => (v.id === saved.id ? saved : v))
             : [...values, saved],
         );
-        const continueAdding =
-          addAnother && form.id === 'new' && remoteServices.length + 1 < 20;
-        setForm(
-          continueAdding
-            ? { id: 'new', draft: fresh(saved.provider), dirty: true }
-            : formFor(saved.id, saved),
-        );
-        setNotice(
-          continueAdding
-            ? `「${saved.name}」已加入左侧列表，可继续填写下一份识别服务。`
-            : '识别服务已保存。可从左侧添加更多服务，或开始录音试用当前服务。',
-        );
+        setForm(formFor(saved.id, saved));
+        setNotice('识别服务已保存。可从左侧添加更多服务，或开始录音试用当前服务。');
       }
     } catch (e) {
       if (!abort.signal.aborted)
@@ -227,8 +213,6 @@ export function useAsrServices(active: boolean) {
     error: error || localError || (!browserMode ? remoteError : ''),
     notice,
     canAdd: remoteServices.length < 20 || browserServices.length < 20,
-    canAddAnother:
-      (browserMode ? browserServices.length : remoteServices.length) < 19,
     choose,
     change,
     changeProvider: (provider: AsrProvider) => {
@@ -241,7 +225,7 @@ export function useAsrServices(active: boolean) {
       setError('');
       setNotice('');
     },
-    save: (addAnother = false) => mutate(false, addAnother),
+    save: () => mutate(false),
     remove: () => mutate(true),
     reload: () => {
       setError('');

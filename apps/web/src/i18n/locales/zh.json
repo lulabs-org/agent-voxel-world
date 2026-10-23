@@ -815,7 +815,6 @@
       "workspaceIdLabel": "业务空间 ID（可选）",
       "workspaceIdPlaceholder": "留空使用公共接口",
       "saveServiceButton": "保存识别服务",
-      "saveAndAddAnother": "保存并继续添加",
       "deleteServiceButton": "删除服务",
       "reloadButton": "重新加载",
       "dirtyRecordHint": "请先保存修改，再开始录音。",
