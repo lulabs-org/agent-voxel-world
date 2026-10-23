@@ -574,6 +574,42 @@ it('unchecked limits survive restart, resume and scheduled/manual executions wit
   expect(manager.tasks.taskRuns(id, p.id).items).toHaveLength(3);
 });
 
+it('persists an independently disabled plan total while retaining per-run limits', async () => {
+  const id = await role();
+  const p = await manager.tasks.createTaskPlan(id, {
+    ...draft({ kind: 'interval', everyMs: 60000 }),
+    totalTokenBudget: 1000,
+    totalTokenBudgetEnabled: false,
+  });
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', {
+    requestId: 'first-without-total',
+  });
+  await idle();
+  await manager.tasks.controlTaskPlan(id, p.id, 'run', {
+    requestId: 'second-without-total',
+  });
+  await idle();
+  expect(manager.tasks.taskPlans(id)[0]).toMatchObject({
+    state: 'enabled',
+    spentTokens: 1200,
+    totalTokenBudgetEnabled: false,
+    limits: { enabled: true },
+  });
+  await manager.close();
+  manager = build();
+  await manager.load();
+  await idle();
+  expect(manager.tasks.taskPlans(id)[0].totalTokenBudgetEnabled).toBe(false);
+  await manager.tasks.updateTaskPlan(id, p.id, {
+    totalTokenBudgetEnabled: true,
+  });
+  await expect(
+    manager.tasks.controlTaskPlan(id, p.id, 'run', {
+      requestId: 'third-with-total',
+    }),
+  ).rejects.toThrow('累计额度');
+});
+
 it('retains multiple Pi tool batches within the same model call in actual action history', async () => {
   await manager.close();
   manager = new AICharacterManager(store, 'ws://fixture', {

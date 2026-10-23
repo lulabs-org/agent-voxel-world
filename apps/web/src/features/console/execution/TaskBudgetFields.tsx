@@ -10,24 +10,14 @@ type TaskBudget = Pick<
 export function TaskBudgetFields({
   value: agent,
   onChange: setAgent,
-  hideHeading = false,
 }: {
   value: TaskBudget;
   onChange: (value: TaskBudget) => void;
-  hideHeading?: boolean;
 }) {
   const { t } = useI18n();
 
   return (
     <div className="agents-task-limits">
-      {!hideHeading && (
-        <>
-          <h4>{t('console.budgetFields.heading')}</h4>
-          <p className="agent-hint">
-            {t('console.budgetFields.hint')}
-          </p>
-        </>
-      )}
       <div className="agents-task-limits-grid">
         <label className="agents-task-limit-field">
           <span className="agents-field-label">

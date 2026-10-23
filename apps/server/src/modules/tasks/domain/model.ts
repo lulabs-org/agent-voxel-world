@@ -44,7 +44,15 @@ export function runView(run: StoredRun): TaskRun {
  * 提取纯净的任务草稿配置（用于快照保存或版本对比）
  */
 export function planDraft(plan: TaskPlanDraft): TaskPlanDraft {
-  const { name, goal, timing, timeZone, limits, totalTokenBudget } = plan;
+  const {
+    name,
+    goal,
+    timing,
+    timeZone,
+    limits,
+    totalTokenBudgetEnabled,
+    totalTokenBudget,
+  } = plan;
   return structuredClone({
     name,
     goal,
@@ -52,6 +60,7 @@ export function planDraft(plan: TaskPlanDraft): TaskPlanDraft {
     timeZone,
     limits,
     limitsMode: plan.limitsMode,
+    totalTokenBudgetEnabled,
     totalTokenBudget,
   });
 }

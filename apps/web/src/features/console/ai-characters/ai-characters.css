@@ -672,10 +672,6 @@
 .agents-task-limits {
   margin: 20px 0;
 }
-.agents-task-limits h4 {
-  font-size: 12px;
-  margin: 0 0 8px;
-}
 .agents-form-footer {
   display: flex;
   align-items: center;
@@ -1784,20 +1780,6 @@
   width: 16px;
   height: 16px;
 }
-.task-limits {
-  margin: 20px 0;
-  padding: 14px;
-  border: 1px solid #d5dfcf;
-  border-radius: 8px;
-}
-.task-limits > .agent-hint {
-  color: #64765e;
-  display: block;
-  margin: 6px 0 0;
-}
-.task-limits .agents-task-limits {
-  margin-top: 18px;
-}
 @media (max-width: 620px) {
   .task-workspace .agents-task-heading {
     flex-wrap: wrap;
@@ -1822,23 +1804,6 @@
   .agent-dialog .task-history-toggle {
     font-size: 12px;
   }
-}
-
-.agent-form .task-limits-toggle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-weight: 600;
-  cursor: pointer;
-}
-.agent-form .task-limits-toggle input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  flex-shrink: 0;
-  accent-color: #305347;
 }
 
 .agents-delete-section {

@@ -15,7 +15,10 @@ export function TaskLimitSettings({
   const { t } = useI18n();
   const enabled = value.enabled !== false;
   return (
-    <section className="plans-limit-box task-limits" aria-label={t('console.plans.enableLimits')}>
+    <section
+      className="task-limits"
+      aria-label={t('console.plans.enableLimits')}
+    >
       <label className="task-limits-toggle">
         <input
           type="checkbox"
@@ -33,9 +36,7 @@ export function TaskLimitSettings({
           {children}
         </>
       ) : (
-        <p className="agent-hint">
-          {t('console.plans.unlimitedLimitsHint')}
-        </p>
+        <p className="agent-hint">{t('console.plans.unlimitedLimitsHint')}</p>
       )}
     </section>
   );

@@ -83,6 +83,11 @@ const planProperties = {
     maximum: 1000000000,
     default: 500000,
   },
+  totalTokenBudgetEnabled: {
+    type: 'boolean',
+    description:
+      '是否限制重复计划的累计 token 用量；旧计划缺省时沿用原执行限制设置。',
+  },
 };
 
 const agentProfileProperties = {

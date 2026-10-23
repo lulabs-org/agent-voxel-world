@@ -7,7 +7,11 @@ import {
   duePlans,
   emptyTaskBook,
 } from '../apps/server/src/modules/tasks';
-import { DEFAULT_TASK_LIMITS, type TaskTiming } from '@voxel/shared';
+import {
+  DEFAULT_TASK_LIMITS,
+  hasPlanTokenLimit,
+  type TaskTiming,
+} from '@voxel/shared';
 const at = (s: string) => Date.parse(s);
 const draft = (timing: TaskTiming, timeZone = 'Asia/Shanghai') => ({
   name: '巡查',
@@ -116,6 +120,32 @@ it('defaults old limits to enabled and persists an explicit unchecked setting', 
   ).toThrow('开关');
 });
 
+it('keeps legacy cumulative behavior while allowing an independent toggle', () => {
+  const recurring = draft({ kind: 'interval', everyMs: 60000 });
+  expect(hasPlanTokenLimit(recurring)).toBe(true);
+  expect(
+    hasPlanTokenLimit({
+      ...recurring,
+      limits: { ...DEFAULT_TASK_LIMITS, enabled: false },
+    }),
+  ).toBe(false);
+  const disabled = validatePlan({
+    ...recurring,
+    totalTokenBudgetEnabled: false,
+  });
+  expect(disabled.totalTokenBudgetEnabled).toBe(false);
+  expect(hasPlanTokenLimit(disabled)).toBe(false);
+  const independent = validatePlan({
+    ...recurring,
+    limits: { ...DEFAULT_TASK_LIMITS, enabled: false },
+    totalTokenBudgetEnabled: true,
+  });
+  expect(hasPlanTokenLimit(independent)).toBe(true);
+  expect(() =>
+    validatePlan({ ...recurring, totalTokenBudgetEnabled: 'false' }),
+  ).toThrow('开关');
+});
+
 it('ignores invalid hidden quota fields only when limits are disabled', () => {
   const input = {
     ...draft({ kind: 'immediate' }),
@@ -129,4 +159,11 @@ it('ignores invalid hidden quota fields only when limits are disabled', () => {
   expect(() =>
     validatePlan({ ...input, limits: { ...input.limits, enabled: true } }),
   ).toThrow();
+  expect(
+    validatePlan({
+      ...draft({ kind: 'interval', everyMs: 60000 }),
+      totalTokenBudgetEnabled: false,
+      totalTokenBudget: NaN,
+    }).totalTokenBudget,
+  ).toBe(500000);
 });
