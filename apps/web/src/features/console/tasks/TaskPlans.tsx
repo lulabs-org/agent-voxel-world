@@ -467,110 +467,6 @@ export function TaskPlans({
                     </span>
                     <p className="plans-goal-text">{plan.goal}</p>
                   </div>
-                  <div className="plans-usage-grid">
-                    <div className="plans-usage-card">
-                      <div className="plans-usage-card-top">
-                        <span className="plans-usage-label">
-                          {t('console.plans.totalTokensConsumed')}
-                        </span>
-                        {plan.state !== 'archived' &&
-                          hasPlanTokenLimit(plan) && (
-                            <button
-                              className="plans-usage-action"
-                              disabled={locked}
-                              onClick={() => setExtend(!extend)}
-                            >
-                              {t('console.plans.addBudget')}
-                            </button>
-                          )}
-                      </div>
-                      <strong>
-                        {plan.spentTokens.toLocaleString()}
-                        <small>tokens</small>
-                      </strong>
-                      <span className="plans-usage-meta">
-                        {hasPlanTokenLimit(plan)
-                          ? t('console.plans.totalBudgetLabel', {
-                              tokens: plan.totalTokenBudget.toLocaleString(),
-                            })
-                          : t('console.plans.noBudgetLimit')}
-                      </span>
-                      {hasPlanTokenLimit(plan) && (
-                        <div className="plans-progress-bar">
-                          <div
-                            className="plans-progress-fill"
-                            data-warning={
-                              plan.spentTokens / plan.totalTokenBudget > 0.8
-                            }
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                Math.round(
-                                  (plan.spentTokens /
-                                    Math.max(1, plan.totalTokenBudget)) *
-                                    100,
-                                ),
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="plans-usage-card">
-                      <span className="plans-usage-label">
-                        {t('console.plans.recordsAndLimit')}
-                      </span>
-                      <strong>
-                        {runs.length}
-                        <small>{t('console.plans.recordCount')}</small>
-                      </strong>
-                      <span className="plans-usage-meta">
-                        {plan.limitsMode === 'inherit'
-                          ? t('console.plans.inheritsCharacterBudget')
-                          : plan.limits.enabled !== false
-                            ? t('console.plans.singleRunLimit', {
-                                turns: plan.limits.maxTurns,
-                                tokens: (
-                                  plan.limits.tokenBudget ?? 50000
-                                ).toLocaleString(),
-                              })
-                            : t('console.plans.singleRunNoLimit')}
-                      </span>
-                    </div>
-                  </div>
-                  {extend && hasPlanTokenLimit(plan) && (
-                    <form
-                      className="agent-form plans-drawer-card"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void control('extend', { tokens: extra });
-                      }}
-                    >
-                      <h4>{t('console.plans.addTokensTitle')}</h4>
-                      <label>
-                        {t('console.plans.addTokensLabel')}
-                        <input
-                          type="number"
-                          min="1000"
-                          max="1000000000"
-                          required
-                          value={extra}
-                          onChange={(e) => setExtra(e.target.valueAsNumber)}
-                        />
-                      </label>
-                      <p className="agent-hint">
-                        {t('console.plans.addTokensHint')}
-                      </p>
-                      <div className="plans-drawer-actions">
-                        <button className="primary" disabled={locked}>
-                          {t('console.plans.confirmAdd')}
-                        </button>
-                        <button type="button" onClick={() => setExtend(false)}>
-                          {t('common.cancel')}
-                        </button>
-                      </div>
-                    </form>
-                  )}
                   {plan.state !== 'archived' && (
                     <div className="plans-toolbar">
                       <button
@@ -724,6 +620,110 @@ export function TaskPlans({
                       })}
                     </span>
                   </div>
+                  <div className="plans-usage-grid">
+                    <div className="plans-usage-card">
+                      <div className="plans-usage-card-top">
+                        <span className="plans-usage-label">
+                          {t('console.plans.totalTokensConsumed')}
+                        </span>
+                        {plan.state !== 'archived' &&
+                          hasPlanTokenLimit(plan) && (
+                            <button
+                              className="plans-usage-action"
+                              disabled={locked}
+                              onClick={() => setExtend(!extend)}
+                            >
+                              {t('console.plans.addBudget')}
+                            </button>
+                          )}
+                      </div>
+                      <strong>
+                        {plan.spentTokens.toLocaleString()}
+                        <small>tokens</small>
+                      </strong>
+                      <span className="plans-usage-meta">
+                        {hasPlanTokenLimit(plan)
+                          ? t('console.plans.totalBudgetLabel', {
+                              tokens: plan.totalTokenBudget.toLocaleString(),
+                            })
+                          : t('console.plans.noBudgetLimit')}
+                      </span>
+                      {hasPlanTokenLimit(plan) && (
+                        <div className="plans-progress-bar">
+                          <div
+                            className="plans-progress-fill"
+                            data-warning={
+                              plan.spentTokens / plan.totalTokenBudget > 0.8
+                            }
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round(
+                                  (plan.spentTokens /
+                                    Math.max(1, plan.totalTokenBudget)) *
+                                    100,
+                                ),
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="plans-usage-card">
+                      <span className="plans-usage-label">
+                        {t('console.plans.recordsAndLimit')}
+                      </span>
+                      <strong>
+                        {runs.length}
+                        <small>{t('console.plans.recordCount')}</small>
+                      </strong>
+                      <span className="plans-usage-meta">
+                        {plan.limitsMode === 'inherit'
+                          ? t('console.plans.inheritsCharacterBudget')
+                          : plan.limits.enabled !== false
+                            ? t('console.plans.singleRunLimit', {
+                                turns: plan.limits.maxTurns,
+                                tokens: (
+                                  plan.limits.tokenBudget ?? 50000
+                                ).toLocaleString(),
+                              })
+                            : t('console.plans.singleRunNoLimit')}
+                      </span>
+                    </div>
+                  </div>
+                  {extend && hasPlanTokenLimit(plan) && (
+                    <form
+                      className="agent-form plans-drawer-card"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void control('extend', { tokens: extra });
+                      }}
+                    >
+                      <h4>{t('console.plans.addTokensTitle')}</h4>
+                      <label>
+                        {t('console.plans.addTokensLabel')}
+                        <input
+                          type="number"
+                          min="1000"
+                          max="1000000000"
+                          required
+                          value={extra}
+                          onChange={(e) => setExtra(e.target.valueAsNumber)}
+                        />
+                      </label>
+                      <p className="agent-hint">
+                        {t('console.plans.addTokensHint')}
+                      </p>
+                      <div className="plans-drawer-actions">
+                        <button className="primary" disabled={locked}>
+                          {t('console.plans.confirmAdd')}
+                        </button>
+                        <button type="button" onClick={() => setExtend(false)}>
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </form>
+                  )}
                   {!runs.some(runEnded) && (
                     <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
                       {t('console.plans.noHistoryRuns')}
