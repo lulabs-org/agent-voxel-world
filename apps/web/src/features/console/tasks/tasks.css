@@ -1058,6 +1058,11 @@
   line-height: 1.7;
 }
 
+.agent-dialog .characters-welcome .agent-notice {
+  max-width: 440px;
+  margin-top: 14px;
+}
+
 /* Responsive Rules */
 @media (max-width: 700px) {
   .plans-usage-grid {
