@@ -173,8 +173,10 @@ export function SpeechRecognitionPanel({
       browser.start(language, {
         onStatus: setStatus,
         onPartial: setPartial,
-        onFinal: (value) =>
-          setText((previous) => (previous + '\n' + value).trim().slice(-4000)),
+        onFinal: (value) => {
+          setPartial('');
+          setText((previous) => (previous + '\n' + value).trim().slice(-4000));
+        },
         onError: callbacks.onError,
         onEnd: () => {
           release();
@@ -191,10 +193,12 @@ export function SpeechRecognitionPanel({
           onState: callbacks.onState,
           onStatus: setStatus,
           onPartial: setPartial,
-          onFinal: (value) =>
+          onFinal: (value) => {
+            setPartial('');
             setText((previous) =>
               (previous + '\n' + value).trim().slice(-4000),
-            ),
+            );
+          },
           onError: callbacks.onError,
           onEnd: () => {
             release();
@@ -434,22 +438,18 @@ export function SpeechRecognitionPanel({
                 {error}
               </p>
             )}
-            <div className="speech-interim" role="status" aria-live="polite">
-              <strong>{t('console.asr.interimTitle')}</strong>
-              <p>
-                {partial ||
-                  (state === 'listening'
-                    ? t('console.asr.listeningInterim')
-                    : t('console.asr.speakingInterimPlaceholder'))}
-              </p>
-            </div>
             <label>
               {t('console.asr.confirmedTextLabel')}
               <textarea
                 rows={4}
                 readOnly
-                value={text}
-                placeholder={t('console.asr.confirmedTextPlaceholder')}
+                aria-live="polite"
+                value={partial ? (text ? `${text}\n${partial}` : partial) : text}
+                placeholder={t(
+                  state === 'listening'
+                    ? 'console.asr.listeningInterim'
+                    : 'console.asr.confirmedTextPlaceholder',
+                )}
               />
             </label>
           </section>
