@@ -6,7 +6,7 @@ import {
   type TaskPlanDraft,
   type AICharacterSummary,
 } from '@voxel/shared';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useI18n } from '../../../i18n/context';
 import { TaskLimitSettings } from './TaskLimitSettings';
 
@@ -27,21 +27,21 @@ const dateInput = (at: number, zone: string) => {
 export function TaskPlanEditor({
   plan,
   busy,
-  blocked: _blocked,
   onSave,
   onCancel,
+  footerActions,
   characters,
 }: {
   plan?: TaskPlan;
   busy: boolean;
-  blocked: string;
   characters: AICharacterSummary[];
   onSave: (
     draft: TaskPlanDraft,
     requestId: string,
     characterId: string,
   ) => Promise<void>;
-  onCancel: () => void;
+  onCancel?: () => void;
+  footerActions?: ReactNode;
 }) {
   const { t } = useI18n();
   const [characterId, setCharacterId] = useState(plan?.characterId ?? '');
@@ -128,22 +128,20 @@ export function TaskPlanEditor({
         })();
       }}
     >
-      <div className="console-panel-heading plans-editor-heading">
-        <div className="plans-editor-heading-row">
-          <div>
-            <h3>
-              {plan
-                ? t('console.plans.editorTitleEdit')
-                : t('console.plans.editorTitleNew')}
-            </h3>
-            <p>{t('console.plans.editorSubtitle')}</p>
+      {!plan && (
+        <div className="console-panel-heading plans-editor-heading">
+          <div className="plans-editor-heading-row">
+            <div>
+              <h3>{t('console.plans.editorTitleNew')}</h3>
+              <p>{t('console.plans.editorSubtitle')}</p>
+            </div>
+            <button type="button" onClick={onCancel} disabled={busy}>
+              {t('common.back')}
+            </button>
           </div>
-          <button type="button" onClick={onCancel} disabled={busy}>
-            {t('common.back')}
-          </button>
         </div>
-      </div>
-      <fieldset disabled={busy}>
+      )}
+      <fieldset disabled={busy || plan?.state === 'archived'}>
         <div
           className="agents-form-section"
           style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}
@@ -159,9 +157,7 @@ export function TaskPlanEditor({
                 onChange={(e) => setCharacterId(e.target.value)}
               >
                 <option value="">
-                  {plan
-                    ? t('console.plans.boundCharacter')
-                    : t('console.plans.selectCharacterPlaceholder')}
+                  {t('console.plans.selectCharacterPlaceholder')}
                 </option>
                 {characters.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -182,7 +178,11 @@ export function TaskPlanEditor({
               />
             </label>
           </div>
-          <p className="agent-hint">{t('console.plans.offlineAllowedNote')}</p>
+          {!plan && (
+            <p className="agent-hint">
+              {t('console.plans.offlineAllowedNote')}
+            </p>
+          )}
           <label>
             {t('console.plans.fieldGoal')}
             <textarea
@@ -438,20 +438,23 @@ export function TaskPlanEditor({
             </p>
           )}
         </div>
-        <div className="agents-form-footer">
-          <button
-            className="primary"
-            disabled={!plan && draft.timing.kind === 'immediate' && !!blocked}
-          >
-            {busy
-              ? t('console.characters.saving')
-              : plan
-                ? t('console.plans.saveScheduleButton')
-                : draft.timing.kind === 'immediate'
-                  ? t('console.plans.createAndRunButton')
-                  : t('console.plans.createPlanButton')}
-          </button>
-        </div>
+        {plan?.state !== 'archived' && (
+          <div className="agents-form-footer plans-editor-footer">
+            <button
+              className="primary"
+              disabled={!plan && draft.timing.kind === 'immediate' && !!blocked}
+            >
+              {busy
+                ? t('console.characters.saving')
+                : plan
+                  ? t('console.plans.saveScheduleButton')
+                  : draft.timing.kind === 'immediate'
+                    ? t('console.plans.createAndRunButton')
+                    : t('console.plans.createPlanButton')}
+            </button>
+            {footerActions}
+          </div>
+        )}
       </fieldset>
     </form>
   );
