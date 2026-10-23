@@ -83,8 +83,5 @@ export function isRepeating(timing: TaskTiming) {
   return ['interval', 'daily', 'weekly'].includes(timing.kind);
 }
 export function hasPlanTokenLimit(plan: TaskPlanDraft) {
-  return (
-    isRepeating(plan.timing) &&
-    (plan.totalTokenBudgetEnabled ?? plan.limits.enabled !== false)
-  );
+  return plan.totalTokenBudgetEnabled ?? plan.limits.enabled !== false;
 }

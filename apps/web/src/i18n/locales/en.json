@@ -594,6 +594,7 @@
       "editorTitleNew": "New Task Plan",
       "editorSubtitle": "Configure goal, character, schedule trigger, and resource limits.",
       "sectionBasic": "Basic Goal",
+      "characterLockedHint": "This plan has an unfinished run. End it in Current Run, then select a character and save. Pausing the plan does not end the run.",
       "fieldCharacter": "Assigned Character",
       "charOffline": " · Offline",
       "fieldName": "Plan Name",

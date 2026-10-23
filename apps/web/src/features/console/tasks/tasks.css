@@ -1119,3 +1119,20 @@
   line-height: 22px;
   font-variant-numeric: tabular-nums;
 }
+
+.agent-form .plans-character-locked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border: 1px solid #cbd5c8;
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--agents-muted);
+  font: inherit;
+  text-align: left;
+  cursor: help;
+}
