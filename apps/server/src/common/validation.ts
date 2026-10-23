@@ -41,3 +41,13 @@ export function boolean(value: unknown, fallback: boolean) {
   if (typeof value !== 'boolean') throw new AppError('开关参数无效。');
   return value;
 }
+
+/** 服务端请求标识守卫：仅允许短横线、下划线与字母数字 */
+export function identifier(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
+}
+
+/** 服务端请求体守卫：判定为非数组的普通对象并收窄类型 */
+export function record(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}

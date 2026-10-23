@@ -1,8 +1,8 @@
 import {
   ManagementError,
-  record,
   type ManagementErrorData,
 } from '@voxel/shared/management';
+import { record } from '../../common/validation';
 export function publicError(error: unknown): ManagementErrorData {
   if (error instanceof ManagementError)
     return { code: error.code, message: error.message, status: error.status };

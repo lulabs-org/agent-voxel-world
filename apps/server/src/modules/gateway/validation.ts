@@ -1,8 +1,8 @@
 import {
-  record,
   ManagementError,
   MANAGEMENT_EVENTS_VERSION,
 } from '@voxel/shared/management';
+import { record } from '../../common/validation';
 export function parseEventConnect(value: unknown) {
   if (
     !record(value) ||

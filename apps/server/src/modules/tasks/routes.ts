@@ -12,6 +12,11 @@ function withRequestId(
   return { ...body, requestId: body?.requestId ?? commandId };
 }
 
+/** 读取查询参数为字符串，缺省与空值统一返回 undefined */
+function queryText(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined;
+}
+
 /**
  * 安装 Task / Plan（任务计划与运行历史）相关 HTTP REST 路由
  */
@@ -89,21 +94,15 @@ export function installTaskRoutes(
   app.get(
     '/tasks',
     route((req, res) => {
-      const page = tasks.planPage({
-        timing: req.query.timing
-          ? (String(req.query.timing) as PlanQueryFilter['timing'])
-          : undefined,
-        state: (req.query.state
-          ? String(req.query.state)
-          : undefined) as PlanQueryFilter['state'],
-        offset:
-          req.query.offset !== undefined ? Number(req.query.offset) : undefined,
-        search: req.query.search ? String(req.query.search) : undefined,
-        characterId: req.query.characterId
-          ? String(req.query.characterId)
-          : undefined,
-      });
-      res.json(page);
+      const offset = queryText(req.query.offset);
+      const filter: PlanQueryFilter = {
+        timing: queryText(req.query.timing) as PlanQueryFilter['timing'],
+        state: queryText(req.query.state) as PlanQueryFilter['state'],
+        offset: offset !== undefined ? Number(offset) : undefined,
+        search: queryText(req.query.search),
+        characterId: queryText(req.query.characterId),
+      };
+      res.json(tasks.planPage(filter));
     }),
   );
 
@@ -427,7 +426,7 @@ export function installTaskRoutes(
     '/tasks/:planId/runs',
     route((req, res) => {
       const result = tasks.publicRuns(
-        req.query.characterId ? String(req.query.characterId) : undefined,
+        queryText(req.query.characterId),
         String(req.params.planId),
         Number(req.query.offset ?? 0),
         true,
