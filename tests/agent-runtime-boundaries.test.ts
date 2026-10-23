@@ -35,11 +35,11 @@ const graph = new Map(
 
 describe('agent runtime dependency boundaries', () => {
   it('routes all decisions through one character runner and keeps policy in task services', () => {
-    const coordinator = readFileSync(
-      resolve(runtime, 'runtime/agent-coordinator.ts'),
+    const runner = readFileSync(
+      resolve(runtime, 'runtime/agent-runner.ts'),
       'utf8',
     );
-    expect(coordinator).toContain('CharacterRunner');
+    expect(runner).toContain('CharacterRunner');
     for (const path of graph.keys()) {
       expect(path).not.toMatch(
         /(?:conversation-runner|task-runner|conversation-tools)\.ts$/,

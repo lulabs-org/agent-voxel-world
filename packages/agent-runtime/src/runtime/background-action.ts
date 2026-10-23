@@ -23,25 +23,16 @@ export class BackgroundActionTracker {
     return !!this.current?.settled;
   }
 
-  launch(id: string, controller: AbortController, work: Promise<void>) {
+  launch(id: string, controller: AbortController, work: Promise<void>): void {
     const entry: BackgroundActionEntry = {
       id,
       controller,
       settled: false,
-      done: Promise.resolve(),
+      done: work.finally(() => {
+        entry.settled = true;
+      }),
     };
-    entry.done = work.finally(() => {
-      entry.settled = true;
-    });
     this.current = entry;
-  }
-
-  async stop(): Promise<void> {
-    if (this.current) {
-      this.current.controller.abort();
-      await this.current.done;
-      this.current = undefined;
-    }
   }
 
   async complete(): Promise<void> {
@@ -51,21 +42,20 @@ export class BackgroundActionTracker {
     }
   }
 
+  async stop(): Promise<void> {
+    this.current?.controller.abort();
+    await this.complete();
+  }
+
   async wait(
     attention: AgentAttention | undefined,
     signal: AbortSignal,
   ): Promise<void> {
-    if (!this.current) return;
-    if (!this.current.settled) {
-      if (attention) {
-        await Promise.race([
-          this.current.done,
-          attention.wait(60000, signal),
-        ]);
-      } else {
-        await this.current.done;
-      }
-    }
+    if (!this.current || this.current.settled) return;
+
+    await (attention
+      ? Promise.race([this.current.done, attention.wait(60_000, signal)])
+      : this.current.done);
   }
 
   async cleanup(): Promise<void> {

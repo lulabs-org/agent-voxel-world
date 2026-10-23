@@ -3,6 +3,13 @@ import { AI_CHARACTER_SKILLS, aiCharacterPermissions } from '@voxel/shared';
 import type { AgentConfig, Observation } from '../contracts';
 import type { AgentRunState } from '../task/state';
 
+/**
+ * Correction message replayed once to local models that answer in prose
+ * after a tool result instead of issuing a native tool call.
+ */
+export const TOOL_PROTOCOL_CORRECTION =
+  'Protocol correction: your last answer was plain text and was NOT delivered or executed. Use the provided native function tools, never a bare JSON object or a .function prefix. This model requires the exact tool envelope: <tool_call>{"name":"FUNCTION_NAME","arguments":{}}</tool_call>. Replace FUNCTION_NAME and arguments with an available tool and valid values. Do not repeat successful world actions. If results verify the entire task, call complete_task. For a conversation response, call chat with your actual reply in the text argument.';
+
 export function worldView(o: Observation) {
   return {
     revision: o.revision,
@@ -25,10 +32,11 @@ Use build for 1..64 edits or house for a hollow shell with foundation, walls, do
 Read tool failures and remaining/unknown effects before replanning. Acknowledged actions return fresh position proof and verification.observedMatching/unconfirmed from a new observation. If all requested edits are observedMatching, they are verified: do NOT call observe again before completing that goal. Verify those results on the next model turn, then call complete_task(summary); do not mark complete in the same turn that attempts a mutation. If needed, chat a brief completion report before the terminal status (same batch is allowed). Do not repeat completed work or unchanged failures. Use report_blocked for unsolvable obstacles, request_input for missing information, wait_for only for EXTERNAL changes. No arbitrary number of turns is required.
 A failed tool skips the rest of that batch. New human messages yield at tool boundaries; pause/cancel interrupts immediately. Never blindly replay unknown chat/movement. Task chat is bound to its audience; never leak private tasks in public. If chat permission is disabled, report status through task outcome tools. Terminal status prevents all later tools.
 Every response MUST contain a native tool call, never ordinary assistant text. After a prior tool result verifies success, call complete_task with a summary; do not merely describe completion in text.
-Selected skills:\n${AI_CHARACTER_SKILLS.filter((s) => config.skills?.includes(s.id))
+Selected skills:\n${
+    AI_CHARACTER_SKILLS.filter((s) => config.skills?.includes(s.id))
       .map((s) => `${s.name}: ${SKILL_GUIDANCE[s.id]}`)
       .join('\n') || 'None.'
-    }`;
+  }`;
 }
 
 export function formatTurnInput(
@@ -50,13 +58,12 @@ export function formatTurnInput(
       recovery:
         memory?.unknownEffect || memory?.pi?.inFlight?.state === 'unknown'
           ? {
-            ...(memory.unknownEffect ?? memory.pi?.inFlight),
-            instruction:
-              'Previous tool effect is unknown; inspect before replanning. Never automatically resend chat or movement.',
-          }
+              ...(memory.unknownEffect ?? memory.pi?.inFlight),
+              instruction:
+                'Previous tool effect is unknown; inspect before replanning. Never automatically resend chat or movement.',
+            }
           : undefined,
     },
     (key, value) => (key === 'batchId' ? undefined : value),
   );
 }
-
