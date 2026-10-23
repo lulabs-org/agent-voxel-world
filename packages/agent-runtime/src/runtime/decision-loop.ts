@@ -14,14 +14,6 @@ import { AgentRuntimeError } from '../errors';
 import { createModel, createModelStream } from '../models/provider-adapter';
 import type { RequestBudget } from '../task/budget';
 
-export const loopState = (): ToolState => ({
-  terminal: false,
-  skipBatch: false,
-  hadError: false,
-  persistenceFailed: false,
-  turnMutated: false,
-});
-
 /** Multi-step cognitive decision loop options for unified character event handling. */
 export type DecisionLoopOptions = {
   config: AgentConfig;

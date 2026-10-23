@@ -5,7 +5,7 @@ import { checkBudgetCap } from '../task/budget';
 import { toolSchemas } from '../cognition/tool-schemas';
 import { createTaskTools } from '../cognition/tools';
 import { executeTaskActions } from './task-executor';
-import { loopState } from './decision-loop';
+import { initialToolState } from '../cognition/context';
 import { recordEvent } from '../task/inbox';
 import type { TurnContext } from './turn-context';
 
@@ -67,7 +67,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
       const background = ['goto', 'build', 'house'].includes(name);
       const controller = new AbortController();
       const toolSignal = AbortSignal.any([o.activeSignal, controller.signal]);
-      const toolState = background ? loopState() : o.state;
+      const toolState = background ? initialToolState() : o.state;
       const taskTools = createTaskTools({
         state: toolState,
         memory: o.memory,

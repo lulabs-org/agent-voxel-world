@@ -4,7 +4,7 @@ import {
   type ChatData,
   type WorldEvent,
 } from '@voxel/shared';
-import { loopState, runDecisionLoop } from './decision-loop';
+import { runDecisionLoop } from './decision-loop';
 import { buildDecisionPayload } from './decision-payload';
 import { paceChat } from './chat-pacing';
 import { runFollowStep } from './follow-step';
@@ -26,7 +26,11 @@ import {
   restoreCheckpoint,
   updateCheckpoint,
 } from '../cognition/checkpoint';
-import { recentInteractions, recentTurns } from '../cognition/context';
+import {
+  initialToolState,
+  recentInteractions,
+  recentTurns,
+} from '../cognition/context';
 import { characterPrompt } from '../cognition/prompts';
 
 /** One decision flow for addressed messages, plan instructions and action results. */
@@ -162,7 +166,7 @@ export class CharacterRunner {
       return;
     }
     if (event) event.state = 'processing';
-    const state = loopState();
+    const state = initialToolState();
     const defaults = o.defaults ?? o.config;
     const config = { ...(message ? defaults : o.config) };
     if (message) {
