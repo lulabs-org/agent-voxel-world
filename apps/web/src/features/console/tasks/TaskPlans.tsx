@@ -60,6 +60,9 @@ export function TaskPlans({
   const [extra, setExtra] = useState(500000),
     [extend, setExtend] = useState(false);
   const [reassign, setReassign] = useState(false);
+  const [detailTab, setDetailTab] = useState<'details' | 'active' | 'history'>(
+    'details',
+  );
   const historyDepth = useRef(20);
   const mutation = useRef(false);
 
@@ -192,6 +195,7 @@ export function TaskPlans({
 
   const openPlan = (id: string) => {
     setSelected(id);
+    setDetailTab('details');
     setRevision((v) => v + 1);
     setPlan(undefined);
     setRuns([]);
@@ -392,338 +396,388 @@ export function TaskPlans({
                   {planStatus[plan.state] || plan.state}
                 </span>
               </div>
-              <div className="plans-presence-bar">
-                <p>
-                  {plan.nextRunAt
-                    ? t('console.plans.nextRunAt', {
-                        time: planTime(plan.nextRunAt, plan.timeZone),
-                      })
-                    : plan.state === 'completed'
-                      ? t('console.plans.stateCompletedDesc')
-                      : plan.state === 'paused'
-                        ? t('console.plans.statePausedDesc')
-                        : plan.state === 'archived'
-                          ? t('console.plans.stateArchivedDesc')
-                          : t('console.plans.stateReadyDesc')}
-                </p>
-                {plan.timing.kind !== 'immediate' &&
-                  plan.state !== 'archived' && (
-                    <button
-                      disabled={
-                        locked ||
-                        (!plan.characterId && plan.state !== 'enabled')
-                      }
-                      onClick={() =>
-                        void control(
-                          plan.state === 'enabled' ? 'pause' : 'resume',
-                        )
-                      }
-                    >
-                      {plan.state === 'enabled'
-                        ? t('console.plans.pausePlan')
-                        : t('console.plans.enablePlan')}
-                    </button>
-                  )}
-              </div>
-              {plan.reason && (
-                <p className="agent-notice" style={{ margin: '0 0 16px' }}>
-                  {plan.reason}
-                </p>
-              )}
-              <div className="plans-goal-card">
-                <span className="plans-card-label">
-                  {t('console.plans.targetAndCondition')}
-                </span>
-                <p className="plans-goal-text">{plan.goal}</p>
-              </div>
-              <div className="plans-usage-grid">
-                <div className="plans-usage-card">
-                  <div className="plans-usage-card-top">
-                    <span className="plans-usage-label">
-                      {t('console.plans.totalTokensConsumed')}
-                    </span>
-                    {plan.state !== 'archived' && (
-                      <button
-                        className="plans-usage-action"
-                        disabled={locked}
-                        onClick={() => setExtend(!extend)}
-                      >
-                        {t('console.plans.addBudget')}
-                      </button>
-                    )}
-                  </div>
-                  <strong>
-                    {plan.spentTokens.toLocaleString()}
-                    <small>tokens</small>
-                  </strong>
-                  <span className="plans-usage-meta">
-                    {plan.limits.enabled !== false &&
-                    plan.timing.kind !== 'immediate'
-                      ? t('console.plans.totalBudgetLabel', {
-                          tokens: plan.totalTokenBudget.toLocaleString(),
-                        })
-                      : t('console.plans.noBudgetLimit')}
-                  </span>
-                  {plan.limits.enabled !== false &&
-                    plan.timing.kind !== 'immediate' && (
-                      <div className="plans-progress-bar">
-                        <div
-                          className="plans-progress-fill"
-                          data-warning={
-                            plan.spentTokens / plan.totalTokenBudget > 0.8
+              <nav
+                className="plans-detail-tabs"
+                aria-label={t('console.plans.detailTabsAria')}
+              >
+                {(
+                  [
+                    ['details', t('console.plans.detailTab')],
+                    [
+                      'active',
+                      `${t('console.plans.activeRuns')} (${runs.filter((r) => !runEnded(r)).length})`,
+                    ],
+                    ['history', t('console.plans.historyHeading')],
+                  ] as const
+                ).map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    aria-current={detailTab === tab ? 'page' : undefined}
+                    onClick={() => setDetailTab(tab)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              {detailTab === 'details' && (
+                <>
+                  <div className="plans-presence-bar">
+                    <p>
+                      {plan.nextRunAt
+                        ? t('console.plans.nextRunAt', {
+                            time: planTime(plan.nextRunAt, plan.timeZone),
+                          })
+                        : plan.state === 'completed'
+                          ? t('console.plans.stateCompletedDesc')
+                          : plan.state === 'paused'
+                            ? t('console.plans.statePausedDesc')
+                            : plan.state === 'archived'
+                              ? t('console.plans.stateArchivedDesc')
+                              : t('console.plans.stateReadyDesc')}
+                    </p>
+                    {plan.timing.kind !== 'immediate' &&
+                      plan.state !== 'archived' && (
+                        <button
+                          disabled={
+                            locked ||
+                            (!plan.characterId && plan.state !== 'enabled')
                           }
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.round(
-                                (plan.spentTokens /
-                                  Math.max(1, plan.totalTokenBudget)) *
+                          onClick={() =>
+                            void control(
+                              plan.state === 'enabled' ? 'pause' : 'resume',
+                            )
+                          }
+                        >
+                          {plan.state === 'enabled'
+                            ? t('console.plans.pausePlan')
+                            : t('console.plans.enablePlan')}
+                        </button>
+                      )}
+                  </div>
+                  {plan.reason && (
+                    <p className="agent-notice" style={{ margin: '0 0 16px' }}>
+                      {plan.reason}
+                    </p>
+                  )}
+                  <div className="plans-goal-card">
+                    <span className="plans-card-label">
+                      {t('console.plans.targetAndCondition')}
+                    </span>
+                    <p className="plans-goal-text">{plan.goal}</p>
+                  </div>
+                  <div className="plans-usage-grid">
+                    <div className="plans-usage-card">
+                      <div className="plans-usage-card-top">
+                        <span className="plans-usage-label">
+                          {t('console.plans.totalTokensConsumed')}
+                        </span>
+                        {plan.state !== 'archived' && (
+                          <button
+                            className="plans-usage-action"
+                            disabled={locked}
+                            onClick={() => setExtend(!extend)}
+                          >
+                            {t('console.plans.addBudget')}
+                          </button>
+                        )}
+                      </div>
+                      <strong>
+                        {plan.spentTokens.toLocaleString()}
+                        <small>tokens</small>
+                      </strong>
+                      <span className="plans-usage-meta">
+                        {plan.limits.enabled !== false &&
+                        plan.timing.kind !== 'immediate'
+                          ? t('console.plans.totalBudgetLabel', {
+                              tokens: plan.totalTokenBudget.toLocaleString(),
+                            })
+                          : t('console.plans.noBudgetLimit')}
+                      </span>
+                      {plan.limits.enabled !== false &&
+                        plan.timing.kind !== 'immediate' && (
+                          <div className="plans-progress-bar">
+                            <div
+                              className="plans-progress-fill"
+                              data-warning={
+                                plan.spentTokens / plan.totalTokenBudget > 0.8
+                              }
+                              style={{
+                                width: `${Math.min(
                                   100,
-                              ),
-                            )}%`,
-                          }}
+                                  Math.round(
+                                    (plan.spentTokens /
+                                      Math.max(1, plan.totalTokenBudget)) *
+                                      100,
+                                  ),
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        )}
+                    </div>
+                    <div className="plans-usage-card">
+                      <span className="plans-usage-label">
+                        {t('console.plans.recordsAndLimit')}
+                      </span>
+                      <strong>
+                        {runs.length}
+                        <small>{t('console.plans.recordCount')}</small>
+                      </strong>
+                      <span className="plans-usage-meta">
+                        {plan.limitsMode === 'inherit'
+                          ? t('console.plans.inheritsCharacterBudget')
+                          : plan.limits.enabled !== false
+                            ? t('console.plans.singleRunLimit', {
+                                turns: plan.limits.maxTurns,
+                                tokens: (
+                                  plan.limits.tokenBudget ?? 50000
+                                ).toLocaleString(),
+                              })
+                            : t('console.plans.singleRunNoLimit')}
+                      </span>
+                    </div>
+                  </div>
+                  {extend && (
+                    <form
+                      className="agent-form plans-drawer-card"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void control('extend', { tokens: extra });
+                      }}
+                    >
+                      <h4>{t('console.plans.addTokensTitle')}</h4>
+                      <label>
+                        {t('console.plans.addTokensLabel')}
+                        <input
+                          type="number"
+                          min="1000"
+                          max="1000000000"
+                          required
+                          value={extra}
+                          onChange={(e) => setExtra(e.target.valueAsNumber)}
+                        />
+                      </label>
+                      <p className="agent-hint">
+                        {t('console.plans.addTokensHint')}
+                      </p>
+                      <div className="plans-drawer-actions">
+                        <button className="primary" disabled={locked}>
+                          {t('console.plans.confirmAdd')}
+                        </button>
+                        <button type="button" onClick={() => setExtend(false)}>
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  {plan.state !== 'archived' && (
+                    <div className="plans-toolbar">
+                      <button
+                        className="primary"
+                        disabled={
+                          locked || !!blocked || runs.some((r) => !runEnded(r))
+                        }
+                        onClick={() =>
+                          void control('run', {
+                            requestId: crypto.randomUUID(),
+                          })
+                        }
+                      >
+                        {t('console.plans.runNow')}
+                      </button>
+                      <button
+                        disabled={locked}
+                        onClick={() =>
+                          setEditor({ plan: structuredClone(plan) })
+                        }
+                      >
+                        {t('console.plans.editPlan')}
+                      </button>
+                      <button
+                        disabled={
+                          locked ||
+                          runs.some(
+                            (r) => r.status !== 'queued' && !runEnded(r),
+                          )
+                        }
+                        onClick={() => {
+                          setReassign(!reassign);
+                          setTarget('');
+                        }}
+                      >
+                        {t('console.plans.reassignCharacter')}
+                      </button>
+                      <button
+                        disabled={
+                          locked ||
+                          runs.some(
+                            (r) => r.status !== 'queued' && !runEnded(r),
+                          )
+                        }
+                        onClick={() => void control('archive')}
+                      >
+                        {t('console.plans.archivePlan')}
+                      </button>
+                    </div>
+                  )}
+                  {blocked && plan.state !== 'archived' && (
+                    <p
+                      className="agent-hint"
+                      style={{ marginTop: -10, marginBottom: 16 }}
+                    >
+                      {t('console.plans.blockedCannotRun', { reason: blocked })}
+                    </p>
+                  )}
+                  {reassign && (
+                    <form
+                      className="agent-form plans-drawer-card"
+                      onSubmit={(e) => {
+                        void (async () => {
+                          e.preventDefault();
+                          try {
+                            await mutate(() => tasksApi.reassign(plan, target));
+                            setReassign(false);
+                          } catch {
+                            // mutate has already displayed the failure; keep the editor open.
+                          }
+                        })();
+                      }}
+                    >
+                      <h4>{t('console.plans.reassignTitle')}</h4>
+                      <label>
+                        {t('console.plans.selectNewCharacter')}
+                        <select
+                          required
+                          value={target}
+                          onChange={(e) => setTarget(e.target.value)}
+                        >
+                          <option value="">
+                            {t('console.plans.selectCharacterPlaceholder')}
+                          </option>
+                          {characters
+                            .filter((a) => a.id !== plan.characterId)
+                            .map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <p className="agent-hint">
+                        {t('console.plans.reassignHint')}
+                      </p>
+                      <div className="plans-drawer-actions">
+                        <button
+                          className="primary"
+                          disabled={locked || !target}
+                        >
+                          {t('console.plans.confirmReassign')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReassign(false)}
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </>
+              )}
+              {detailTab === 'active' && (
+                <section aria-label={t('console.plans.activeRuns')}>
+                  <div className="plans-section-heading">
+                    <h4>{t('console.plans.activeRuns')}</h4>
+                    <span className="plans-section-badge">
+                      {t('console.plans.activeItems', {
+                        count: runs.filter((r) => !runEnded(r)).length,
+                      })}
+                    </span>
+                  </div>
+                  {!runs.some((r) => !runEnded(r)) && (
+                    <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
+                      {t('console.plans.noActiveRuns')}
+                    </p>
+                  )}
+                  {runs
+                    .filter((r) => !runEnded(r))
+                    .map((r) => (
+                      <TaskRunDetails
+                        key={r.id}
+                        run={r}
+                        planGoal={plan.goal}
+                        busy={locked}
+                        blocked={blocked}
+                        onAction={runControl}
+                      />
+                    ))}
+                </section>
+              )}
+              {detailTab === 'history' && (
+                <section aria-label={t('console.plans.historyHeading')}>
+                  <div className="plans-section-heading">
+                    <h4>{t('console.plans.historyHeading')}</h4>
+                    <span className="plans-section-badge">
+                      {t('console.plans.historyCount', {
+                        count: runs.filter(runEnded).length,
+                      })}
+                    </span>
+                  </div>
+                  {!runs.some(runEnded) && (
+                    <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
+                      {t('console.plans.noHistoryRuns')}
+                    </p>
+                  )}
+                  {runs.filter(runEnded).map((r) => (
+                    <details
+                      key={r.id}
+                      className="plans-history-card task-history-item"
+                    >
+                      <summary className="plans-history-summary">
+                        <span>
+                          {planTime(
+                            r.startedAt ?? r.scheduledAt,
+                            r.snapshot.timeZone,
+                          )}{' '}
+                          · {r.characterName}
+                          {!characters.some((a) => a.id === r.characterId)
+                            ? t('console.plans.deletedTag')
+                            : ''}
+                        </span>
+                        <span
+                          className="plans-presence-dot"
+                          data-state={
+                            r.status === 'completed' ? 'completed' : 'paused'
+                          }
+                        />
+                      </summary>
+                      <div className="plans-history-body">
+                        <TaskRunDetails
+                          run={r}
+                          planGoal={plan.goal}
+                          hideHeading
+                          busy={locked}
+                          blocked=""
+                          onAction={runControl}
                         />
                       </div>
-                    )}
-                </div>
-                <div className="plans-usage-card">
-                  <span className="plans-usage-label">
-                    {t('console.plans.recordsAndLimit')}
-                  </span>
-                  <strong>
-                    {runs.length}
-                    <small>{t('console.plans.recordCount')}</small>
-                  </strong>
-                  <span className="plans-usage-meta">
-                    {plan.limitsMode === 'inherit'
-                      ? t('console.plans.inheritsCharacterBudget')
-                      : plan.limits.enabled !== false
-                        ? t('console.plans.singleRunLimit', {
-                            turns: plan.limits.maxTurns,
-                            tokens: (
-                              plan.limits.tokenBudget ?? 50000
-                            ).toLocaleString(),
-                          })
-                        : t('console.plans.singleRunNoLimit')}
-                  </span>
-                </div>
-              </div>
-              {extend && (
-                <form
-                  className="agent-form plans-drawer-card"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void control('extend', { tokens: extra });
-                  }}
-                >
-                  <h4>{t('console.plans.addTokensTitle')}</h4>
-                  <label>
-                    {t('console.plans.addTokensLabel')}
-                    <input
-                      type="number"
-                      min="1000"
-                      max="1000000000"
-                      required
-                      value={extra}
-                      onChange={(e) => setExtra(e.target.valueAsNumber)}
-                    />
-                  </label>
-                  <p className="agent-hint">
-                    {t('console.plans.addTokensHint')}
-                  </p>
-                  <div className="plans-drawer-actions">
-                    <button className="primary" disabled={locked}>
-                      {t('console.plans.confirmAdd')}
-                    </button>
-                    <button type="button" onClick={() => setExtend(false)}>
-                      {t('common.cancel')}
-                    </button>
-                  </div>
-                </form>
-              )}
-              {plan.state !== 'archived' && (
-                <div className="plans-toolbar">
-                  <button
-                    className="primary"
-                    disabled={
-                      locked || !!blocked || runs.some((r) => !runEnded(r))
-                    }
-                    onClick={() =>
-                      void control('run', { requestId: crypto.randomUUID() })
-                    }
-                  >
-                    {t('console.plans.runNow')}
-                  </button>
-                  <button
-                    disabled={locked}
-                    onClick={() => setEditor({ plan: structuredClone(plan) })}
-                  >
-                    {t('console.plans.editPlan')}
-                  </button>
-                  <button
-                    disabled={
-                      locked ||
-                      runs.some((r) => r.status !== 'queued' && !runEnded(r))
-                    }
-                    onClick={() => {
-                      setReassign(!reassign);
-                      setTarget('');
-                    }}
-                  >
-                    {t('console.plans.reassignCharacter')}
-                  </button>
-                  <button
-                    disabled={
-                      locked ||
-                      runs.some((r) => r.status !== 'queued' && !runEnded(r))
-                    }
-                    onClick={() => void control('archive')}
-                  >
-                    {t('console.plans.archivePlan')}
-                  </button>
-                </div>
-              )}
-              {blocked && plan.state !== 'archived' && (
-                <p
-                  className="agent-hint"
-                  style={{ marginTop: -10, marginBottom: 16 }}
-                >
-                  {t('console.plans.blockedCannotRun', { reason: blocked })}
-                </p>
-              )}
-              {reassign && (
-                <form
-                  className="agent-form plans-drawer-card"
-                  onSubmit={(e) => {
-                    void (async () => {
-                      e.preventDefault();
-                      try {
-                        await mutate(() => tasksApi.reassign(plan, target));
-                        setReassign(false);
-                      } catch {
-                        // mutate has already displayed the failure; keep the editor open.
-                      }
-                    })();
-                  }}
-                >
-                  <h4>{t('console.plans.reassignTitle')}</h4>
-                  <label>
-                    {t('console.plans.selectNewCharacter')}
-                    <select
-                      required
-                      value={target}
-                      onChange={(e) => setTarget(e.target.value)}
-                    >
-                      <option value="">
-                        {t('console.plans.selectCharacterPlaceholder')}
-                      </option>
-                      {characters
-                        .filter((a) => a.id !== plan.characterId)
-                        .map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <p className="agent-hint">
-                    {t('console.plans.reassignHint')}
-                  </p>
-                  <div className="plans-drawer-actions">
-                    <button className="primary" disabled={locked || !target}>
-                      {t('console.plans.confirmReassign')}
-                    </button>
-                    <button type="button" onClick={() => setReassign(false)}>
-                      {t('common.cancel')}
-                    </button>
-                  </div>
-                </form>
-              )}
-              <div className="plans-section-heading">
-                <h4>{t('console.plans.activeRuns')}</h4>
-                <span className="plans-section-badge">
-                  {t('console.plans.activeItems', {
-                    count: runs.filter((r) => !runEnded(r)).length,
-                  })}
-                </span>
-              </div>
-              {!runs.some((r) => !runEnded(r)) && (
-                <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
-                  {t('console.plans.noActiveRuns')}
-                </p>
-              )}
-              {runs
-                .filter((r) => !runEnded(r))
-                .map((r) => (
-                  <TaskRunDetails
-                    key={r.id}
-                    run={r}
-                    planGoal={plan.goal}
-                    busy={locked}
-                    blocked={blocked}
-                    onAction={runControl}
-                  />
-                ))}
-              <div className="plans-section-heading">
-                <h4>{t('console.plans.historyHeading')}</h4>
-                <span className="plans-section-badge">
-                  {t('console.plans.historyCount', {
-                    count: runs.filter(runEnded).length,
-                  })}
-                </span>
-              </div>
-              {!runs.some(runEnded) && (
-                <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
-                  {t('console.plans.noHistoryRuns')}
-                </p>
-              )}
-              {runs.filter(runEnded).map((r) => (
-                <details
-                  key={r.id}
-                  className="plans-history-card task-history-item"
-                >
-                  <summary className="plans-history-summary">
-                    <span>
-                      {planTime(
-                        r.startedAt ?? r.scheduledAt,
-                        r.snapshot.timeZone,
-                      )}{' '}
-                      · {r.characterName}
-                      {!characters.some((a) => a.id === r.characterId)
-                        ? t('console.plans.deletedTag')
-                        : ''}
-                    </span>
-                    <span
-                      className="plans-presence-dot"
-                      data-state={
-                        r.status === 'completed' ? 'completed' : 'paused'
-                      }
-                    />
-                  </summary>
-                  <div className="plans-history-body">
-                    <TaskRunDetails
-                      run={r}
-                      planGoal={plan.goal}
-                      hideHeading
-                      busy={locked}
-                      blocked=""
-                      onAction={runControl}
-                    />
-                  </div>
-                </details>
-              ))}
-              {nextRunPage !== undefined && (
-                <div style={{ marginTop: 12 }}>
-                  <button
-                    disabled={locked}
-                    onClick={() => {
-                      historyDepth.current += 20;
-                      setRevision((v) => v + 1);
-                    }}
-                  >
-                    {t('console.plans.loadOlderRecords')}
-                  </button>
-                </div>
+                    </details>
+                  ))}
+                  {nextRunPage !== undefined && (
+                    <div style={{ marginTop: 12 }}>
+                      <button
+                        disabled={locked}
+                        onClick={() => {
+                          historyDepth.current += 20;
+                          setRevision((v) => v + 1);
+                        }}
+                      >
+                        {t('console.plans.loadOlderRecords')}
+                      </button>
+                    </div>
+                  )}
+                </section>
               )}
             </article>
           ) : (
