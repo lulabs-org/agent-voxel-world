@@ -68,7 +68,7 @@ export function SpeechRecognitionPanel({
     setPartial('');
     release();
     setState('idle');
-    setStatus(t('console.asr.cancelRecognition'));
+    setStatus('');
   };
   useEffect(() => {
     setShowFileTest(false);
@@ -365,10 +365,29 @@ export function SpeechRecognitionPanel({
             <div className="voice-service-actions">
               <button
                 type="button"
-                disabled={!ready || busy || (!isBrowser && !live.canRecord)}
-                onClick={() => start()}
+                disabled={
+                  state === 'idle'
+                    ? !ready || (!isBrowser && !live.canRecord)
+                    : state === 'thinking'
+                }
+                onClick={() => {
+                  if (state === 'idle') {
+                    start();
+                  } else if (state === 'listening') {
+                    if (isBrowser) {
+                      setState('thinking');
+                      browser.finish();
+                    } else void live.finish();
+                  } else {
+                    stop();
+                  }
+                }}
               >
-                {t('console.asr.startRecording')}
+                {state === 'idle'
+                  ? t('console.asr.startRecording')
+                  : state === 'listening'
+                    ? t('console.asr.finishRecording')
+                    : t('console.asr.recording')}
               </button>
               {!isBrowser && asr.selected?.provider === 'whisper' && (
                 <button
@@ -380,24 +399,6 @@ export function SpeechRecognitionPanel({
                   onClick={() => setShowFileTest((value) => !value)}
                 >
                   {showFileTest ? t('console.asr.toggleFileTestHide') : t('console.asr.toggleFileTestShow')}
-                </button>
-              )}
-              {state === 'listening' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isBrowser) {
-                      setState('thinking');
-                      browser.finish();
-                    } else void live.finish();
-                  }}
-                >
-                  {t('console.asr.finishRecording')}
-                </button>
-              )}
-              {busy && (
-                <button type="button" onClick={stop}>
-                  {t('console.asr.cancelRecognition')}
                 </button>
               )}
             </div>
