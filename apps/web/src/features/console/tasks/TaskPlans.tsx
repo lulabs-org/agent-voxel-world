@@ -222,9 +222,6 @@ export function TaskPlans({
           {error || readError}
         </p>
       )}
-      {!characters.length && (
-        <p className="agent-notice">{t('console.plans.noCharactersWarning')}</p>
-      )}
       <div className="console-columns">
         <aside
           className="console-sidebar"
@@ -809,6 +806,9 @@ export function TaskPlans({
                 <br />
                 {t('console.plans.welcomeDescLine2')}
               </p>
+              {!characters.length && (
+                <p className="agent-notice">{t('console.plans.noCharactersWarning')}</p>
+              )}
             </div>
           )}
         </div>
