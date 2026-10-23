@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import { identifier } from '@voxel/shared/management';
+import { identifier } from '../../common/validation';
 import type { ManagementCommands } from './commands';
 
 export function installManagementRoutes(

@@ -1,6 +1,6 @@
 import { publicError } from '../modules/management/errors';
 import express, { type Express, type RequestHandler } from 'express';
-import { identifier } from '@voxel/shared/management';
+import { identifier } from '../common/validation';
 import { AppError } from '../common/errors';
 import { requireJsonRequest } from './middleware/require-json';
 import { errorHandler } from './middleware/error-handler';

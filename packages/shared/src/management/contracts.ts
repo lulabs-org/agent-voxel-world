@@ -35,12 +35,6 @@ export class ManagementError extends Error {
     super(message);
   }
 }
-export function identifier(value: unknown): value is string {
-  return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
-}
-export function record(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
 
 // A connection carries notifications only. Every reconnect prompts an HTTP refresh.
 export const MANAGEMENT_EVENTS_VERSION = 3;
