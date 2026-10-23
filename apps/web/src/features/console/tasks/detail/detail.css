@@ -1,0 +1,307 @@
+.plans-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Heading section matching .agents-detail-heading */
+.plans-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.plans-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.plans-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 42px;
+  background: #e6eee0;
+  color: #3e6151;
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.plans-identity-content {
+  min-width: 0;
+}
+
+.plans-identity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-dialog .plans-identity h3 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 26px;
+  overflow-wrap: anywhere;
+}
+
+.plans-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e9f0e3;
+  color: #3e6151;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.plans-identity p {
+  font-size: 11px;
+  color: var(--agents-muted);
+  margin: 4px 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.plans-identity p strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* Status presence pill matching .agents-presence */
+.plans-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  background: #f0f1eb;
+  color: #6c786b;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.plans-presence[data-state='enabled'] {
+  color: #30583f;
+  background: #e6f0e0;
+}
+
+.plans-presence[data-state='paused'] {
+  color: #8c6020;
+  background: #faeed7;
+}
+
+.plans-presence[data-state='unassigned'] {
+  color: #9c5c24;
+  background: #fbeef0;
+}
+
+.plans-presence[data-state='completed'] {
+  color: #55675c;
+  background: #ebf0e8;
+}
+
+.plans-presence[data-state='archived'] {
+  color: #727c73;
+  background: #ebeee8;
+}
+
+/* Usage Metrics Card matching .agents-usage */
+.plans-usage-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.plans-usage-card {
+  background: #f3f6ec;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8db;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.plans-usage-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plans-usage-label {
+  font-size: 11px;
+  color: var(--agents-muted);
+}
+
+.plans-usage-card strong {
+  display: block;
+  font-size: 20px;
+  margin: 6px 0 2px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.plans-usage-card strong small {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--agents-muted);
+  margin-left: 4px;
+}
+
+.plans-usage-meta {
+  font-size: 11px;
+  color: var(--agents-muted);
+}
+
+.plans-progress-bar {
+  height: 5px;
+  background: #dce4d6;
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.plans-progress-fill {
+  height: 100%;
+  background: #4a7a58;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.plans-progress-fill[data-warning='true'] {
+  background: #b58032;
+}
+
+/* Plan detail tabs */
+.plans-detail-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 20px;
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--agents-border);
+  overflow-x: auto;
+}
+
+.agent-dialog .plans-detail-tabs button {
+  flex: 0 0 auto;
+  margin-bottom: -1px;
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--agents-muted);
+  font-size: 12px;
+}
+
+.agent-dialog .plans-detail-tabs button[aria-current='page'] {
+  border-bottom-color: var(--color-hud-ink);
+  color: var(--color-hud-ink);
+  font-weight: 650;
+}
+
+.agent-dialog .plans-detail-tabs button:hover:not([aria-current='page']) {
+  color: var(--color-hud-ink);
+  background: #edf2e6;
+}
+
+.plans-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.plans-toolbar-hint {
+  margin: 10px 0 0;
+}
+
+.plans-usage-card[data-exhausted='true'] {
+  background: #fcf1de;
+  border-color: #dfc28f;
+}
+
+.plans-usage-card[data-exhausted='true'] strong,
+.plans-usage-warning {
+  color: #805c2a;
+}
+
+.plans-usage-warning {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.plans-usage-card[data-exhausted='true'] .plans-progress-fill {
+  background: #b58032;
+}
+
+@media (max-width: 700px) {
+  .plans-usage-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plans-detail-heading {
+    flex-wrap: wrap;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Plans Welcome / Empty State
+   -------------------------------------------------------------------------- */
+
+.agent-dialog .characters-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 340px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.agent-dialog .characters-welcome-symbol {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 12px;
+  border: 1px solid #d7e2ce;
+  border-radius: 50%;
+  background: #eef4ea;
+  color: #385945;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.agent-dialog .characters-welcome h4 {
+  margin: 0;
+  color: #234d3c;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.agent-dialog .characters-welcome p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--agents-muted, #66796e);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.agent-dialog .characters-welcome .agent-notice {
+  max-width: 440px;
+  margin-top: 14px;
+}

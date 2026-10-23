@@ -1,7 +1,7 @@
 import type { TaskLimits } from '@voxel/shared';
 import type { ReactNode } from 'react';
-import { useI18n } from '../../../i18n/context';
-import { TaskBudgetFields } from '../execution/TaskBudgetFields';
+import { useI18n } from '../../../../i18n/context';
+import { TaskBudgetFields } from '../../execution/TaskBudgetFields';
 
 export function TaskLimitSettings({
   value,

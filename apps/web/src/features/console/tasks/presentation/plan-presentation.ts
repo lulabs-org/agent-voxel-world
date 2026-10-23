@@ -83,9 +83,10 @@ export function timingLabel(plan: TaskPlan) {
     case 'daily':
       return i18n.t('console.plans.planTimingDaily', { time: t.time });
     case 'weekly': {
-      const weekdaysList = (i18n.language === 'en'
-        ? i18n.t('console.plans.weekdays').split(',')
-        : Array.from(i18n.t('console.plans.weekdays')));
+      const weekdaysList =
+        i18n.language === 'en'
+          ? i18n.t('console.plans.weekdays').split(',')
+          : Array.from(i18n.t('console.plans.weekdays'));
       const sep = i18n.language === 'en' ? ', ' : '、';
       const days = t.weekdays.map((d) => weekdaysList[d] ?? d).join(sep);
       return i18n.t('console.plans.planTimingWeekly', {
@@ -95,3 +96,18 @@ export function timingLabel(plan: TaskPlan) {
     }
   }
 }
+
+export const timingIcon = (kind: TaskPlan['timing']['kind']) => {
+  switch (kind) {
+    case 'immediate':
+      return '⚡';
+    case 'once':
+      return '⏱';
+    case 'interval':
+    case 'daily':
+    case 'weekly':
+      return '↻';
+    default:
+      return '📋';
+  }
+};

@@ -1,0 +1,157 @@
+/* Plan actions share the form footer with Save. */
+.plans-editor-footer {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Editor Form (.task-plan-editor)
+   -------------------------------------------------------------------------- */
+
+.plans-detail .task-plan-editor,
+.plans-detail .task-plan-editor fieldset {
+  margin-top: 0;
+}
+
+.plans-editor-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plans-editor-heading-row button {
+  flex-shrink: 0;
+}
+
+/* Weekday selection chips */
+.plans-weekday-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.agent-form .plans-weekday-chips label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 11px;
+  border: 1px solid var(--agents-border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.agent-form .plans-weekday-chips label:hover {
+  background: #f3f7ee;
+}
+
+.agent-form .plans-weekday-chips label:has(input:checked) {
+  background: #eaf1e3;
+  border-color: #8da78a;
+  color: #2b4f3a;
+  font-weight: 600;
+}
+
+.agent-form .plans-weekday-chips input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #315548;
+}
+
+.agent-form .plans-budget-inherit,
+.agent-form .task-limits-toggle,
+.agent-form .plans-total-budget-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agent-form .plans-budget-inherit input,
+.agent-form .task-limits-toggle input,
+.agent-form .plans-total-budget-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #305347;
+}
+
+.task-plan-editor
+  :is(
+    .plans-budget-inherit,
+    .task-limits-toggle,
+    .plans-total-budget-toggle
+  ):has(input:focus-visible) {
+  outline: 2px solid var(--agents-accent, #315548);
+  outline-offset: 3px;
+}
+
+.task-plan-editor .plans-budget-inherit-hint {
+  margin: 7px 0 0;
+}
+
+.task-plan-editor .task-limits {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--agents-border);
+}
+
+.task-plan-editor .task-limits .agents-task-limits {
+  margin: 18px 0 0;
+}
+
+.plans-total-budget {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--agents-border);
+}
+
+.agent-form .plans-total-budget-field {
+  max-width: 340px;
+  margin: 14px 0 0;
+}
+
+.plans-total-budget input[type='number'] {
+  appearance: textfield;
+}
+
+.plans-total-budget input[type='number']::-webkit-inner-spin-button,
+.plans-total-budget input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.plans-total-budget small {
+  display: block;
+  margin-top: 6px;
+  color: var(--agents-muted);
+  line-height: 1.5;
+}
+
+.agent-form .plans-character-locked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border: 1px solid #cbd5c8;
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--agents-muted);
+  font: inherit;
+  text-align: left;
+  cursor: help;
+}

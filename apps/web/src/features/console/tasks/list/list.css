@@ -1,0 +1,89 @@
+.plans-sidebar-filter {
+  margin-bottom: 12px;
+}
+
+/* Segmented state pill control, matching .agents-filters */
+.plans-state-pills {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #eaf0e4;
+  border-radius: 7px;
+  margin-bottom: 12px;
+}
+
+.agent-dialog .plans-state-pills button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  white-space: nowrap;
+  color: var(--agents-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.agent-dialog .plans-state-pills button:hover {
+  color: var(--color-text);
+}
+
+.agent-dialog .plans-state-pills button[aria-pressed='true'] {
+  background: var(--agents-paper);
+  color: #244133;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(36, 67, 44, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar Items (Task Plan Cards in Sidebar)
+   -------------------------------------------------------------------------- */
+
+.agent-dialog .console-sidebar-item .plans-mini-badge {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #e3ebd9;
+  color: #385945;
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
+}
+
+/* Sidebar Pagination Footer */
+.plans-sidebar-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0 0;
+  margin-top: 10px;
+  border-top: 1px solid var(--agents-border);
+}
+
+.agent-dialog .plans-sidebar-pagination button {
+  padding: 5px 10px;
+  font-size: 11px;
+  background: #f0f4eb;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  color: var(--color-action);
+  cursor: pointer;
+}
+
+.agent-dialog .plans-sidebar-pagination button:hover:not(:disabled) {
+  background: #e3ebd9;
+}
+
+.plans-sidebar-pagination-info {
+  font-size: 11px;
+  color: var(--agents-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Detail Panel (.plans-detail inside .console-panel)
+   -------------------------------------------------------------------------- */

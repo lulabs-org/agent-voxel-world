@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import type { TaskRun } from '@voxel/shared';
-import { useI18n } from '../../../i18n/context';
-import { presentAction } from './presentation/task-action-presentation';
+import { useI18n } from '../../../../i18n/context';
+import { presentAction } from '../presentation/action-presentation';
 
 export function TaskActionList({
   actions = [],
