@@ -56,6 +56,8 @@ export type TaskRun = {
   totalTokens: number;
   logs: string[];
   actions?: {
+    /** Action start time; absent for legacy or pending actions. */
+    startedAt?: number;
     batchId?: string;
     call: number;
     index: number;

@@ -177,7 +177,11 @@ export function TaskRunDetails({
           })}
         </p>
       )}
-      <TaskActionList actions={run.actions} report={run.task?.summary} />
+      <TaskActionList
+        actions={run.actions}
+        report={run.task?.summary}
+        timeZone={run.snapshot.timeZone}
+      />
       {!runEnded(run) && (
         <div className="agents-actions task-detail-actions">
           {active ? (

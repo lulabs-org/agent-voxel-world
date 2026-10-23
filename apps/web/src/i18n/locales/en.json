@@ -659,6 +659,8 @@
       "unlimitedLimitsHint": "No turn, token, or duration limits for each run.",
       "actualActions": "Actual Actions",
       "actionCount": "{count} items",
+      "actionTimeUnknown": "Time not recorded",
+      "actionNotStarted": "Not started",
       "rawActionData": "Raw Data",
       "noActions": "No recorded actions"
     },

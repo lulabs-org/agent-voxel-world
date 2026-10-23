@@ -188,16 +188,6 @@ export function useAICharactersController(
       setShowAgentForm(false);
       setNotice(`已删除 AI 角色“${job.name}”。`);
     });
-  const toggleVoiceReplies = (job: PublicAICharacterView) =>
-    perform(async () => {
-      const saved = await aiCharactersApi.setVoiceReplies(
-        job.id,
-        !job.voiceReplies,
-      );
-      if (editingAgent === job.id)
-        setAgent((draft) => ({ ...draft, voiceReplies: saved.voiceReplies }));
-      setJobs(await aiCharactersApi.listAgents());
-    });
   const providerSaved = (saved: ProviderView, previous?: ProviderView) =>
     setAgent((a) =>
       !a.providerId || a.providerId === saved.id
@@ -240,7 +230,6 @@ export function useAICharactersController(
     joinAgent,
     stopAgent,
     deleteAgent,
-    toggleVoiceReplies,
     providerSaved,
     providerRemoved,
   };
