@@ -622,8 +622,8 @@
 .task-action-item {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px 0;
+  gap: 8px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--agents-border);
 }
 
@@ -644,11 +644,16 @@
 }
 
 .task-action-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .task-action-heading {
+  grid-column: 1 / -1;
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
@@ -684,27 +689,36 @@
   color: #8c5d20;
 }
 
-.task-action-summary,
-.task-action-feedback {
-  margin: 4px 0 0;
+.agent-dialog .task-action-summary {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
   color: var(--agents-muted);
   font-size: 11px;
   line-height: 1.6;
 }
 
-.agent-dialog .task-action-raw {
-  margin: 8px 0 0;
-  font-size: 11px;
-}
-
-.agent-dialog .task-action-raw > summary {
+.agent-dialog .task-action-raw-toggle {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  margin: 0;
   padding: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--agents-muted);
-  cursor: pointer;
+  font-size: 11px;
+  font-weight: 400;
   line-height: 1.6;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.task-action-raw pre {
+.task-action-raw-data {
+  grid-column: 1 / -1;
+  min-width: 0;
   max-height: 180px;
   margin: 6px 0 0;
   padding: 10px 12px;
@@ -1096,4 +1110,12 @@
 
 .plans-usage-card[data-exhausted='true'] .plans-progress-fill {
   background: #b58032;
+}
+
+.task-action-time {
+  margin-left: auto;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
 }

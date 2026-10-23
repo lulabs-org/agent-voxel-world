@@ -7,7 +7,6 @@ import {
   aiCharacterPermissions,
 } from '@voxel/shared';
 import {
-  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   Bot,
@@ -22,7 +21,6 @@ import {
   User,
   UserCog,
   Volume2,
-  VolumeX,
 } from 'lucide-react';
 import { useI18n } from '../../../i18n/context';
 import { TaskBudgetFields } from '../execution/TaskBudgetFields';
@@ -56,7 +54,6 @@ export function AICharacterForm(
     joinOnCreate,
     setJoinOnCreate,
     jobs,
-    toggleVoiceReplies,
     deleteAgent,
     error,
     joinAgent,
@@ -117,39 +114,15 @@ export function AICharacterForm(
       </div>
 
       {running && (
-        <div className="agents-confirm agents-running-banner">
+        <div className="agents-running-banner" role="status">
           <div className="agents-banner-text">
-            <AlertCircle size={16} className="agents-banner-icon" />
+            <Info size={14} className="agents-banner-icon" aria-hidden="true" />
             <p>
               {aiCharacterPresentation(current).transitioning
                 ? t('console.characters.bannerTransitioning')
                 : t('console.characters.bannerRunning')}
             </p>
           </div>
-          {current.voiceServiceId &&
-            aiCharacterPermissions(current).chat &&
-            !aiCharacterPresentation(current).transitioning && (
-              <button
-                type="button"
-                disabled={busy || !!props.pollError}
-                onClick={() => {
-                  void toggleVoiceReplies(current);
-                }}
-                className="agents-btn-icon"
-              >
-                {current.voiceReplies ? (
-                  <>
-                    <VolumeX size={14} />
-                    {t('console.characters.disableVoiceReplies')}
-                  </>
-                ) : (
-                  <>
-                    <Volume2 size={14} />
-                    {t('console.characters.enableVoiceReplies')}
-                  </>
-                )}
-              </button>
-            )}
         </div>
       )}
 

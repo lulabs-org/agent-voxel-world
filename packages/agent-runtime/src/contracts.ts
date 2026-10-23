@@ -106,6 +106,7 @@ export type ActionExecution = {
     | 'interrupted'
     | 'unknown';
   result?: ActionResult;
+  startedAt?: number;
   before?: Vec3;
   after?: Vec3;
 };

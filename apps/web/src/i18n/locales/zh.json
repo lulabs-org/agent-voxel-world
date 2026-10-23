@@ -656,6 +656,8 @@
       "unlimitedLimitsHint": "单次执行不限制调用次数、tokens 和执行时长。",
       "actualActions": "实际动作",
       "actionCount": "{count} 条",
+      "actionTimeUnknown": "时间未记录",
+      "actionNotStarted": "尚未开始",
       "rawActionData": "原始数据",
       "noActions": "暂无动作记录"
     },

@@ -94,6 +94,7 @@ export function captureTask(job: TaskExecutionState) {
     | {
         batchId?: string;
         results?: {
+          startedAt?: number;
           action?: { type?: string };
           status?: string;
           result?: unknown;
@@ -110,6 +111,7 @@ export function captureTask(job: TaskExecutionState) {
     batch.results.forEach((result, index) => {
       if (!result.action?.type || !result.status) return;
       const entry = {
+        startedAt: result.startedAt,
         batchId: batch.batchId,
         call,
         index,

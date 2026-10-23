@@ -873,3 +873,17 @@ describe('independent action permissions', () => {
     },
   );
 });
+
+it('records an action start timestamp before executing and retains it in checkpoints', async () => {
+  const { run, history } = fixture();
+  const before = Date.now();
+  const { batch } = await run([chat]);
+  const at = batch.results[0].startedAt!;
+  expect(at).toBeGreaterThanOrEqual(before);
+  expect(at).toBeLessThanOrEqual(Date.now());
+  expect(history[0].results[0].startedAt).toBeUndefined();
+  expect(
+    history.find((value) => value.results[0].status === 'executing')?.results[0]
+      .startedAt,
+  ).toBe(at);
+});

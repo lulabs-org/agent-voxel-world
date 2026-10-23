@@ -122,6 +122,7 @@ export async function executeBatch(
       }
       signal.throwIfAborted();
       await options.beforeAction?.(action);
+      entry.startedAt = Date.now();
       entry.status = 'executing';
       entry.before = {
         x: observation.self.x,

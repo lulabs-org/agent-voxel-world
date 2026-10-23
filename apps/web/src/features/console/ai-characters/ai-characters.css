@@ -1116,10 +1116,17 @@
 
 /* Status banners & hints */
 .agents-running-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  padding: 10px 12px;
+  margin: 0 0 18px;
+  border: 1px solid #e7cf9f;
+  border-radius: 6px;
+  background: #fbf2df;
+  color: #805c2a;
+}
+.agents-running-banner p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
 }
 .agents-banner-text {
   display: flex;
@@ -1128,8 +1135,8 @@
 }
 .agents-banner-icon {
   flex-shrink: 0;
-  color: #b07d1f;
-  margin-top: 2px;
+  color: #ad791e;
+  margin-top: 3px;
 }
 .agents-hint-icon,
 .agents-status-icon {
