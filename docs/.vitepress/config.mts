@@ -28,6 +28,7 @@ export default withMermaid(
           items: [
             { text: '快速开始', link: '/guide/getting-started' },
             { text: '项目架构', link: '/guide/architecture' },
+            { text: '详细架构图', link: '/guide/architecture-diagrams' },
           ],
         },
         {
