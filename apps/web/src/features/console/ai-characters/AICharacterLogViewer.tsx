@@ -5,30 +5,26 @@ import {
 } from '@voxel/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../../i18n/context';
-import { CurrentTaskBudget } from './CurrentTaskBudget';
 import { aiCharactersApi } from './api';
 
-export function AICharacterLogViewer({
-  job,
-  disabled,
-  onUpdated,
-}: {
-  job: AICharacterSummary;
-  disabled: boolean;
-  onUpdated: () => Promise<void>;
-}) {
+export function AICharacterLogViewer({ job }: { job: AICharacterSummary }) {
   const { t } = useI18n();
   const [entries, setEntries] = useState<AICharacterLogEntry[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [error, setError] = useState('');
   const requestId = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   const loadFirstPage = useCallback(async () => {
     const id = ++requestId.current;
     setLoading(true);
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+    setLoadMoreError(false);
     setError('');
     try {
       const page = await aiCharactersApi.getLogs(job.id);
@@ -45,13 +41,19 @@ export function AICharacterLogViewer({
   }, [job.id, t]);
 
   useEffect(() => {
+    const activeRequest = requestId;
     void loadFirstPage();
+    return () => {
+      activeRequest.current++;
+    };
   }, [loadFirstPage]);
 
   const loadMore = async () => {
-    if (!nextCursor || loadingMore) return;
+    if (!nextCursor || loading || loadingMoreRef.current) return;
     const id = requestId.current;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
+    setLoadMoreError(false);
     try {
       const page = await aiCharactersApi.getLogs(job.id, nextCursor);
       if (id !== requestId.current) return;
@@ -59,9 +61,12 @@ export function AICharacterLogViewer({
       setNextCursor(page.nextCursor);
       setTotal(page.total);
     } catch {
-      setError(t('console.characters.logsLoadFailed'));
+      if (id === requestId.current) setLoadMoreError(true);
     } finally {
-      setLoadingMore(false);
+      if (id === requestId.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
   };
 
@@ -70,31 +75,6 @@ export function AICharacterLogViewer({
       className="agents-activity"
       aria-label={t('console.characters.tabActivity')}
     >
-      <CurrentTaskBudget
-        key={job.taskExecution?.runId ?? 'none'}
-        job={job}
-        disabled={disabled}
-        onUpdated={onUpdated}
-      />
-      {!!job.queuedTasks?.length && (
-        <section
-          className="agents-progress"
-          aria-label={t('console.characters.queuedTasksTitle')}
-        >
-          <h4>{t('console.characters.queuedTasksTitle')}</h4>
-          <ol>
-            {job.queuedTasks.map((run) => (
-              <li key={run.id}>
-                {t('console.characters.queuedItem', {
-                  goal: run.goal,
-                  count: run.coalescedTriggers,
-                })}
-              </li>
-            ))}
-          </ol>
-          <p className="agent-hint">{t('console.characters.queuedHint')}</p>
-        </section>
-      )}
       {job.lastResponse && (
         <div className="agents-progress">
           <span className="agents-section-label">
@@ -129,7 +109,17 @@ export function AICharacterLogViewer({
         </p>
       ) : entries.length ? (
         <>
-          <ol className="agents-log-list">
+          <ol
+            className="agents-log-list"
+            tabIndex={0}
+            aria-label={t('console.characters.activityLogsHeading')}
+            onScroll={(event) => {
+              if (error || loadMoreError) return;
+              const list = event.currentTarget;
+              if (list.scrollHeight - list.scrollTop - list.clientHeight <= 80)
+                void loadMore();
+            }}
+          >
             {entries.map((entry, index) => {
               const date =
                 typeof entry.time === 'number'
@@ -163,20 +153,23 @@ export function AICharacterLogViewer({
               );
             })}
           </ol>
-          {nextCursor && (
-            <button
-              type="button"
-              className="agents-log-more"
-              onClick={() => void loadMore()}
-              disabled={loadingMore}
-            >
-              {loadingMore
-                ? t('console.characters.logsLoading')
-                : t('console.characters.logsLoadMore', {
-                    remaining: Math.max(total - entries.length, 0),
-                  })}
-            </button>
-          )}
+          {nextCursor &&
+            (loadMoreError ? (
+              <div className="agents-log-load-status" role="alert">
+                <span>{t('console.characters.logsLoadFailed')}</span>
+                <button type="button" onClick={() => void loadMore()}>
+                  {t('console.characters.logsRetry')}
+                </button>
+              </div>
+            ) : (
+              <p className="agents-log-load-status" role="status">
+                {loadingMore
+                  ? t('console.characters.logsLoadingMore')
+                  : t('console.characters.logsScrollMore', {
+                      remaining: Math.max(total - entries.length, 0),
+                    })}
+              </p>
+            ))}
         </>
       ) : (
         <p className="agents-list-empty">

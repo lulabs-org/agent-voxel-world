@@ -4,6 +4,7 @@ import { useI18n } from '../../../i18n/context';
 import type { ConsoleController } from '../useConsoleController';
 import { AICharacterForm } from './AICharacterForm';
 import { AICharacterLogViewer } from './AICharacterLogViewer';
+import { AICharacterTaskPanel } from './AICharacterTaskPanel';
 import { AICharacterUsagePanel } from './AICharacterUsagePanel';
 import { aiCharacterPresentation } from './presentation/agent-presentation';
 import { aiCharactersApi } from './api';
@@ -27,7 +28,7 @@ export function AICharacterDetail(
     setNotice,
     setError,
   } = props;
-  const [view, setView] = useState<'settings' | 'activity' | 'usage'>(
+  const [view, setView] = useState<'settings' | 'task' | 'activity' | 'usage'>(
     'settings',
   );
   const initializedAgent = useRef<string | undefined>(undefined);
@@ -82,6 +83,17 @@ export function AICharacterDetail(
           {t('console.characters.tabSettings')}
         </button>
         <button
+          aria-pressed={!editing && view === 'task'}
+          onClick={() => {
+            setShowAgentForm(false);
+            setView('task');
+            setError('');
+            setNotice('');
+          }}
+        >
+          {t('console.characters.tabTask')}
+        </button>
+        <button
           aria-pressed={!editing && view === 'activity'}
           onClick={() => {
             setShowAgentForm(false);
@@ -112,14 +124,16 @@ export function AICharacterDetail(
         />
       ) : view === 'usage' ? (
         <AICharacterUsagePanel job={job} />
-      ) : (
-        <AICharacterLogViewer
+      ) : view === 'task' ? (
+        <AICharacterTaskPanel
           job={job}
           disabled={disabled}
           onUpdated={async () =>
             props.setJobs(await aiCharactersApi.listAgents())
           }
         />
+      ) : (
+        <AICharacterLogViewer job={job} />
       )}
     </article>
   );
