@@ -635,6 +635,7 @@
       "createPlanButton": "Create Plan",
       "runDetailAria": "Run details",
       "runCharacterInfo": "Character: {character} · Plan Rev {rev} · {source}",
+      "runHistoryInfo": "Plan Rev {rev} · {source}",
       "runSourceTime": "Scheduled",
       "runSourceImport": "Imported",
       "runSourceManual": "Manual",

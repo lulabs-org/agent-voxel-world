@@ -632,6 +632,7 @@
       "createPlanButton": "创建计划",
       "runDetailAria": "执行详情",
       "runCharacterInfo": "执行角色：{character} · 计划修订 {rev} · {source}",
+      "runHistoryInfo": "计划修订 {rev} · {source}",
       "runSourceTime": "时间触发",
       "runSourceImport": "历史导入",
       "runSourceManual": "手动执行",

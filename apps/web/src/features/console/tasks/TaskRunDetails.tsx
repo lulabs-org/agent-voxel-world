@@ -45,9 +45,12 @@ export function TaskRunDetails({
         : t('console.plans.runSourceManual');
 
   return (
-    <section className="plans-run-card task-run-detail" aria-label={t('console.plans.runDetailAria')}>
+    <section
+      className="plans-run-card"
+      aria-label={t('console.plans.runDetailAria')}
+    >
       {!hideHeading && (
-        <div className="plans-run-header task-run-heading">
+        <div className="plans-run-header">
           <span
             className="plans-run-status-badge"
             data-active={['running', 'waiting'].includes(run.status)}
@@ -74,21 +77,27 @@ export function TaskRunDetails({
           </span>
         </div>
       )}
-      <p className="plans-run-meta-line agent-hint">
-        {t('console.plans.runCharacterInfo', {
-          character: run.characterName ?? t('console.characters.deletedTag'),
-          rev: run.planRevision ?? 1,
-          source: sourceLabel,
-        })}
+      <p className="plans-run-meta-line">
+        {hideHeading
+          ? t('console.plans.runHistoryInfo', {
+              rev: run.planRevision ?? 1,
+              source: sourceLabel,
+            })
+          : t('console.plans.runCharacterInfo', {
+              character:
+                run.characterName ?? t('console.characters.deletedTag'),
+              rev: run.planRevision ?? 1,
+              source: sourceLabel,
+            })}
       </p>
       {run.snapshot.goal.trim() !== planGoal.trim() && (
-        <div className="plans-run-goal-box task-run-goal">
+        <div className="plans-run-goal-box">
           <strong>{t('console.plans.runCurrentGoal')}</strong>
           {run.snapshot.goal}
         </div>
       )}
       {run.reason && run.reason !== run.task?.summary && (
-        <p className="task-run-reason" role="status">
+        <p className="plans-run-reason" role="status">
           {run.reason}
         </p>
       )}
@@ -97,16 +106,16 @@ export function TaskRunDetails({
           {t('console.characters.staleChatSessionError')}
         </p>
       )}
-      <div className="plans-run-report-box task-report">
+      <div className="plans-run-report-box">
         <span
-          className="plans-run-report-label agents-section-label"
+          className="plans-run-report-label"
           title={t('console.plans.runReportTooltip')}
         >
           {t('console.plans.runAgentReport')}
         </span>
         <p>{run.task?.summary || t('console.plans.noReport')}</p>
       </div>
-      <dl className="plans-run-stats task-run-usage">
+      <dl className="plans-run-stats">
         <div className="plans-run-stat">
           <dt>{t('console.characters.statTurns')}</dt>
           <dd>
@@ -121,7 +130,9 @@ export function TaskRunDetails({
         <div className="plans-run-stat">
           <dt>
             {t('console.characters.statTokens', {
-              estimated: run.task?.estimated ? t('console.characters.statEstimatedTag') : '',
+              estimated: run.task?.estimated
+                ? t('console.characters.statEstimatedTag')
+                : '',
             })}
           </dt>
           <dd>
@@ -141,7 +152,9 @@ export function TaskRunDetails({
               limit: inheritedPending
                 ? t('console.plans.determinedAtStart')
                 : limited
-                  ? t('console.characters.minutesUnit', { min: run.snapshot.limits.taskTimeoutMs / 60000 })
+                  ? t('console.characters.minutesUnit', {
+                      min: run.snapshot.limits.taskTimeoutMs / 60000,
+                    })
                   : t('console.characters.unlimited'),
             })}
           </dd>
@@ -149,10 +162,12 @@ export function TaskRunDetails({
       </dl>
       {queued && (
         <p className="agent-hint">
-          {t('console.plans.queuedWaitingMessage', { count: run.coalescedTriggers ?? 0 })}
+          {t('console.plans.queuedWaitingMessage', {
+            count: run.coalescedTriggers ?? 0,
+          })}
         </p>
       )}
-      <TaskActionList actions={run.actions} />
+      <TaskActionList actions={run.actions} report={run.task?.summary} />
       {!runEnded(run) && (
         <div className="agents-actions task-detail-actions">
           {active ? (
@@ -179,12 +194,16 @@ export function TaskRunDetails({
               setResume(false);
             }}
           >
-            {queued ? t('console.plans.cancelQueuedRun') : t('console.plans.endThisRun')}
+            {queued
+              ? t('console.plans.cancelQueuedRun')
+              : t('console.plans.endThisRun')}
           </button>
         </div>
       )}
       {!active && !runEnded(run) && blocked && (
-        <p className="agent-hint">{t('console.plans.blockedCannotRun', { reason: blocked })}</p>
+        <p className="agent-hint">
+          {t('console.plans.blockedCannotRun', { reason: blocked })}
+        </p>
       )}
       {resume && (
         <form

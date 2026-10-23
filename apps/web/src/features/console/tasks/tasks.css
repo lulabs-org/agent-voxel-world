@@ -521,16 +521,18 @@
 }
 
 /* --------------------------------------------------------------------------
-   Execution Item & Details (.plans-run-card)
+   Execution details and history
    -------------------------------------------------------------------------- */
 
 .plans-run-card {
-  border: 1px solid #d8e2d4;
-  border-radius: 9px;
-  background: #fff;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
   padding: 16px;
   margin-bottom: 12px;
-  box-shadow: 0 1px 4px rgba(32, 58, 40, 0.03);
+  border: 1px solid var(--agents-border);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .plans-run-header {
@@ -539,7 +541,6 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .plans-run-status-badge {
@@ -569,116 +570,319 @@
   color: #943b30;
 }
 
-.plans-run-time {
-  font-size: 11px;
-  color: var(--agents-muted);
-}
-
+.plans-run-time,
 .plans-run-meta-line {
+  margin: 0;
   font-size: 11px;
-  color: var(--agents-muted);
-  margin: 0 0 10px;
   line-height: 1.5;
+  color: var(--agents-muted);
 }
 
 .plans-run-goal-box {
-  background: #f7faf3;
-  border-left: 3px solid #8ba48d;
+  display: grid;
+  gap: 4px;
   padding: 8px 12px;
+  border-left: 3px solid #8ba48d;
   border-radius: 0 6px 6px 0;
-  font-size: 12px;
+  background: #f7faf3;
   color: #3b5443;
-  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .plans-run-goal-box strong {
   font-weight: 600;
 }
 
+.plans-run-reason {
+  margin: 0;
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid #b38740;
+  color: #805c2a;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .plans-run-report-box {
-  background: #fcfdfa;
-  border: 1px solid #e1e8dc;
-  border-radius: 7px;
-  padding: 10px 14px;
-  margin: 10px 0;
+  display: grid;
+  gap: 4px;
 }
 
 .plans-run-report-label {
-  display: block;
-  font-size: 10px;
+  color: var(--agents-muted);
+  font-size: 11px;
   font-weight: 600;
-  color: #496352;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
 }
 
 .plans-run-report-box p {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.7;
   color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-/* 3-column stats in run details */
 .plans-run-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 12px 0;
-  padding: 10px 12px;
-  background: #f4f7ee;
-  border-radius: 7px;
-  border: 1px solid #e5ebe0;
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--agents-border);
+  border-bottom: 1px solid var(--agents-border);
+}
+
+.plans-run-stat {
+  min-width: 0;
+  padding: 0 14px;
+}
+
+.plans-run-stat:first-child {
+  padding-left: 0;
+}
+
+.plans-run-stat + .plans-run-stat {
+  border-left: 1px solid var(--agents-border);
 }
 
 .plans-run-stat dt {
-  font-size: 10px;
   color: var(--agents-muted);
+  font-size: 11px;
 }
 
 .plans-run-stat dd {
   margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 600;
   color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
-/* History collapsible item */
+.agent-dialog .plans-run-card .task-action-records {
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+}
+
+.agent-dialog .plans-run-card .task-action-records > summary {
+  padding: 2px 0;
+  color: var(--plans-accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.task-action-count {
+  margin-left: 6px;
+  color: var(--agents-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.task-action-list {
+  margin: 10px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--agents-border);
+  list-style: none;
+}
+
+.task-action-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--agents-border);
+}
+
+.task-action-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.task-action-number {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #eef2e9;
+  color: var(--agents-muted);
+  font-size: 11px;
+}
+
+.task-action-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.task-action-heading {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-height: 22px;
+}
+
+.task-action-heading strong {
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.task-action-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #eef1ec;
+  color: #5b6b60;
+  font-size: 11px;
+}
+
+.task-action-status.is-success {
+  background: #e9f1e5;
+  color: #3e634b;
+}
+
+.task-action-status.is-error {
+  background: #faeae7;
+  color: #9b4034;
+}
+
+.task-action-status.is-warning {
+  background: #fbf1df;
+  color: #8c5d20;
+}
+
+.task-action-summary,
+.task-action-feedback {
+  margin: 4px 0 0;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.agent-dialog .task-action-raw {
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+
+.agent-dialog .task-action-raw > summary {
+  padding: 0;
+  color: var(--agents-muted);
+  cursor: pointer;
+  line-height: 1.6;
+}
+
+.task-action-raw pre {
+  max-height: 180px;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--agents-border);
+  border-radius: 5px;
+  background: #f7f9f5;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.task-action-empty {
+  margin: 10px 0 0;
+  color: var(--agents-muted);
+}
+
+/* History items use a single card surface around expanded details. */
 .plans-history-card {
-  border: 1px solid #dbe3d6;
-  border-radius: 8px;
-  background: #fff;
   margin-bottom: 8px;
   overflow: hidden;
+  border: 1px solid var(--agents-border);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .agent-dialog .plans-history-summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 12px 14px;
-  font-size: 12px;
-  font-weight: 550;
   color: var(--color-text);
   background: #fff;
   cursor: pointer;
+  font-size: 12px;
+  list-style: none;
   user-select: none;
+}
+
+.plans-history-summary::-webkit-details-marker {
+  display: none;
+}
+
+.plans-history-summary::before {
+  content: '›';
+  color: var(--agents-muted);
+  font-size: 18px;
+  line-height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.plans-history-card[open] .plans-history-summary::before {
+  transform: rotate(90deg);
 }
 
 .agent-dialog .plans-history-summary:hover {
   background: #f8faf5;
 }
 
+.plans-history-summary-main {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.plans-history-summary-main strong {
+  font-weight: 600;
+}
+
+.plans-history-summary-main > span {
+  color: var(--agents-muted);
+  overflow-wrap: anywhere;
+}
+
+.plans-history-status {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #edf2e8;
+  color: #385b46;
+  font-size: 11px;
+}
+
+.plans-history-status[data-status='cancelled'],
+.plans-history-status[data-status='skipped'] {
+  background: #f2f0ea;
+  color: #6f6e65;
+}
+
+.plans-history-status[data-status='missed'] {
+  background: #fcf1de;
+  color: #8c5d1e;
+}
+
 .plans-history-body {
-  padding: 14px;
-  border-top: 1px solid #e4eae0;
-  background: #fbfdf9;
+  padding: 16px 18px;
+  border-top: 1px solid var(--agents-border);
+}
+
+.plans-history-body .plans-run-card {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 /* --------------------------------------------------------------------------
@@ -860,7 +1064,27 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .plans-run-stats {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 6px 0;
+  }
+  .plans-run-stat,
+  .plans-run-stat:first-child {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+  }
+  .plans-run-stat + .plans-run-stat {
+    border-left: 0;
+    border-top: 1px solid var(--agents-border);
+  }
+  .plans-run-stat dd {
+    margin: 0;
+    text-align: right;
+  }
+  .plans-history-body {
+    padding: 14px;
   }
   .plans-detail-heading {
     flex-wrap: wrap;

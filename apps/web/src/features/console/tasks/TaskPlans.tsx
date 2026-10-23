@@ -17,6 +17,7 @@ import {
   planTime,
   timingLabel,
   runEnded,
+  runStatus,
 } from './presentation/task-plan-presentation';
 import './tasks.css';
 
@@ -730,27 +731,28 @@ export function TaskPlans({
                     </p>
                   )}
                   {runs.filter(runEnded).map((r) => (
-                    <details
-                      key={r.id}
-                      className="plans-history-card task-history-item"
-                    >
+                    <details key={r.id} className="plans-history-card">
                       <summary className="plans-history-summary">
-                        <span>
-                          {planTime(
-                            r.startedAt ?? r.scheduledAt,
-                            r.snapshot.timeZone,
-                          )}{' '}
-                          · {r.characterName}
-                          {!characters.some((a) => a.id === r.characterId)
-                            ? t('console.plans.deletedTag')
-                            : ''}
+                        <span className="plans-history-summary-main">
+                          <strong>
+                            {planTime(
+                              r.startedAt ?? r.scheduledAt,
+                              r.snapshot.timeZone,
+                            )}
+                          </strong>
+                          <span>
+                            {r.characterName}
+                            {!characters.some((a) => a.id === r.characterId)
+                              ? t('console.plans.deletedTag')
+                              : ''}
+                          </span>
                         </span>
                         <span
-                          className="plans-presence-dot"
-                          data-state={
-                            r.status === 'completed' ? 'completed' : 'paused'
-                          }
-                        />
+                          className="plans-history-status"
+                          data-status={r.status}
+                        >
+                          {runStatus[r.status] || r.status}
+                        </span>
                       </summary>
                       <div className="plans-history-body">
                         <TaskRunDetails

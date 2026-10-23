@@ -4,8 +4,10 @@ import { presentAction } from './presentation/task-action-presentation';
 
 export function TaskActionList({
   actions = [],
+  report,
 }: {
   actions: TaskRun['actions'];
+  report?: string;
 }) {
   const { t } = useI18n();
   return (
@@ -20,6 +22,7 @@ export function TaskActionList({
         <ol className="task-action-list">
           {actions.map((action, i) => {
             const view = presentAction(action);
+            const feedback = view.feedback?.trim();
             return (
               <li
                 key={`${action.batchId ?? action.call}:${action.index}`}
@@ -34,15 +37,15 @@ export function TaskActionList({
                     <span className={`task-action-status is-${view.tone}`}>
                       {view.status}
                     </span>
-                    {view.summary && (
-                      <span className="task-action-summary">
-                        {view.summary}
-                      </span>
-                    )}
                   </div>
-                  {view.feedback && (
-                    <p className="task-action-feedback">{view.feedback}</p>
+                  {view.summary && (
+                    <p className="task-action-summary">{view.summary}</p>
                   )}
+                  {feedback &&
+                    feedback !== report?.trim() &&
+                    feedback !== view.summary?.trim() && (
+                      <p className="task-action-feedback">{feedback}</p>
+                    )}
                   <details className="task-action-raw">
                     <summary>{t('console.plans.rawActionData')}</summary>
                     <pre>{view.raw}</pre>
