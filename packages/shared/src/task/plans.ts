@@ -18,6 +18,8 @@ export type TaskPlanDraft = {
   limits: TaskLimits;
   /** Missing on existing plans means an explicit override. */
   limitsMode?: 'inherit' | 'override';
+  /** Missing on existing plans keeps the former per-run-limit coupling. */
+  totalTokenBudgetEnabled?: boolean;
   totalTokenBudget: number;
 };
 export type TaskPlan = TaskPlanDraft & {
@@ -76,4 +78,10 @@ export const DEFAULT_TASK_LIMITS: TaskLimits = {
 };
 export function isRepeating(timing: TaskTiming) {
   return ['interval', 'daily', 'weekly'].includes(timing.kind);
+}
+export function hasPlanTokenLimit(plan: TaskPlanDraft) {
+  return (
+    isRepeating(plan.timing) &&
+    (plan.totalTokenBudgetEnabled ?? plan.limits.enabled !== false)
+  );
 }

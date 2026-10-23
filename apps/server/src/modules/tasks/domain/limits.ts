@@ -1,8 +1,5 @@
-import {
-  isRepeating,
-  type TaskLimits,
-  type TaskPlanDraft,
-} from '@voxel/shared';
+import { type TaskLimits } from '@voxel/shared';
+export { hasPlanTokenLimit } from '@voxel/shared';
 /** Runtime-only values: never persist Infinity in task snapshots. */
 export function executionLimits(limits: TaskLimits) {
   return limits.enabled === false
@@ -12,7 +9,4 @@ export function executionLimits(limits: TaskLimits) {
         tokenBudget: limits.tokenBudget,
         taskTimeoutMs: limits.taskTimeoutMs,
       };
-}
-export function hasPlanTokenLimit(plan: TaskPlanDraft) {
-  return plan.limits.enabled !== false && isRepeating(plan.timing);
 }

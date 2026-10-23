@@ -46,17 +46,23 @@ export function TaskPlanEditor({
   const { t } = useI18n();
   const [characterId, setCharacterId] = useState(plan?.characterId ?? '');
   const [requestId] = useState(() => crypto.randomUUID());
-  const [draft, setDraft] = useState<TaskPlanDraft>(
-    () =>
-      plan ?? {
-        name: '',
-        goal: '',
-        timing: { kind: 'immediate' },
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        limits: { ...DEFAULT_TASK_LIMITS },
-        limitsMode: 'inherit',
-        totalTokenBudget: 500000,
-      },
+  const [draft, setDraft] = useState<TaskPlanDraft>(() =>
+    plan
+      ? {
+          ...plan,
+          totalTokenBudgetEnabled:
+            plan.totalTokenBudgetEnabled ?? plan.limits.enabled !== false,
+        }
+      : {
+          name: '',
+          goal: '',
+          timing: { kind: 'immediate' },
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          limits: { ...DEFAULT_TASK_LIMITS },
+          limitsMode: 'inherit',
+          totalTokenBudgetEnabled: true,
+          totalTokenBudget: 500000,
+        },
   );
   const [at, setAt] = useState(() =>
     dateInput(
@@ -139,7 +145,7 @@ export function TaskPlanEditor({
       </div>
       <fieldset disabled={busy}>
         <div
-          className="characters-form-section"
+          className="agents-form-section"
           style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}
         >
           <h4>{t('console.plans.sectionBasic')}</h4>
@@ -189,7 +195,7 @@ export function TaskPlanEditor({
             />
           </label>
         </div>
-        <div className="characters-form-section">
+        <div className="agents-form-section">
           <h4>{t('console.plans.sectionSchedule')}</h4>
           <label>
             {t('console.plans.fieldScheduleKind')}
@@ -347,9 +353,9 @@ export function TaskPlanEditor({
             {repeating ? t('console.plans.queuePolicyHint') : ''}
           </p>
         </div>
-        <div className="characters-form-section">
+        <div className="agents-form-section">
           <h4>{t('console.plans.sectionLimits')}</h4>
-          <label>
+          <label className="plans-budget-inherit">
             <input
               type="checkbox"
               checked={draft.limitsMode === 'inherit'}
@@ -360,41 +366,64 @@ export function TaskPlanEditor({
                 })
               }
             />
-            {t('console.plans.inheritDefaultLimits')}
+            <span>{t('console.plans.inheritDefaultLimits')}</span>
           </label>
           {draft.limitsMode === 'inherit' && (
-            <p className="agent-hint">
+            <p className="agent-hint plans-budget-inherit-hint">
               {t('console.plans.inheritSnapshotHint')}
             </p>
           )}
           {draft.limitsMode !== 'inherit' && (
-            <>
-              <TaskLimitSettings
-                value={draft.limits}
-                onChange={(limits) => setDraft({ ...draft, limits })}
-              />
-            </>
+            <TaskLimitSettings
+              value={draft.limits}
+              onChange={(limits) => setDraft({ ...draft, limits })}
+            />
           )}
           {repeating && (
-            <label style={{ marginTop: 14 }}>
-              {t('console.plans.totalBudgetField')}
-              <input
-                type="number"
-                required
-                min={Math.max(1000, plan?.spentTokens ?? 0)}
-                max={1000000000}
-                value={draft.totalTokenBudget}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    totalTokenBudget: e.target.valueAsNumber,
-                  })
-                }
-              />
-              <small>{t('console.plans.totalBudgetHint')}</small>
-            </label>
+            <div className="plans-total-budget">
+              <label className="plans-total-budget-toggle">
+                <input
+                  type="checkbox"
+                  checked={
+                    draft.totalTokenBudgetEnabled ??
+                    draft.limits.enabled !== false
+                  }
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      totalTokenBudgetEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>{t('console.plans.enableTotalBudget')}</span>
+              </label>
+              {(draft.totalTokenBudgetEnabled ??
+                draft.limits.enabled !== false) && (
+                <label className="plans-total-budget-field">
+                  {t('console.plans.totalBudgetField')}
+                  <input
+                    type="number"
+                    required
+                    min={Math.max(
+                      1000,
+                      plan
+                        ? Math.min(plan.spentTokens, plan.totalTokenBudget)
+                        : 0,
+                    )}
+                    max={1000000000}
+                    value={draft.totalTokenBudget}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        totalTokenBudget: e.target.valueAsNumber,
+                      })
+                    }
+                  />
+                  <small>{t('console.plans.totalBudgetHint')}</small>
+                </label>
+              )}
+            </div>
           )}
-
           {plan && (
             <p className="agent-hint">{t('console.plans.limitsFutureOnly')}</p>
           )}

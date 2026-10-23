@@ -475,7 +475,6 @@ export function AICharacterForm(
             {agent.taskLimitsEnabled ? (
               <div className="agents-budget-content">
                 <TaskBudgetFields
-                  hideHeading
                   value={agent}
                   onChange={(limits) => setAgent({ ...agent, ...limits })}
                 />

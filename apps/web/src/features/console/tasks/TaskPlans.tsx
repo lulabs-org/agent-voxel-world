@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { hasPlanTokenLimit } from '@voxel/shared';
 import type {
   AICharacterSummary,
   TaskPlan,
@@ -472,49 +473,48 @@ export function TaskPlans({
                         <span className="plans-usage-label">
                           {t('console.plans.totalTokensConsumed')}
                         </span>
-                        {plan.state !== 'archived' && (
-                          <button
-                            className="plans-usage-action"
-                            disabled={locked}
-                            onClick={() => setExtend(!extend)}
-                          >
-                            {t('console.plans.addBudget')}
-                          </button>
-                        )}
+                        {plan.state !== 'archived' &&
+                          hasPlanTokenLimit(plan) && (
+                            <button
+                              className="plans-usage-action"
+                              disabled={locked}
+                              onClick={() => setExtend(!extend)}
+                            >
+                              {t('console.plans.addBudget')}
+                            </button>
+                          )}
                       </div>
                       <strong>
                         {plan.spentTokens.toLocaleString()}
                         <small>tokens</small>
                       </strong>
                       <span className="plans-usage-meta">
-                        {plan.limits.enabled !== false &&
-                        plan.timing.kind !== 'immediate'
+                        {hasPlanTokenLimit(plan)
                           ? t('console.plans.totalBudgetLabel', {
                               tokens: plan.totalTokenBudget.toLocaleString(),
                             })
                           : t('console.plans.noBudgetLimit')}
                       </span>
-                      {plan.limits.enabled !== false &&
-                        plan.timing.kind !== 'immediate' && (
-                          <div className="plans-progress-bar">
-                            <div
-                              className="plans-progress-fill"
-                              data-warning={
-                                plan.spentTokens / plan.totalTokenBudget > 0.8
-                              }
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.round(
-                                    (plan.spentTokens /
-                                      Math.max(1, plan.totalTokenBudget)) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        )}
+                      {hasPlanTokenLimit(plan) && (
+                        <div className="plans-progress-bar">
+                          <div
+                            className="plans-progress-fill"
+                            data-warning={
+                              plan.spentTokens / plan.totalTokenBudget > 0.8
+                            }
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round(
+                                  (plan.spentTokens /
+                                    Math.max(1, plan.totalTokenBudget)) *
+                                    100,
+                                ),
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="plans-usage-card">
                       <span className="plans-usage-label">
@@ -538,7 +538,7 @@ export function TaskPlans({
                       </span>
                     </div>
                   </div>
-                  {extend && (
+                  {extend && hasPlanTokenLimit(plan) && (
                     <form
                       className="agent-form plans-drawer-card"
                       onSubmit={(e) => {

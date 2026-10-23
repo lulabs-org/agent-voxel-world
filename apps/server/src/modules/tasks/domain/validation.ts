@@ -111,9 +111,24 @@ export function validatePlan(
   )
     throw new AppError('额度来源无效。');
 
+  if (
+    v.totalTokenBudgetEnabled !== undefined &&
+    typeof v.totalTokenBudgetEnabled !== 'boolean'
+  )
+    throw new AppError('计划累计额度开关必须为布尔值。');
+  const totalTokenBudgetEnabled =
+    v.totalTokenBudgetEnabled ??
+    (v.limitsMode === 'inherit' || v.limits?.enabled !== false);
+
   // Hidden fields do not prevent saving an unlimited task; retain valid values for later use.
-  const quota = (value: unknown, fallback: number, min: number, max: number) =>
-    v.limits?.enabled === false &&
+  const quota = (
+    value: unknown,
+    fallback: number,
+    min: number,
+    max: number,
+    enabled = v.limits?.enabled !== false,
+  ) =>
+    !enabled &&
     (typeof value !== 'number' ||
       !Number.isInteger(value) ||
       value < min ||
@@ -149,7 +164,14 @@ export function validatePlan(
         21600000,
       ),
     },
-    totalTokenBudget: quota(v.totalTokenBudget, 500000, 1000, 1000000000),
+    totalTokenBudgetEnabled,
+    totalTokenBudget: quota(
+      v.totalTokenBudget,
+      500000,
+      1000,
+      1000000000,
+      totalTokenBudgetEnabled,
+    ),
   };
 }
 
