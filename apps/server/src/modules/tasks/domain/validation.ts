@@ -151,6 +151,7 @@ export function validatePlan(
         1,
         1000,
       ),
+      maxStalledTurns: quota(v.limits?.maxStalledTurns, 3, 1, 1000),
       tokenBudget: quota(
         v.limits?.tokenBudget,
         DEFAULT_TASK_LIMITS.tokenBudget,
@@ -177,7 +178,7 @@ export function validatePlan(
 
 export function taskLimits(input: Record<string, unknown>) {
   return Object.fromEntries(
-    ['maxTurns', 'tokenBudget', 'taskTimeoutMs']
+    ['maxTurns', 'maxStalledTurns', 'tokenBudget', 'taskTimeoutMs']
       .filter((key) => input[key] !== undefined)
       .map((key) => [key, input[key]]),
   );

@@ -945,7 +945,11 @@ it('cancels queued work on plan pause without starting it', async () => {
 
 it('freezes inherited limits at execution start without overwriting role defaults', async () => {
   const id = await role();
-  await manager.update(id, { maxTurns: 17, tokenBudget: 80000 });
+  await manager.update(id, {
+    maxTurns: 17,
+    tokenBudget: 80000,
+    maxStalledTurns: 7,
+  });
   const p = await manager.tasks.createTaskPlan(id, {
     ...draft({ kind: 'once', at: now + 60000 }),
     limitsMode: 'inherit',
@@ -956,16 +960,21 @@ it('freezes inherited limits at execution start without overwriting role default
   await idle();
   expect(
     manager.tasks.taskRuns(id, p.id).items[0].snapshot.limits,
-  ).toMatchObject({ maxTurns: 23, tokenBudget: 80000 });
+  ).toMatchObject({ maxTurns: 23, tokenBudget: 80000, maxStalledTurns: 7 });
   const other = await manager.tasks.createTaskPlan(id, {
     ...draft(),
     limitsMode: 'override',
-    limits: { ...DEFAULT_TASK_LIMITS, maxTurns: 2 },
+    limits: { ...DEFAULT_TASK_LIMITS, maxTurns: 2, maxStalledTurns: 9 },
   });
   await idle();
   expect(
     manager.tasks.taskRuns(id, other.id).items[0].snapshot.limits.maxTurns,
   ).toBe(2);
+  expect(
+    manager.tasks.taskRuns(id, other.id).items[0].snapshot.limits
+      .maxStalledTurns,
+  ).toBe(9);
+  expect(manager.list()[0].maxStalledTurns).toBe(7);
   expect(manager.list()[0].maxTurns).toBe(23);
 });
 
@@ -1006,4 +1015,45 @@ it('restores queued IDs and coalesced triggers without spending or replacing a p
     status: 'paused',
   });
   expect(decide).toHaveBeenCalledOnce();
+});
+
+it('saves plan configuration and character reassignment together', async () => {
+  const a = await role(),
+    b = await role();
+  const p = await manager.tasks.createTaskPlan(
+    a,
+    draft({ kind: 'interval', everyMs: 60000 }),
+  );
+  const saved = await manager.tasks.updateTaskPlan(a, p.id, {
+    name: '新的安排',
+    targetCharacterId: b,
+  });
+  expect(saved).toMatchObject({
+    name: '新的安排',
+    characterId: b,
+    state: 'paused',
+  });
+  expect(saved.nextRunAt).toBeUndefined();
+  expect(manager.tasks.publicPlan(p.id)).toMatchObject({
+    name: '新的安排',
+    characterId: b,
+  });
+});
+
+it('rejects combined reassignment while a run is unfinished without saving edits', async () => {
+  const a = await role(),
+    b = await role();
+  decide.mockImplementation(async () => response('waiting'));
+  const p = await manager.tasks.createTaskPlan(a, draft());
+  await idle();
+  await expect(
+    manager.tasks.updateTaskPlan(a, p.id, {
+      name: '不应保存',
+      targetCharacterId: b,
+    }),
+  ).rejects.toThrow('未结束');
+  expect(manager.plans.get(p.id)).toMatchObject({
+    name: p.name,
+    characterId: a,
+  });
 });

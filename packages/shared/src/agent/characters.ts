@@ -36,6 +36,8 @@ export type AICharacterSettings = {
   taskLimitsEnabled?: boolean;
   /** Maximum model calls per task, not a target number of turns. */
   maxTurns: number;
+  /** Consecutive failed or stalled turns before stopping; defaults to 3. */
+  maxStalledTurns?: number;
   tokenBudget?: number;
   taskTimeoutMs?: number;
   intervalMode: 'fixed' | 'random';

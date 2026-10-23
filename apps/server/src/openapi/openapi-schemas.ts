@@ -63,6 +63,7 @@ const planProperties = {
     properties: {
       enabled: { type: 'boolean', default: true },
       maxTurns: { ...integer, minimum: 1, maximum: 1000, default: 100 },
+      maxStalledTurns: { ...integer, minimum: 1, maximum: 1000, default: 3 },
       tokenBudget: {
         ...integer,
         minimum: 1000,
@@ -113,6 +114,7 @@ const agentProfileProperties = {
   intervalMaxMs: { ...integer, minimum: 1000, maximum: 60000 },
   taskLimitsEnabled: { type: 'boolean', default: true },
   maxTurns: { ...integer, minimum: 1, maximum: 1000 },
+  maxStalledTurns: { ...integer, minimum: 1, maximum: 1000, default: 3 },
   tokenBudget: { ...integer, minimum: 1000, maximum: 100000000 },
   taskTimeoutMs: { ...integer, minimum: 1000, maximum: 21600000 },
 };
@@ -160,7 +162,14 @@ export const apiSchemas = {
   },
   TaskPlanUpdate: {
     type: 'object',
-    properties: { ...planProperties, characterId: text },
+    properties: {
+      ...planProperties,
+      characterId: text,
+      targetCharacterId: {
+        ...text,
+        description: '保存时改派至此角色，改派后计划暂停',
+      },
+    },
     description: '省略的字段沿用已有计划值',
   },
   TaskPlan: {

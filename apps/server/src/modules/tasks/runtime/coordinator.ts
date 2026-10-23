@@ -236,7 +236,13 @@ export class TaskCoordinator {
     if (id) this.plans.assertBinding(planId, id);
     if (plan.state === 'archived') throw new AppError('已归档任务不能修改。');
     const draft = validatePlan(value, Date.now(), plan);
+    const targetCharacterId = object(value).targetCharacterId;
+    const target =
+      targetCharacterId !== undefined && targetCharacterId !== plan.characterId
+        ? this.host.execution(String(targetCharacterId))
+        : undefined;
     return this.commitPlan(planId, () => {
+      if (target) this.plans.reassign(planId, target.view);
       Object.assign(plan, draft);
       this.plans.touch(plan);
       plan.nextRunAt =

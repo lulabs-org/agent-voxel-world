@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../components/ui/ConsoleFeedbackRelay';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   BailianSpeechSession,
@@ -227,7 +228,10 @@ export function SpeechRecognitionPanel({
   return (
     <section aria-label={t('console.asr.panelAria')}>
       <div className="voice-services-layout console-columns">
-        <aside className="console-sidebar" aria-label={t('console.asr.listAria')}>
+        <aside
+          className="console-sidebar"
+          aria-label={t('console.asr.listAria')}
+        >
           <div className="console-sidebar-heading">
             <h3>{t('console.asr.sidebarHeading')}</h3>
           </div>
@@ -276,16 +280,10 @@ export function SpeechRecognitionPanel({
               {t('console.asr.loadingServices')}
             </p>
           )}
-          <p className="console-sidebar-note">
-            {t('console.asr.sidebarNote')}
-          </p>
+          <p className="console-sidebar-note">{t('console.asr.sidebarNote')}</p>
         </aside>
         <div className="agent-form console-panel">
-          {asr.error && (
-            <p role="alert" className="agent-error">
-              {asr.error}
-            </p>
-          )}
+          <ConsoleFeedbackRelay error={asr.error} active={active} />
           {asr.notice && (
             <p role="status" className="agent-notice">
               {asr.notice}
@@ -309,16 +307,14 @@ export function SpeechRecognitionPanel({
                       : t('console.asr.serviceNotReady')}
                 {!checking && checkedAt && (
                   <small className="asr-help">
-                    {checkError ? t('console.asr.serviceFailed') : t('console.asr.checkFinished')} ·{' '}
-                    {checkedAt.toLocaleTimeString('zh-CN', { hour12: false })}
+                    {checkError
+                      ? t('console.asr.serviceFailed')
+                      : t('console.asr.checkFinished')}{' '}
+                    · {checkedAt.toLocaleTimeString('zh-CN', { hour12: false })}
                   </small>
                 )}
               </p>
-              {checkError && (
-                <p role="alert" className="agent-error">
-                  {checkError}
-                </p>
-              )}
+              <ConsoleFeedbackRelay error={checkError} active={active} />
               {capabilities && (
                 <p className="agent-hint">{capabilities.local.reason}</p>
               )}
@@ -334,9 +330,7 @@ export function SpeechRecognitionPanel({
                   {checking ? t('common.loading') : t('console.asr.recheck')}
                 </button>
               </div>
-              <p className="agent-hint">
-                {t('console.asr.whisperServerNote')}
-              </p>
+              <p className="agent-hint">{t('console.asr.whisperServerNote')}</p>
               {!capabilities?.local.available && (
                 <p className="agent-hint">
                   {t('console.asr.whisperSetupHint')}
@@ -344,7 +338,10 @@ export function SpeechRecognitionPanel({
               )}
             </section>
           )}
-          <section className="voice-preview" aria-label={t('console.asr.tryAsrHeading')}>
+          <section
+            className="voice-preview"
+            aria-label={t('console.asr.tryAsrHeading')}
+          >
             <h4>{t('console.asr.tryAsrHeading')}</h4>
             {!isBrowser && (
               <label>
@@ -379,7 +376,9 @@ export function SpeechRecognitionPanel({
                   disabled={busy}
                   onClick={() => setShowFileTest((value) => !value)}
                 >
-                  {showFileTest ? t('console.asr.toggleFileTestHide') : t('console.asr.toggleFileTestShow')}
+                  {showFileTest
+                    ? t('console.asr.toggleFileTestHide')
+                    : t('console.asr.toggleFileTestShow')}
                 </button>
               )}
               {state === 'listening' && (
@@ -433,18 +432,16 @@ export function SpeechRecognitionPanel({
               </div>
             )}
             {status && <p role="status">{status}</p>}
-            {error && (
-              <p role="alert" className="agent-error">
-                {error}
-              </p>
-            )}
+            <ConsoleFeedbackRelay error={error} active={active} />
             <label>
               {t('console.asr.confirmedTextLabel')}
               <textarea
                 rows={4}
                 readOnly
                 aria-live="polite"
-                value={partial ? (text ? `${text}\n${partial}` : partial) : text}
+                value={
+                  partial ? (text ? `${text}\n${partial}` : partial) : text
+                }
                 placeholder={t(
                   state === 'listening'
                     ? 'console.asr.listeningInterim'

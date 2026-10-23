@@ -489,6 +489,10 @@
       "resumeFailed": "Failed to resume task, please retry."
     },
     "budgetFields": {
+      "maxStalledTurns": "Consecutive stalled turns",
+      "roundUnit": "turns",
+      "stalledHint": "Pause after this many consecutive failed or stalled turns.",
+
       "maxTurns": "Turn Limit",
       "tokenBudget": "Token Budget",
       "timeout": "Execution Timeout",
@@ -550,8 +554,9 @@
       "stateReadyDesc": "Plan ready; awaiting schedule trigger or manual launch.",
       "pausePlan": "Pause Plan",
       "enablePlan": "Enable Plan",
+      "consumedPercent": "{percent}% used",
       "totalTokensConsumed": "Total Tokens Consumed",
-      "addBudget": "Add Budget",
+      "budgetExhausted": "Total token budget exhausted",
       "totalBudgetLabel": "Total Plan Budget: {tokens} tokens",
       "noBudgetLimit": "No budget limit",
       "recordsAndLimit": "Run History & Per-Run Limits",

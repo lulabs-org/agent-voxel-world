@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import type { VoiceServiceView } from '@voxel/shared';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { speakBrowserText } from '../../../audio';
@@ -23,6 +24,7 @@ export function VoicePreview({
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
+  const [error, setError] = useState('');
   const request = useRef<AbortController | undefined>(undefined);
   const audio = useRef<HTMLAudioElement>(null);
   const stop = useCallback(() => {
@@ -31,6 +33,7 @@ export function VoicePreview({
     setUrl('');
     setBusy(false);
     setStatus('');
+    setError('');
   }, []);
   useEffect(() => {
     stop();
@@ -58,7 +61,8 @@ export function VoicePreview({
       if (service?.type === 'browser') {
         setStatus(t('console.voice.previewStatusBrowserSpeaking'));
         await speakBrowserText(text, service, abort.signal);
-        if (!abort.signal.aborted) setStatus(t('console.voice.previewStatusBrowserDone'));
+        if (!abort.signal.aborted)
+          setStatus(t('console.voice.previewStatusBrowserDone'));
         return;
       }
       const blob = await voiceApi.previewVoice(serviceId, text, abort.signal);
@@ -66,14 +70,23 @@ export function VoicePreview({
       setUrl(URL.createObjectURL(blob));
       setStatus(t('console.voice.previewStatusSuccess'));
     } catch (error) {
-      if (!abort.signal.aborted)
-        setStatus(error instanceof Error ? error.message : t('console.voice.previewStatusFailed'));
+      if (!abort.signal.aborted) {
+        setStatus('');
+        setError(
+          error instanceof Error
+            ? error.message
+            : t('console.voice.previewStatusFailed'),
+        );
+      }
     } finally {
       if (!abort.signal.aborted) setBusy(false);
     }
   };
   return (
-    <section className="voice-preview tts-preview" aria-label={t('console.voice.previewSectionAria')}>
+    <section
+      className="voice-preview tts-preview"
+      aria-label={t('console.voice.previewSectionAria')}
+    >
       <div className="tts-preview-heading">
         <label htmlFor={textId}>{t('console.voice.previewTextLabel')}</label>
         <select
@@ -91,7 +104,9 @@ export function VoicePreview({
             setText(sample.text);
           }}
         >
-          {language === 'custom' && <option value="custom">{t('console.voice.customText')}</option>}
+          {language === 'custom' && (
+            <option value="custom">{t('console.voice.customText')}</option>
+          )}
           {voicePreviewSamples.map((sample) => (
             <option key={sample.language} value={sample.language}>
               {sample.label}
@@ -104,9 +119,17 @@ export function VoicePreview({
             !busy && (!serviceId || disabled || !active || !text.trim())
           }
           onClick={() => (busy ? stop() : void preview())}
-          title={busy ? t('console.voice.previewCancelTitle') : t('console.voice.previewStartTitle')}
+          title={
+            busy
+              ? t('console.voice.previewCancelTitle')
+              : t('console.voice.previewStartTitle')
+          }
         >
-          {busy ? t('console.voice.stopPreview') : url ? t('console.voice.rePreview') : t('console.voice.startPreview')}
+          {busy
+            ? t('console.voice.stopPreview')
+            : url
+              ? t('console.voice.rePreview')
+              : t('console.voice.startPreview')}
         </button>
       </div>
       <textarea
@@ -134,13 +157,14 @@ export function VoicePreview({
           {status}
         </p>
       )}
+      <ConsoleFeedbackRelay error={error} active={active} />
       <audio
         ref={audio}
         controls
         hidden={!url}
         src={url || undefined}
         aria-label={t('console.voice.previewAudioAria')}
-        onError={() => setStatus(t('console.voice.previewStatusPlayFailed'))}
+        onError={() => setError(t('console.voice.previewStatusPlayFailed'))}
       />
     </section>
   );

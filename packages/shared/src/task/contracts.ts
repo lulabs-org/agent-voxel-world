@@ -2,6 +2,8 @@ export type TaskLimits = {
   /** Missing on older saves means enabled. */
   enabled?: boolean;
   maxTurns: number;
+  /** Consecutive failed or stalled turns before stopping; defaults to 3. */
+  maxStalledTurns?: number;
   tokenBudget: number;
   taskTimeoutMs: number;
 };

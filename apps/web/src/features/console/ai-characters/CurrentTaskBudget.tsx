@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import type { AICharacterSummary, TaskLimits } from '@voxel/shared';
 import { useState } from 'react';
 import { useI18n } from '../../../i18n/context';
@@ -275,11 +276,7 @@ export function CurrentTaskBudget({
           </fieldset>
         </form>
       )}
-      {error && (
-        <p className="agent-error" role="alert">
-          {error}
-        </p>
-      )}
+      <ConsoleFeedbackRelay error={error} />
     </section>
   );
 }

@@ -40,8 +40,15 @@ export const tasksApi = {
     previous?: TaskPlan,
     requestId?: string,
   ) => {
-    const targetCharacterId = previous?.characterId ?? characterId;
-    const body = { ...draft, requestId, characterId: targetCharacterId };
+    const targetCharacterId = previous ? previous.characterId : characterId;
+    const body = {
+      ...draft,
+      requestId,
+      characterId: targetCharacterId,
+      ...(previous && characterId && characterId !== previous.characterId
+        ? { targetCharacterId: characterId }
+        : {}),
+    };
     if (previous?.id) {
       return consoleFetch<TaskPlan>(
         `/tasks/${encodeURIComponent(previous.id)}`,

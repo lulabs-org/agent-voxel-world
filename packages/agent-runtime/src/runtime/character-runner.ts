@@ -316,6 +316,7 @@ export class CharacterRunner {
           `${memory.identity?.id}:${memory.identity?.revision}`,
         afterTurn: () =>
           healthMonitor.recordTurn({
+            maxStalledTurns: config.maxStalledTurns,
             state,
             attached,
             current,

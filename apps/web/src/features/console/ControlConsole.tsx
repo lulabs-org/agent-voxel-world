@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { ConsoleFeedbackContext } from '../../components/ui/ConsoleFeedbackRelay';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
@@ -65,6 +66,11 @@ export function ControlConsole({
     editProvider,
   } = controller;
 
+  const notifications = useMemo(
+    () => ({ setError, setNotice }),
+    [setError, setNotice],
+  );
+
   if (locked) {
     return (
       <GatewayAccess
@@ -78,153 +84,155 @@ export function ControlConsole({
   }
 
   return (
-    <Dialog
-      open={open}
-      id="control-console"
-      className="agent-dialog"
-      aria-labelledby="agent-title"
-      onCancel={onClose}
-    >
-      <div className="agent-chrome">
-        <div className="agent-heading">
-          <div>
-            <div className="eyebrow">{t('console.eyebrow')}</div>
-            <div className="console-title-row">
-              <h2 id="agent-title">{t('console.title')}</h2>
-              <span
-                role="status"
-                className={`console-status-pill ${status === 'ready' ? 'console-connected' : 'console-reconnecting'}`}
-              >
-                {status === 'ready'
-                  ? t('console.connected')
-                  : t('console.reconnecting')}
-              </span>
+    <ConsoleFeedbackContext.Provider value={notifications}>
+      <Dialog
+        open={open}
+        id="control-console"
+        className="agent-dialog"
+        aria-labelledby="agent-title"
+        onCancel={onClose}
+      >
+        <div className="agent-chrome">
+          <div className="agent-heading">
+            <div>
+              <div className="eyebrow">{t('console.eyebrow')}</div>
+              <div className="console-title-row">
+                <h2 id="agent-title">{t('console.title')}</h2>
+                <span
+                  role="status"
+                  className={`console-status-pill ${status === 'ready' ? 'console-connected' : 'console-reconnecting'}`}
+                >
+                  {status === 'ready'
+                    ? t('console.connected')
+                    : t('console.reconnecting')}
+                </span>
+              </div>
+              <p>{t('console.description')}</p>
             </div>
-            <p>{t('console.description')}</p>
+            <div className="console-heading-actions">
+              <ConsoleHelp />
+              <Button className="console-exit-btn" onClick={clearGatewayToken}>
+                {t('console.exitAdmin')}
+              </Button>
+              <Button aria-label={t('console.closeAria')} onClick={onClose}>
+                {t('console.close')}
+              </Button>
+            </div>
           </div>
-          <div className="console-heading-actions">
-            <ConsoleHelp />
-            <Button className="console-exit-btn" onClick={clearGatewayToken}>
-              {t('console.exitAdmin')}
-            </Button>
-            <Button aria-label={t('console.closeAria')} onClick={onClose}>
-              {t('console.close')}
-            </Button>
-          </div>
+          {gatewayFailure && (
+            <p className="agent-error" role="alert">
+              {gatewayFailure}
+            </p>
+          )}
+          <nav className="agent-tabs" aria-label={t('console.tabsAria')}>
+            <button
+              aria-pressed={tab === 'characters'}
+              onClick={() => {
+                setTab('characters');
+                setError('');
+                setNotice('');
+              }}
+            >
+              {t('console.tabs.characters')}
+            </button>
+            <button
+              aria-pressed={tab === 'plans'}
+              onClick={() => setTab('plans')}
+            >
+              {t('console.tabs.plans')}
+            </button>
+            <button
+              aria-pressed={tab === 'providers'}
+              onClick={() => {
+                setTab('providers');
+                editProvider(selected ?? providers[0]);
+              }}
+            >
+              {t('console.tabs.providers')}
+            </button>
+            <button
+              aria-pressed={tab === 'voice'}
+              onClick={() => setTab('voice')}
+            >
+              {t('console.tabs.voice')}
+            </button>
+            <button aria-pressed={tab === 'asr'} onClick={() => setTab('asr')}>
+              {t('console.tabs.asr')}
+            </button>
+          </nav>
         </div>
-        {gatewayFailure && (
-          <p className="agent-error" role="alert">
-            {gatewayFailure}
-          </p>
-        )}
-        <nav className="agent-tabs" aria-label={t('console.tabsAria')}>
-          <button
-            aria-pressed={tab === 'characters'}
-            onClick={() => {
-              setTab('characters');
-              setError('');
-              setNotice('');
-            }}
-          >
-            {t('console.tabs.characters')}
-          </button>
-          <button
-            aria-pressed={tab === 'plans'}
-            onClick={() => setTab('plans')}
-          >
-            {t('console.tabs.plans')}
-          </button>
-          <button
-            aria-pressed={tab === 'providers'}
-            onClick={() => {
-              setTab('providers');
-              editProvider(selected ?? providers[0]);
-            }}
-          >
-            {t('console.tabs.providers')}
-          </button>
-          <button
-            aria-pressed={tab === 'voice'}
-            onClick={() => setTab('voice')}
-          >
-            {t('console.tabs.voice')}
-          </button>
-          <button aria-pressed={tab === 'asr'} onClick={() => setTab('asr')}>
-            {t('console.tabs.asr')}
-          </button>
-        </nav>
-      </div>
 
-      <div className="agent-body" ref={body}>
-        <fieldset
-          disabled={status !== 'ready'}
-          style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
-        >
-          <div hidden={tab !== 'plans'}>
-            <TaskPlans
-              characters={controller.jobs}
-              active={open && status === 'ready' && tab === 'plans'}
-              disabled={status !== 'ready'}
-            />
-          </div>
-          <div className="console-voice" hidden={tab !== 'voice'}>
-            <VoiceServices
-              services={controller.voiceServices}
-              onChange={controller.setVoiceServices}
-              active={open && status === 'ready' && tab === 'voice'}
-            />
-          </div>
-          <div className="console-voice" hidden={tab !== 'asr'}>
-            <SpeechRecognitionPanel
-              connection={connection}
-              active={open && status === 'ready' && tab === 'asr'}
-            />
-          </div>
-          <div hidden={tab === 'voice' || tab === 'asr' || tab === 'plans'}>
-            {tab === 'providers' ? (
-              <ProviderEditor {...controller} />
-            ) : (
-              <AICharacterList
-                {...controller}
-                active={open && status === 'ready' && tab === 'characters'}
+        <div className="agent-body" ref={body}>
+          <fieldset
+            disabled={status !== 'ready'}
+            style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+          >
+            <div hidden={tab !== 'plans'}>
+              <TaskPlans
+                characters={controller.jobs}
+                active={open && status === 'ready' && tab === 'plans'}
+                disabled={status !== 'ready'}
               />
+            </div>
+            <div className="console-voice" hidden={tab !== 'voice'}>
+              <VoiceServices
+                services={controller.voiceServices}
+                onChange={controller.setVoiceServices}
+                active={open && status === 'ready' && tab === 'voice'}
+              />
+            </div>
+            <div className="console-voice" hidden={tab !== 'asr'}>
+              <SpeechRecognitionPanel
+                connection={connection}
+                active={open && status === 'ready' && tab === 'asr'}
+              />
+            </div>
+            <div hidden={tab === 'voice' || tab === 'asr' || tab === 'plans'}>
+              {tab === 'providers' ? (
+                <ProviderEditor {...controller} />
+              ) : (
+                <AICharacterList
+                  {...controller}
+                  active={open && status === 'ready' && tab === 'characters'}
+                />
+              )}
+            </div>
+          </fieldset>
+        </div>
+
+        {(notice || error) && (
+          <div className="console-toast-wrapper" aria-live="polite">
+            {notice && (
+              <div className="console-toast console-toast-notice" role="status">
+                <CheckCircle2 size={16} className="console-toast-icon" />
+                <span className="console-toast-message">{notice}</span>
+                <button
+                  type="button"
+                  className="console-toast-dismiss"
+                  onClick={() => setNotice('')}
+                  aria-label={t('common.close')}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {error && (
+              <div className="console-toast console-toast-error" role="alert">
+                <AlertCircle size={16} className="console-toast-icon" />
+                <span className="console-toast-message">{error}</span>
+                <button
+                  type="button"
+                  className="console-toast-dismiss"
+                  onClick={() => setError('')}
+                  aria-label={t('common.close')}
+                >
+                  <X size={14} />
+                </button>
+              </div>
             )}
           </div>
-        </fieldset>
-      </div>
-
-      {(notice || error) && (
-        <div className="console-toast-wrapper" aria-live="polite">
-          {notice && (
-            <div className="console-toast console-toast-notice" role="status">
-              <CheckCircle2 size={16} className="console-toast-icon" />
-              <span className="console-toast-message">{notice}</span>
-              <button
-                type="button"
-                className="console-toast-dismiss"
-                onClick={() => setNotice('')}
-                aria-label={t('common.close')}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-          {error && (
-            <div className="console-toast console-toast-error" role="alert">
-              <AlertCircle size={16} className="console-toast-icon" />
-              <span className="console-toast-message">{error}</span>
-              <button
-                type="button"
-                className="console-toast-dismiss"
-                onClick={() => setError('')}
-                aria-label={t('common.close')}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </Dialog>
+        )}
+      </Dialog>
+    </ConsoleFeedbackContext.Provider>
   );
 }

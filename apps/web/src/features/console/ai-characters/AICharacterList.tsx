@@ -1,3 +1,4 @@
+import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
 import { useState } from 'react';
 import './ai-characters.css';
 import { useI18n } from '../../../i18n/context';
@@ -40,14 +41,23 @@ export function AICharacterList(
     );
   });
   return (
-    <section className="agents-workspace" aria-label={t('console.characters.managementAria')}>
-      {pollError && (
-        <p role="alert" className="agent-error">
-          {t('console.characters.pollErrorHint', { error: pollError })}
-        </p>
-      )}
+    <section
+      className="agents-workspace"
+      aria-label={t('console.characters.managementAria')}
+    >
+      <ConsoleFeedbackRelay
+        active={props.active}
+        error={
+          pollError
+            ? t('console.characters.pollErrorHint', { error: pollError })
+            : ''
+        }
+      />
       <div className="agents-layout console-columns">
-        <aside className="console-sidebar" aria-label={t('console.characters.listAria')}>
+        <aside
+          className="console-sidebar"
+          aria-label={t('console.characters.listAria')}
+        >
           <div className="console-sidebar-heading">
             <h3>{t('console.characters.title')}</h3>
             <span>
