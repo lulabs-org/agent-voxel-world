@@ -389,6 +389,45 @@
   background: #b58032;
 }
 
+/* Plan detail tabs */
+.plans-detail-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 20px;
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--agents-border);
+  overflow-x: auto;
+}
+
+.agent-dialog .plans-detail-tabs button {
+  flex: 0 0 auto;
+  margin-bottom: -1px;
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--agents-muted);
+  font-size: 12px;
+}
+
+.agent-dialog .plans-detail-tabs button[aria-current='page'] {
+  border-bottom-color: var(--color-hud-ink);
+  color: var(--color-hud-ink);
+  font-weight: 650;
+}
+
+.agent-dialog .plans-detail-tabs button:hover:not([aria-current='page']) {
+  color: var(--color-hud-ink);
+  background: #edf2e6;
+}
+
+.plans-detail-tabs + section .plans-section-heading {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 /* Main action toolbar */
 .plans-toolbar {
   display: flex;

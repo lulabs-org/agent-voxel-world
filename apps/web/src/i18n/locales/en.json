@@ -577,6 +577,8 @@
       "reassignHint": "Plan remains paused after reassignment; history and cumulative usage are preserved.",
       "confirmReassign": "Confirm Reassignment",
       "activeRuns": "Active Runs",
+      "detailTabsAria": "Task plan detail tabs",
+      "detailTab": "Plan Details",
       "activeItems": "{count} active",
       "noActiveRuns": "No unfinished runs",
       "historyHeading": "Run History",
