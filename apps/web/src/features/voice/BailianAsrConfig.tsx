@@ -41,11 +41,7 @@ export function BailianAsrConfig({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        const submitter = (e.nativeEvent as SubmitEvent).submitter;
-        void save(
-          submitter instanceof HTMLButtonElement &&
-            submitter.value === 'add-another',
-        );
+        void save();
       }}
     >
       <div className="console-panel-heading">
@@ -251,15 +247,6 @@ export function BailianAsrConfig({
           >
             {busy ? t('common.loading') : t('console.asr.saveServiceButton')}
           </button>
-          {!saved && manager.canAddAnother && (
-            <button
-              type="submit"
-              value="add-another"
-              disabled={!dirty || manager.loading}
-            >
-              {t('console.asr.saveAndAddAnother')}
-            </button>
-          )}
           {saved && (
             <button type="button" onClick={() => void remove()}>
               {t('console.asr.deleteServiceButton')}
