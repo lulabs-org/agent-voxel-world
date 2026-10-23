@@ -50,7 +50,7 @@ export function TaskPlans({
   const [page, setPage] = useState<PlanPage>({ items: [], total: 0 });
   const [selected, setSelected] = useState<string>();
   const [plan, setPlan] = useState<PublicPlanView>();
-  const [editor, setEditor] = useState<{ plan?: TaskPlan } | null>(null);
+  const [creating, setCreating] = useState(false);
   const [runs, setRuns] = useState<TaskRun[]>([]);
   const [nextRunPage, setNextRunPage] = useState<number>();
   const [busy, setBusy] = useState(false),
@@ -233,8 +233,8 @@ export function TaskPlans({
           </div>
           <button
             className="primary console-sidebar-add"
-            disabled={locked || !characters.length || !!editor}
-            onClick={() => setEditor({})}
+            disabled={locked || !characters.length || creating}
+            onClick={() => setCreating(true)}
           >
             {t('console.plans.createButton')}
           </button>
@@ -272,8 +272,8 @@ export function TaskPlans({
               <button
                 key={p.id}
                 className="console-sidebar-item"
-                aria-pressed={selected === p.id && !editor}
-                disabled={!!editor}
+                aria-pressed={selected === p.id && !creating}
+                disabled={creating}
                 onClick={() => openPlan(p.id)}
               >
                 <span className="plans-mini-badge" aria-hidden="true">
@@ -332,14 +332,12 @@ export function TaskPlans({
           <p className="console-sidebar-note">{t('console.plans.cronNote')}</p>
         </aside>
         <div className="console-panel">
-          {editor ? (
+          {creating ? (
             <TaskPlanEditor
-              key={editor.plan?.id ?? 'new'}
-              plan={editor.plan}
+              key="new"
               characters={characters}
               busy={locked}
-              blocked=""
-              onCancel={() => setEditor(null)}
+              onCancel={() => setCreating(false)}
               onSave={async (draft, requestId, characterId) => {
                 try {
                   let saved: TaskPlan | undefined;
@@ -347,12 +345,12 @@ export function TaskPlans({
                     saved = await tasksApi.save(
                       characterId,
                       draft,
-                      editor.plan,
+                      undefined,
                       requestId,
                     );
                   });
                   if (saved) {
-                    setEditor(null);
+                    setCreating(false);
                     openPlan(saved.id);
                   }
                 } catch {
@@ -419,8 +417,159 @@ export function TaskPlans({
                   </button>
                 ))}
               </nav>
-              {detailTab === 'details' && (
-                <>
+              <div hidden={detailTab !== 'details'}>
+                <TaskPlanEditor
+                  key={`${plan.id}:${plan.characterId ?? ''}`}
+                  plan={plan}
+                  characters={characters}
+                  busy={locked}
+                  onSave={async (draft, requestId, characterId) => {
+                    try {
+                      let saved: TaskPlan | undefined;
+                      await mutate(async () => {
+                        saved = await tasksApi.save(
+                          characterId,
+                          draft,
+                          plan,
+                          requestId,
+                        );
+                      });
+                      if (saved) openPlan(saved.id);
+                    } catch {
+                      /* retain draft */
+                    }
+                  }}
+                  footerActions={
+                    plan.state !== 'archived' && (
+                      <div className="plans-toolbar">
+                        <button
+                          type="button"
+                          disabled={
+                            locked ||
+                            !!blocked ||
+                            runs.some((r) => !runEnded(r))
+                          }
+                          onClick={() =>
+                            void control('run', {
+                              requestId: crypto.randomUUID(),
+                            })
+                          }
+                        >
+                          {t('console.plans.runNow')}
+                        </button>
+                        {plan.timing.kind !== 'immediate' && (
+                          <button
+                            type="button"
+                            disabled={
+                              locked ||
+                              (!plan.characterId && plan.state !== 'enabled')
+                            }
+                            onClick={() =>
+                              void control(
+                                plan.state === 'enabled' ? 'pause' : 'resume',
+                              )
+                            }
+                          >
+                            {plan.state === 'enabled'
+                              ? t('console.plans.pausePlan')
+                              : t('console.plans.enablePlan')}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={
+                            locked ||
+                            runs.some(
+                              (r) => r.status !== 'queued' && !runEnded(r),
+                            )
+                          }
+                          onClick={() => {
+                            setReassign(!reassign);
+                            setTarget('');
+                          }}
+                        >
+                          {t('console.plans.reassignCharacter')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            locked ||
+                            runs.some(
+                              (r) => r.status !== 'queued' && !runEnded(r),
+                            )
+                          }
+                          onClick={() => void control('archive')}
+                        >
+                          {t('console.plans.archivePlan')}
+                        </button>
+                      </div>
+                    )
+                  }
+                />
+                {blocked && plan.state !== 'archived' && (
+                  <p className="agent-hint plans-toolbar-hint">
+                    {t('console.plans.blockedCannotRun', { reason: blocked })}
+                  </p>
+                )}
+                {reassign && plan.state !== 'archived' && (
+                  <form
+                    className="agent-form plans-drawer-card"
+                    onSubmit={(e) => {
+                      void (async () => {
+                        e.preventDefault();
+                        try {
+                          await mutate(() => tasksApi.reassign(plan, target));
+                          setReassign(false);
+                        } catch {
+                          // mutate has already displayed the failure; keep the editor open.
+                        }
+                      })();
+                    }}
+                  >
+                    <h4>{t('console.plans.reassignTitle')}</h4>
+                    <label>
+                      {t('console.plans.selectNewCharacter')}
+                      <select
+                        required
+                        value={target}
+                        onChange={(e) => setTarget(e.target.value)}
+                      >
+                        <option value="">
+                          {t('console.plans.selectCharacterPlaceholder')}
+                        </option>
+                        {characters
+                          .filter((a) => a.id !== plan.characterId)
+                          .map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <p className="agent-hint">
+                      {t('console.plans.reassignHint')}
+                    </p>
+                    <div className="plans-drawer-actions">
+                      <button className="primary" disabled={locked || !target}>
+                        {t('console.plans.confirmReassign')}
+                      </button>
+                      <button type="button" onClick={() => setReassign(false)}>
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+              {detailTab === 'active' && (
+                <section aria-label={t('console.plans.activeRuns')}>
+                  <div className="plans-section-heading">
+                    <h4>{t('console.plans.activeRuns')}</h4>
+                    <span className="plans-section-badge">
+                      {t('console.plans.activeItems', {
+                        count: runs.filter((r) => !runEnded(r)).length,
+                      })}
+                    </span>
+                  </div>
                   <div className="plans-presence-bar">
                     <p>
                       {plan.nextRunAt
@@ -435,159 +584,6 @@ export function TaskPlans({
                               ? t('console.plans.stateArchivedDesc')
                               : t('console.plans.stateReadyDesc')}
                     </p>
-                    {plan.timing.kind !== 'immediate' &&
-                      plan.state !== 'archived' && (
-                        <button
-                          disabled={
-                            locked ||
-                            (!plan.characterId && plan.state !== 'enabled')
-                          }
-                          onClick={() =>
-                            void control(
-                              plan.state === 'enabled' ? 'pause' : 'resume',
-                            )
-                          }
-                        >
-                          {plan.state === 'enabled'
-                            ? t('console.plans.pausePlan')
-                            : t('console.plans.enablePlan')}
-                        </button>
-                      )}
-                  </div>
-                  {plan.reason && (
-                    <p className="agent-notice" style={{ margin: '0 0 16px' }}>
-                      {plan.reason}
-                    </p>
-                  )}
-                  <div className="plans-goal-card">
-                    <span className="plans-card-label">
-                      {t('console.plans.targetAndCondition')}
-                    </span>
-                    <p className="plans-goal-text">{plan.goal}</p>
-                  </div>
-                  {plan.state !== 'archived' && (
-                    <div className="plans-toolbar">
-                      <button
-                        className="primary"
-                        disabled={
-                          locked || !!blocked || runs.some((r) => !runEnded(r))
-                        }
-                        onClick={() =>
-                          void control('run', {
-                            requestId: crypto.randomUUID(),
-                          })
-                        }
-                      >
-                        {t('console.plans.runNow')}
-                      </button>
-                      <button
-                        disabled={locked}
-                        onClick={() =>
-                          setEditor({ plan: structuredClone(plan) })
-                        }
-                      >
-                        {t('console.plans.editPlan')}
-                      </button>
-                      <button
-                        disabled={
-                          locked ||
-                          runs.some(
-                            (r) => r.status !== 'queued' && !runEnded(r),
-                          )
-                        }
-                        onClick={() => {
-                          setReassign(!reassign);
-                          setTarget('');
-                        }}
-                      >
-                        {t('console.plans.reassignCharacter')}
-                      </button>
-                      <button
-                        disabled={
-                          locked ||
-                          runs.some(
-                            (r) => r.status !== 'queued' && !runEnded(r),
-                          )
-                        }
-                        onClick={() => void control('archive')}
-                      >
-                        {t('console.plans.archivePlan')}
-                      </button>
-                    </div>
-                  )}
-                  {blocked && plan.state !== 'archived' && (
-                    <p
-                      className="agent-hint"
-                      style={{ marginTop: -10, marginBottom: 16 }}
-                    >
-                      {t('console.plans.blockedCannotRun', { reason: blocked })}
-                    </p>
-                  )}
-                  {reassign && (
-                    <form
-                      className="agent-form plans-drawer-card"
-                      onSubmit={(e) => {
-                        void (async () => {
-                          e.preventDefault();
-                          try {
-                            await mutate(() => tasksApi.reassign(plan, target));
-                            setReassign(false);
-                          } catch {
-                            // mutate has already displayed the failure; keep the editor open.
-                          }
-                        })();
-                      }}
-                    >
-                      <h4>{t('console.plans.reassignTitle')}</h4>
-                      <label>
-                        {t('console.plans.selectNewCharacter')}
-                        <select
-                          required
-                          value={target}
-                          onChange={(e) => setTarget(e.target.value)}
-                        >
-                          <option value="">
-                            {t('console.plans.selectCharacterPlaceholder')}
-                          </option>
-                          {characters
-                            .filter((a) => a.id !== plan.characterId)
-                            .map((a) => (
-                              <option key={a.id} value={a.id}>
-                                {a.name}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      <p className="agent-hint">
-                        {t('console.plans.reassignHint')}
-                      </p>
-                      <div className="plans-drawer-actions">
-                        <button
-                          className="primary"
-                          disabled={locked || !target}
-                        >
-                          {t('console.plans.confirmReassign')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReassign(false)}
-                        >
-                          {t('common.cancel')}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </>
-              )}
-              {detailTab === 'active' && (
-                <section aria-label={t('console.plans.activeRuns')}>
-                  <div className="plans-section-heading">
-                    <h4>{t('console.plans.activeRuns')}</h4>
-                    <span className="plans-section-badge">
-                      {t('console.plans.activeItems', {
-                        count: runs.filter((r) => !runEnded(r)).length,
-                      })}
-                    </span>
                   </div>
                   {!runs.some((r) => !runEnded(r)) && (
                     <p className="agent-hint" style={{ margin: '4px 0 16px' }}>
