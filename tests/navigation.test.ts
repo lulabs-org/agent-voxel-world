@@ -1,3 +1,4 @@
+import { emptyState } from '@voxel/agent-runtime';
 import { describe, it, expect, vi } from 'vitest';
 import { findPath } from '../packages/agent-runtime/src/world/nav/astar';
 import { collisionMap } from '../packages/agent-runtime/src/world/nav/map';
@@ -283,7 +284,10 @@ it('follows across host wakes with no extra model calls, hysteresis, pause/resum
   const w = navigationWorld();
   const player = { ...w.observe().self, id: 'human', x: 4 };
   w.players([player]);
-  const memory: AgentRunState = { task: newTask('跟随玩家') };
+  const memory: AgentRunState = {
+    ...emptyState(),
+    task: { current: newTask('跟随玩家') },
+  };
   const config = {
     ...testAgentConfig(),
     maxTurns: 20,
@@ -299,32 +303,32 @@ it('follows across host wakes with no extra model calls, hysteresis, pause/resum
     runner.run({ session: w.session, config, signal: signal(), memory });
   await physics(w, async () => {
     await run();
-    expect(memory.follow).toBeDefined();
+    expect(memory.effects.follow).toBeDefined();
     for (let i = 0; i < 4; i++) await run();
     expect(Math.abs(w.body.x - player.x)).toBeLessThanOrEqual(1.5);
-    expect(memory.task!.status).toBe('waiting');
+    expect(memory.task.current!.status).toBe('waiting');
     expect(request).toHaveBeenCalledTimes(1);
     const held = w.body.x;
     player.x += 0.2;
     w.players([player]);
     await run();
     expect(w.body.x).toBe(held);
-    memory.task!.status = 'paused';
+    memory.task.current!.status = 'paused';
     player.x = 7;
     w.players([player]);
     await run();
     expect(w.body.x).toBe(held);
-    memory.task!.status = 'running';
+    memory.task.current!.status = 'running';
     for (let i = 0; i < 5; i++) await run();
     expect(Math.abs(w.body.x - player.x)).toBeLessThanOrEqual(1.5);
     w.players([]);
     await run();
-    expect(memory.follow!.lastResult!.code).toBe('target_not_visible');
+    expect(memory.effects.follow!.lastResult!.code).toBe('target_not_visible');
     expect(w.moves.at(-1)).toMatchObject({ x: 0, z: 0 });
     player.x = 9;
     w.players([player]);
     // JSON round-trip models the durable follow state used after an explicit resume.
-    memory.follow = JSON.parse(JSON.stringify(memory.follow));
+    memory.effects.follow = JSON.parse(JSON.stringify(memory.effects.follow));
     for (let i = 0; i < 4; i++) await run();
     expect(Math.abs(w.body.x - player.x)).toBeLessThanOrEqual(1.5);
     expect(request).toHaveBeenCalledTimes(1);
@@ -336,7 +340,7 @@ it('runs come-here through native tools and only completes after observed arriva
   for (let z = -1; z <= 1; z++) for (let y = 3; y <= 5; y++) w.put(2, y, z);
   const player = { ...w.observe().self, id: 'human', x: 4 };
   w.players([player]);
-  const memory: AgentRunState = {};
+  const memory: AgentRunState = emptyState();
   const attention = new AgentAttention();
   attention.push(
     {
@@ -383,7 +387,7 @@ it('runs come-here through native tools and only completes after observed arriva
       attention,
     }),
   );
-  expect(memory.task!.status).toBe('completed');
+  expect(memory.task.current!.status).toBe('completed');
   expect(Math.abs(w.body.x - player.x)).toBeLessThan(0.18);
   expect(request).toHaveBeenCalledTimes(3);
 });
@@ -432,11 +436,14 @@ it('stops follow on revoked movement permission, expired time budget, and checkp
     w.players([{ ...w.observe().self, id: 'human', x: 5 }]);
     const task = newTask('跟随');
     const memory: AgentRunState = {
-      task,
-      follow: {
-        action: { type: 'follow', playerId: 'human', distance: 1.5 },
-        taskStartedAt: task.startedAt,
-        pursuing: true,
+      ...emptyState(),
+      task: { current: task },
+      effects: {
+        follow: {
+          action: { type: 'follow', playerId: 'human', distance: 1.5 },
+          taskStartedAt: task.startedAt,
+          pursuing: true,
+        },
       },
     };
     const config = {
@@ -474,11 +481,14 @@ it('cancels stored follow through authorized task control and rejects premature 
   const w = navigationWorld();
   const task = newTask('跟随', 'human', 'human');
   const memory: AgentRunState = {
-    task,
-    follow: {
-      action: { type: 'follow', playerId: 'human', distance: 1.5 },
-      taskStartedAt: task.startedAt,
-      pursuing: false,
+    ...emptyState(),
+    task: { current: task },
+    effects: {
+      follow: {
+        action: { type: 'follow', playerId: 'human', distance: 1.5 },
+        taskStartedAt: task.startedAt,
+        pursuing: false,
+      },
     },
   };
   const attention = new AgentAttention();
@@ -513,8 +523,8 @@ it('cancels stored follow through authorized task control and rejects premature 
     memory,
     attention,
   });
-  expect(memory.follow).toBeUndefined();
-  expect(memory.task!.status).toBe('cancelled');
+  expect(memory.effects.follow).toBeUndefined();
+  expect(memory.task.current!.status).toBe('cancelled');
   expect(w.moves.some((m) => m.x || m.z)).toBe(false);
 });
 
@@ -523,11 +533,14 @@ import { executeBatch } from '../packages/agent-runtime/src/world/actions/batch'
 it('refuses to complete an active follow and treats an interrupted goto as unfinished', async () => {
   const task = newTask('跟随');
   const memory: AgentRunState = {
-    task,
-    follow: {
-      action: { type: 'follow', playerId: 'human', distance: 1.5 },
-      taskStartedAt: task.startedAt,
-      pursuing: true,
+    ...emptyState(),
+    task: { current: task },
+    effects: {
+      follow: {
+        action: { type: 'follow', playerId: 'human', distance: 1.5 },
+        taskStartedAt: task.startedAt,
+        pursuing: true,
+      },
     },
   };
   expect(() =>

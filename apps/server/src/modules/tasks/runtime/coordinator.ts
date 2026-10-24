@@ -312,7 +312,7 @@ export class TaskCoordinator {
   private checkTaskRevision(id: string, value: unknown) {
     const expected = object(value).expectedTask;
     if (expected === undefined) return; // Existing HTTP callers may omit preconditions.
-    const current = this.host.execution(id).memory.identity ?? null;
+    const current = this.host.execution(id).memory.task.identity ?? null;
     if (
       expected === null
         ? current !== null
@@ -372,7 +372,7 @@ export class TaskCoordinator {
       verify?.();
       if (state.currentRunId !== runId)
         throw new AppError('当前执行已改变。', 409);
-      const task = state.memory.task;
+      const task = state.memory.task.current;
       if (task && !['completed', 'cancelled'].includes(task.status))
         new TaskService(state.memory).command(
           { type: operation },
@@ -412,14 +412,14 @@ export class TaskCoordinator {
     for (const run of this.plans.runs.filter(
       (r) => r.characterId === id && !endedRun(r),
     )) {
-      if (run.runtime?.task) {
+      if (run.runtime?.task.current) {
         new TaskService(run.runtime).command(
           { type: 'cancel' },
           { kind: 'operator' },
           { ...state.view, apiKey: '' },
         );
-        delete run.runtime.follow;
-        run.task = structuredClone(run.runtime.task);
+        delete run.runtime.effects.follow;
+        run.task = structuredClone(run.runtime.task.current);
       }
       run.status = 'cancelled';
       run.reason = '执行角色已删除。';
@@ -441,7 +441,9 @@ export class TaskCoordinator {
   pauseForShutdown(id: string) {
     const state = this.host.findExecution(id);
     if (!state) return;
-    if (!['running', 'waiting'].includes(state.memory.task?.status ?? ''))
+    if (
+      !['running', 'waiting'].includes(state.memory.task.current?.status ?? '')
+    )
       return;
     const run = currentRun(state),
       plan = this.plans.plans.find((p) => p.id === run?.planId);
@@ -505,8 +507,8 @@ export class TaskCoordinator {
         queued.length &&
         job.online &&
         !taskBusy(job) &&
-        (!job.memory.task ||
-          ['completed', 'cancelled'].includes(job.memory.task.status))
+        (!job.memory.task.current ||
+          ['completed', 'cancelled'].includes(job.memory.task.current.status))
       ) {
         const runId = await commitExecution(
           job,

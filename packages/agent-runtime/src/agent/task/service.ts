@@ -27,26 +27,26 @@ export class TaskService {
   constructor(readonly memory: AgentRunState) {}
 
   lease(): TaskLease {
-    this.memory.version = 2;
-    const task = this.memory.task;
+    this.memory.version = 3;
+    const task = this.memory.task.current;
     if (!task) throw new AgentRuntimeError('没有当前任务。');
     if (
-      !this.memory.identity ||
-      this.memory.identity.startedAt !== task.startedAt
+      !this.memory.task.identity ||
+      this.memory.task.identity.startedAt !== task.startedAt
     )
-      this.memory.identity = {
+      this.memory.task.identity = {
         id: randomUUID(),
         revision: 0,
         startedAt: task.startedAt,
       };
-    return { ...this.memory.identity };
+    return { ...this.memory.task.identity };
   }
 
   current(lease: TaskLease) {
-    const now = this.memory.identity;
+    const now = this.memory.task.identity;
     return (
-      !!this.memory.task &&
-      this.memory.task.startedAt === lease.startedAt &&
+      !!this.memory.task.current &&
+      this.memory.task.current.startedAt === lease.startedAt &&
       now?.id === lease.id &&
       now.revision === lease.revision
     );
@@ -59,7 +59,7 @@ export class TaskService {
 
   authorize(authority: TaskAuthority) {
     if (authority.kind === 'operator') return;
-    const task = this.memory.task;
+    const task = this.memory.task.current;
     const message = authority.message;
     const privateTo =
       (message.data as ChatData).scope !== 'public' ? message.actor : undefined;
@@ -82,7 +82,7 @@ export class TaskService {
   ): AICharacterTask {
     this.authorize(authority);
     const memory = this.memory;
-    let task = memory.task;
+    let task = memory.task.current;
     if (command.type === 'start' || command.type === 'revise') {
       if (!command.goal.trim() || command.goal.length > 2000)
         throw new AgentRuntimeError('任务目标无效。');
@@ -101,10 +101,22 @@ export class TaskService {
           ? message.actor
           : undefined,
       );
+      // Starting a new activity resets task, effects, checkpoint and health,
+      // but keeps character usage, conversation history and the event inbox.
+      const usage = memory.task.usage;
+      const { exchanges, lastChatAt } = memory.conversation;
+      const inbox = memory.inbox;
       for (const key of Object.keys(memory))
-        if (!['usage', 'lastChatAt', 'exchanges', 'inbox'].includes(key))
-          delete (memory as Record<string, unknown>)[key];
-      memory.task = task;
+        delete (memory as Record<string, unknown>)[key];
+      Object.assign(memory, {
+        version: 3,
+        task: { current: task, usage },
+        conversation: { exchanges, lastChatAt },
+        checkpoint: {},
+        effects: {},
+        health: {},
+        inbox,
+      });
       this.lease();
       return task;
     }
@@ -116,21 +128,21 @@ export class TaskService {
       );
     }
     if (command.type === 'resume' || command.type === 'revise') {
-      if (memory.audienceExpired)
+      if (memory.conversation.audienceExpired)
         throw new AgentRuntimeError('原私聊会话已失效，请重新通过聊天发起。');
       const reason = checkBudgetCap(task, config);
       if (reason) throw new AgentRuntimeError(reason);
     }
     this.lease();
-    memory.identity!.revision++;
-    if (memory.activeAction?.status === 'running')
-      memory.activeAction.status =
+    memory.task.identity!.revision++;
+    if (memory.effects.activeAction?.status === 'running')
+      memory.effects.activeAction.status =
         command.type === 'pause' ? 'paused' : 'cancelled';
     // The old transcript may contain queued tool calls against the old revision.
-    if (memory.pi) memory.pi.messages = [];
+    if (memory.checkpoint.pi) memory.checkpoint.pi.messages = [];
     if (command.type === 'revise') {
       task.goal = command.goal.trim();
-      delete memory.follow;
+      delete memory.effects.follow;
     }
     task.status =
       command.type === 'pause'
@@ -145,13 +157,13 @@ export class TaskService {
           ? '已由玩家取消。'
           : '';
     if (command.type === 'cancel') {
-      delete memory.follow;
-      delete memory.unfinishedBuild;
+      delete memory.effects.follow;
+      delete memory.effects.unfinishedBuild;
     }
     if (command.type === 'resume' || command.type === 'revise') {
-      memory.failures = 0;
-      memory.noProgress = 0;
-      delete memory.waitSignature;
+      memory.health.failures = 0;
+      memory.health.noProgress = 0;
+      delete memory.health.waitSignature;
     }
     return task;
   }
@@ -176,10 +188,11 @@ export class TaskService {
       await save();
       return task;
     } catch {
-      const usage = this.memory.usage;
+      const usage = this.memory.task.usage;
       for (const key of Object.keys(this.memory))
         delete (this.memory as Record<string, unknown>)[key];
-      Object.assign(this.memory, before, { usage });
+      Object.assign(this.memory, before);
+      this.memory.task.usage = usage;
       throw new AgentRuntimeError('无法保存任务检查点，已停止写操作。', true);
     }
   }
@@ -190,21 +203,23 @@ export class TaskService {
     if (
       outcome.status === 'completed' &&
       (turnMutated ||
-        memory.pendingEffects ||
-        memory.unfinishedBuild ||
-        memory.follow ||
-        memory.unknownEffect ||
-        (memory.previous && !(memory.previous as { ok?: boolean }).ok))
+        memory.effects.pendingEffects ||
+        memory.effects.unfinishedBuild ||
+        memory.effects.follow ||
+        memory.checkpoint.unknownEffect ||
+        (memory.effects.previous &&
+          !(memory.effects.previous as { ok?: boolean }).ok))
     )
       throw new AgentRuntimeError(
         '当前仍有未确认或失败动作，先读取结果或重新观察，再确认完成。',
       );
-    const task = memory.task!;
+    const task = memory.task.current!;
     task.status = outcome.status;
     task.summary = outcome.reason;
     task.reason = outcome.reason;
     task.waitFor = outcome.status === 'waiting' ? outcome.waitFor : undefined;
-    if (outcome.status === 'waiting') memory.waitSignature = outcome.signature;
-    if (outcome.status === 'completed') delete memory.pi;
+    if (outcome.status === 'waiting')
+      memory.health.waitSignature = outcome.signature;
+    if (outcome.status === 'completed') delete memory.checkpoint.pi;
   }
 }

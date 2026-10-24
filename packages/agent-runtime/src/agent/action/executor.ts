@@ -51,7 +51,7 @@ export async function executeTaskActions(
       return session.request(type, payload);
     },
   };
-  const task = memory.task!;
+  const task = memory.task.current!;
   const routed = actions.map(
     (action): AgentAction =>
       action.type === 'chat' && task.privateTo
@@ -61,7 +61,7 @@ export async function executeTaskActions(
   const deadline = withDeadline(signal, budget.remainingMs, 'task_timeout');
   let outcome;
   // Keep older unfinished coordinates when a new batch only works on a subset.
-  const priorBuild = memory.unfinishedBuild;
+  const priorBuild = memory.effects.unfinishedBuild;
   const followControl = { pursuing: true };
   try {
     outcome = await executeBatch(
@@ -79,14 +79,14 @@ export async function executeTaskActions(
           signal.throwIfAborted();
           if (action.type === 'chat') await paceChat(memory, signal);
           if (action.type === 'follow') {
-            memory.follow = {
+            memory.effects.follow = {
               action,
               taskStartedAt: task.startedAt,
               pursuing: true,
             };
             await checkpoint();
           }
-          if (action.type === 'goto') delete memory.follow;
+          if (action.type === 'goto') delete memory.effects.follow;
           if (action.type === 'build' || action.type === 'house') {
             const blocks =
               action.type === 'house' ? houseBlocks(action) : action.blocks;
@@ -94,7 +94,7 @@ export async function executeTaskActions(
               priorBuild?.result.remaining.filter(
                 (b) => !blocks.some((p) => key(p) === key(b)),
               ) ?? [];
-            memory.unfinishedBuild = {
+            memory.effects.unfinishedBuild = {
               action,
               result: {
                 ok: false,
@@ -129,17 +129,17 @@ export async function executeTaskActions(
               ...(result.uncertain ?? []),
             ],
           };
-          memory.unfinishedBuild = merged.ok
+          memory.effects.unfinishedBuild = merged.ok
             ? undefined
             : { action, result: merged };
         },
         checkpoint: async (batch) => {
           service.assertCurrent(lease);
-          memory.previous = batch;
+          memory.effects.previous = batch;
           // Confirmed individual edits can also finish part of an older blueprint.
-          if (memory.unfinishedBuild) {
-            memory.unfinishedBuild.result.remaining =
-              memory.unfinishedBuild.result.remaining.filter(
+          if (memory.effects.unfinishedBuild) {
+            memory.effects.unfinishedBuild.result.remaining =
+              memory.effects.unfinishedBuild.result.remaining.filter(
                 (b) =>
                   !batch.results.some(
                     (r) =>
@@ -149,8 +149,8 @@ export async function executeTaskActions(
                       r.action.material === b.material,
                   ),
               );
-            if (!memory.unfinishedBuild.result.remaining.length)
-              memory.unfinishedBuild = undefined;
+            if (!memory.effects.unfinishedBuild.result.remaining.length)
+              memory.effects.unfinishedBuild = undefined;
           }
           await checkpoint();
         },
@@ -164,17 +164,17 @@ export async function executeTaskActions(
   const followResult = batch.results.find(
     (r) => r.action.type === 'follow',
   )?.result;
-  if (memory.follow && followResult && 'status' in followResult) {
-    memory.follow.pursuing = followControl.pursuing;
-    memory.follow.lastResult = followResult;
-    if (!followResult.ok) delete memory.follow;
+  if (memory.effects.follow && followResult && 'status' in followResult) {
+    memory.effects.follow.pursuing = followControl.pursuing;
+    memory.effects.follow.lastResult = followResult;
+    if (!followResult.ok) delete memory.effects.follow;
   }
   if (deadline.expired || budget.remainingMs <= 0) {
     batch.stopReason = 'timeout';
     batch.ok = false;
   }
-  memory.previous = batch;
-  if (batch.ok) delete memory.decisionError;
+  memory.effects.previous = batch;
+  if (batch.ok) delete memory.health.decisionError;
   await checkpoint();
   signal.throwIfAborted();
   return { batch, observation: finalObservation };

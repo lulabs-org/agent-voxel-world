@@ -64,7 +64,7 @@ export async function applyTaskDecision(
   if (
     !addressed &&
     ['task', 'update'].includes(d.intent) &&
-    (!d.goal || d.goal === memory.task?.goal)
+    (!d.goal || d.goal === memory.task.current?.goal)
   )
     d.intent = 'continue';
   if (
@@ -83,19 +83,19 @@ export async function applyTaskDecision(
       signal,
       {
         checkpoint: async (b) => {
-          memory.lastReply = b;
+          memory.conversation.lastReply = b;
           await save();
         },
       },
     );
-    memory.lastReply = batch;
+    memory.conversation.lastReply = batch;
     if (
       !batch.results.some(
         (r) => r.action.type === 'chat' && r.status === 'succeeded',
       )
     )
       await notify(d.summary);
-    memory.lastResponse = d.summary;
+    memory.health.lastResponse = d.summary;
     return;
   }
   if (addressed) {
@@ -115,22 +115,25 @@ export async function applyTaskDecision(
         hooks?.beforeNewTask,
       );
     } catch (error) {
-      if (memory.task && checkBudgetCap(memory.task, config)) {
-        memory.task.status = 'budget';
-        memory.task.reason = checkBudgetCap(memory.task, config)!;
-        await notify(memory.task.reason);
+      if (memory.task.current && checkBudgetCap(memory.task.current, config)) {
+        memory.task.current.status = 'budget';
+        memory.task.current.reason = checkBudgetCap(
+          memory.task.current,
+          config,
+        )!;
+        await notify(memory.task.current.reason);
         return;
       }
       throw error;
     }
     if (type === 'pause' || type === 'cancel') {
-      await notify(memory.task!.reason);
+      await notify(memory.task.current!.reason);
       return;
     }
   }
   if (
     d.status === 'completed' &&
-    memory.unfinishedBuild &&
+    memory.effects.unfinishedBuild &&
     actions.every((a) => ['chat', 'wait'].includes(a.type))
   ) {
     d.status = 'blocked';
@@ -158,7 +161,7 @@ export async function applyTaskDecision(
         r.action.type,
       ),
   );
-  const task = memory.task!;
+  const task = memory.task.current!;
   task.summary = d.summary;
   if (actions.some((a) => a.type === 'move') && d.status === 'waiting')
     d.status = 'running';
@@ -189,12 +192,12 @@ export async function applyTaskDecision(
     worldSignature(outcome.observation, 'world'),
   ]);
   if (outcome.batch.stopReason !== 'message') {
-    memory.noProgress =
-      !outcome.batch.ok || position === memory.lastProgress
-        ? (memory.noProgress ?? 0) + 1
+    memory.health.noProgress =
+      !outcome.batch.ok || position === memory.health.lastProgress
+        ? (memory.health.noProgress ?? 0) + 1
         : 0;
-    memory.lastProgress = position;
-    if (memory.noProgress >= 3 && task.status === 'running') {
+    memory.health.lastProgress = position;
+    if (memory.health.noProgress >= 3 && task.status === 'running') {
       task.status = 'blocked';
       task.reason = '连续三次失败或没有实际进展，已停止自动重试。';
     }

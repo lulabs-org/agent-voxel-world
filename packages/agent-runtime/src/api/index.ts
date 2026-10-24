@@ -35,11 +35,15 @@ export { listModels } from '../agent/model/catalog';
 
 export { AgentAttention } from '../world/observe/attention';
 
+export { newTask, restoreBatchHistory } from '../agent/task/state';
 export {
-  newTask,
-  restoreBatchHistory,
+  emptyState,
+  snapshotState,
   type AgentRunState,
-} from '../agent/task/state';
+  type CharacterEvent,
+  type PiCheckpoint,
+} from '../contracts/state';
+export { restoreState, STATE_VERSION } from '../persistence/migrate';
 
 export { worldSignature } from '../world/observe/extract';
 
@@ -59,4 +63,3 @@ export {
 } from '../agent/task/service';
 
 export { recordEvent } from '../agent/task/inbox';
-export type { CharacterEvent } from '../agent/task/state';

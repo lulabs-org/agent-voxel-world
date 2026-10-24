@@ -105,7 +105,7 @@ export class AICharacterHost {
 
       if (!job.abort.signal.aborted && run) {
         job.view.status = 'running';
-        if (!job.memory.follow || job.attention.pending)
+        if (!job.memory.effects.follow || job.attention.pending)
           log(job.attention.pending ? '处理当前消息。' : '启动 Pi 任务执行。');
 
         await ctx.dependencies.runner(config, provider).run({
@@ -137,7 +137,7 @@ export class AICharacterHost {
 
       finalStatus =
         job.abort.signal.aborted && !job.controlling ? 'failed' : 'idle';
-      if (finalStatus === 'idle' && !job.memory.follow)
+      if (finalStatus === 'idle' && !job.memory.effects.follow)
         log(
           run
             ? '本次唤醒结束，按任务状态安排下一次检查。'

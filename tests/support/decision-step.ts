@@ -32,7 +32,7 @@ export async function runTaskStep(
   },
 ) {
   const addressed = attention?.take();
-  const task = memory.task;
+  const task = memory.task.current;
   if (!addressed && !['running', 'waiting'].includes(task?.status ?? ''))
     return;
   if (!addressed && task) {
@@ -47,10 +47,10 @@ export async function runTaskStep(
   const prepared = await prepareDecision(session, memory, signal, addressed);
   if (!prepared) return;
   const { observation, context } = prepared;
-  memory.usage ??= { calls: 0, tokens: 0, estimated: false };
+  memory.task.usage ??= { calls: 0, tokens: 0, estimated: false };
 
   let chargedTask = !addressed ? task : undefined;
-  const budget = new RequestBudget(config, memory.usage, chargedTask);
+  const budget = new RequestBudget(config, memory.task.usage, chargedTask);
   const deadline = new AbortController();
   const decisionRemaining = chargedTask
     ? (config.taskTimeoutMs ?? 900000) - chargedTask.elapsedMs
@@ -100,24 +100,24 @@ export async function runTaskStep(
       checkpoint,
       hooks,
     );
-    if (input.task.intent !== 'reply') chargedTask = memory.task;
+    if (input.task.intent !== 'reply') chargedTask = memory.task.current;
   } catch (error) {
     if (signal.aborted) return;
-    memory.failures = (memory.failures ?? 0) + 1;
+    memory.health.failures = (memory.health.failures ?? 0) + 1;
     const reason =
       error instanceof AgentRuntimeError
         ? error.message
         : deadline.signal.aborted
           ? '本次任务决策超时，动作已停止。'
           : `${phase}时发生内部异常，已停止本次处理。`;
-    memory.decisionError = reason;
-    memory.lastResponse = reason;
+    memory.health.decisionError = reason;
+    memory.health.lastResponse = reason;
     log(reason);
     await notifySender(`这条消息处理失败：${reason} 请稍后重试。`);
     if (task && !addressed) {
       if (
         (error instanceof AgentRuntimeError && error.fatal) ||
-        memory.failures >= 3
+        memory.health.failures >= 3
       ) {
         task.status = 'blocked';
         task.reason = reason;

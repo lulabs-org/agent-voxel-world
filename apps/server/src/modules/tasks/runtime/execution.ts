@@ -14,6 +14,8 @@ import {
   AgentRuntimeError,
   type AgentRunState,
   type AgentConfig,
+  emptyState,
+  snapshotState,
 } from '@voxel/agent-runtime';
 import { object } from '../../../common/validation';
 import { taskLimits } from '../domain/validation';
@@ -49,13 +51,16 @@ export function captureTask(job: TaskExecutionState) {
       event.detail = run?.reason ?? '排队提交未完成。';
     }
   }
-  if (!job.memory.task) return;
+  if (!job.memory.task.current) return;
   new TaskService(job.memory).lease();
   let run = currentRun(job);
-  if (!run || (run.task && run.task.startedAt !== job.memory.task.startedAt)) {
+  if (
+    !run ||
+    (run.task && run.task.startedAt !== job.memory.task.current.startedAt)
+  ) {
     const snapshot = {
-      name: job.memory.task.goal.slice(0, 80) || '聊天执行',
-      goal: job.memory.task.goal,
+      name: job.memory.task.current.goal.slice(0, 80) || '聊天执行',
+      goal: job.memory.task.current.goal,
       timing: { kind: 'immediate' as const },
       timeZone: 'UTC',
       limits: {
@@ -71,13 +76,13 @@ export function captureTask(job: TaskExecutionState) {
       {
         ...snapshot,
         id: '',
-        createdAt: job.memory.task.startedAt,
-        updatedAt: job.memory.task.startedAt,
+        createdAt: job.memory.task.current.startedAt,
+        updatedAt: job.memory.task.current.startedAt,
         state: 'enabled',
         reason: '',
         spentTokens: 0,
       },
-      job.memory.task.startedAt,
+      job.memory.task.current.startedAt,
       'chat',
     );
     delete run.planId;
@@ -88,9 +93,9 @@ export function captureTask(job: TaskExecutionState) {
     job.currentRunId = run.id;
   }
   const plan = job.ledger.plans.find((p) => p.id === run!.planId);
-  const task = job.memory.task;
+  const task = job.memory.task.current;
   settleTaskUsage(run!, task.tokens, plan);
-  const batch = job.memory.previous as
+  const batch = job.memory.effects.previous as
     | {
         batchId?: string;
         results?: {
@@ -106,7 +111,7 @@ export function captureTask(job: TaskExecutionState) {
     JSON.stringify(batch) !== run.lastBatch
   ) {
     run.lastBatch = JSON.stringify(batch);
-    const call = job.memory.usage?.calls ?? task.calls;
+    const call = job.memory.task.usage?.calls ?? task.calls;
     run.actions ??= [];
     batch.results.forEach((result, index) => {
       if (!result.action?.type || !result.status) return;
@@ -131,8 +136,7 @@ export function captureTask(job: TaskExecutionState) {
     });
   }
   run.task = structuredClone(task);
-  const { usage, ...runtime } = job.memory;
-  run.runtime = structuredClone(runtime);
+  run.runtime = snapshotState(job.memory);
   run.startedAt ??= task.startedAt;
   run.status =
     job.view.status === 'failed' &&
@@ -290,8 +294,8 @@ export function startQueuedRun(job: TaskExecutionState, id: string) {
     job.updating ||
     job.controlling ||
     active(job.view.status) ||
-    (job.memory.task &&
-      !['completed', 'cancelled'].includes(job.memory.task.status))
+    (job.memory.task.current &&
+      !['completed', 'cancelled'].includes(job.memory.task.current.status))
   )
     return;
   if (
@@ -314,15 +318,15 @@ export function startQueuedRun(job: TaskExecutionState, id: string) {
       taskTimeoutMs: job.view.taskTimeoutMs ?? 900000,
     };
   run.task = task;
-  run.runtime = { task };
+  run.runtime = { ...emptyState(), task: { current: task } };
   run.startedAt = task.startedAt;
   run.status = 'running';
   run.reason = '';
   job.currentRunId = run.id;
   job.memory = {
-    task,
-    usage: job.memory.usage,
-    exchanges: job.memory.exchanges,
+    ...emptyState(),
+    task: { current: task, usage: job.memory.task.usage },
+    conversation: { exchanges: job.memory.conversation.exchanges },
     inbox: job.memory.inbox,
   };
   const lease = new TaskService(job.memory).lease();
@@ -442,7 +446,7 @@ export async function executeTaskRunControl(
       schedule,
     );
   }
-  if (!run || run.characterId !== job.view.id || !run.runtime?.task)
+  if (!run || run.characterId !== job.view.id || !run.runtime?.task.current)
     throw new AppError('执行记录不存在或不可继续。', 404);
   if (endedRun(run)) throw new AppError('执行已结束，请重新执行任务。');
   if (operation === 'pause' || operation === 'cancel') {
@@ -455,14 +459,14 @@ export async function executeTaskRunControl(
           { kind: 'operator' },
           { ...job.view, apiKey: '' },
         );
-        run.runtime!.task!.reason =
+        run.runtime!.task.current!.reason =
           '已由玩家' + (operation === 'cancel' ? '结束。' : '暂停。');
-        run.task = structuredClone(run.runtime!.task);
+        run.task = structuredClone(run.runtime!.task.current);
         run.status = run.task!.status;
         run.reason = run.task!.reason;
         if (operation === 'cancel') {
           run.finishedAt = Date.now();
-          delete run.runtime!.follow;
+          delete run.runtime!.effects.follow;
         }
         return runView(run);
       },
@@ -475,11 +479,11 @@ export async function executeTaskRunControl(
     throw new AppError('角色离线或忙碌，请先上线或暂停当前执行。', 409);
   if (
     job.currentRunId !== runId &&
-    job.memory.task &&
-    !['completed', 'cancelled'].includes(job.memory.task.status)
+    job.memory.task.current &&
+    !['completed', 'cancelled'].includes(job.memory.task.current.status)
   )
     throw new AppError('请先结束当前执行，再恢复历史执行。', 409);
-  if (run.runtime.audienceExpired)
+  if (run.runtime.conversation.audienceExpired)
     throw new AppError('原私聊会话已失效，请重新通过聊天发起。', 409);
   const plan = job.ledger.plans.find((p) => p.id === run.planId);
   if (
@@ -513,7 +517,7 @@ export async function executeTaskRunControl(
       };
       job.memory = {
         ...structuredClone(run.runtime!),
-        usage: job.memory.usage,
+        task: { ...run.runtime!.task, usage: job.memory.task.usage },
       };
       new TaskService(job.memory).command(
         { type: 'resume' },
@@ -538,7 +542,7 @@ export async function executeTaskRunControl(
         kind: 'control',
         state: 'pending',
         at: Date.now(),
-        audience: job.memory.task?.privateTo ?? 'public',
+        audience: job.memory.task.current?.privateTo ?? 'public',
         characterId: job.view.id,
         runId: run.id,
         taskId: lease.id,
@@ -569,7 +573,7 @@ export function executionConfigOverrides(state: TaskExecutionState) {
       ? {
           tokenBudget: Math.min(
             executionLimits(limits!).tokenBudget,
-            (state.memory.task?.tokens ?? 0) +
+            (state.memory.task.current?.tokens ?? 0) +
               Math.max(0, plan.totalTokenBudget - plan.spentTokens),
           ),
         }
@@ -579,7 +583,7 @@ export function executionConfigOverrides(state: TaskExecutionState) {
 
 /** Called only after the host has quiesced the runner or while updating its profile. */
 export function pauseTaskForHost(state: TaskExecutionState, reason: string) {
-  const task = state.memory.task;
+  const task = state.memory.task.current;
   if (task && !['completed', 'cancelled'].includes(task.status)) {
     new TaskService(state.memory).command(
       { type: 'pause' },
@@ -636,7 +640,7 @@ export async function beginChatExecution(
 }
 
 export function markJoined(state: TaskExecutionState) {
-  const task = state.memory.task;
+  const task = state.memory.task.current;
   if (task && ['running', 'waiting', 'paused'].includes(task.status)) {
     task.status = 'paused';
     task.reason = '已加入世界待命，任务进度保留。';
@@ -644,16 +648,16 @@ export function markJoined(state: TaskExecutionState) {
 }
 
 export function markOffline(state: TaskExecutionState) {
-  if (['running', 'waiting'].includes(state.memory.task?.status ?? ''))
+  if (['running', 'waiting'].includes(state.memory.task.current?.status ?? ''))
     pauseTaskForHost(state, '角色已离开世界，任务进度已保留。');
 }
 
 export function modelChanged(state: TaskExecutionState) {
   pauseTaskForHost(state, '模型已修改，进度已保留，请确认后继续。');
-  if (state.memory.pi?.inFlight)
-    state.memory.unknownEffect = {
-      ...state.memory.pi.inFlight,
+  if (state.memory.checkpoint.pi?.inFlight)
+    state.memory.checkpoint.unknownEffect = {
+      ...state.memory.checkpoint.pi.inFlight,
       state: 'unknown',
     };
-  delete state.memory.pi;
+  delete state.memory.checkpoint.pi;
 }

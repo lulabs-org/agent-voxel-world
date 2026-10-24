@@ -130,7 +130,7 @@ try {
   await say('请持续跟随我，保持 1.5 格距离，不要结束跟随任务。');
   await until(
     () =>
-      !!server.characters.jobs.get(role.id)?.memory.follow &&
+      !!server.characters.jobs.get(role.id)?.memory.effects.follow &&
       view().status === 'idle',
     300000,
   );
@@ -184,7 +184,8 @@ try {
       task: c.task,
       lastResponse: c.lastResponse,
       logEntries: c.logEntries.slice(-8),
-      exchanges: server.characters.jobs.get(c.id)?.memory.exchanges,
+      exchanges: server.characters.jobs.get(c.id)?.memory.conversation
+        .exchanges,
     })),
   });
   throw error;
