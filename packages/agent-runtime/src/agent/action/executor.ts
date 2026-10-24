@@ -5,6 +5,7 @@ import type { AgentSession } from '../../world/session/port';
 import type { AgentRunState } from '../task/state';
 import { TaskService, type TaskLease } from '../task/service';
 import type { AgentAttention } from '../../world/observe/attention';
+import { withDeadline } from '../../kernel/abort';
 import { executeBatch } from '../../world/actions/batch';
 import { houseBlocks } from '../../world/actions/build';
 import type { RequestBudget } from '../task/budget';
@@ -57,11 +58,7 @@ export async function executeTaskActions(
         ? { ...action, scope: 'private', recipients: [task.privateTo] }
         : action,
   );
-  const actionLimit = new AbortController();
-  const remaining = Math.max(1, budget.remainingMs);
-  const timer = Number.isFinite(remaining)
-    ? setTimeout(() => actionLimit.abort(), remaining)
-    : undefined;
+  const deadline = withDeadline(signal, budget.remainingMs, 'task_timeout');
   let outcome;
   // Keep older unfinished coordinates when a new batch only works on a subset.
   const priorBuild = memory.unfinishedBuild;
@@ -72,7 +69,7 @@ export async function executeTaskActions(
       routed,
       observation,
       aiCharacterPermissions(config),
-      AbortSignal.any([signal, actionLimit.signal]),
+      deadline.signal,
       {
         navigation: { follow: followControl },
         pending: () => !!attention?.pending,
@@ -160,7 +157,7 @@ export async function executeTaskActions(
       },
     );
   } finally {
-    clearTimeout(timer);
+    deadline.clear();
   }
   service.assertCurrent(lease);
   const { batch, observation: finalObservation } = outcome;
@@ -172,7 +169,7 @@ export async function executeTaskActions(
     memory.follow.lastResult = followResult;
     if (!followResult.ok) delete memory.follow;
   }
-  if (actionLimit.signal.aborted || budget.remainingMs <= 0) {
+  if (deadline.expired || budget.remainingMs <= 0) {
     batch.stopReason = 'timeout';
     batch.ok = false;
   }

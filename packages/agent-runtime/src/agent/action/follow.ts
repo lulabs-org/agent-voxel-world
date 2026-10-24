@@ -1,3 +1,4 @@
+import { withDeadline } from '../../kernel/abort';
 import { recordEvent } from '../task/inbox';
 import { TaskService } from '../task/service';
 import { aiCharacterPermissions } from '@voxel/shared';
@@ -34,11 +35,8 @@ export async function runFollowStep(options: FollowOptions) {
     });
   const started = Date.now();
   const remaining = (config.taskTimeoutMs ?? 900000) - task.elapsedMs;
-  const controller = new AbortController();
-  const timer = Number.isFinite(remaining)
-    ? setTimeout(() => controller.abort(), Math.max(1, remaining))
-    : undefined;
-  const active = AbortSignal.any([signal, controller.signal]);
+  const deadline = withDeadline(signal, remaining, 'task_timeout');
+  const active = deadline.signal;
   try {
     // Revalidate persisted intent and current permission before every slice.
     parseAction(follow.action, aiCharacterPermissions(config));
@@ -78,15 +76,15 @@ export async function runFollowStep(options: FollowOptions) {
     memory.noProgress = 0;
   } catch (error) {
     if (!signal.aborted && service.current(lease)) {
-      task.status = controller.signal.aborted ? 'budget' : 'blocked';
-      task.reason = controller.signal.aborted
+      task.status = deadline.expired ? 'budget' : 'blocked';
+      task.reason = deadline.expired
         ? '跟随任务执行时间预算已耗尽。'
         : error instanceof Error
           ? error.message
           : '跟随执行失败，已停止。';
     }
   } finally {
-    clearTimeout(timer);
+    deadline.clear();
     session.move(0, 0, false);
     if (service.current(lease)) {
       task.elapsedMs += Date.now() - started;
