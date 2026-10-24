@@ -1,0 +1,30 @@
+.agents-workspace button:focus-visible,
+.agents-workspace input:focus-visible,
+.agents-workspace select:focus-visible,
+.agents-workspace textarea:focus-visible {
+  outline: 2px solid #688c6a;
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .agents-detail-heading {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 620px) {
+  .agents-filters {
+    width: max-content;
+  }
+  .agent-dialog .agents-filters button {
+    padding: 6px 12px;
+  }
+  .agents-profile .agent-grid,
+  .agents-start-options {
+    grid-template-columns: 1fr;
+  }
+  .agents-detail-heading {
+    gap: 10px;
+  }
+  .agents-task-heading {
+    flex-wrap: wrap;
+  }
+}

@@ -1,10 +1,9 @@
-import { ConsoleFeedbackRelay } from '../../../components/ui/ConsoleFeedbackRelay';
-import type { AICharacterSummary, TaskLimits } from '@voxel/shared';
-import { useState } from 'react';
-import { useI18n } from '../../../i18n/context';
-import { displayedTaskIdentity, controlTaskRun } from '../execution/api';
-import { taskStatusNames } from '../execution-status';
-import { TaskBudgetFields } from '../execution/TaskBudgetFields';
+import { useCurrentTaskBudget } from './useCurrentTaskBudget';
+import { ConsoleFeedbackRelay } from '../../../../components/ui/ConsoleFeedbackRelay';
+import type { AICharacterSummary } from '@voxel/shared';
+import { useI18n } from '../../../../i18n/context';
+import { taskStatusNames } from '../../execution-status';
+import { TaskBudgetFields } from '../../execution/TaskBudgetFields';
 
 export function CurrentTaskBudget({
   job,
@@ -18,12 +17,16 @@ export function CurrentTaskBudget({
   const { t } = useI18n();
   const execution = job.taskExecution;
   const task = job.task;
-  const [draft, setDraft] = useState<{
-    limits: TaskLimits;
-    expectedTask: ReturnType<typeof displayedTaskIdentity>;
-  }>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const {
+    draft,
+    busy,
+    error,
+    control,
+    resume,
+    beginResume,
+    cancelResume,
+    updateLimits,
+  } = useCurrentTaskBudget(job, onUpdated);
   if (!execution || !task) return null;
   const limited = execution.limits.enabled !== false;
   const resumable = [
@@ -38,28 +41,6 @@ export function CurrentTaskBudget({
     !job.sessionId ||
     ['stopped', 'stopping', 'joining', 'failed'].includes(job.status);
   const blocked = disabled || busy || offline || !!job.taskRequiresReassignment;
-  const control = async (operation: 'pause' | 'cancel') => {
-    setBusy(true);
-    setError('');
-    try {
-      await controlTaskRun(
-        execution.runId,
-        operation,
-        {},
-        displayedTaskIdentity(job),
-      );
-      setDraft(undefined);
-      await onUpdated();
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : t('console.characters.operationFailed'),
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
   const sourceLabel =
     execution.source === 'chat'
       ? t('console.characters.taskSourceChat')
@@ -175,13 +156,7 @@ export function CurrentTaskBudget({
             <button
               className="primary"
               disabled={blocked}
-              onClick={() => {
-                setError('');
-                setDraft({
-                  limits: { ...execution.limits },
-                  expectedTask: displayedTaskIdentity(job),
-                });
-              }}
+              onClick={beginResume}
             >
               {limited
                 ? t('console.characters.adjustBudgetAndResume')
@@ -214,62 +189,20 @@ export function CurrentTaskBudget({
         <form
           className="agent-form agents-confirm"
           onSubmit={(event) => {
-            void (async () => {
-              event.preventDefault();
-              const limits = draft.limits;
-              if (
-                limited &&
-                (limits.maxTurns <= task.calls ||
-                  limits.tokenBudget <= task.tokens ||
-                  limits.taskTimeoutMs <= task.elapsedMs)
-              ) {
-                setError(t('console.characters.budgetLowerThanUsedError'));
-                return;
-              }
-              setBusy(true);
-              setError('');
-              try {
-                await controlTaskRun(
-                  execution.runId,
-                  'resume',
-                  { ...limits },
-                  draft.expectedTask,
-                );
-                setDraft(undefined);
-                await onUpdated();
-              } catch (cause) {
-                setError(
-                  cause instanceof Error
-                    ? cause.message
-                    : t('console.characters.resumeFailed'),
-                );
-              } finally {
-                setBusy(false);
-              }
-            })();
+            event.preventDefault();
+            void resume();
           }}
         >
           <p>{t('console.characters.resumePrompt')}</p>
           <fieldset disabled={blocked}>
             {limited && (
-              <TaskBudgetFields
-                value={draft.limits}
-                onChange={(value) =>
-                  setDraft({ ...draft, limits: { ...draft.limits, ...value } })
-                }
-              />
+              <TaskBudgetFields value={draft.limits} onChange={updateLimits} />
             )}
             <div className="agents-actions">
               <button className="primary">
                 {t('console.characters.confirmAndResume')}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft(undefined);
-                  setError('');
-                }}
-              >
+              <button type="button" onClick={cancelResume}>
                 {t('common.cancel')}
               </button>
             </div>

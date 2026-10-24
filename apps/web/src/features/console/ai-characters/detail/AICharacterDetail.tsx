@@ -1,16 +1,15 @@
 import type { PublicAICharacterView } from '@voxel/shared/management';
 import { useEffect, useRef, useState } from 'react';
-import { useI18n } from '../../../i18n/context';
-import type { ConsoleController } from '../useConsoleController';
-import { AICharacterForm } from './AICharacterForm';
-import { AICharacterLogViewer } from './AICharacterLogViewer';
-import { AICharacterTaskPanel } from './AICharacterTaskPanel';
-import { AICharacterUsagePanel } from './AICharacterUsagePanel';
-import { aiCharacterPresentation } from './presentation/agent-presentation';
-import { aiCharactersApi } from './api';
+import { useI18n } from '../../../../i18n/context';
+import type { AICharactersProps } from '../types';
+import { AICharacterForm } from '../editor/AICharacterForm';
+import { AICharacterLogViewer } from '../activity/AICharacterLogViewer';
+import { AICharacterTaskPanel } from '../execution/AICharacterTaskPanel';
+import { AICharacterUsagePanel } from '../usage/AICharacterUsagePanel';
+import { aiCharacterPresentation } from '../presentation/agent-presentation';
 
 export function AICharacterDetail(
-  props: ConsoleController & {
+  props: AICharactersProps & {
     job: PublicAICharacterView;
     active: boolean;
     disabled: boolean;
@@ -128,9 +127,7 @@ export function AICharacterDetail(
         <AICharacterTaskPanel
           job={job}
           disabled={disabled}
-          onUpdated={async () =>
-            props.setJobs(await aiCharactersApi.listAgents())
-          }
+          onUpdated={props.refreshJobs}
         />
       ) : (
         <AICharacterLogViewer job={job} />

@@ -1,0 +1,42 @@
+.agents-filters {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #eaf0e4;
+  border-radius: 7px;
+  margin-bottom: 12px;
+}
+.agent-dialog .agents-filters button {
+  flex: 1;
+  padding: 6px 3px;
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.agent-dialog .agents-filters button[aria-pressed='true'] {
+  background: var(--agents-paper);
+  box-shadow: 0 1px 4px #24432c0d;
+}
+.agents-search {
+  width: 100%;
+  padding: 9px;
+  border: 1px solid var(--agents-border);
+  background: white;
+  border-radius: var(--radius-control);
+  margin-bottom: 10px;
+  font: inherit;
+  font-size: 12px;
+}
+.agents-mini-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #dce7d6;
+  color: #3e6151;
+  font-weight: 600;
+  font-size: 14px;
+}

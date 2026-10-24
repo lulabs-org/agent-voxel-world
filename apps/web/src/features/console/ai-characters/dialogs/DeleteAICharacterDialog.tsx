@@ -1,7 +1,7 @@
 import { useId, useRef } from 'react';
-import { Button } from '../../../components/ui/Button';
-import { Dialog } from '../../../components/ui/Dialog';
-import { useI18n } from '../../../i18n';
+import { Button } from '../../../../components/ui/Button';
+import { Dialog } from '../../../../components/ui/Dialog';
+import { useI18n } from '../../../../i18n';
 
 export function DeleteAICharacterDialog({
   name,

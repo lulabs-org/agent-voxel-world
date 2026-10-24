@@ -209,7 +209,9 @@ export function useAICharactersController(
           }
         : a,
     );
+  const refreshJobs = async () => setJobs(await aiCharactersApi.listAgents());
   return {
+    refreshJobs,
     jobs,
     setJobs,
     loadingJobs,
@@ -234,3 +236,7 @@ export function useAICharactersController(
     providerRemoved,
   };
 }
+
+export type AICharactersController = ReturnType<
+  typeof useAICharactersController
+>;

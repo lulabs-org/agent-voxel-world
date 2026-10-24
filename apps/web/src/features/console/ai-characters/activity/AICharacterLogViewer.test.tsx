@@ -3,8 +3,8 @@ import type { AICharacterSummary } from '@voxel/shared';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AICharacterLogViewer } from './AICharacterLogViewer';
-import { aiCharactersApi } from './api';
+import { AICharacterLogViewer } from '../activity/AICharacterLogViewer';
+import { aiCharactersApi } from '../api';
 
 let host: HTMLDivElement;
 let root: Root;

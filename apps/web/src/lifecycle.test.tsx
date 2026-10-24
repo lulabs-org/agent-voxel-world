@@ -10,18 +10,21 @@ import {
   type ChatController,
 } from './features/chat/hooks/useChatController';
 import { AudioPlayer } from './features/chat/components/AudioPlayer';
-import { AICharacterDetail } from './features/console/ai-characters/AICharacterDetail';
+import { AICharacterDetail } from './features/console/ai-characters/detail/AICharacterDetail';
 import { initialAICharacter } from './features/console/ai-characters/model';
 import { VoicePreview } from './features/console/voice/VoicePreview';
 import { voiceApi } from './features/console/voice/api';
-import { DeleteAICharacterDialog } from './features/console/ai-characters/DeleteAICharacterDialog';
+import { DeleteAICharacterDialog } from './features/console/ai-characters/dialogs/DeleteAICharacterDialog';
 
-vi.mock('./features/console/ai-characters/AICharacterForm', () => ({
+vi.mock('./features/console/ai-characters/editor/AICharacterForm', () => ({
   AICharacterForm: () => <input aria-label="draft" defaultValue="unsaved" />,
 }));
-vi.mock('./features/console/ai-characters/AICharacterLogViewer', () => ({
-  AICharacterLogViewer: () => null,
-}));
+vi.mock(
+  './features/console/ai-characters/activity/AICharacterLogViewer',
+  () => ({
+    AICharacterLogViewer: () => null,
+  }),
+);
 
 let root: Root;
 let host: HTMLDivElement;
