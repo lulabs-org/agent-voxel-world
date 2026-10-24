@@ -40,6 +40,8 @@ packages/agent-runtime/
     │   ├── config.ts       # CharacterConfig / ModelConfig / LimitsConfig
     │   ├── state.ts        # AgentState v3、CharacterEvent、PiCheckpoint
     │   └── errors.ts
+    ├── kernel/             # 叶子原语层：取消、超时与信号组合
+    │   └── abort.ts        # cancellable / withDeadline / mergeSignals
     ├── world/              # 世界交互：不懂 LLM，不懂任务策略
     │   ├── session/
     │   │   ├── port.ts     # AgentSession: observe/move/request
@@ -73,7 +75,7 @@ packages/agent-runtime/
     │   │   ├── port.ts     # ToolHost 接口，由 Turn 实现
     │   │   └── schema.ts conversation.ts world.ts task.ts
     │   ├── action/         # 任务绑定的动作推进
-    │   │   └── executor.ts background.ts follow.ts reply.ts deadline.ts
+    │   │   └── executor.ts background.ts follow.ts reply.ts
     │   ├── prompt/{system,skills,view}.ts
     │   ├── model/{port,pi,stream,ollama,catalog}.ts
     │   └── schedule.ts     # headless 循环，仅 CLI 使用
@@ -118,16 +120,17 @@ flowchart TD
 
 箭头表示允许的 import 方向，反向一律禁止。具体约束：
 
-| 层            | 可以依赖                                | 明确禁止                                     |
-| ------------- | --------------------------------------- | -------------------------------------------- |
-| `contracts`   | `@voxel/shared` 的纯类型                | 任何实现、`node:*`、Pi / Colyseus 类型       |
-| `world`       | `contracts`、shared                     | `agent/*`、`api`、Pi SDK                     |
-| `agent/task`  | `contracts`                             | 世界执行、Pi、`node:crypto`                  |
-| `agent/model` | `contracts`、`@earendil-works/*`        | `agent/turn`、`api`                          |
-| `agent/tools` | `contracts`、`prompt`、`tools/port.ts`  | `turn` 实现、`api`                           |
-| `agent/turn`  | `agent/*`、`world/observe`、`contracts` | 直接调用 `world/actions/execute`（走执行器） |
-| `persistence` | `contracts`                             | `world`、`agent`、`api`                      |
-| `api`         | 全部（唯一组装点）                      | —                                            |
+| 层            | 可以依赖                                   | 明确禁止                                     |
+| ------------- | ------------------------------------------ | -------------------------------------------- |
+| `contracts`   | `@voxel/shared` 的纯类型                   | 任何实现、`node:*`、Pi / Colyseus 类型       |
+| `kernel`      | 无                                         | 其他层、业务类型                             |
+| `world`       | `contracts`、`kernel`、shared              | `agent/*`、`api`、Pi SDK                     |
+| `agent/task`  | `contracts`、`kernel`                      | 世界执行、Pi、`node:crypto`                  |
+| `agent/model` | `contracts`、`kernel`、`@earendil-works/*` | `agent/turn`、`api`                          |
+| `agent/tools` | `contracts`、`prompt`、`tools/port.ts`     | `turn` 实现、`api`                           |
+| `agent/turn`  | `agent/*`、`world/observe`、`contracts`    | 直接调用 `world/actions/execute`（走执行器） |
+| `persistence` | `contracts`                                | `world`、`agent`、`api`                      |
+| `api`         | 全部（唯一组装点）                         | —                                            |
 
 `index.ts` 只导出 `api/`；包内模块用相对路径，不通过入口回绕。服务端与 CLI 不深层导入包实现。
 
@@ -188,7 +191,7 @@ await runtime.stop();
 
 ## 时间、取消与预算
 
-- `agent/action/deadline.ts` 是唯一的超时与取消组合实现，对外提供 `withDeadline(signal, ms)` 与 `cancellable`；禁止再写内联副本。
+- `kernel/abort.ts` 是唯一的超时与取消组合实现，对外提供 `withDeadline(parent, ms)`、`mergeSignals(...)` 与 `cancellable`；禁止再写内联副本或直接用 `AbortSignal.any`。
 - 时间、id、随机数通过 `ports` 注入；业务代码不直接调用 `Date.now()`、`crypto.randomUUID()` 或 `Math.random()`。
 - `agent/task/budget.ts` 只做计算与记账；请求边界上的计时、token 结算和脱敏在 `agent/model/stream.ts`。
 
@@ -241,7 +244,7 @@ Docker 验证需单独构建服务端，在隔离实例或短暂停机备份后�
 | `cognition/{prompts,skill-guidance}.ts`                    | `agent/prompt/{system,skills}.ts`                             |
 | `cognition/{context,checkpoint,tool-schemas}.ts`           | `agent/turn/{window,checkpoint}.ts`、`agent/tools/schema.ts`  |
 | `models/*`                                                 | `agent/model/*`                                               |
-| `transport/session.ts`、`transport/cancellable.ts`         | `world/session/colyseus.ts`、`agent/action/deadline.ts`       |
+| `transport/session.ts`、`transport/cancellable.ts`         | `world/session/colyseus.ts`、`kernel/abort.ts`                |
 | `task/*`                                                   | `contracts/state.ts` + `agent/task/*` + `persistence/*`       |
 | `actions/*`、`actions/navigation/*`                        | `world/actions/*`、`world/nav/*`                              |
 | `contracts.ts`、`errors.ts`                                | `contracts/*`                                                 |

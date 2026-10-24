@@ -6,6 +6,7 @@ import { stream } from '@earendil-works/pi-ai/api/openai-completions';
 import type { StreamFn } from '@earendil-works/pi-agent-core';
 import type { AgentConfig, ModelEndpoint } from '../../contracts/config';
 import { AgentRuntimeError } from '../../contracts/errors';
+import { mergeSignals, withDeadline } from '../../kernel/abort';
 import { ollamaCompletion } from './ollama';
 import { createModel } from './pi';
 import type { RequestAccounting } from './port';
@@ -25,16 +26,12 @@ export function createModelStream(
       let counted = false,
         settled = false,
         status = 0;
-      const timer = new AbortController();
-      const combined = AbortSignal.any([
-        signal,
-        timer.signal,
-        ...(options?.signal ? [options.signal] : []),
-      ]);
-      const timeout = setTimeout(
-        () => timer.abort(),
-        Math.max(1, Math.min(config.timeoutMs, budget.remainingMs)),
+      const deadline = withDeadline(
+        mergeSignals(signal, options?.signal),
+        Math.min(config.timeoutMs, budget.remainingMs),
+        'model_timeout',
       );
+      const combined = deadline.signal;
       const model = createModel(config, endpoint);
       const estimate =
         Math.ceil(JSON.stringify(context).length / 2) + config.maxTokens;
@@ -103,7 +100,7 @@ export function createModelStream(
             if (event.type === 'error' || combined.aborted) {
               const reason = signal.aborted
                 ? 'Agent 已停止。'
-                : timer.signal.aborted
+                : deadline.expired
                   ? '模型请求超时，已停止本次处理。'
                   : status >= 400
                     ? `模型服务 HTTP ${status}，请检查模型、工具调用支持及凭据。`
@@ -136,7 +133,7 @@ export function createModelStream(
         };
         output.push({ type: 'error', reason: 'error', error: message });
       } finally {
-        clearTimeout(timeout);
+        deadline.clear();
         output.end();
       }
     })();
