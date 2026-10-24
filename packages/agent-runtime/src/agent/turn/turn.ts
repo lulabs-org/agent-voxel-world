@@ -13,7 +13,7 @@ import { cancellable } from '../../kernel/abort';
 import { worldSignature } from '../../world/observe/extract';
 import type { AgentAttention } from '../../world/observe/attention';
 import type { AgentSession } from '../../world/session/port';
-import { paceChat } from '../action/reply';
+import { paceChat } from '../action/chat-pacing';
 import { characterPrompt } from '../prompt/system';
 import { checkBudgetCap, RequestBudget } from '../task/budget';
 import { recordChatEvent } from '../task/inbox';

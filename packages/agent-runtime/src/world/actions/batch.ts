@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type { AICharacterPermissions } from '@voxel/shared';
+import {
+  CHAT_PACE_INTERVAL_MS,
+  type AICharacterPermissions,
+} from '@voxel/shared';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
   AgentAction,
@@ -95,9 +98,11 @@ export async function executeBatch(
     };
     try {
       if (action.type === 'chat' && lastChat) {
-        await delay(Math.max(0, 350 - (Date.now() - lastChat)), undefined, {
-          signal,
-        });
+        await delay(
+          Math.max(0, CHAT_PACE_INTERVAL_MS - (Date.now() - lastChat)),
+          undefined,
+          { signal },
+        );
         if (options.pending?.(index)) {
           batch.stopReason = 'message';
           break;

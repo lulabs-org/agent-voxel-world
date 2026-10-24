@@ -75,7 +75,7 @@ packages/agent-runtime/
     │   │   ├── port.ts     # ToolHost 接口，由 Turn 实现
     │   │   └── schema.ts conversation.ts world.ts task.ts
     │   ├── action/         # 任务绑定的动作推进
-    │   │   └── executor.ts background.ts follow.ts reply.ts
+    │   │   └── executor.ts background.ts follow.ts chat-pacing.ts
     │   ├── prompt/{system,skills,view}.ts
     │   ├── model/{port,pi,stream,ollama,catalog}.ts
     │   └── schedule.ts     # headless 循环，仅 CLI 使用

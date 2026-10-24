@@ -1,4 +1,4 @@
-import { paceChat } from './reply';
+import { paceChat } from './chat-pacing';
 import { aiCharacterPermissions, key } from '@voxel/shared';
 import type { AgentAction, AgentConfig, Observation } from '../../contracts';
 import type { AgentSession } from '../../world/session/port';
