@@ -53,7 +53,15 @@ export { runAgent, nextIntervalMs } from '../agent/schedule';
 
 export { RequestBudget, checkBudgetCap } from '../agent/task/budget';
 
-export { AgentRunner, type RunOptions } from './runtime';
+export {
+  AgentRunner,
+  AgentRuntime,
+  createAgentRuntime,
+  type RunOptions,
+  type RuntimePorts,
+  type RuntimeRunOptions,
+  type RuntimeStore,
+} from './runtime';
 export { restoreCheckpoint } from '../agent/turn/checkpoint';
 
 export {
@@ -62,4 +70,11 @@ export {
   type TaskLease,
 } from '../agent/task/service';
 
-export { recordEvent } from '../agent/task/inbox';
+export {
+  chatAudience,
+  chatEventId,
+  parseControlCommand,
+  recordChatEvent,
+  recordEvent,
+  type ControlCommand,
+} from './intake';

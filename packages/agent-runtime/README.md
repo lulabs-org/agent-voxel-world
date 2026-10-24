@@ -4,7 +4,7 @@
 
 包按两条能力轴切开：`world/` 只懂世界协议与物理，`agent/` 只懂角色策略与模型。`api/` 是宿主唯一接触面，`contracts/` 是纯类型叶子层，`persistence/` 是唯一认识旧存档格式的地方。
 
-> **状态**：目录结构、`kernel/` 原语、`AgentState v3` 分区与 `Turn`/`ToolHost` 已完成（PR-1～PR-4），旧路径对照见[文末](#附录旧路径对照)。剩余：`api/intake` 与 `createAgentRuntime` 门面及宿主迁移（PR-5）。行为规范以本文为准。
+> **状态**：目录结构、`kernel/` 原语、`AgentState v3` 分区、`Turn`/`ToolHost`、`api` 门面与 `./testing` 入口已完成（PR-1～PR-5），旧路径对照见[文末](#附录旧路径对照)。宿主的事件接入与任务控制已走 `api/intake` 助手；执行槽仍由 `AICharacterHost` 按原生命周期驱动，切换到 `createAgentRuntime` 是后续独立改动。
 
 ## 设计原则
 
@@ -30,10 +30,9 @@ packages/agent-runtime/
 └── src/
     ├── index.ts            # 只 export * from './api'
     ├── api/                # 宿主唯一接触面
-    │   ├── runtime.ts      # createAgentRuntime: start/stop/submit/control/snapshot
-    │   ├── intake.ts       # WorldEvent → CharacterEvent：归一、去重、鉴权、入队、唤醒
-    │   ├── snapshot.ts     # 只读投影与恢复入口
-    │   └── ports.ts        # RuntimePorts（session/model/store/clock/log）
+    │   ├── runtime.ts      # createAgentRuntime: submit/control/run/snapshot
+    │   ├── intake.ts       # WorldEvent → CharacterEvent：事件 id、控制词、审计入队
+    │   └── ports.ts        # RuntimePorts（session/model/store/log/state）
     ├── contracts/          # 纯类型叶子层，只依赖 @voxel/shared
     │   ├── observation.ts  # Observation
     │   ├── action.ts       # AgentAction / ActionResult / BatchResult / NavigationResult
