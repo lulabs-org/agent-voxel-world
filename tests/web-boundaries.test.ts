@@ -64,6 +64,21 @@ it('uses public feature entrypoints across features and in App', () => {
   }
 });
 
+it('keeps the admin console out of the initial chunk', () => {
+  const source = readFileSync(resolve(root, 'App.tsx'), 'utf8');
+  expect(source).toMatch(/lazy\(/);
+  expect(source).toMatch(/import\(['"]\.\/features\/console['"]\)/);
+  expect(source).not.toMatch(
+    /import\s+(?:type\s+)?\{[^}]*\bControlConsole\b[^}]*\}\s*from\s*['"]\.\/features\/console['"]/,
+  );
+});
+
+it('keeps locale dictionaries out of the initial chunk', () => {
+  const source = readFileSync(resolve(root, 'i18n/config.ts'), 'utf8');
+  expect(source).toMatch(/import\(['"]\.\/locales\/[a-z]+\.json['"]\)/);
+  expect(source).not.toMatch(/from\s+['"]\.\/locales\//);
+});
+
 it('keeps requests out of feature components and hooks, and addresses in endpoints', () => {
   for (const file of graph.keys()) {
     const name = relative(root, file),

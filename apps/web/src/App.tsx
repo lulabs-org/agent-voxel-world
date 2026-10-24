@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { GameHUDLayout } from './components/layout/GameHUDLayout';
 import { LobbyLayout } from './components/layout/LobbyLayout';
 import { ChatPanel } from './features/chat';
-import { ControlConsole } from './features/console';
 import {
   GameFooter,
   GameHeader,
@@ -23,11 +22,36 @@ import {
 import { releasePointerLock } from './graphics/controls/pointer-lock';
 import { useViewportAdjust } from './hooks/useViewportAdjust';
 import type { Connection } from './network/connection';
+
+// Admin UI lives in its own chunk: the game shell only pays for it once the console opens.
+const ControlConsole = lazy(async () => {
+  const { ControlConsole: Console } = await import('./features/console');
+  return { default: Console };
+});
+
+function ConsoleLoading() {
+  const { t } = useI18n();
+  return (
+    <>
+      <div className="agent-dialog-backdrop" />
+      <div
+        className="agent-dialog console-loading"
+        role="status"
+        aria-live="polite"
+      >
+        {t('common.loading')}
+      </div>
+    </>
+  );
+}
+
 export function App({ connection }: { connection: Connection }) {
   const { t } = useI18n();
   const [consoleEntry, setConsoleEntry] = useState<{
     initialTab?: 'characters';
   } | null>(null);
+  // Keep the console mounted after the first open so closing preserves its state.
+  const [consoleMounted, setConsoleMounted] = useState(false);
 
   const { narrow, shortViewport, mainRef } = useViewportAdjust();
   const hud = useHudController();
@@ -55,6 +79,7 @@ export function App({ connection }: { connection: Connection }) {
   const openConsole = (initialTab?: 'characters') => {
     releasePointerLock();
     setActivePanel(null);
+    setConsoleMounted(true);
     setConsoleEntry({ initialTab });
   };
   const joinWorld = () => {
@@ -121,16 +146,19 @@ export function App({ connection }: { connection: Connection }) {
               {showCoordinates && ` · ${target.x}, ${target.y}, ${target.z}`}
             </div>
           )}
-
         </>
       )}
 
-      <ControlConsole
-        connection={connection}
-        open={consoleEntry !== null}
-        initialTab={consoleEntry?.initialTab}
-        onClose={() => setConsoleEntry(null)}
-      />
+      {consoleMounted && (
+        <Suspense fallback={<ConsoleLoading />}>
+          <ControlConsole
+            connection={connection}
+            open={consoleEntry !== null}
+            initialTab={consoleEntry?.initialTab}
+            onClose={() => setConsoleEntry(null)}
+          />
+        </Suspense>
+      )}
 
       {joined && (
         <div
