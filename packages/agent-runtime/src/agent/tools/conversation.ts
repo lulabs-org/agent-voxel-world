@@ -3,7 +3,7 @@ import { AgentRuntimeError } from '../../contracts/errors';
 import { checkBudgetCap } from '../task/budget';
 import type { TaskCommand } from '../task/service';
 import { conversationToolSchemas } from './schema';
-import type { TurnContext } from '../turn/turn';
+import type { ToolHost } from './port';
 
 const result = (value: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(value) }],
@@ -14,7 +14,7 @@ const result = (value: unknown) => ({
  * Creates conversation-scoped task control tools (reply, start_task, revise_task, etc.)
  * that allow the model to manage high-level activities without invoking world actions directly.
  */
-export function createTaskControlTools(o: TurnContext): AgentTool[] {
+export function createTaskControlTools(o: ToolHost): AgentTool[] {
   return Object.entries(conversationToolSchemas).map(([name, parameters]) => ({
     name,
     label: name,
@@ -59,7 +59,7 @@ export function createTaskControlTools(o: TurnContext): AgentTool[] {
           command,
           { kind: 'player', message: o.message },
           o.config,
-          o.save,
+          () => o.save(),
           o.budget,
           o.beforeNewTaskHook,
         );

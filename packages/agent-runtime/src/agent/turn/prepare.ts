@@ -1,19 +1,19 @@
 import { key, type ChatData } from '@voxel/shared';
 import type { BatchResult, Observation } from '../../contracts';
-import type { AgentSession } from '../../world/session/port';
+import type { DecisionContext } from '../../contracts/observation';
+import type { AgentRunState } from '../../contracts/state';
 import { worldSignature } from '../../world/observe/extract';
 import { arrived, observedEmpty } from '../../world/observe/verify';
-import type { AgentRunState } from '../task/state';
+import type { AgentSession } from '../../world/session/port';
 
-export type DecisionContext = NonNullable<
-  Awaited<ReturnType<typeof prepareDecision>>
->;
+export type { DecisionContext };
+
 export async function prepareDecision(
   session: Pick<AgentSession, 'observe'>,
   memory: AgentRunState,
   signal: AbortSignal,
   addressed?: import('@voxel/shared').WorldEvent,
-) {
+): Promise<DecisionContext | undefined> {
   const task = memory.task.current;
   const raw = await session.observe();
   signal.throwIfAborted();
@@ -120,14 +120,16 @@ export async function prepareDecision(
   // Conversation and task audiences are independent. A public question never sees a private task.
   const visibleTask =
     task &&
-    (!task.privateTo || (addressed ? task.privateTo === privateTo : true));
+    (!task.privateTo || (addressed ? task.privateTo === privateTo : true))
+      ? task
+      : undefined;
   const observation: Observation = {
     ...raw,
     attention: addressed,
     events: addressed ? [addressed] : [],
   };
-  const context = {
-    task: visibleTask ? task : undefined,
+  const context: DecisionContext['context'] = {
+    task: visibleTask,
     previous: visibleTask ? memory.effects.previous : undefined,
     pendingEffects: visibleTask ? memory.effects.pendingEffects : undefined,
     follow: visibleTask ? memory.effects.follow : undefined,

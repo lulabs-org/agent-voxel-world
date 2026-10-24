@@ -124,6 +124,18 @@ describe('agent runtime dependency boundaries', () => {
     }
   });
 
+  it('keeps tool handlers behind the ToolHost port', () => {
+    for (const path of files.filter((file) =>
+      relative(runtime, file).startsWith('agent/tools/'),
+    )) {
+      for (const dependency of graph.get(path) ?? [])
+        expect(
+          relative(runtime, dependency),
+          relative(runtime, path),
+        ).not.toMatch(/^agent\/turn\//);
+    }
+  });
+
   it('routes every decision through one turn loop and keeps task commands in the service', () => {
     const slot = readFileSync(resolve(runtime, 'api/runtime.ts'), 'utf8');
     expect(slot).toContain('CharacterRunner');
