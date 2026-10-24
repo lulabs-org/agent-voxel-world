@@ -9,7 +9,7 @@ import type { AgentSession } from '../../packages/agent-runtime/src/world/sessio
 import type { AgentRunState } from '../../packages/agent-runtime/src/agent/task/state';
 import type { RequestBudget } from '../../packages/agent-runtime/src/agent/task/budget';
 import { checkBudgetCap } from '../../packages/agent-runtime/src/agent/task/budget';
-import type { DecisionContext } from '../../packages/agent-runtime/src/agent/turn/prepare';
+import type { DecisionContext } from '../../packages/agent-runtime/src/contracts/observation';
 import { worldSignature } from '../../packages/agent-runtime/src/world/observe/extract';
 import {
   TaskService,

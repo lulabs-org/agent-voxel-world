@@ -1,6 +1,5 @@
 import type { AICharacterTask } from '@voxel/shared';
 import type { BatchResult } from '../../contracts/action';
-import type { AgentRunState } from '../../contracts/state';
 
 export type {
   ActiveAction,
@@ -56,6 +55,3 @@ export function restoreBatchHistory(value: unknown): BatchResult | undefined {
   }
   return batch;
 }
-
-/** Compile-time guard: the runtime state type is the durable one. */
-export type RuntimeState = AgentRunState;
