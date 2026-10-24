@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { findPath } from '../packages/agent-runtime/src/actions/navigation/voxel-astar';
-import { collisionMap } from '../packages/agent-runtime/src/actions/navigation/local-map';
-import { navigate } from '../packages/agent-runtime/src/actions/navigation/controller';
+import { findPath } from '../packages/agent-runtime/src/world/nav/astar';
+import { collisionMap } from '../packages/agent-runtime/src/world/nav/map';
+import { navigate } from '../packages/agent-runtime/src/world/nav/controller';
 import { navigationWorld } from './support/navigation-world';
 vi.mock('node:timers/promises', async (original) => ({
   ...(await original<typeof import('node:timers/promises')>()),
@@ -257,9 +257,9 @@ import {
 } from '@voxel/agent-runtime';
 import { testAgentConfig } from './support/agent-config';
 import { toolResponse } from './support/pi-response';
-import { toolSchemas } from '../packages/agent-runtime/src/cognition/tool-schemas';
-import { worldView } from '../packages/agent-runtime/src/cognition/prompts';
-import { parseAction } from '../packages/agent-runtime/src/actions/parse';
+import { toolSchemas } from '../packages/agent-runtime/src/agent/tools/schema';
+import { worldView } from '../packages/agent-runtime/src/world/observe/extract';
+import { parseAction } from '../packages/agent-runtime/src/world/actions/parse';
 
 it('exposes goto/follow without low-level move and keeps complete maps out of prompts', () => {
   expect(toolSchemas).not.toHaveProperty('move');
@@ -518,8 +518,8 @@ it('cancels stored follow through authorized task control and rejects premature 
   expect(w.moves.some((m) => m.x || m.z)).toBe(false);
 });
 
-import { TaskService } from '../packages/agent-runtime/src/task/service';
-import { executeBatch } from '../packages/agent-runtime/src/actions/batch';
+import { TaskService } from '../packages/agent-runtime/src/agent/task/service';
+import { executeBatch } from '../packages/agent-runtime/src/world/actions/batch';
 it('refuses to complete an active follow and treats an interrupted goto as unfinished', async () => {
   const task = newTask('跟随');
   const memory: AgentRunState = {

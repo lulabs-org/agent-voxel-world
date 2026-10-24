@@ -1,4 +1,4 @@
-import { SKILL_GUIDANCE } from '../../packages/agent-runtime/src/cognition/skill-guidance';
+import { SKILL_GUIDANCE } from '../../packages/agent-runtime/src/agent/prompt/skills';
 import { aiCharacterPermissions, AI_CHARACTER_SKILLS } from '@voxel/shared';
 import type {
   AgentConfig,

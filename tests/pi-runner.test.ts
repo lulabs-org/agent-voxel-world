@@ -32,10 +32,10 @@ const move = {
 };
 // These tests isolate Pi lifecycle policy. Navigation physics is exercised in navigation.test.ts.
 vi.mock(
-  '../packages/agent-runtime/src/actions/navigation/controller',
+  '../packages/agent-runtime/src/world/nav/controller',
   async (original) => ({
     ...(await original<
-      typeof import('../packages/agent-runtime/src/actions/navigation/controller')
+      typeof import('../packages/agent-runtime/src/world/nav/controller')
     >()),
     navigate: async (session: AgentSession, action: AgentAction) => {
       session.move(1, 0, false);

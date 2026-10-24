@@ -1,15 +1,13 @@
 // Deterministic decision adapter for existing domain-policy fixtures. No production inference.
 import type { Planner } from './decision-fixture';
 import { setTimeout as pause } from 'node:timers/promises';
-import type {
-  AgentConfig,
-  AgentSession,
-} from '../../packages/agent-runtime/src/contracts';
-import type { AgentAttention } from '../../packages/agent-runtime/src/perception/attention';
+import type { AgentConfig } from '../../packages/agent-runtime/src/contracts';
+import type { AgentSession } from '../../packages/agent-runtime/src/world/session/port';
+import type { AgentAttention } from '../../packages/agent-runtime/src/world/observe/attention';
 import {
   newTask,
   type AgentRunState,
-} from '../../packages/agent-runtime/src/task/state';
+} from '../../packages/agent-runtime/src/agent/task/state';
 import { runTaskStep } from './decision-step';
 
 /** Draw a fresh inclusive interval after a completed turn; requests never overlap. */

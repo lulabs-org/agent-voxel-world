@@ -1,0 +1,62 @@
+export { aiCharacterPermissions } from '@voxel/shared';
+export type {
+  Observation,
+  Result,
+  PlannedEdit,
+  BuildAction,
+  BuildResult,
+  AgentAction,
+  ActionResult,
+  NavigationResult,
+  ActionExecution,
+  BatchResult,
+  AgentConfig,
+  ModelEndpoint,
+} from '../contracts';
+export type { AgentSession } from '../world/session/port';
+
+export { AgentRuntimeError } from '../contracts/errors';
+
+export { Session, delay, until } from '../world/session/colyseus';
+export { cancellable } from '../agent/action/deadline';
+
+export { parseAction } from '../world/actions/parse';
+
+export { executeAction } from '../world/actions/execute';
+export { executeBatch } from '../world/actions/batch';
+
+export {
+  parseBuildAction,
+  houseBlocks,
+  executeBuild,
+} from '../world/actions/build';
+
+export { listModels } from '../agent/model/catalog';
+
+export { AgentAttention } from '../world/observe/attention';
+
+export {
+  newTask,
+  restoreBatchHistory,
+  type AgentRunState,
+} from '../agent/task/state';
+
+export { worldSignature } from '../world/observe/extract';
+
+export { isolateChatScope } from '../world/observe/scope';
+
+export { runAgent, nextIntervalMs } from '../agent/schedule';
+
+export { RequestBudget, checkBudgetCap } from '../agent/task/budget';
+
+export { AgentRunner, type RunOptions } from './runtime';
+export { restoreCheckpoint } from '../agent/turn/checkpoint';
+
+export {
+  TaskService,
+  type TaskCommand,
+  type TaskLease,
+} from '../agent/task/service';
+
+export { recordEvent } from '../agent/task/inbox';
+export type { CharacterEvent } from '../agent/task/state';

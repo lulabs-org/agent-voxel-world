@@ -2,23 +2,23 @@
 import { aiCharacterPermissions } from '@voxel/shared';
 import type { AICharacterTask } from '@voxel/shared';
 import type {
-  AgentSession,
   AgentConfig,
   AgentAction,
 } from '../../packages/agent-runtime/src/contracts';
-import type { AgentRunState } from '../../packages/agent-runtime/src/task/state';
-import type { RequestBudget } from '../../packages/agent-runtime/src/task/budget';
-import { checkBudgetCap } from '../../packages/agent-runtime/src/task/budget';
-import type { DecisionContext } from '../../packages/agent-runtime/src/perception/observation';
-import { worldSignature } from '../../packages/agent-runtime/src/perception/observation';
+import type { AgentSession } from '../../packages/agent-runtime/src/world/session/port';
+import type { AgentRunState } from '../../packages/agent-runtime/src/agent/task/state';
+import type { RequestBudget } from '../../packages/agent-runtime/src/agent/task/budget';
+import { checkBudgetCap } from '../../packages/agent-runtime/src/agent/task/budget';
+import type { DecisionContext } from '../../packages/agent-runtime/src/agent/turn/prepare';
+import { worldSignature } from '../../packages/agent-runtime/src/world/observe/extract';
 import {
   TaskService,
   type TaskCommand,
-} from '../../packages/agent-runtime/src/task/service';
-import { executeTaskActions } from '../../packages/agent-runtime/src/runtime/task-executor';
-import { executeBatch } from '../../packages/agent-runtime/src/actions/batch';
-import type { AgentAttention } from '../../packages/agent-runtime/src/perception/attention';
-import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
+} from '../../packages/agent-runtime/src/agent/task/service';
+import { executeTaskActions } from '../../packages/agent-runtime/src/agent/action/executor';
+import { executeBatch } from '../../packages/agent-runtime/src/world/actions/batch';
+import type { AgentAttention } from '../../packages/agent-runtime/src/world/observe/attention';
+import { AgentRuntimeError } from '../../packages/agent-runtime/src/contracts/errors';
 import { parseDecision } from './decision-decision';
 import type { AgentDecision } from './decision-contracts';
 

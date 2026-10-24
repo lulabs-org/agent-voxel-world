@@ -5,13 +5,13 @@ import type {
   AgentConfig,
   ModelEndpoint,
   Observation,
-  RequestAccounting,
 } from '../../packages/agent-runtime/src/contracts';
-import { AgentRuntimeError } from '../../packages/agent-runtime/src/errors';
+import type { RequestAccounting } from '../../packages/agent-runtime/src/agent/model/port';
+import { AgentRuntimeError } from '../../packages/agent-runtime/src/contracts/errors';
 import { parseDecision } from './decision-decision';
 import { buildMessages } from './decision-prompts';
 import { runTaskStep } from './decision-step';
-import type { RunOptions } from '../../packages/agent-runtime/src/runtime/agent-runner';
+import type { RunOptions } from '../../packages/agent-runtime/src/api/runtime';
 export interface Planner {
   decide(
     observation: Observation,
