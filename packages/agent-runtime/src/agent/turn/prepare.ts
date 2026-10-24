@@ -6,8 +6,6 @@ import { worldSignature } from '../../world/observe/extract';
 import { arrived, observedEmpty } from '../../world/observe/verify';
 import type { AgentSession } from '../../world/session/port';
 
-export type { DecisionContext };
-
 export async function prepareDecision(
   session: Pick<AgentSession, 'observe'>,
   memory: AgentRunState,

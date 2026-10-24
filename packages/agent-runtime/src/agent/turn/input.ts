@@ -1,7 +1,7 @@
 import type { ChatData, WorldEvent } from '@voxel/shared';
 import type { AgentConfig } from '../../contracts';
 import { formatTurnInput } from '../prompt/view';
-import type { DecisionContext } from './prepare';
+import type { DecisionContext } from '../../contracts/observation';
 import type { AgentRunState, CharacterEvent } from '../task/state';
 
 /**
