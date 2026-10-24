@@ -18,7 +18,7 @@ export type { AgentSession } from '../world/session/port';
 export { AgentRuntimeError } from '../contracts/errors';
 
 export { Session, delay, until } from '../world/session/colyseus';
-export { cancellable } from '../agent/action/deadline';
+export { cancellable } from '../kernel/abort';
 
 export { parseAction } from '../world/actions/parse';
 

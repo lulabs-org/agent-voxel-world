@@ -53,10 +53,11 @@ function layer(path: string) {
 /** Arrows point from importer to allowed dependencies only. */
 const allowed: Record<string, string[]> = {
   contracts: ['contracts'],
-  world: ['world', 'contracts'],
-  agent: ['agent', 'world', 'contracts'],
+  kernel: ['kernel'],
+  world: ['world', 'contracts', 'kernel'],
+  agent: ['agent', 'world', 'contracts', 'kernel'],
   persistence: ['contracts'],
-  api: ['api', 'agent', 'world', 'persistence', 'contracts'],
+  api: ['api', 'agent', 'world', 'persistence', 'contracts', 'kernel'],
   index: ['api'],
 };
 

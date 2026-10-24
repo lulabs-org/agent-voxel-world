@@ -9,6 +9,7 @@ import type {
   Observation,
 } from '../../contracts';
 import type { AgentSession } from '../../world/session/port';
+import { cancellable } from '../../kernel/abort';
 import { executeAction } from './execute';
 import { parseActions } from './parse';
 import type { NavigationOptions } from '../nav/controller';
@@ -24,24 +25,6 @@ export type BatchOptions = {
   beforeAction?: (action: AgentAction) => unknown | Promise<unknown>;
   log?: (message: string) => unknown | Promise<unknown>;
 };
-
-/** Abort waiting without replaying requests whose effects may already have happened. */
-async function cancellable<T>(
-  request: Promise<T>,
-  signal: AbortSignal,
-): Promise<T> {
-  let abort!: () => unknown | Promise<unknown>;
-  const cancelled = new Promise<never>((_, reject) => {
-    abort = () => reject(signal.reason);
-    if (signal.aborted) abort();
-    else signal.addEventListener('abort', abort, { once: true });
-  });
-  try {
-    return await Promise.race([request, cancelled]);
-  } finally {
-    signal.removeEventListener('abort', abort);
-  }
-}
 
 /**
  * Low-level Physical Batch Execution Engine:

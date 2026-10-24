@@ -17,7 +17,7 @@ import { BackgroundActionTracker } from '../action/background';
 import { AgentRuntimeError } from '../../contracts/errors';
 import { prepareDecision } from './prepare';
 import { worldSignature } from '../../world/observe/extract';
-import { cancellable } from '../action/deadline';
+import { cancellable } from '../../kernel/abort';
 import { RequestBudget, checkBudgetCap } from '../task/budget';
 import { recordEvent } from '../task/inbox';
 import { TaskService } from '../task/service';
