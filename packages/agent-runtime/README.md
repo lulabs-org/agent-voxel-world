@@ -4,7 +4,7 @@
 
 包按两条能力轴切开：`world/` 只懂世界协议与物理，`agent/` 只懂角色策略与模型。`api/` 是宿主唯一接触面，`contracts/` 是纯类型叶子层，`persistence/` 是唯一认识旧存档格式的地方。
 
-> **状态**：目录结构、`kernel/` 原语与 `AgentState v3` 分区已完成（PR-1～PR-3），旧路径对照见[文末](#附录旧路径对照)。剩余：`Turn` 对象化与 `ToolHost`（PR-4）、`api/intake` 与 `createAgentRuntime` 门面及宿主迁移（PR-5）。行为规范以本文为准。
+> **状态**：目录结构、`kernel/` 原语、`AgentState v3` 分区与 `Turn`/`ToolHost` 已完成（PR-1～PR-4），旧路径对照见[文末](#附录旧路径对照)。剩余：`api/intake` 与 `createAgentRuntime` 门面及宿主迁移（PR-5）。行为规范以本文为准。
 
 ## 设计原则
 
@@ -39,6 +39,7 @@ packages/agent-runtime/
     │   ├── action.ts       # AgentAction / ActionResult / BatchResult / NavigationResult
     │   ├── config.ts       # CharacterConfig / ModelConfig / LimitsConfig
     │   ├── state.ts        # AgentState v3、CharacterEvent、PiCheckpoint
+    │   ├── tool-state.ts   # 单次 turn 的工具状态位
     │   └── errors.ts
     ├── kernel/             # 叶子原语层：取消、超时与信号组合
     │   └── abort.ts        # cancellable / withDeadline / mergeSignals
@@ -139,7 +140,7 @@ flowchart TD
 2. **归一**：`api/intake.ts` 把聊天、控制、计划到期、动作完成统一成 `CharacterEvent`。去重 id 只在这里生成，鉴权只走 `agent/task/policy`，先落盘再入队；队列满时标记 `unknown` 而不是丢弃后重试。
 3. **唤醒**：`agent/turn/wake.ts` 取事件；有已保存的跟随意图且无新消息时推进一次本地跟随；后台动作未结束时等它结束或等新消息，不并发发起第二次决策。
 4. **决策**：`agent/turn/turn.ts` 按 `attach → prepare → decide → settle` 推进。`input.ts` 构造模型输入，`decide.ts` 装配 Pi Agent，`guards.ts` 在工具边界拦截截断、已停止、预算耗尽和失败批次。
-5. **工具**：`agent/tools/*` 的 schema 是模型契约，handler 只依赖 `ToolHost`（定义在 `tools/port.ts`，由 Turn 实现：observe/save/attach/send/execute/finish）。任务命令走 `policy` 与 `lease`，世界动作交给执行器。
+5. **工具**：`agent/tools/*` 的 schema 是模型契约，handler 只依赖 `ToolHost`（定义在 `tools/port.ts`，由 `Turn` 实现：observe/save/attach/send/launch/stopAction/onTaskCommitted）。任务命令走 `policy` 与 `lease`，世界动作交给执行器。
 6. **动作**：`agent/action/executor.ts` 在每次执行前校验 lease，同步动作在 turn 内完成；`goto`/`build`/`house` 进入 `background.ts`，结束后投递 `action_result` 事件回到接入层；`follow` 由宿主 tick 经 `follow.ts` 推进，不请求模型。
 7. **收尾**：任务进入结束态后清空可重放状态，`snapshot()` 提供只读投影，`store` 原子保存。宿主只持久化投影，不解析内部字段。
 

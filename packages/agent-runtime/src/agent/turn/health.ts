@@ -1,4 +1,4 @@
-import type { ToolState } from './window';
+import type { ToolState } from '../../contracts/tool-state';
 import type { Observation } from '../../contracts';
 import { worldSignature } from '../../world/observe/extract';
 import type { TaskService } from '../task/service';

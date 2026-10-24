@@ -5,8 +5,8 @@ import { houseBlocks } from '../../world/actions/build';
 import { observedEmpty } from '../../world/observe/verify';
 import type { AgentRunState } from '../task/state';
 import { TaskService, type TaskLease } from '../task/service';
-import type { DecisionContext } from '../turn/prepare';
-import type { ToolState } from '../turn/window';
+import type { DecisionContext } from '../../contracts/observation';
+import type { ToolState } from '../../contracts/tool-state';
 import { toolSchemas } from './schema';
 import { worldSignature, worldView } from '../../world/observe/extract';
 

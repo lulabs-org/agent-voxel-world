@@ -1,7 +1,7 @@
 import { emptyState } from '@voxel/agent-runtime';
 import { expect, it, vi } from 'vitest';
 import { TurnHealthMonitor } from '../packages/agent-runtime/src/agent/turn/health';
-import { initialToolState } from '../packages/agent-runtime/src/agent/turn/window';
+import { initialToolState } from '../packages/agent-runtime/src/contracts/tool-state';
 import type { TaskService } from '../packages/agent-runtime/src/agent/task/service';
 import type { Observation } from '../packages/agent-runtime/src/contracts';
 
