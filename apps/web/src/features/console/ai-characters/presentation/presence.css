@@ -1,0 +1,14 @@
+.agents-presence-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a2aca1;
+  flex-shrink: 0;
+}
+.agents-presence-dot[data-online='true'] {
+  background: #568065;
+}
+.agents-presence-dot[data-attention='true'] {
+  background: #b38740;
+}

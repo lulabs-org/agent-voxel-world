@@ -1,0 +1,38 @@
+.agents-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.agent-dialog .agents-actions button {
+  border: 1px solid var(--agents-border);
+  background: transparent;
+  padding: 9px 13px;
+  border-radius: var(--radius-control);
+}
+.agent-dialog .agents-actions button.primary {
+  background: var(--color-hud-ink);
+  border-color: var(--color-hud-ink);
+}
+.agent-dialog .agents-actions .agents-text-button {
+  border-color: transparent;
+  margin-left: auto;
+}
+.agents-confirm {
+  background: #f8f0df;
+  border: 1px solid #eaddbf;
+  border-radius: 8px;
+  padding: 13px;
+  margin: 14px 0;
+}
+.agents-confirm p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #7e633e;
+}
+.agents-composer {
+  margin: 18px 0 0;
+  border-top: 1px solid var(--agents-border);
+  padding-top: 18px;
+}

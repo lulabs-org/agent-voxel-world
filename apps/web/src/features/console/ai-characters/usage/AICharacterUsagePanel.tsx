@@ -1,5 +1,5 @@
 import type { AICharacterSummary } from '@voxel/shared';
-import { useI18n } from '../../../i18n/context';
+import { useI18n } from '../../../../i18n/context';
 
 export function AICharacterUsagePanel({ job }: { job: AICharacterSummary }) {
   const { t } = useI18n();

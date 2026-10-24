@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useAICharactersController } from './ai-characters/useAICharactersController';
+import { useAICharactersController } from './ai-characters';
 import { useProvidersController } from './providers/useProvidersController';
 import { useConsoleFeedback } from './useConsoleFeedback';
 import { useVoiceServices } from './voice/useVoiceServices';

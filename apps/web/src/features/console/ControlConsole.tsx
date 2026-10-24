@@ -15,7 +15,7 @@ import {
   openGateway,
 } from '../../network/gateway';
 import { SpeechRecognitionPanel } from '../voice';
-import { AICharacterList } from './ai-characters/AICharacterList';
+import { AICharacters } from './ai-characters';
 import { ConsoleHelp } from './ConsoleHelp';
 import { GatewayAccess } from './GatewayAccess';
 import { ProviderEditor } from './providers/ProviderEditor';
@@ -191,7 +191,7 @@ export function ControlConsole({
               {tab === 'providers' ? (
                 <ProviderEditor {...controller} />
               ) : (
-                <AICharacterList
+                <AICharacters
                   {...controller}
                   active={open && status === 'ready' && tab === 'characters'}
                 />

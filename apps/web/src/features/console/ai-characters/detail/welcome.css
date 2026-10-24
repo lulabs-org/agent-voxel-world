@@ -1,0 +1,43 @@
+.agents-welcome {
+  text-align: center;
+  padding: 52px 24px;
+}
+.agents-welcome-symbol {
+  display: grid;
+  place-items: center;
+  margin: 0 auto 22px;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  font-size: 42px;
+  color: #6a8c6d;
+  background: #eaf0e2;
+}
+.agents-welcome h4,
+.agents-task-empty h4 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 550;
+}
+.agents-welcome p,
+.agents-task-empty p {
+  color: var(--agents-muted);
+  font-size: 12px;
+  line-height: 1.9;
+  margin: 0 0 20px;
+}
+.agents-welcome-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 32px;
+  color: #81917c;
+  font-size: 10px;
+}
+.agents-task-empty {
+  padding: 12px 0 8px;
+}
+.agents-task-empty .agents-section-label {
+  margin-bottom: 18px;
+}

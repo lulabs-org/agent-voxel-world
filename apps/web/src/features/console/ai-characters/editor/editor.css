@@ -1,0 +1,169 @@
+.agents-detail .agents-profile {
+  padding: 0;
+}
+.agents-form-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.agents-form-heading h4 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+.agents-form-heading p {
+  margin: 0;
+  color: var(--agents-muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.agents-form-heading > button {
+  flex-shrink: 0;
+}
+.agents-role-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.agents-role-count {
+  white-space: nowrap;
+}
+.agents-form-section {
+  padding-top: 20px;
+  margin-top: 22px;
+  border-top: 1px solid var(--agents-border);
+}
+.agents-form-section h4 {
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+.agents-profile .agent-check {
+  align-items: flex-start;
+}
+.agents-profile .agent-check input {
+  margin: 3px 0 0;
+  flex-shrink: 0;
+}
+.agents-profile input[type='radio'] {
+  width: auto;
+  display: inline;
+  padding: 0;
+}
+.agents-profile .agent-check small {
+  display: block;
+  font-size: 10px;
+  color: var(--agents-muted);
+  line-height: 1.7;
+  margin-top: 5px;
+}
+.agents-start-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.agent-form .agents-start-options .agent-check {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--agents-border);
+  border-radius: 7px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.agents-profile .agents-start-options input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--agents-accent, #315548);
+}
+.agents-start-options label:has(input:focus-visible) {
+  outline: 2px solid var(--agents-accent, #315548);
+  outline-offset: 3px;
+}
+.agents-start-options label:has(input:checked) {
+  background: #edf3e5;
+  border-color: #8fa789;
+}
+.agents-task-limits {
+  margin: 20px 0;
+}
+.agents-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 18px;
+  border-top: 1px solid var(--agents-border);
+}
+.agents-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.agents-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.agent-dialog .console-panel .agents-form-footer button,
+.agents-form-footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  border: 1px solid var(--agents-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-action);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.agent-dialog .console-panel .agents-form-footer button:hover:not(:disabled),
+.agents-form-footer button:hover:not(:disabled) {
+  background: #edf2e6;
+  color: var(--color-action);
+}
+.agent-dialog .console-panel .agents-form-footer button svg,
+.agents-form-footer button svg {
+  flex-shrink: 0;
+}
+.agent-dialog .console-panel .agents-form-footer button.agents-delete-button,
+.agents-form-footer button.agents-delete-button {
+  color: #943f36;
+  border-color: #d9b7b0;
+}
+.agent-dialog
+  .console-panel
+  .agents-form-footer
+  button.agents-delete-button:hover:not(:disabled),
+.agents-form-footer button.agents-delete-button:hover:not(:disabled) {
+  color: #802f27;
+  background: #fbf0ee;
+  border-color: #c98e83;
+}
+.agent-dialog .console-panel .agents-form-footer button.primary,
+.agents-form-footer button.primary {
+  background: var(--color-hud-ink);
+  border-color: var(--color-hud-ink);
+  color: #fff;
+}
+.agent-dialog
+  .console-panel
+  .agents-form-footer
+  button.primary:hover:not(:disabled),
+.agents-form-footer button.primary:hover:not(:disabled) {
+  background: var(--color-action);
+  border-color: var(--color-action);
+  color: #fff;
+}

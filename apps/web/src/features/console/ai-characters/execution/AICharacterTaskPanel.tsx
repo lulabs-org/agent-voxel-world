@@ -1,6 +1,6 @@
 import type { AICharacterSummary } from '@voxel/shared';
-import { useI18n } from '../../../i18n/context';
-import { CurrentTaskBudget } from './CurrentTaskBudget';
+import { useI18n } from '../../../../i18n/context';
+import { CurrentTaskBudget } from '../execution/CurrentTaskBudget';
 
 export function AICharacterTaskPanel({
   job,
