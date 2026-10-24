@@ -27,31 +27,38 @@ export class TurnHealthMonitor {
     const threshold = o.maxStalledTurns ?? 3;
     this.eventFailures = o.state.hadError ? this.eventFailures + 1 : 0;
     if (this.eventFailures >= threshold) {
-      if (o.attached) o.memory.failures = this.eventFailures;
+      if (o.attached) o.memory.health.failures = this.eventFailures;
       o.state.terminal = true;
-      o.memory.lastResponse = `连续 ${threshold} 轮工具失败，已停止本次事件。`;
+      o.memory.health.lastResponse = `连续 ${threshold} 轮工具失败，已停止本次事件。`;
       if (
         o.attached &&
         o.current() &&
-        o.memory.task &&
-        !['completed', 'cancelled'].includes(o.memory.task.status)
+        o.memory.task.current &&
+        !['completed', 'cancelled'].includes(o.memory.task.current.status)
       ) {
         o.service.finish(o.service.lease(), {
           status: 'blocked',
-          reason: o.memory.lastResponse,
+          reason: o.memory.health.lastResponse,
         });
       }
       return;
     }
     if (o.hasMessage || o.launched || o.state.terminal) return;
-    o.memory.failures = o.state.hadError ? (o.memory.failures ?? 0) + 1 : 0;
+    o.memory.health.failures = o.state.hadError
+      ? (o.memory.health.failures ?? 0) + 1
+      : 0;
     const signature =
       worldSignature(o.observation, 'world') +
       JSON.stringify(o.observation.self);
-    o.memory.noProgress =
-      signature === o.memory.lastProgress ? (o.memory.noProgress ?? 0) + 1 : 0;
-    o.memory.lastProgress = signature;
-    if (o.memory.failures >= threshold || o.memory.noProgress >= threshold) {
+    o.memory.health.noProgress =
+      signature === o.memory.health.lastProgress
+        ? (o.memory.health.noProgress ?? 0) + 1
+        : 0;
+    o.memory.health.lastProgress = signature;
+    if (
+      o.memory.health.failures >= threshold ||
+      o.memory.health.noProgress >= threshold
+    ) {
       o.service.finish(o.service.lease(), {
         status: 'blocked',
         reason: `连续 ${threshold} 轮失败或没有实际进展，已停止自动重试。`,

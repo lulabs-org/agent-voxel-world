@@ -33,9 +33,9 @@ export function createTaskControlTools(o: TurnContext): AgentTool[] {
       if (name === 'reply') {
         if (
           args.relatedToTask &&
-          o.memory.task &&
-          ['running', 'waiting'].includes(o.memory.task.status) &&
-          !checkBudgetCap(o.memory.task, o.userConfig)
+          o.memory.task.current &&
+          ['running', 'waiting'].includes(o.memory.task.current.status) &&
+          !checkBudgetCap(o.memory.task.current, o.userConfig)
         )
           o.attach();
         await o.send(args.text!);
@@ -76,7 +76,7 @@ export function createTaskControlTools(o: TurnContext): AgentTool[] {
       if (['pause'].includes(command.type)) o.state.terminal = true;
       await o.observe();
       if (args.reply) await o.send(args.reply);
-      return result({ task: o.memory.task });
+      return result({ task: o.memory.task.current });
     },
   }));
 }

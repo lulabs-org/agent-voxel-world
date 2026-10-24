@@ -2,7 +2,7 @@ import { setTimeout as pause } from 'node:timers/promises';
 import type { AgentConfig } from '../contracts';
 import type { AgentSession } from '../world/session/port';
 import type { AgentAttention } from '../world/observe/attention';
-import { newTask, type AgentRunState } from './task/state';
+import { emptyState, newTask, type AgentRunState } from './task/state';
 import type { RunOptions } from './turn/options';
 
 /** Draw a fresh inclusive interval after a completed turn; requests never overlap. */
@@ -26,26 +26,30 @@ export async function runAgent(
   config: AgentConfig,
   signal: AbortSignal,
   log: (message: string) => void = console.log,
-  memory: AgentRunState = {},
+  memory: AgentRunState = emptyState(),
   attention?: AgentAttention,
 ) {
-  memory.task ??= newTask(config.goal);
+  memory.task.current ??= newTask(config.goal);
   do {
     if (signal.aborted) break;
     await runner.run({ session, config, signal, memory, attention, log });
     if (
       signal.aborted ||
-      (!attention?.pending && memory.task?.status !== 'waiting')
+      (!attention?.pending && memory.task.current?.status !== 'waiting')
     )
       break;
     if (attention)
       await attention.wait(
-        memory.follow ? 100 : nextIntervalMs(config),
+        memory.effects.follow ? 100 : nextIntervalMs(config),
         signal,
       );
     else
-      await pause(memory.follow ? 100 : nextIntervalMs(config), undefined, {
-        signal,
-      }).catch(() => {});
+      await pause(
+        memory.effects.follow ? 100 : nextIntervalMs(config),
+        undefined,
+        {
+          signal,
+        },
+      ).catch(() => {});
   } while (!signal.aborted);
 }

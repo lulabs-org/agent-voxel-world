@@ -20,16 +20,16 @@ type FollowOptions = {
 /** A bounded host tick: no model request, no new task, no replayed movement inputs. */
 export async function runFollowStep(options: FollowOptions) {
   const { memory, session, signal, config, attention } = options;
-  const follow = memory.follow,
-    task = memory.task;
+  const follow = memory.effects.follow,
+    task = memory.task.current;
   if (!follow || !task || follow.taskStartedAt !== task.startedAt) {
-    delete memory.follow;
+    delete memory.effects.follow;
     return;
   }
   const service = new TaskService(memory);
   const lease = service.lease();
-  if (memory.activeAction?.name === 'follow')
-    Object.assign(memory.activeAction, {
+  if (memory.effects.activeAction?.name === 'follow')
+    Object.assign(memory.effects.activeAction, {
       revision: lease.revision,
       status: 'running',
     });
@@ -73,7 +73,7 @@ export async function runFollowStep(options: FollowOptions) {
       task.status = 'waiting';
       task.waitFor = 'players';
     }
-    memory.noProgress = 0;
+    memory.health.noProgress = 0;
   } catch (error) {
     if (!signal.aborted && service.current(lease)) {
       task.status = deadline.expired ? 'budget' : 'blocked';
@@ -95,8 +95,11 @@ export async function runFollowStep(options: FollowOptions) {
         task.status = 'budget';
         task.reason = '跟随任务执行时间预算已耗尽。';
       }
-      if (task.status === 'blocked' && memory.activeAction?.name === 'follow') {
-        const action = memory.activeAction;
+      if (
+        task.status === 'blocked' &&
+        memory.effects.activeAction?.name === 'follow'
+      ) {
+        const action = memory.effects.activeAction;
         action.status = 'failed';
         action.result = follow.lastResult ?? task.reason;
         recordEvent(memory, {

@@ -11,7 +11,7 @@ export class CharacterSnapshots {
   }
 
   publicIdentity(id: string) {
-    return structuredClone(this.committed.get(id)?.runtime?.identity);
+    return structuredClone(this.committed.get(id)?.runtime?.task.identity);
   }
 
   publicLogEntries(id: string) {

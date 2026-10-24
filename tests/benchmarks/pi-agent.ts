@@ -1,3 +1,4 @@
+import { emptyState } from '@voxel/agent-runtime';
 import type { Edit } from '@voxel/shared';
 import type { AgentSession } from '@voxel/agent-runtime';
 import type { SavedProvider } from '../../apps/server/src/modules/providers/provider-validation';
@@ -53,7 +54,7 @@ const results: {
   repeat: number;
   success: boolean;
   ms: number;
-  usage: AgentRunState['usage'];
+  usage: AgentRunState['task']['usage'];
   status: string | undefined;
 }[] = [];
 for (const name of cases)
@@ -145,9 +146,9 @@ for (const name of cases)
       wait: '等待世界中有玩家出现。在没有玩家时保持等待，不要移动或建造。',
       update: '在 (2,3,0) 放一个木头方块，然后等待我进一步指示。',
     };
-    const memory: AgentRunState = {};
+    const memory: AgentRunState = emptyState();
     if (name === 'chat') message(goals[name]);
-    else memory.task = newTask(goals[name], 'human', 'human');
+    else memory.task.current = newTask(goals[name], 'human', 'human');
     const runner = new AgentRunner(provider, fetch);
     const planner = baseline
       ? new baseline.ModelPlanner(config, fetch, provider)
@@ -187,7 +188,7 @@ for (const name of cases)
         }
         if (
           !attention.pending &&
-          !['running'].includes(memory.task?.status ?? '')
+          !['running'].includes(memory.task.current?.status ?? '')
         )
           break;
       }
@@ -200,27 +201,29 @@ for (const name of cases)
       );
     const success =
       name === 'chat'
-        ? chats.length > 0 && !memory.task
+        ? chats.length > 0 && !memory.task.current
         : name === 'move'
-          ? moved && memory.task?.status === 'completed'
+          ? moved && memory.task.current?.status === 'completed'
           : name === 'build'
             ? at(2, 'wood') &&
               at(3, 'wood') &&
-              memory.task?.status === 'completed'
+              memory.task.current?.status === 'completed'
             : name === 'correction'
-              ? failed && at(2, 'wood') && memory.task?.status === 'completed'
+              ? failed &&
+                at(2, 'wood') &&
+                memory.task.current?.status === 'completed'
               : name === 'wait'
-                ? memory.task?.status === 'waiting' && !moved
+                ? memory.task.current?.status === 'waiting' && !moved
                 : changed &&
                   at(3, 'stone') &&
-                  memory.task?.status === 'completed';
+                  memory.task.current?.status === 'completed';
     const result = {
       name,
       repeat,
       success,
       ms: Math.round(performance.now() - start),
-      usage: memory.usage,
-      status: memory.task?.status,
+      usage: memory.task.usage,
+      status: memory.task.current?.status,
     };
     results.push(result);
     console.log(JSON.stringify(result));

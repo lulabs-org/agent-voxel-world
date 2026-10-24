@@ -21,9 +21,11 @@ export function formatTurnInput(
       observation: worldView(observation),
       previous: context,
       recovery:
-        memory?.unknownEffect || memory?.pi?.inFlight?.state === 'unknown'
+        memory?.checkpoint.unknownEffect ||
+        memory?.checkpoint.pi?.inFlight?.state === 'unknown'
           ? {
-              ...(memory.unknownEffect ?? memory.pi?.inFlight),
+              ...(memory.checkpoint.unknownEffect ??
+                memory.checkpoint.pi?.inFlight),
               instruction:
                 'Previous tool effect is unknown; inspect before replanning. Never automatically resend chat or movement.',
             }

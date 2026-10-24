@@ -367,7 +367,7 @@ it('backs up and migrates old records without inference, preserving checkpoints 
   });
   expect(decide).not.toHaveBeenCalled();
   const saved = JSON.parse(await readFile(path, 'utf8'));
-  expect(saved.runs[0].runtime.previous).toBeDefined();
+  expect(saved.runs[0].runtime.effects.previous).toBeDefined();
   expect(p.goal).toBe(migrated[0].goal);
 });
 it('archives only ended runs and paginates independent history', async () => {
@@ -439,11 +439,11 @@ it('restores unconfirmed action history as unknown and expires private runs with
     ok: false,
     stopReason: 'executing',
   };
-  record.runtime.previous = previous;
-  archive.characters[0].runtime.previous = previous;
-  record.runtime.task.privateTo = 'expired-player';
-  archive.characters[0].runtime.task.privateTo = 'expired-player';
-  record.runtime.unfinishedBuild = {
+  record.runtime.effects.previous = previous;
+  archive.characters[0].runtime.effects.previous = previous;
+  record.runtime.task.current.privateTo = 'expired-player';
+  archive.characters[0].runtime.task.current.privateTo = 'expired-player';
+  record.runtime.effects.unfinishedBuild = {
     action: { type: 'build', blocks: [{ x: 1, y: 3, z: 1, material: 'wood' }] },
     result: {
       ok: false,
@@ -454,8 +454,8 @@ it('restores unconfirmed action history as unknown and expires private runs with
       failures: [],
     },
   };
-  archive.characters[0].runtime.unfinishedBuild =
-    record.runtime.unfinishedBuild;
+  archive.characters[0].runtime.effects.unfinishedBuild =
+    record.runtime.effects.unfinishedBuild;
   await writeFile(path, JSON.stringify(archive));
   manager = build();
   decide.mockClear();
@@ -468,9 +468,11 @@ it('restores unconfirmed action history as unknown and expires private runs with
     manager.tasks.controlTaskRun(id, run.id, 'resume'),
   ).rejects.toThrow('私聊');
   const restored = JSON.parse(await readFile(path, 'utf8'));
-  expect(restored.runs[0].runtime.previous.results[0].status).toBe('unknown');
+  expect(restored.runs[0].runtime.effects.previous.results[0].status).toBe(
+    'unknown',
+  );
   expect(
-    restored.runs[0].runtime.unfinishedBuild.result.remaining,
+    restored.runs[0].runtime.effects.unfinishedBuild.result.remaining,
   ).toHaveLength(1);
 });
 

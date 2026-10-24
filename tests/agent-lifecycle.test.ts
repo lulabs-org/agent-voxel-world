@@ -815,7 +815,7 @@ it('retains capability settings and construction progress across edits, reload a
       note: '等待确认',
     },
   };
-  archive.characters[0].runtime.unfinishedBuild = unfinishedBuild;
+  archive.characters[0].runtime.effects.unfinishedBuild = unfinishedBuild;
   // Simulate a pre-capability archive without losing its task history.
   delete archive.characters[0].permissions;
   delete archive.characters[0].skills;
@@ -844,9 +844,9 @@ it('retains capability settings and construction progress across edits, reload a
   expect(updated.usage).toEqual(before.usage);
   expect(decide).toHaveBeenCalledTimes(1);
   const saved = JSON.parse(await readFile(path, 'utf8')).characters[0];
-  expect(saved.runtime.unfinishedBuild).toEqual(unfinishedBuild);
-  expect(saved.runtime.previous).toEqual(
-    archive.characters[0].runtime.previous,
+  expect(saved.runtime.effects.unfinishedBuild).toEqual(unfinishedBuild);
+  expect(saved.runtime.effects.previous).toEqual(
+    archive.characters[0].runtime.effects.previous,
   );
   await restored.close();
   const finalSession = fakeSession();
@@ -1190,8 +1190,8 @@ it.each(['cancel', 'pause'] as const)(
             signal.addEventListener('abort', () => resolve(), { once: true }),
           );
           // Simulate an already-confirmed action finishing its durable checkpoint.
-          memory.task!.status = 'completed';
-          memory.task!.reason = '动作已确认完成';
+          memory.task.current!.status = 'completed';
+          memory.task.current!.reason = '动作已确认完成';
           await checkpoint?.();
         },
       }),

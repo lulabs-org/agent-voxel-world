@@ -1,3 +1,4 @@
+import { emptyState } from '@voxel/agent-runtime';
 import { expect, it, vi } from 'vitest';
 import { newTask, TaskService } from '@voxel/agent-runtime';
 import type { WorldEvent } from '@voxel/shared';
@@ -27,7 +28,7 @@ function fixture() {
     validateExecution: (_id, overrides) => ({ ...state.view, ...overrides }),
     storageFailed: () => false,
     committedName: () => state.view.name,
-    publicIdentity: () => state.memory.identity,
+    publicIdentity: () => state.memory.task.identity,
     resourceVersion: () => 1,
     isClosing: () => false,
     assertWritable: () => {},
@@ -56,7 +57,13 @@ function fixture() {
       reasoningEffort: 'none',
     },
     memory: {
-      task: { ...newTask('Private work', 'alice', 'alice'), status: 'waiting' },
+      ...emptyState(),
+      task: {
+        current: {
+          ...newTask('Private work', 'alice', 'alice'),
+          status: 'waiting',
+        },
+      },
     },
     ledger: tasks.plans,
     online: true,
@@ -93,7 +100,7 @@ function fixture() {
 
 it('executes task policy through the narrow host port without an Agent registry or world session', async () => {
   const { state, tasks, host } = fixture();
-  state.memory = {};
+  state.memory = emptyState();
   const plan = await tasks.createTaskPlan('actor', {
     name: 'Explicit work',
     goal: 'Observe',
@@ -102,7 +109,7 @@ it('executes task policy through the narrow host port without an Agent registry 
   });
   expect(tasks.plans.plans).toHaveLength(1);
   expect(tasks.plans.runs).toHaveLength(1);
-  expect(state.memory.task?.goal).toBe('Observe');
+  expect(state.memory.task.current?.goal).toBe('Observe');
   expect(host.launch).toHaveBeenCalledWith('actor');
   expect(tasks.plans.runs[0].planId).toBe(plan.id);
 });
@@ -125,8 +132,8 @@ it('deduplicates the same world command while pending and after its task revisio
   );
   expect(second).toBe(first);
   const result = await first;
-  expect(state.memory.task?.status).toBe('paused');
-  expect(state.memory.identity?.revision).toBe(lease.revision + 1);
+  expect(state.memory.task.current?.status).toBe('paused');
+  expect(state.memory.task.identity?.revision).toBe(lease.revision + 1);
   expect(
     await tasks.controlMessage('actor', 'pause', lease, 'world-1', message),
   ).toEqual(result);
@@ -201,7 +208,7 @@ it.each([
         ...changes,
       }),
     ).rejects.toThrow('仅任务发起者');
-    expect(state.memory.task?.status).toBe('waiting');
+    expect(state.memory.task.current?.status).toBe('waiting');
     expect(stopped).not.toHaveBeenCalled();
     expect(tasks.plans.runs).toHaveLength(0);
   },
@@ -225,24 +232,27 @@ it('rechecks identity after waiting for a runner so an old command cannot mutate
     message,
   );
   await vi.waitFor(() => expect(stopped).toHaveBeenCalled());
-  state.memory = { task: newTask('New execution', 'alice', 'alice') };
+  state.memory = {
+    ...emptyState(),
+    task: { current: newTask('New execution', 'alice', 'alice') },
+  };
   captureTask(state);
   const newer = structuredClone(state.memory);
   release();
   await expect(pending).rejects.toThrow('任务已修改');
   expect(state.memory).toEqual(newer);
-  expect(state.memory.task?.status).toBe('running');
+  expect(state.memory.task.current?.status).toBe('running');
   expect(save).not.toHaveBeenCalled();
 });
 
 it('preserves a completion that settles while a valid cancellation waits for the runner', async () => {
   const { state, tasks, lease, message, setAfterInterrupt } = fixture();
   setAfterInterrupt(async () => {
-    state.memory.task!.status = 'completed';
-    state.memory.task!.summary = 'Verified completion';
+    state.memory.task.current!.status = 'completed';
+    state.memory.task.current!.summary = 'Verified completion';
   });
   await tasks.controlMessage('actor', 'cancel', lease, 'finished', message);
-  expect(state.memory.task?.status).toBe('completed');
+  expect(state.memory.task.current?.status).toBe('completed');
   expect(tasks.plans.runs[0].status).toBe('completed');
 });
 
@@ -252,13 +262,13 @@ it('rejects a reused world command ID with different content instead of applying
   expect(() =>
     tasks.controlMessage('actor', 'cancel', lease, 'same', message),
   ).toThrow('同一命令标识');
-  expect(state.memory.task?.status).toBe('paused');
+  expect(state.memory.task.current?.status).toBe('paused');
   expect(stopped).toHaveBeenCalledTimes(1);
 });
 
 it('preserves action start time across capture updates and leaves legacy timestamps unknown', () => {
   const { state } = fixture();
-  state.memory.previous = {
+  state.memory.effects.previous = {
     batchId: 'timed-batch',
     results: [
       { action: { type: 'chat' }, status: 'executing', startedAt: 1234 },
@@ -267,7 +277,7 @@ it('preserves action start time across capture updates and leaves legacy timesta
   captureTask(state);
   const run = state.ledger.runs.at(-1)!;
   expect(run.actions?.[0].startedAt).toBe(1234);
-  state.memory.previous = {
+  state.memory.effects.previous = {
     batchId: 'timed-batch',
     results: [
       { action: { type: 'chat' }, status: 'succeeded', startedAt: 1234 },
