@@ -16,7 +16,7 @@ import type { AgentSession } from '../../world/session/port';
 import { paceChat } from '../action/reply';
 import { characterPrompt } from '../prompt/system';
 import { checkBudgetCap, RequestBudget } from '../task/budget';
-import { recordEvent } from '../task/inbox';
+import { recordChatEvent } from '../task/inbox';
 import { TaskService, type TaskLease } from '../task/service';
 import { createTaskControlTools } from '../tools/conversation';
 import type { ToolHost } from '../tools/port';
@@ -343,15 +343,7 @@ export class Turn implements ToolHost {
   /** Returns false when the event belongs to another revision or was settled. */
   private async resolveEvent(): Promise<boolean> {
     const event: CharacterEvent | undefined = this.message
-      ? recordEvent(this.memory, {
-          id: `chat:${this.attention?.generation ?? 'standalone'}:${this.message.actor}:${this.message.seq}`,
-          kind: 'chat',
-          state: 'pending',
-          at: Date.now(),
-          audience: this.scope,
-          actor: this.message.actor,
-          message: this.message,
-        })
+      ? recordChatEvent(this.memory, this.message, this.attention?.generation)
       : this.memory.inbox?.events.find(
           (e) =>
             e.state === 'pending' &&

@@ -58,6 +58,7 @@ const allowed: Record<string, string[]> = {
   agent: ['agent', 'world', 'contracts', 'kernel'],
   persistence: ['contracts'],
   api: ['api', 'agent', 'world', 'persistence', 'contracts', 'kernel'],
+  testing: ['testing', 'world', 'contracts'],
   index: ['api'],
 };
 
