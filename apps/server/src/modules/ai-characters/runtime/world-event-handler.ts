@@ -3,7 +3,13 @@ import {
   type ChatData,
   type WorldEvent,
 } from '@voxel/shared';
-import { recordEvent, TaskService, type Session } from '@voxel/agent-runtime';
+import {
+  parseControlCommand,
+  recordChatEvent,
+  recordEvent,
+  TaskService,
+  type Session,
+} from '@voxel/agent-runtime';
 import type { Job } from '../domain/types';
 import type { ExecutionContext } from './execution-context';
 
@@ -20,16 +26,11 @@ export function handleWorldEvent(
   log: (message: string) => void,
 ) {
   const enqueueMessage = () => {
-    const envelope = recordEvent(job.memory, {
-      id: `chat:${job.attention.generation}:${event.actor}:${event.seq}`,
-      kind: 'chat',
-      state: 'pending',
-      at: event.at,
-      audience:
-        (event.data as ChatData).scope === 'public' ? 'public' : event.actor,
-      actor: event.actor,
-      message: event,
-    });
+    const envelope = recordChatEvent(
+      job.memory,
+      event,
+      job.attention.generation,
+    );
     void ctx
       .save()
       .then(() => {
@@ -48,16 +49,10 @@ export function handleWorldEvent(
       .catch(() => log('消息保存失败，未启动执行。'));
   };
 
-  const command = (event.data as ChatData).text
-    .trim()
-    .replace(/^@[^\n]+?\s+(?=(?:暂停|停止|取消|别建))/u, '')
-    .replace(/[！!。.?？\s]+$/u, '');
+  const command = parseControlCommand((event.data as ChatData).text);
   const task = job.memory.task.current;
 
-  if (
-    task &&
-    /^(暂停|暂停任务|停止|停止任务|别建了|取消|取消任务)$/u.test(command)
-  ) {
+  if (task && command) {
     try {
       new TaskService(job.memory).authorize({
         kind: 'player',
@@ -70,7 +65,7 @@ export function handleWorldEvent(
     void ctx
       .controlMessage(
         job.view.id,
-        command.startsWith('取消') ? 'cancel' : 'pause',
+        command,
         new TaskService(job.memory).lease(),
         `world-${job.attention.generation}-${event.seq}`,
         event,
@@ -88,7 +83,7 @@ export function handleWorldEvent(
         ctx.persist();
         return aiCharacterPermissions(job.view).chat
           ? session.request('chat', {
-              text: command.startsWith('取消')
+              text: command === 'cancel'
                 ? '任务已取消，我会留在这里待命。'
                 : '任务已暂停，进度已保留。',
               scope: 'private',
