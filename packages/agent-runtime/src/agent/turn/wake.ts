@@ -42,11 +42,14 @@ export class CharacterRunner {
     const background = new BackgroundActionTracker();
     let message = o.attention?.take();
     if (!message) restoreCheckpoint(memory);
-    if (memory.task && ['running', 'waiting'].includes(memory.task.status)) {
-      const reason = checkBudgetCap(memory.task, o.config);
+    if (
+      memory.task.current &&
+      ['running', 'waiting'].includes(memory.task.current.status)
+    ) {
+      const reason = checkBudgetCap(memory.task.current, o.config);
       if (reason) {
-        memory.task.status = 'budget';
-        memory.task.reason = reason;
+        memory.task.current.status = 'budget';
+        memory.task.current.reason = reason;
         await o.checkpoint?.();
       }
     }
@@ -56,30 +59,31 @@ export class CharacterRunner {
         if (signal.aborted) break;
         if (
           !message &&
-          memory.follow &&
+          memory.effects.follow &&
           !actionResult &&
-          memory.task &&
-          ['running', 'waiting'].includes(memory.task.status)
+          memory.task.current &&
+          ['running', 'waiting'].includes(memory.task.current.status)
         ) {
-          const reason = checkBudgetCap(memory.task!, o.config);
+          const reason = checkBudgetCap(memory.task.current!, o.config);
           if (reason) {
-            memory.task!.status = 'budget';
-            memory.task!.reason = reason;
+            memory.task.current!.status = 'budget';
+            memory.task.current!.reason = reason;
             await o.checkpoint?.();
           } else await runFollowStep(o);
           if (
-            memory.task?.status === 'blocked' &&
-            memory.activeAction?.status === 'failed'
+            memory.task.current?.status === 'blocked' &&
+            memory.effects.activeAction?.status === 'failed'
           ) {
-            delete memory.follow;
-            memory.task.status = 'running';
+            delete memory.effects.follow;
+            memory.task.current.status = 'running';
             actionResult = true;
           } else return;
         }
         if (
           !message &&
           !actionResult &&
-          (!memory.task || !['running', 'waiting'].includes(memory.task.status))
+          (!memory.task.current ||
+            !['running', 'waiting'].includes(memory.task.current.status))
         )
           return;
         if (!background.isRunning || message || actionResult) {
@@ -103,7 +107,10 @@ export class CharacterRunner {
           }
           continue;
         }
-        if (message === undefined && memory.task?.status === 'running') {
+        if (
+          message === undefined &&
+          memory.task.current?.status === 'running'
+        ) {
           actionResult = true;
           continue;
         }
@@ -127,14 +134,14 @@ export class CharacterRunner {
   ) {
     const { memory, signal } = o;
     const service = new TaskService(memory);
-    let expected = memory.task ? service.lease() : undefined;
+    let expected = memory.task.current ? service.lease() : undefined;
     const current = () => !expected || service.current(expected);
     const scope =
       message && (message.data as ChatData).scope !== 'public'
         ? message.actor
         : message
           ? 'public'
-          : (memory.task?.privateTo ?? 'public');
+          : (memory.task.current?.privateTo ?? 'public');
     const event = message
       ? recordEvent(memory, {
           id: `chat:${o.attention?.generation ?? 'standalone'}:${message.actor}:${message.seq}`,
@@ -171,11 +178,11 @@ export class CharacterRunner {
       if (!Number.isFinite(config.tokenBudget)) config.tokenBudget = 50000;
       if (!Number.isFinite(config.taskTimeoutMs)) config.taskTimeoutMs = 900000;
     }
-    memory.usage ??= { calls: 0, tokens: 0, estimated: false };
+    memory.task.usage ??= { calls: 0, tokens: 0, estimated: false };
     const budget = new RequestBudget(
       config,
-      memory.usage,
-      message ? undefined : memory.task,
+      memory.task.usage,
+      message ? undefined : memory.task.current,
     );
     const active = signal;
     let attached = !message;
@@ -199,14 +206,17 @@ export class CharacterRunner {
     const attach = () => {
       if (attached) return;
       authorize();
-      if (!memory.task || !['running', 'waiting'].includes(memory.task.status))
+      if (
+        !memory.task.current ||
+        !['running', 'waiting'].includes(memory.task.current.status)
+      )
         throw new AgentRuntimeError('当前任务未运行，请先恢复或创建任务。');
       Object.assign(config, o.config);
-      budget.attach(memory.task);
+      budget.attach(memory.task.current);
       attached = true;
     };
     const send = async (text: string) => {
-      memory.lastResponse = text;
+      memory.health.lastResponse = text;
       if (!aiCharacterPermissions(config).chat) {
         o.log?.(text);
         await save();
@@ -230,12 +240,12 @@ export class CharacterRunner {
     };
     try {
       if (!message) {
-        const reason = checkBudgetCap(memory.task!, config);
+        const reason = checkBudgetCap(memory.task.current!, config);
         if (reason) throw new AgentRuntimeError(reason);
       }
       let prepared = await prepareDecision(o.session, memory, active, message);
       if (!prepared) return;
-      memory.lastProgress ??=
+      memory.health.lastProgress ??=
         worldSignature(prepared.observation, 'world') +
         JSON.stringify(prepared.observation.self);
       const observe = async () => {
@@ -285,7 +295,7 @@ export class CharacterRunner {
 
       const healthMonitor = new TurnHealthMonitor();
       const history = message
-        ? (memory.exchanges?.[scope] as Message[] | undefined)
+        ? (memory.conversation.exchanges?.[scope] as Message[] | undefined)
         : checkpointMessages(memory);
 
       await runDecisionLoop({
@@ -310,7 +320,7 @@ export class CharacterRunner {
         save,
         shouldYield: () => !current() || (!message && !!o.attention?.pending),
         contextEpoch: () =>
-          `${memory.identity?.id}:${memory.identity?.revision}`,
+          `${memory.task.identity?.id}:${memory.task.identity?.revision}`,
         afterTurn: () =>
           healthMonitor.recordTurn({
             maxStalledTurns: config.maxStalledTurns,
@@ -332,15 +342,16 @@ export class CharacterRunner {
               .join('[已隐藏]'),
           );
           if (message) {
-            memory.exchanges ??= {};
-            delete memory.exchanges[scope];
-            memory.exchanges[scope] = clean;
-            const keys = Object.keys(memory.exchanges).filter(
+            memory.conversation.exchanges ??= {};
+            delete memory.conversation.exchanges[scope];
+            memory.conversation.exchanges[scope] = clean;
+            const keys = Object.keys(memory.conversation.exchanges).filter(
               (key) => key !== 'public',
             );
-            for (const key of keys.slice(0, -16)) delete memory.exchanges[key];
+            for (const key of keys.slice(0, -16))
+              delete memory.conversation.exchanges[key];
           }
-          if (attached && memory.task)
+          if (attached && memory.task.current)
             updateCheckpoint(memory, clean, config.apiKey);
           await save();
         },
@@ -350,19 +361,19 @@ export class CharacterRunner {
       if (!signal.aborted) {
         const reason =
           error instanceof Error ? error.message : '角色事件处理失败。';
-        memory.lastResponse = reason;
+        memory.health.lastResponse = reason;
         o.log?.(reason);
         if (
           attached &&
           current() &&
-          memory.task &&
-          !['completed', 'cancelled'].includes(memory.task.status)
+          memory.task.current &&
+          !['completed', 'cancelled'].includes(memory.task.current.status)
         ) {
-          memory.task.status =
-            checkBudgetCap(memory.task, config) || active.aborted
+          memory.task.current.status =
+            checkBudgetCap(memory.task.current, config) || active.aborted
               ? 'budget'
               : 'blocked';
-          memory.task.reason = reason;
+          memory.task.current.reason = reason;
         }
       }
       if (event && event.state !== 'done') event.state = 'unknown';

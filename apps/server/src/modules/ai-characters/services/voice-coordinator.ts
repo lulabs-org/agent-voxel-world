@@ -57,7 +57,8 @@ export class CharacterVoiceCoordinator {
    * @returns The display name of the service, or undefined if not found or unspecified
    */
   getServiceName(voiceServiceId?: string): string | undefined {
-    return this.voiceServices?.list().find((s) => s.id === voiceServiceId)?.name;
+    return this.voiceServices?.list().find((s) => s.id === voiceServiceId)
+      ?.name;
   }
 
   /**

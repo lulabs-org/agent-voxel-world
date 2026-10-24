@@ -55,7 +55,7 @@ export function createTaskTools(o: {
       if (o.state.terminal || o.state.skipBatch || o.shouldYield())
         throw new AgentRuntimeError('当前批次已停止。');
       if (
-        o.memory.unknownEffect?.name === name &&
+        o.memory.checkpoint.unknownEffect?.name === name &&
         ['chat', 'move', 'goto', 'follow'].includes(name)
       )
         throw new AgentRuntimeError(
@@ -65,7 +65,7 @@ export function createTaskTools(o: {
         await o.observe();
         return result({
           observation: worldView(o.prepared().observation),
-          unfinishedBuild: o.memory.unfinishedBuild,
+          unfinishedBuild: o.memory.effects.unfinishedBuild,
         });
       }
       if (
@@ -102,26 +102,26 @@ export function createTaskTools(o: {
         if (
           name === 'request_input' &&
           o.canChat &&
-          o.memory.unknownEffect?.name !== 'chat'
+          o.memory.checkpoint.unknownEffect?.name !== 'chat'
         ) {
           // The host executor enforces the task audience and current chat permission.
           await o.execute({ type: 'chat', text: args.question });
         }
         return result({
-          status: o.memory.task!.status,
-          summary: o.memory.task!.summary,
+          status: o.memory.task.current!.status,
+          summary: o.memory.task.current!.summary,
         });
       }
       const action = { ...args, type: name } as AgentAction;
-      o.memory.pi ??= {
+      o.memory.checkpoint.pi ??= {
         version: 2,
         taskId: o.lease.id,
         revision: o.lease.revision,
         taskStartedAt: o.lease.startedAt,
-        audience: o.memory.task?.privateTo ?? 'public',
+        audience: o.memory.task.current?.privateTo ?? 'public',
         messages: [],
       };
-      o.memory.pi.inFlight = { id, name, state: 'executing' };
+      o.memory.checkpoint.pi.inFlight = { id, name, state: 'executing' };
       await o.save();
       let known = false;
       try {
@@ -132,11 +132,11 @@ export function createTaskTools(o: {
           if (
             ['move', 'goto', 'follow', 'edit', 'build', 'house'].includes(name)
           )
-            o.memory.pendingEffects = batch;
+            o.memory.effects.pendingEffects = batch;
           o.state.skipBatch = true;
           throw new AgentRuntimeError(JSON.stringify(batch));
         }
-        if (name === 'follow' && o.memory.follow) {
+        if (name === 'follow' && o.memory.effects.follow) {
           o.service.finish(o.lease, {
             status: 'waiting',
             reason: '持续跟随中，由本地导航控制器推进。',
@@ -180,12 +180,12 @@ export function createTaskTools(o: {
             : {}),
           position: observation.self,
           revision: observation.revision,
-          unfinishedBuild: o.memory.unfinishedBuild,
+          unfinishedBuild: o.memory.effects.unfinishedBuild,
         });
       } finally {
         if (o.service.current(o.lease) && !o.state.persistenceFailed) {
-          if (known && o.memory.pi?.inFlight?.id === id)
-            delete o.memory.pi.inFlight;
+          if (known && o.memory.checkpoint.pi?.inFlight?.id === id)
+            delete o.memory.checkpoint.pi.inFlight;
           await o.save();
         }
       }

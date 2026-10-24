@@ -14,35 +14,36 @@ export async function prepareDecision(
   signal: AbortSignal,
   addressed?: import('@voxel/shared').WorldEvent,
 ) {
-  const task = memory.task;
+  const task = memory.task.current;
   const raw = await session.observe();
   signal.throwIfAborted();
   if (
     !addressed &&
     task?.status === 'waiting' &&
-    worldSignature(raw, task.waitFor) === memory.waitSignature
+    worldSignature(raw, task.waitFor) === memory.health.waitSignature
   )
     return undefined;
-  if (memory.unfinishedBuild) {
+  if (memory.effects.unfinishedBuild) {
     const observed = new Map(
       (raw.blocks ?? []).map((b) => [`${b.x},${b.y},${b.z}`, b.material]),
     );
-    const remaining = memory.unfinishedBuild.result.remaining.filter((b) =>
-      b.material !== null
-        ? observed.get(key(b)) !== b.material
-        : !observedEmpty(raw, b),
+    const remaining = memory.effects.unfinishedBuild.result.remaining.filter(
+      (b) =>
+        b.material !== null
+          ? observed.get(key(b)) !== b.material
+          : !observedEmpty(raw, b),
     );
-    if (!remaining.length) memory.unfinishedBuild = undefined;
+    if (!remaining.length) memory.effects.unfinishedBuild = undefined;
     else {
-      memory.unfinishedBuild.result.remaining = remaining;
-      memory.unfinishedBuild.result.uncertain =
-        memory.unfinishedBuild.result.uncertain?.filter((b) =>
+      memory.effects.unfinishedBuild.result.remaining = remaining;
+      memory.effects.unfinishedBuild.result.uncertain =
+        memory.effects.unfinishedBuild.result.uncertain?.filter((b) =>
           remaining.some((p) => key(p) === key(b)),
         );
     }
   }
-  if (memory.pendingEffects) {
-    const latest = memory.previous as BatchResult | undefined;
+  if (memory.effects.pendingEffects) {
+    const latest = memory.effects.previous as BatchResult | undefined;
     // A verified replacement destination supersedes a known navigation failure.
     // Unknown effects and failed edits still need their own reconciliation.
     const correctedArrival = latest?.results?.some(
@@ -54,7 +55,7 @@ export async function prepareDecision(
         r.result.status === 'arrived' &&
         arrived(raw, r.action),
     );
-    const resolved = memory.pendingEffects.results
+    const resolved = memory.effects.pendingEffects.results
       .filter((r) => !['pending', 'succeeded'].includes(r.status))
       .every((r) => {
         if (r.action.type === 'edit')
@@ -79,7 +80,8 @@ export async function prepareDecision(
           );
         if (r.action.type === 'follow')
           return (
-            !!memory.follow && memory.follow.taskStartedAt === task?.startedAt
+            !!memory.effects.follow &&
+            memory.effects.follow.taskStartedAt === task?.startedAt
           );
         if (r.action.type === 'move')
           return (
@@ -91,22 +93,23 @@ export async function prepareDecision(
             ) >= 0.05
           );
         if (r.action.type === 'build' || r.action.type === 'house')
-          return !memory.unfinishedBuild;
+          return !memory.effects.unfinishedBuild;
         return false;
       });
     if (resolved) {
-      const unknown = memory.unknownEffect;
+      const unknown = memory.checkpoint.unknownEffect;
       if (
         unknown &&
         unknown.name !== 'chat' &&
-        memory.pendingEffects.results.some(
+        memory.effects.pendingEffects.results.some(
           (r) => r.action.type === unknown.name,
         )
       ) {
-        delete memory.unknownEffect;
-        if (memory.pi?.inFlight?.id === unknown.id) delete memory.pi.inFlight;
+        delete memory.checkpoint.unknownEffect;
+        if (memory.checkpoint.pi?.inFlight?.id === unknown.id)
+          delete memory.checkpoint.pi.inFlight;
       }
-      delete memory.pendingEffects;
+      delete memory.effects.pendingEffects;
     }
   }
   const message = addressed?.data as ChatData | undefined;
@@ -125,11 +128,11 @@ export async function prepareDecision(
   };
   const context = {
     task: visibleTask ? task : undefined,
-    previous: visibleTask ? memory.previous : undefined,
-    pendingEffects: visibleTask ? memory.pendingEffects : undefined,
-    follow: visibleTask ? memory.follow : undefined,
-    unfinishedBuild: visibleTask ? memory.unfinishedBuild : undefined,
-    decisionError: visibleTask ? memory.decisionError : undefined,
+    previous: visibleTask ? memory.effects.previous : undefined,
+    pendingEffects: visibleTask ? memory.effects.pendingEffects : undefined,
+    follow: visibleTask ? memory.effects.follow : undefined,
+    unfinishedBuild: visibleTask ? memory.effects.unfinishedBuild : undefined,
+    decisionError: visibleTask ? memory.health.decisionError : undefined,
     trigger: addressed
       ? 'message'
       : task?.status === 'waiting'

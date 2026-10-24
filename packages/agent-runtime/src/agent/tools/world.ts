@@ -35,9 +35,9 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
         const args = value as { text: string; relatedToTask?: boolean };
         if (
           args.relatedToTask &&
-          o.memory.task &&
-          ['running', 'waiting'].includes(o.memory.task.status) &&
-          !checkBudgetCap(o.memory.task, o.userConfig)
+          o.memory.task.current &&
+          ['running', 'waiting'].includes(o.memory.task.current.status) &&
+          !checkBudgetCap(o.memory.task.current, o.userConfig)
         )
           o.attach();
         await o.send(args.text);
@@ -57,8 +57,8 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
           '当前动作尚未结束，请读取进度或先明确停止。',
         );
       if (
-        !o.memory.task ||
-        !['running', 'waiting'].includes(o.memory.task.status)
+        !o.memory.task.current ||
+        !['running', 'waiting'].includes(o.memory.task.current.status)
       )
         throw new AgentRuntimeError(
           'No active running task. For a NEW human action request, call start_task(goal) FIRST, then retry the world tool. Do not claim completion: no world action was executed. A paused or exhausted task must be resumed, never recreated.',
@@ -105,8 +105,8 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
       const tool = taskTools.find((t) => t.name === name)!;
       if (!background) {
         const valueResult = await tool.execute(id, value, ...rest);
-        if (name === 'follow' && o.memory.follow)
-          o.memory.activeAction = {
+        if (name === 'follow' && o.memory.effects.follow)
+          o.memory.effects.activeAction = {
             id,
             name,
             taskId: lease.id,
@@ -115,7 +115,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
           };
         return valueResult;
       }
-      o.memory.activeAction = {
+      o.memory.effects.activeAction = {
         id,
         name,
         taskId: lease.id,
@@ -127,7 +127,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
         .then(
           (value) => {
             if (o.service.current(lease))
-              o.memory.activeAction = {
+              o.memory.effects.activeAction = {
                 id,
                 name,
                 taskId: lease.id,
@@ -138,7 +138,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
           },
           (error) => {
             if (o.service.current(lease))
-              o.memory.activeAction = {
+              o.memory.effects.activeAction = {
                 id,
                 name,
                 taskId: lease.id,
@@ -155,7 +155,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
               kind: 'action_result',
               state: 'pending',
               at: Date.now(),
-              audience: o.memory.task?.privateTo ?? 'public',
+              audience: o.memory.task.current?.privateTo ?? 'public',
               taskId: lease.id,
               revision: lease.revision,
               actionId: id,

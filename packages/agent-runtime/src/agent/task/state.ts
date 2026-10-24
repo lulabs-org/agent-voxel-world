@@ -1,51 +1,20 @@
-import type { AICharacterTask, AICharacterUsage } from '@voxel/shared';
-import type { BuildAction, BuildResult, BatchResult } from '../../contracts';
+import type { AICharacterTask } from '@voxel/shared';
+import type { BatchResult } from '../../contracts/action';
+import type { AgentRunState } from '../../contracts/state';
 
-export type AgentRunState = {
-  version?: 2;
-  inbox?: { version: 1; events: CharacterEvent[] };
-  exchanges?: Record<string, unknown[]>;
-  activeAction?: {
-    id: string;
-    name: string;
-    taskId: string;
-    revision: number;
-    status:
-      | 'running'
-      | 'completed'
-      | 'failed'
-      | 'unknown'
-      | 'paused'
-      | 'cancelled';
-    result?: unknown;
-  };
-
-  lastChatAt?: number;
-  conversation?: { key: string; state: 'accepted' | 'reply_unknown' | 'done' };
-  identity?: { id: string; revision: number; startedAt: number };
-  unknownEffect?: { id: string; name: string; state: 'unknown' };
-  follow?: {
-    action: { type: 'follow'; playerId: string; distance: number };
-    taskStartedAt: number;
-    pursuing: boolean;
-    stalledSlices?: number;
-    lastResult?: import('../../contracts').NavigationResult;
-  };
-  pi?: PiCheckpoint;
-  task?: AICharacterTask;
-  usage?: AICharacterUsage;
-  previous?: unknown;
-  pendingEffects?: BatchResult;
-  lastReply?: BatchResult;
-  unfinishedBuild?: { action: BuildAction; result: BuildResult };
-  waitSignature?: string;
-  failures?: number;
-  noProgress?: number;
-  lastProgress?: string;
-  lastResponse?: string;
-  decisionError?: string;
-  audienceExpired?: boolean;
-};
+export type {
+  ActiveAction,
+  FollowIntent,
+  TaskSection,
+  ConversationSection,
+  CheckpointSection,
+  EffectsSection,
+  HealthSection,
+  AgentRunState,
+  PiCheckpoint,
+  CharacterEvent,
+} from '../../contracts/state';
+export { emptyState, snapshotState } from '../../contracts/state';
 
 export function newTask(
   goal: string,
@@ -88,31 +57,5 @@ export function restoreBatchHistory(value: unknown): BatchResult | undefined {
   return batch;
 }
 
-export type PiCheckpoint = {
-  version: 1 | 2 | 3;
-  taskId?: string;
-  revision?: number;
-  taskStartedAt: number;
-  audience: string;
-  /** Opaque adapter data; only the Pi boundary interprets model messages. */
-  messages: unknown[];
-  inFlight?: { id: string; name: string; state: 'executing' | 'unknown' };
-};
-
-/** Durable input/result envelope; content never grants authority. */
-export type CharacterEvent = {
-  id: string;
-  kind: 'chat' | 'plan' | 'action_result' | 'control';
-  state: 'pending' | 'processing' | 'done' | 'unknown';
-  at: number;
-  audience: string;
-  actor?: string;
-  runId?: string;
-  planId?: string;
-  characterId?: string;
-  taskId?: string;
-  revision?: number;
-  actionId?: string;
-  message?: import('@voxel/shared').WorldEvent;
-  detail?: string;
-};
+/** Compile-time guard: the runtime state type is the durable one. */
+export type RuntimeState = AgentRunState;

@@ -8,6 +8,7 @@ import {
   newTask,
   type AgentRunState,
 } from '../../packages/agent-runtime/src/agent/task/state';
+import { emptyState } from '@voxel/agent-runtime';
 import { runTaskStep } from './decision-step';
 
 /** Draw a fresh inclusive interval after a completed turn; requests never overlap. */
@@ -31,16 +32,16 @@ export async function runAgent(
   config: AgentConfig,
   signal: AbortSignal,
   log: (message: string) => void = console.log,
-  memory: AgentRunState = {},
+  memory: AgentRunState = emptyState(),
   attention?: AgentAttention,
 ) {
-  memory.task ??= newTask(config.goal);
+  memory.task.current ??= newTask(config.goal);
   do {
     if (signal.aborted) break;
     await runTaskStep(session, planner, config, signal, memory, attention, log);
     if (
       signal.aborted ||
-      (!attention?.pending && memory.task?.status !== 'running')
+      (!attention?.pending && memory.task.current?.status !== 'running')
     )
       break;
     if (attention) await attention.wait(nextIntervalMs(config), signal);

@@ -1,3 +1,4 @@
+import { emptyState } from '@voxel/agent-runtime';
 import { expect, it } from 'vitest';
 import {
   newTask,
@@ -53,9 +54,9 @@ function fixture() {
     ],
   };
   const memory: AgentRunState = {
-    task: newTask('到我这里来'),
-    pendingEffects: pending,
-    previous,
+    ...emptyState(),
+    task: { current: newTask('到我这里来') },
+    effects: { pendingEffects: pending, previous },
   };
   const reconcile = () =>
     prepareDecision(w.session, memory, new AbortController().signal);
@@ -65,7 +66,7 @@ function fixture() {
 it('a verified corrected destination supersedes a known failed goto', async () => {
   const f = fixture();
   await f.reconcile();
-  expect(f.memory.pendingEffects).toBeUndefined();
+  expect(f.memory.effects.pendingEffects).toBeUndefined();
 });
 it.each(['unknown', 'not-arrived', 'chat-only', 'failed-edit'] as const)(
   'does not erase unresolved effects after %s',
@@ -88,6 +89,6 @@ it.each(['unknown', 'not-arrived', 'chat-only', 'failed-edit'] as const)(
         result: { ok: false, id: 'edit', revision: 1 },
       });
     await f.reconcile();
-    expect(f.memory.pendingEffects).toBeDefined();
+    expect(f.memory.effects.pendingEffects).toBeDefined();
   },
 );

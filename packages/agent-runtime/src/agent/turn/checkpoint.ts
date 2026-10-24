@@ -5,28 +5,30 @@ import { recentTurns } from './window';
 
 /** Model-specific deserialization stays outside task policy and persisted state types. */
 export function checkpointMessages(memory: AgentRunState): Message[] {
-  return recentTurns((memory.pi?.messages ?? []) as Message[]);
+  return recentTurns((memory.checkpoint.pi?.messages ?? []) as Message[]);
 }
 
 /** Migrate both current and archived run states without replaying old tool calls. */
 export function restoreCheckpoint(memory: AgentRunState) {
-  memory.previous = restoreBatchHistory(memory.previous);
-  if (memory.pendingEffects)
-    memory.pendingEffects = restoreBatchHistory(memory.pendingEffects);
-  const previous = memory.previous as
+  memory.effects.previous = restoreBatchHistory(memory.effects.previous);
+  if (memory.effects.pendingEffects)
+    memory.effects.pendingEffects = restoreBatchHistory(
+      memory.effects.pendingEffects,
+    );
+  const previous = memory.effects.previous as
     | import('../../contracts').BatchResult
     | undefined;
   if (
-    !memory.pendingEffects &&
+    !memory.effects.pendingEffects &&
     previous?.results?.some((r) => r.status === 'unknown')
   )
-    memory.pendingEffects = structuredClone(previous);
-  const saved = memory.pi;
+    memory.effects.pendingEffects = structuredClone(previous);
+  const saved = memory.checkpoint.pi;
   if (saved?.inFlight)
-    memory.unknownEffect = { ...saved.inFlight, state: 'unknown' };
-  if (!memory.task) {
-    delete memory.pi;
-    memory.version = 2;
+    memory.checkpoint.unknownEffect = { ...saved.inFlight, state: 'unknown' };
+  if (!memory.task.current) {
+    delete memory.checkpoint.pi;
+    memory.version = 3;
     return;
   }
   const identity = new TaskService(memory).lease();
@@ -35,19 +37,19 @@ export function restoreCheckpoint(memory: AgentRunState) {
     ![2, 3].includes(saved.version) ||
     saved.taskId !== identity.id ||
     saved.revision !== identity.revision ||
-    saved.taskStartedAt !== memory.task.startedAt ||
-    saved.audience !== (memory.task.privateTo ?? 'public')
+    saved.taskStartedAt !== memory.task.current.startedAt ||
+    saved.audience !== (memory.task.current.privateTo ?? 'public')
   ) {
-    delete memory.pi;
+    delete memory.checkpoint.pi;
   } else {
     try {
       saved.messages = checkpointMessages(memory);
     } catch {
-      delete memory.pi;
+      delete memory.checkpoint.pi;
     }
     if (saved.inFlight) saved.inFlight.state = 'unknown';
   }
-  memory.version = 2;
+  memory.version = 3;
 }
 
 export function updateCheckpoint(
@@ -55,22 +57,25 @@ export function updateCheckpoint(
   messages: Message[],
   apiKey?: string,
 ) {
-  if (!memory.task || ['completed', 'cancelled'].includes(memory.task.status)) {
-    delete memory.pi;
+  if (
+    !memory.task.current ||
+    ['completed', 'cancelled'].includes(memory.task.current.status)
+  ) {
+    delete memory.checkpoint.pi;
     return;
   }
   const identity = new TaskService(memory).lease();
-  memory.pi = {
+  memory.checkpoint.pi = {
     version: 3,
     taskId: identity.id,
     revision: identity.revision,
-    taskStartedAt: memory.task.startedAt,
-    audience: memory.task.privateTo ?? 'public',
+    taskStartedAt: memory.task.current.startedAt,
+    audience: memory.task.current.privateTo ?? 'public',
     messages: recentTurns(messages),
-    inFlight: memory.pi?.inFlight,
+    inFlight: memory.checkpoint.pi?.inFlight,
   };
   if (apiKey)
-    memory.pi = JSON.parse(
-      JSON.stringify(memory.pi).split(apiKey).join('[已隐藏]'),
+    memory.checkpoint.pi = JSON.parse(
+      JSON.stringify(memory.checkpoint.pi).split(apiKey).join('[已隐藏]'),
     );
 }

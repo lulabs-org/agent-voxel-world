@@ -4,7 +4,7 @@
 
 包按两条能力轴切开：`world/` 只懂世界协议与物理，`agent/` 只懂角色策略与模型。`api/` 是宿主唯一接触面，`contracts/` 是纯类型叶子层，`persistence/` 是唯一认识旧存档格式的地方。
 
-> **状态**：目录结构已按本文迁移（PR-1），旧路径对照见[文末](#附录旧路径对照)。`api/` 目前只有执行槽；`createAgentRuntime`/`intake` 门面、`ToolHost` 与时间原语、`AgentState v3` 与 `Turn` 对象化仍按 PR-2/PR-3 推进。行为规范以本文为准。
+> **状态**：目录结构、`kernel/` 原语与 `AgentState v3` 分区已完成（PR-1～PR-3），旧路径对照见[文末](#附录旧路径对照)。剩余：`Turn` 对象化与 `ToolHost`（PR-4）、`api/intake` 与 `createAgentRuntime` 门面及宿主迁移（PR-5）。行为规范以本文为准。
 
 ## 设计原则
 
@@ -80,8 +80,7 @@ packages/agent-runtime/
     │   ├── model/{port,pi,stream,ollama,catalog}.ts
     │   └── schedule.ts     # headless 循环，仅 CLI 使用
     ├── persistence/        # 存档格式与迁移
-    │   ├── serialize.ts
-    │   ├── migrate.ts      # v1/v2 → v3，含旧批次恢复
+    │   ├── migrate.ts      # v1/v2 → v3，唯一认识旧结构的地方
     │   └── fixtures/       # 历史档快照，迁移回归用
     └── testing/            # "./testing"：内存 Session、假模型、可控 Clock/Id
 ```
@@ -174,6 +173,8 @@ await runtime.stop();
 | `checkpoint`   | Pi 转录检查点、未确认动作                                 | `agent/turn`   |
 | `effects`      | 最近批次、未完成建造、跟随意图、后台动作                  | `agent/action` |
 | `inbox`        | 待处理事件与最近 64 条审计记录                            | `api/intake`   |
+
+`persistence/migrate.ts` 的 `restoreState(raw)` 是唯一读取旧档的入口（idempotent，未知输入降级为空分区），`emptyState()` 构造完整 v3 分区，`snapshotState()` 生成不含 `usage` 的历史运行快照。分区是原地写入的同一对象：现有调用方持有的 `memory` 引用在任务重置后仍然有效。
 
 规则：
 

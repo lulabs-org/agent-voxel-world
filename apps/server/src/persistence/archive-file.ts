@@ -78,9 +78,9 @@ async function createHistoricalBackups(
   if (
     saved.some(
       (view) =>
-        view.runtime?.version !== 2 ||
+        (view.runtime?.version ?? 0) < 3 ||
         view.taskBook?.runs.some(
-          (run) => run.runtime && run.runtime.version !== 2,
+          (run) => run.runtime && (run.runtime.version ?? 0) < 3,
         ),
     )
   ) {

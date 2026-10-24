@@ -1,3 +1,4 @@
+import { emptyState } from '@voxel/agent-runtime';
 import { controlRun } from '../../../../tests/support/managed-tasks';
 import { createTestServer } from '../helpers/test-server';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -122,7 +123,10 @@ try {
     }
   }
   await reset();
-  const memory: AgentRunState = { task: newTask('持续跟随') };
+  const memory: AgentRunState = {
+    ...emptyState(),
+    task: { current: newTask('持续跟随') },
+  };
   const config = {
     ...testAgentConfig(),
     taskTimeoutMs: 60000,
@@ -150,7 +154,7 @@ try {
   );
   try {
     await delay(3000);
-    assert(memory.follow, 'native tool registers follow');
+    assert(memory.effects.follow, 'native tool registers follow');
     let o = await agent.observe();
     assert(Math.abs(o.self.x - 4) <= 1.5, `follow arrival ${o.self.x}`);
     for (let i = 0; i < 8; i++) {
@@ -182,7 +186,7 @@ try {
     'cancel stops held input',
   );
   assert.equal(
-    memory.task!.status,
+    memory.task.current!.status,
     'waiting',
     'being near target never completes a continuous task',
   );

@@ -3,7 +3,7 @@ import {
   DEFAULT_TASK_LIMITS,
   type AICharacterView,
 } from '@voxel/shared';
-import type { AgentRunState } from '@voxel/agent-runtime';
+import { emptyState, type AgentRunState } from '@voxel/agent-runtime';
 import { AppError } from '../../../common/errors';
 import { newPlan, newRun } from '../domain/model';
 import type { TaskBook } from '../domain/types';
@@ -68,8 +68,8 @@ export function migrateCharacterTasks(
       target.requests[`${a.id}:${key}`] = id;
     a.currentRunId = book.currentRunId;
   }
-  if (!book && (a.runtime?.task || a.task)) {
-    const task = a.runtime?.task ?? a.task!;
+  if (!book && (a.runtime?.task.current || a.task)) {
+    const task = a.runtime?.task.current ?? a.task!;
     const p = {
       ...newPlan(
         {
@@ -96,7 +96,7 @@ export function migrateCharacterTasks(
     r.task = structuredClone(task);
     r.runtime = a.runtime
       ? structuredClone(a.runtime)
-      : { task: structuredClone(task) };
+      : { ...emptyState(), task: { current: structuredClone(task) } };
     r.status = task.status;
     r.totalTokens = task.tokens;
     r.accountedTokens = task.tokens;
