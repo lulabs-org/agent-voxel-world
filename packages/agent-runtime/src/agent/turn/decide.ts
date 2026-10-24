@@ -3,7 +3,8 @@ import {
   createInitialSystemMessage,
   type Message,
 } from '@earendil-works/pi-ai';
-import { recentInteractions, recentTurns, type ToolState } from './window';
+import type { ToolState } from '../../contracts/tool-state';
+import { recentInteractions, recentTurns } from './window';
 import { TOOL_PROTOCOL_CORRECTION } from '../prompt/system';
 import type { AgentConfig, ModelEndpoint } from '../../contracts';
 import { AgentRuntimeError } from '../../contracts/errors';
