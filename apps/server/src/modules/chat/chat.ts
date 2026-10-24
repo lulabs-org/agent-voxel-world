@@ -1,6 +1,7 @@
 import { AppError } from '../../common/errors';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
+  CHAT_MIN_INTERVAL_MS,
   parseChatRoute,
   spatialMix,
   SPEECH_HEARING_THRESHOLD,
@@ -86,7 +87,7 @@ export class WorldChat {
       if (route.recipients.length > 8)
         throw new AppError('接收对象最多选择 8 位。');
     }
-    if (Date.now() - (this.sent.get(actor) ?? 0) < 300)
+    if (Date.now() - (this.sent.get(actor) ?? 0) < CHAT_MIN_INTERVAL_MS)
       throw new AppError('发送过快，请稍候。', 429);
     this.sent.set(actor, Date.now());
     this.emit(actor, {

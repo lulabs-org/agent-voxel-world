@@ -1,4 +1,8 @@
 import type { WorldEvent } from '../world/core';
+/** Server-enforced minimum gap between two chat messages from the same player. */
+export const CHAT_MIN_INTERVAL_MS = 300;
+/** Client-side pacing: server limit plus headroom for network/clock jitter. */
+export const CHAT_PACE_INTERVAL_MS = CHAT_MIN_INTERVAL_MS + 50;
 export type ChatRoute = { scope: 'public' | 'private'; recipients: string[] };
 export type ChatData = Omit<ChatRoute, 'scope'> & {
   scope: 'public' | 'private' | 'nearby';

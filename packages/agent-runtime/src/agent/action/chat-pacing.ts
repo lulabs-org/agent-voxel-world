@@ -1,11 +1,15 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { CHAT_PACE_INTERVAL_MS } from '@voxel/shared';
 import type { AgentRunState } from '../task/state';
 
 /** Conversation replies and task reports share the world's per-player rate limit. */
 export async function paceChat(memory: AgentRunState, signal: AbortSignal) {
   if (memory.conversation.lastChatAt)
     await delay(
-      Math.max(0, 350 - (Date.now() - memory.conversation.lastChatAt)),
+      Math.max(
+        0,
+        CHAT_PACE_INTERVAL_MS - (Date.now() - memory.conversation.lastChatAt),
+      ),
       undefined,
       { signal },
     );
