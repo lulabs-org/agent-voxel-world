@@ -6,9 +6,9 @@ import { checkBudgetCap } from '../task/budget';
 import { toolSchemas } from './schema';
 import { createTaskTools } from './task';
 import { executeTaskActions } from '../action/executor';
-import { initialToolState } from '../turn/window';
+import { initialToolState } from '../../contracts/tool-state';
 import { recordEvent } from '../task/inbox';
-import type { TurnContext } from '../turn/turn';
+import type { ToolHost } from './port';
 
 const result = (value: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(value) }],
@@ -22,7 +22,7 @@ const result = (value: unknown) => ({
  * - Single-action execution mutual exclusion
  * - Background action launching & settlement event recording (goto, build, house)
  */
-export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
+export function createRuntimeWorldTools(o: ToolHost): AgentTool[] {
   return Object.entries(toolSchemas).map(([name, parameters]) => ({
     name,
     label: name,
@@ -75,10 +75,10 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
         service: o.service,
         lease,
         prepared: () => o.prepared(),
-        observe: o.observe,
+        observe: () => o.observe(),
         canChat: aiCharacterPermissions(o.config).chat,
         signal: toolSignal,
-        save: o.save,
+        save: () => o.save(),
         shouldYield: () => !background && !!o.attention?.pending,
         execute: async (action) => {
           const outcome = await executeTaskActions(
@@ -90,7 +90,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
             o.memory,
             o.budget,
             lease,
-            o.save,
+            () => o.save(),
             background ? undefined : o.attention,
             o.log,
           );
