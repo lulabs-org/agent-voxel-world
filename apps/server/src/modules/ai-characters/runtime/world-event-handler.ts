@@ -26,9 +26,7 @@ export function handleWorldEvent(
       state: 'pending',
       at: event.at,
       audience:
-        (event.data as ChatData).scope === 'public'
-          ? 'public'
-          : event.actor,
+        (event.data as ChatData).scope === 'public' ? 'public' : event.actor,
       actor: event.actor,
       message: event,
     });
@@ -54,7 +52,7 @@ export function handleWorldEvent(
     .trim()
     .replace(/^@[^\n]+?\s+(?=(?:暂停|停止|取消|别建))/u, '')
     .replace(/[！!。.?？\s]+$/u, '');
-  const task = job.memory.task;
+  const task = job.memory.task.current;
 
   if (
     task &&

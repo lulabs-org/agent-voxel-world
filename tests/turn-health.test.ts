@@ -1,8 +1,8 @@
+import { emptyState } from '@voxel/agent-runtime';
 import { expect, it, vi } from 'vitest';
 import { TurnHealthMonitor } from '../packages/agent-runtime/src/agent/turn/health';
 import { initialToolState } from '../packages/agent-runtime/src/agent/turn/window';
 import type { TaskService } from '../packages/agent-runtime/src/agent/task/service';
-import type { AgentRunState } from '../packages/agent-runtime/src/agent/task/state';
 import type { Observation } from '../packages/agent-runtime/src/contracts';
 
 function fixture(maxStalledTurns?: number) {
@@ -13,7 +13,10 @@ function fixture(maxStalledTurns?: number) {
     state: initialToolState(),
     attached: true,
     current: () => true,
-    memory: { task: { status: 'running' } } as AgentRunState,
+    memory: {
+      ...emptyState(),
+      task: { current: { status: 'running' } as never },
+    },
     service: { finish, lease: () => ({}) } as unknown as TaskService,
     hasMessage: false,
     launched: false,

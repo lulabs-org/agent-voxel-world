@@ -31,7 +31,7 @@ export interface TaskHostPort {
   ): AICharacterSettings;
   storageFailed(): boolean;
   committedName(id: string): string | undefined;
-  publicIdentity(id: string): AgentRunState['identity'];
+  publicIdentity(id: string): AgentRunState['task']['identity'];
   resourceVersion(): number;
   isClosing(): boolean;
   assertWritable(id?: string): void;

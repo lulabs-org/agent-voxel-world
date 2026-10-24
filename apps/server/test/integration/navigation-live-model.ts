@@ -82,9 +82,11 @@ try {
             ]),
             checkpoint: async () => {
               await options.checkpoint?.();
-              const task = options.memory.task;
+              const task = options.memory.task.current;
               if (task) taskStates.add(task.status);
-              const batch = options.memory.previous as BatchResult | undefined;
+              const batch = options.memory.effects.previous as
+                | BatchResult
+                | undefined;
               if (batch?.batchId)
                 for (const r of batch.results) {
                   if (r.action.type === 'goto')
@@ -232,7 +234,7 @@ try {
       const saved = archive.characters.find(
         (a: { id: string }) => a.id === managed.id,
       );
-      assert.equal(saved.runtime.task.status, 'completed');
+      assert.equal(saved.runtime.task.current.status, 'completed');
       assert(
         !archive.plans.some(
           (p: { characterId?: string }) => p.characterId === managed.id,

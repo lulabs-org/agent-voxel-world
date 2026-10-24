@@ -1,3 +1,4 @@
+import { emptyState } from '@voxel/agent-runtime';
 import { parseTaskDirective } from './support/decision-directive';
 import type { AgentDecision } from './support/decision-contracts';
 import { runTaskStep } from './support/decision-step';
@@ -42,7 +43,7 @@ function fixture() {
     request: vi.fn(async () => ({ ok: true, revision: 1, id: 'result' })),
     move: vi.fn(),
   };
-  const memory: AgentRunState = {};
+  const memory: AgentRunState = emptyState();
   const attention = new AgentAttention();
   const planner = {
     decide:
@@ -92,7 +93,7 @@ const decision = (
 describe('task-driven wake decisions', () => {
   it('a private greeting costs one call even with 30-call limit, and cannot restart a completed task', async () => {
     const f = fixture();
-    f.memory.task = { ...newTask('Build house'), status: 'completed' };
+    f.memory.task.current = { ...newTask('Build house'), status: 'completed' };
     f.message();
     f.planner.decide.mockResolvedValue({
       actions: [{ type: 'chat', text: '你好' }],
@@ -101,12 +102,16 @@ describe('task-driven wake decisions', () => {
     await f.step();
     for (let i = 0; i < 30; i++) await f.step();
     expect(f.planner.decide).toHaveBeenCalledTimes(1);
-    expect(f.memory.task.status).toBe('completed');
+    expect(f.memory.task.current.status).toBe('completed');
     expect(f.session.request).toHaveBeenCalledExactlyOnceWith(
       'chat',
       expect.objectContaining({ scope: 'private', recipients: ['human'] }),
     );
-    expect(f.memory.usage).toEqual({ calls: 1, tokens: 100, estimated: false });
+    expect(f.memory.task.usage).toEqual({
+      calls: 1,
+      tokens: 100,
+      estimated: false,
+    });
   });
   it('explicit task runs only as far as useful, verifies an action before completion, then stops polling', async () => {
     const f = fixture();
@@ -130,7 +135,7 @@ describe('task-driven wake decisions', () => {
         },
       });
     await f.step();
-    expect(f.memory.task?.status).toBe('running');
+    expect(f.memory.task.current?.status).toBe('running');
     f.observation.blocks.push({ x: 1, y: 3, z: 0, material: 'wood' });
     await f.step();
     await f.step();
@@ -142,7 +147,10 @@ describe('task-driven wake decisions', () => {
         }
       ).previous.results[0].result.ok,
     ).toBe(true);
-    expect(f.memory.task).toMatchObject({ status: 'completed', calls: 2 });
+    expect(f.memory.task.current).toMatchObject({
+      status: 'completed',
+      calls: 2,
+    });
     expect(f.session.request).toHaveBeenLastCalledWith(
       'chat',
       expect.objectContaining({ scope: 'private', recipients: ['human'] }),
@@ -150,8 +158,8 @@ describe('task-driven wake decisions', () => {
   });
   it('public status questions preserve private task progress without exposing its context', async () => {
     const f = fixture();
-    f.memory.task = newTask('private secret', 'human', 'human');
-    f.memory.previous = { secret: true };
+    f.memory.task.current = newTask('private secret', 'human', 'human');
+    f.memory.effects.previous = { secret: true };
     f.message('在做什么', 'public', 'other');
     f.planner.decide.mockResolvedValue(decision('reply', 'completed'));
     await f.step();
@@ -161,14 +169,14 @@ describe('task-driven wake decisions', () => {
     expect(
       (f.planner.decide.mock.calls[0][1] as { previous?: unknown }).previous,
     ).toBeUndefined();
-    expect(f.memory.previous).toEqual({ secret: true });
-    expect(f.memory.task.status).toBe('running');
-    expect(f.memory.task.calls).toBe(0);
+    expect(f.memory.effects.previous).toEqual({ secret: true });
+    expect(f.memory.task.current.status).toBe('running');
+    expect(f.memory.task.current.calls).toBe(0);
   });
   it('task update retains previous action context and unfinished plan', async () => {
     const f = fixture();
-    f.memory.task = newTask('build house', 'human', 'human');
-    f.memory.previous = { progress: 12 };
+    f.memory.task.current = newTask('build house', 'human', 'human');
+    f.memory.effects.previous = { progress: 12 };
     f.message('门朝东');
     f.planner.decide.mockResolvedValue(
       decision('update', 'running', { goal: 'build house, door east' }),
@@ -179,14 +187,14 @@ describe('task-driven wake decisions', () => {
     ).toEqual({
       progress: 12,
     });
-    expect(f.memory.task).toMatchObject({
+    expect(f.memory.task.current).toMatchObject({
       goal: 'build house, door east',
       status: 'running',
     });
   });
   it('unchanged waiting polls avoid inference; a relevant local world change wakes once', async () => {
     const f = fixture();
-    f.memory.task = newTask('waiting');
+    f.memory.task.current = newTask('waiting');
     f.planner.decide
       .mockResolvedValueOnce(
         decision('continue', 'waiting', { waitFor: 'world' }),
@@ -203,7 +211,7 @@ describe('task-driven wake decisions', () => {
   });
   it('needs_input and blocked states do not loop and a human update can unblock', async () => {
     const f = fixture();
-    f.memory.task = newTask('build');
+    f.memory.task.current = newTask('build');
     f.planner.decide
       .mockResolvedValueOnce(decision('continue', 'needs_input'))
       .mockResolvedValueOnce(
@@ -214,38 +222,38 @@ describe('task-driven wake decisions', () => {
     expect(f.planner.decide).toHaveBeenCalledTimes(1);
     f.message('在东边');
     await f.step();
-    expect(f.memory.task?.status).toBe('running');
+    expect(f.memory.task.current?.status).toBe('running');
   });
   it('budget guards still apply to legacy continuous mode and ordinary chat cannot reset them', async () => {
     const f = fixture();
-    f.memory.task = newTask('forever');
+    f.memory.task.current = newTask('forever');
     f.planner.decide.mockResolvedValue(decision());
     await f.step({ ...cfg(), maxTurns: 1, continuous: true });
-    expect(f.memory.task.status).toBe('budget');
+    expect(f.memory.task.current.status).toBe('budget');
     f.message();
     f.planner.decide.mockResolvedValue(decision('reply', 'completed'));
     await f.step({ ...cfg(), maxTurns: 1 });
     await f.step({ ...cfg(), maxTurns: 1 });
     expect(f.planner.decide).toHaveBeenCalledTimes(2);
-    expect(f.memory.task.status).toBe('budget');
-    expect(f.memory.task.calls).toBe(1);
+    expect(f.memory.task.current.status).toBe('budget');
+    expect(f.memory.task.current.calls).toBe(1);
   });
   it('token exhaustion and time exhaustion stop further model calls', async () => {
     for (const task of [{ tokens: 1000 }, { elapsedMs: 1000 }]) {
       const f = fixture();
-      f.memory.task = { ...newTask('build'), ...task };
+      f.memory.task.current = { ...newTask('build'), ...task };
       await f.step({ ...cfg(), tokenBudget: 1000, taskTimeoutMs: 1000 });
-      expect(f.memory.task.status).toBe('budget');
+      expect(f.memory.task.current.status).toBe('budget');
       expect(f.planner.decide).not.toHaveBeenCalled();
     }
   });
   it('repeated no-progress decisions stop instead of consuming the remaining 30 calls', async () => {
     const f = fixture();
-    f.memory.task = newTask('stuck');
+    f.memory.task.current = newTask('stuck');
     f.planner.decide.mockResolvedValue(decision());
     for (let i = 0; i < 10; i++) await f.step();
     expect(f.planner.decide).toHaveBeenCalledTimes(4);
-    expect(f.memory.task.status).toBe('blocked');
+    expect(f.memory.task.current.status).toBe('blocked');
   });
   it('cannot attach destructive action to a greeting or create a task from an automatic poll', async () => {
     const f = fixture();
@@ -262,22 +270,22 @@ describe('task-driven wake decisions', () => {
         text: expect.stringContaining('处理失败'),
       }),
     );
-    f.memory.task = newTask('old');
+    f.memory.task.current = newTask('old');
     f.planner.decide.mockResolvedValue(
       decision('task', 'running', { goal: 'new' }),
     );
     await f.step();
-    expect(f.memory.task.goal).toBe('old');
+    expect(f.memory.task.current.goal).toBe('old');
   });
   it('pause/cancel actions preserve the character and stop autonomous work', async () => {
     for (const intent of ['pause', 'cancel'] as const) {
       const f = fixture();
-      f.memory.task = newTask('build', 'human');
+      f.memory.task.current = newTask('build', 'human');
       f.message(intent);
       f.planner.decide.mockResolvedValue(decision(intent, 'completed'));
       await f.step();
       await f.step();
-      expect(f.memory.task.status).toBe(
+      expect(f.memory.task.current.status).toBe(
         intent === 'pause' ? 'paused' : 'cancelled',
       );
       expect(f.planner.decide).toHaveBeenCalledTimes(1);
@@ -287,7 +295,7 @@ describe('task-driven wake decisions', () => {
   it('drops a late model action after cancellation and still accounts for the request', async () => {
     const f = fixture(),
       abort = new AbortController();
-    f.memory.task = newTask('build');
+    f.memory.task.current = newTask('build');
     f.planner.decide.mockImplementation(async () => {
       abort.abort();
       return {
@@ -301,7 +309,7 @@ describe('task-driven wake decisions', () => {
     });
     await f.step(cfg(), abort.signal);
     expect(f.session.request).not.toHaveBeenCalled();
-    expect(f.memory.usage?.calls).toBe(1);
+    expect(f.memory.task.usage?.calls).toBe(1);
   });
   it('nearby human speech wakes once without replaying old observation chat', async () => {
     const f = fixture();
@@ -337,9 +345,9 @@ describe('task-driven wake decisions', () => {
 
 it('reconciles a resumed blueprint against observed blocks before claiming completion', async () => {
   const f = fixture();
-  f.memory.task = newTask('finish house');
+  f.memory.task.current = newTask('finish house');
   const block = { x: 1, y: 3, z: 1, material: 'wood' as const };
-  f.memory.unfinishedBuild = {
+  f.memory.effects.unfinishedBuild = {
     action: { type: 'build', blocks: [block] },
     result: {
       ok: false,
@@ -354,14 +362,14 @@ it('reconciles a resumed blueprint against observed blocks before claiming compl
   f.observation.blocks.push(block);
   f.planner.decide.mockResolvedValue(decision('continue', 'completed'));
   await f.step();
-  expect(f.memory.unfinishedBuild).toBeUndefined();
-  expect(f.memory.task.status).toBe('completed');
+  expect(f.memory.effects.unfinishedBuild).toBeUndefined();
+  expect(f.memory.task.current.status).toBe('completed');
 });
 it('does not send a false completion report while a blueprint still has missing blocks', async () => {
   const f = fixture();
-  f.memory.task = newTask('finish house');
+  f.memory.task.current = newTask('finish house');
   const block = { x: 1, y: 3, z: 1, material: 'wood' as const };
-  f.memory.unfinishedBuild = {
+  f.memory.effects.unfinishedBuild = {
     action: { type: 'build', blocks: [block] },
     result: {
       ok: false,
@@ -378,7 +386,7 @@ it('does not send a false completion report while a blueprint still has missing 
     task: { intent: 'continue', status: 'completed', summary: 'done' },
   });
   await f.step();
-  expect(f.memory.task.status).toBe('blocked');
+  expect(f.memory.task.current.status).toBe('blocked');
   expect(f.session.request).toHaveBeenCalledWith(
     'chat',
     expect.objectContaining({ text: expect.stringContaining('未确认完成') }),
@@ -387,12 +395,12 @@ it('does not send a false completion report while a blueprint still has missing 
 
 it('reports failed addressed decisions privately and leaves the previous task intact', async () => {
   const f = fixture();
-  f.memory.task = {
+  f.memory.task.current = {
     ...newTask('Existing house'),
     status: 'waiting',
     waitFor: 'world',
   };
-  const task = structuredClone(f.memory.task);
+  const task = structuredClone(f.memory.task.current);
   f.message('到我这里来', 'public');
   f.planner.decide.mockRejectedValueOnce(new Error('malformed decision'));
   await f.step();
@@ -401,8 +409,8 @@ it('reports failed addressed decisions privately and leaves the previous task in
     scope: 'private',
     recipients: ['human'],
   });
-  expect(f.memory.task).toEqual(task);
-  expect(f.memory.usage?.calls).toBe(1);
+  expect(f.memory.task.current).toEqual(task);
+  expect(f.memory.task.usage?.calls).toBe(1);
   f.message('你好', 'public');
   f.planner.decide.mockResolvedValueOnce({
     actions: [{ type: 'chat', text: '你好' }],
@@ -428,7 +436,7 @@ it('acknowledges a movement task and verifies position without waiting for block
   });
   await f.step();
   expect(f.session.move).toHaveBeenCalledWith(1, 0, false);
-  expect(f.memory.task?.status).toBe('running');
+  expect(f.memory.task.current?.status).toBe('running');
   expect(f.session.request).toHaveBeenCalledWith(
     'chat',
     expect.objectContaining({
@@ -445,7 +453,7 @@ it('acknowledges a movement task and verifies position without waiting for block
   await f.step();
   await f.step();
   expect(f.planner.decide).toHaveBeenCalledTimes(2);
-  expect(f.memory.task?.status).toBe('completed');
+  expect(f.memory.task.current?.status).toBe('completed');
 });
 
 it('accepts null optional task fields but still requires a goal and wait condition when applicable', () => {
@@ -478,17 +486,20 @@ it('accepts null optional task fields but still requires a goal and wait conditi
 
 it('treats a repeated identical task as continuation without resetting its owner, progress or budget', async () => {
   const f = fixture();
-  f.memory.task = {
+  f.memory.task.current = {
     ...newTask('走到玩家身边', 'human', 'human'),
     calls: 5,
     tokens: 500,
   };
-  f.memory.previous = { action: { type: 'move' }, result: { ok: true } };
+  f.memory.effects.previous = {
+    action: { type: 'move' },
+    result: { ok: true },
+  };
   f.planner.decide.mockResolvedValue(
     decision('task', 'running', { goal: '走到玩家身边' }),
   );
   await f.step();
-  expect(f.memory.task).toMatchObject({
+  expect(f.memory.task.current).toMatchObject({
     goal: '走到玩家身边',
     owner: 'human',
     privateTo: 'human',
@@ -496,18 +507,18 @@ it('treats a repeated identical task as continuation without resetting its owner
     tokens: 600,
     status: 'running',
   });
-  expect(f.memory.decisionError).toBeUndefined();
+  expect(f.memory.health.decisionError).toBeUndefined();
 });
 
 it('reports the rejected intent to the next decision without changing the task or leaking raw errors', async () => {
   const f = fixture();
-  f.memory.task = newTask('走到玩家身边');
+  f.memory.task.current = newTask('走到玩家身边');
   f.planner.decide.mockResolvedValueOnce(
     decision('task', 'running', { goal: 'different goal' }),
   );
   await f.step();
-  expect(f.memory.lastResponse).toContain('intent=continue');
-  expect(f.memory.task.goal).toBe('走到玩家身边');
+  expect(f.memory.health.lastResponse).toContain('intent=continue');
+  expect(f.memory.task.current.goal).toBe('走到玩家身边');
   f.planner.decide.mockImplementationOnce(async (_observation, context) => {
     expect(context).toMatchObject({
       decisionError: expect.stringContaining('intent=continue'),
@@ -515,13 +526,13 @@ it('reports the rejected intent to the next decision without changing the task o
     return decision('continue', 'completed');
   });
   await f.step();
-  expect(f.memory.task.status).toBe('completed');
-  expect(f.memory.decisionError).toBeUndefined();
+  expect(f.memory.task.current.status).toBe('completed');
+  expect(f.memory.health.decisionError).toBeUndefined();
 });
 
 it('keeps counting unlimited execution beyond all saved caps without scheduling an infinite timeout', async () => {
   const f = fixture();
-  f.memory.task = {
+  f.memory.task.current = {
     ...newTask('继续观察'),
     calls: 300,
     tokens: 2000000,
@@ -544,10 +555,10 @@ it('keeps counting unlimited execution beyond all saved caps without scheduling 
     }),
   });
   expect(f.planner.decide).toHaveBeenCalledOnce();
-  expect(f.memory.task).toMatchObject({
+  expect(f.memory.task.current).toMatchObject({
     status: 'completed',
     calls: 301,
     tokens: 2000100,
   });
-  expect(f.memory.task.elapsedMs).toBeGreaterThanOrEqual(8000010);
+  expect(f.memory.task.current.elapsedMs).toBeGreaterThanOrEqual(8000010);
 });

@@ -36,7 +36,7 @@ export function runView(run: StoredRun): TaskRun {
   const { runtime, accountedTokens, requestId, lastBatch, ...view } = run;
   return structuredClone({
     ...view,
-    requiresReassignment: runtime?.audienceExpired,
+    requiresReassignment: runtime?.conversation.audienceExpired,
   });
 }
 

@@ -60,7 +60,7 @@ export function restoreAICharacterJob(
 
   restoreTaskExecution(
     executionState(job),
-    !view.currentRunId && !!view.runtime?.task,
+    !view.currentRunId && !!view.runtime?.task.current,
   );
 
   const shouldAutoJoin = ['idle', 'running', 'joining', 'failed'].includes(

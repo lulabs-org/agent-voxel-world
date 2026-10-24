@@ -6,6 +6,7 @@ import {
   type AICharacterSettings,
 } from '@voxel/shared';
 import { randomUUID } from 'node:crypto';
+import { emptyState } from '@voxel/agent-runtime';
 import type { ProviderPort } from '../../providers/provider-port';
 import type { ArchivePort } from '../../../persistence/archive';
 import { ManagementEvents } from '../../management/events';
@@ -219,7 +220,7 @@ export class AICharacterOrchestrator {
   }
 
   taskIdentity(id: string) {
-    return this.jobs.get(id)?.memory.identity;
+    return this.jobs.get(id)?.memory.task.identity;
   }
 
   interrupt(id: string) {
@@ -240,21 +241,21 @@ export class AICharacterOrchestrator {
         const run = this.plans.runs.find((run) => run.id === currentRunId);
         return structuredClone({
           ...view,
-          goal: memory.task?.goal ?? view.goal,
+          goal: memory.task.current?.goal ?? view.goal,
           voiceServiceName: this.voiceCoordinator.getServiceName(
             view.voiceServiceId,
           ),
-          task: memory.task,
+          task: memory.task.current,
           taskExecution: run
             ? {
                 runId: run.id,
                 limits: run.snapshot.limits,
                 source: run.source,
-                action: memory.activeAction
+                action: memory.effects.activeAction
                   ? {
-                      id: memory.activeAction.id,
-                      name: memory.activeAction.name,
-                      status: memory.activeAction.status,
+                      id: memory.effects.activeAction.id,
+                      name: memory.effects.activeAction.name,
+                      status: memory.effects.activeAction.status,
                     }
                   : undefined,
               }
@@ -268,9 +269,9 @@ export class AICharacterOrchestrator {
               scheduledAt: r.scheduledAt,
               coalescedTriggers: r.coalescedTriggers ?? 0,
             })),
-          usage: memory.usage,
-          lastResponse: memory.lastResponse,
-          taskRequiresReassignment: !!memory.audienceExpired,
+          usage: memory.task.usage,
+          lastResponse: memory.health.lastResponse,
+          taskRequiresReassignment: !!memory.conversation.audienceExpired,
         });
       })
       .reverse();
@@ -317,7 +318,7 @@ export class AICharacterOrchestrator {
         logEntries: [],
       },
       abort: new AbortController(),
-      memory: {},
+      memory: emptyState(),
       ledger: this.plans,
       attention: new AgentAttention(),
     };
@@ -364,7 +365,7 @@ export class AICharacterOrchestrator {
     const provider = this.providers.get(
       text(input.providerId, '模型服务', 80, job.view.providerId),
     );
-    const currentGoal = job.memory.task?.goal ?? job.view.goal;
+    const currentGoal = job.memory.task.current?.goal ?? job.view.goal;
     const settings = validateAICharacter(
       {
         ...job.view,
@@ -478,10 +479,12 @@ export class AICharacterOrchestrator {
     if (!canWakeJob(job, this.closing)) return;
     if (job.attention.pending) {
       this.taskScheduler.wake(job.view.id, 0, () => this.wake(job));
-    } else if (['running', 'waiting'].includes(job.memory.task?.status ?? '')) {
+    } else if (
+      ['running', 'waiting'].includes(job.memory.task.current?.status ?? '')
+    ) {
       this.taskScheduler.wake(
         job.view.id,
-        job.memory.follow ? 100 : nextIntervalMs(job.view),
+        job.memory.effects.follow ? 100 : nextIntervalMs(job.view),
         () => this.wake(job),
       );
     }

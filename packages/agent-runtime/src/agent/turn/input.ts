@@ -57,6 +57,6 @@ export function buildDecisionPayload(o: {
     event: o.event
       ? { kind: o.event.kind, id: o.event.id, detail: o.event.detail }
       : { kind: 'condition_changed' },
-    activeAction: visible ? o.memory.activeAction : undefined,
+    activeAction: visible ? o.memory.effects.activeAction : undefined,
   });
 }

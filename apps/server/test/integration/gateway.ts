@@ -22,9 +22,9 @@ const server = await createTestServer({
     session: (url) => new Session(url),
     runner: () => ({
       async run(o) {
-        if (o.memory.task) {
-          o.memory.task.status = 'waiting';
-          o.memory.task.reason = 'fixture';
+        if (o.memory.task.current) {
+          o.memory.task.current.status = 'waiting';
+          o.memory.task.current.reason = 'fixture';
         }
         await o.checkpoint?.();
       },
