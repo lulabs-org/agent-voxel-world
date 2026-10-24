@@ -1,6 +1,7 @@
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { aiCharacterPermissions } from '@voxel/shared';
 import { AgentRuntimeError } from '../../contracts/errors';
+import { mergeSignals } from '../../kernel/abort';
 import { checkBudgetCap } from '../task/budget';
 import { toolSchemas } from './schema';
 import { createTaskTools } from './task';
@@ -66,7 +67,7 @@ export function createRuntimeWorldTools(o: TurnContext): AgentTool[] {
       const lease = o.service.lease();
       const background = ['goto', 'build', 'house'].includes(name);
       const controller = new AbortController();
-      const toolSignal = AbortSignal.any([o.activeSignal, controller.signal]);
+      const toolSignal = mergeSignals(o.activeSignal, controller.signal);
       const toolState = background ? initialToolState() : o.state;
       const taskTools = createTaskTools({
         state: toolState,
