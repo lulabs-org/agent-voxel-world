@@ -1,6 +1,6 @@
 import type { AICharacterPermissions } from '@voxel/shared';
 import type { AgentDecision } from './decision-contracts';
-import { parseActions } from '../../packages/agent-runtime/src/actions/parse';
+import { parseActions } from '../../packages/agent-runtime/src/world/actions/parse';
 import { parseTaskDirective } from './decision-directive';
 
 /** Strict model and runtime boundary: validate the complete actions/task object before effects. */

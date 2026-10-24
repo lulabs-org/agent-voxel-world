@@ -4,7 +4,7 @@
 
 包按两条能力轴切开：`world/` 只懂世界协议与物理，`agent/` 只懂角色策略与模型。`api/` 是宿主唯一接触面，`contracts/` 是纯类型叶子层，`persistence/` 是唯一认识旧存档格式的地方。
 
-> **状态**：本文描述重构完成后的目标结构。当前实现仍在旧目录（`transport/`、`perception/`、`cognition/`、`models/`、`actions/`、`task/`、`runtime/`），路径对照见[文末](#附录旧路径对照)。行为规范以本文为准，迁移按 PR 顺序推进。
+> **状态**：目录结构已按本文迁移（PR-1），旧路径对照见[文末](#附录旧路径对照)。`api/` 目前只有执行槽；`createAgentRuntime`/`intake` 门面、`ToolHost` 与时间原语、`AgentState v3` 与 `Turn` 对象化仍按 PR-2/PR-3 推进。行为规范以本文为准。
 
 ## 设计原则
 
@@ -47,6 +47,7 @@ packages/agent-runtime/
     │   ├── observe/
     │   │   ├── extract.ts  # 观察裁剪、worldView、worldSignature
     │   │   ├── attention.ts # 纯过滤：是否为发给自己的真人消息
+    │   │   ├── scope.ts    # 私聊与广播事件的可见性隔离
     │   │   └── verify.ts   # arrived / observedEmpty / 方块比对谓词
     │   ├── actions/
     │   │   ├── parse.ts    # 模型输出 → 合法动作
@@ -60,6 +61,8 @@ packages/agent-runtime/
     │   ├── turn/           # 一次决策的生命周期
     │   │   ├── turn.ts     # 显式 Turn：lease/budget/observation/flags + 方法
     │   │   ├── wake.ts     # 一次唤醒的事件循环
+    │   │   ├── prepare.ts  # 观察与待确认效果核对、可见任务计算
+    │   │   ├── options.ts  # RunOptions：一次唤醒的输入
     │   │   ├── decide.ts   # Pi Agent 装配
     │   │   ├── guards.ts   # 批次边界、截断、协议纠正
     │   │   ├── input.ts    # 模型输入构造
@@ -225,21 +228,22 @@ Docker 验证需单独构建服务端，在隔离实例或短暂停机备份后�
 
 ## 附录：旧路径对照
 
-| 旧路径                                                     | 新路径                                                       |
-| ---------------------------------------------------------- | ------------------------------------------------------------ |
-| `runtime/agent-runner.ts`                                  | `api/runtime.ts` + `agent/schedule.ts`                       |
-| `runtime/character-runner.ts`                              | `agent/turn/wake.ts` + `agent/turn/turn.ts`                  |
-| `runtime/decision-loop.ts`                                 | `agent/turn/decide.ts` + `guards.ts`                         |
-| `runtime/{world-tools,task-control-tools}.ts`              | `agent/tools/{world,conversation,task}.ts`                   |
-| `runtime/{task-executor,background-action,follow-step}.ts` | `agent/action/{executor,background,follow}.ts`               |
-| `perception/observation.ts`                                | `world/observe/{extract,verify}.ts` + `agent/turn/input.ts`  |
-| `perception/{attention,chat-context}.ts`                   | `world/observe/attention.ts` + `api/intake.ts`               |
-| `cognition/{prompts,skill-guidance}.ts`                    | `agent/prompt/{system,skills}.ts`                            |
-| `cognition/{context,checkpoint,tool-schemas}.ts`           | `agent/turn/{window,checkpoint}.ts`、`agent/tools/schema.ts` |
-| `models/*`                                                 | `agent/model/*`                                              |
-| `transport/session.ts`、`transport/cancellable.ts`         | `world/session/colyseus.ts`、`agent/action/deadline.ts`      |
-| `task/*`                                                   | `contracts/state.ts` + `agent/task/*` + `persistence/*`      |
-| `actions/*`、`actions/navigation/*`                        | `world/actions/*`、`world/nav/*`                             |
-| `contracts.ts`、`errors.ts`                                | `contracts/*`                                                |
+| 旧路径                                                     | 新路径                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| `runtime/agent-runner.ts`                                  | `api/runtime.ts` + `agent/schedule.ts`                        |
+| `runtime/character-runner.ts`                              | `agent/turn/wake.ts` + `agent/turn/turn.ts`                   |
+| `runtime/decision-loop.ts`                                 | `agent/turn/decide.ts` + `guards.ts`                          |
+| `runtime/{world-tools,task-control-tools}.ts`              | `agent/tools/{world,conversation,task}.ts`                    |
+| `runtime/{task-executor,background-action,follow-step}.ts` | `agent/action/{executor,background,follow}.ts`                |
+| `perception/observation.ts`                                | `world/observe/{extract,verify}.ts` + `agent/turn/prepare.ts` |
+| `perception/{attention,chat-context}.ts`                   | `world/observe/{attention,scope}.ts` + `api/intake.ts`        |
+| `runtime/{decision-payload,options,turn-context}.ts`       | `agent/turn/{input,options,turn}.ts`                          |
+| `cognition/{prompts,skill-guidance}.ts`                    | `agent/prompt/{system,skills}.ts`                             |
+| `cognition/{context,checkpoint,tool-schemas}.ts`           | `agent/turn/{window,checkpoint}.ts`、`agent/tools/schema.ts`  |
+| `models/*`                                                 | `agent/model/*`                                               |
+| `transport/session.ts`、`transport/cancellable.ts`         | `world/session/colyseus.ts`、`agent/action/deadline.ts`       |
+| `task/*`                                                   | `contracts/state.ts` + `agent/task/*` + `persistence/*`       |
+| `actions/*`、`actions/navigation/*`                        | `world/actions/*`、`world/nav/*`                              |
+| `contracts.ts`、`errors.ts`                                | `contracts/*`                                                 |
 
 迁移顺序：先做无行为变化的搬迁与出口收敛，再统一时间/取消原语与接入层，最后处理 `AgentState` 分区与 `Turn` 对象化。每一步都保持 `pnpm check` 与既有集成测试通过。

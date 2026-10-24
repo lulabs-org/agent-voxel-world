@@ -9,7 +9,7 @@ import {
   type AgentRunState,
 } from '@voxel/agent-runtime';
 import { testAgentConfig } from './support/agent-config';
-import { RequestBudget } from '../packages/agent-runtime/src/task/budget';
+import { RequestBudget } from '../packages/agent-runtime/src/agent/task/budget';
 import { readManagementArchive } from '../apps/server/src/persistence/archive-file';
 import { ProviderStore } from '../apps/server/src/modules/providers/provider-store';
 const config = testAgentConfig();

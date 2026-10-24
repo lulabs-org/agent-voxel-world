@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { recentInteractions } from '../packages/agent-runtime/src/cognition/context';
+import { recentInteractions } from '../packages/agent-runtime/src/agent/turn/window';
 
 it('keeps eight human interactions with all completed tool rounds and no orphan results', () => {
   const messages: Parameters<typeof recentInteractions>[0] = [];

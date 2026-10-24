@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Observation } from '@voxel/agent-runtime';
-import {
-  characterPrompt,
-  formatTurnInput,
-} from '../packages/agent-runtime/src/cognition/prompts';
+import { characterPrompt } from '../packages/agent-runtime/src/agent/prompt/system';
+import { formatTurnInput } from '../packages/agent-runtime/src/agent/prompt/view';
 import { testAgentConfig } from './support/agent-config';
 import type { AgentConfig } from '@voxel/agent-runtime';
 function buildMessages(

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { ollamaCompletion } from '../packages/agent-runtime/src/models/ollama';
+import { ollamaCompletion } from '../packages/agent-runtime/src/agent/model/ollama';
 
 const payload = {
   model: 'qwen3:8b',

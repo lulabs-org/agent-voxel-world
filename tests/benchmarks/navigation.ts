@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { cpus } from 'node:os';
-import { collisionMap } from '../../packages/agent-runtime/src/actions/navigation/local-map';
-import { findPath } from '../../packages/agent-runtime/src/actions/navigation/voxel-astar';
+import { collisionMap } from '../../packages/agent-runtime/src/world/nav/map';
+import { findPath } from '../../packages/agent-runtime/src/world/nav/astar';
 import { navigationWorld } from '../support/navigation-world';
 
 const durations: number[] = [],

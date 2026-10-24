@@ -1,8 +1,8 @@
 import { expect, it, vi } from 'vitest';
-import { TurnHealthMonitor } from '../packages/agent-runtime/src/runtime/turn-health';
-import { initialToolState } from '../packages/agent-runtime/src/cognition/context';
-import type { TaskService } from '../packages/agent-runtime/src/task/service';
-import type { AgentRunState } from '../packages/agent-runtime/src/task/state';
+import { TurnHealthMonitor } from '../packages/agent-runtime/src/agent/turn/health';
+import { initialToolState } from '../packages/agent-runtime/src/agent/turn/window';
+import type { TaskService } from '../packages/agent-runtime/src/agent/task/service';
+import type { AgentRunState } from '../packages/agent-runtime/src/agent/task/state';
 import type { Observation } from '../packages/agent-runtime/src/contracts';
 
 function fixture(maxStalledTurns?: number) {
